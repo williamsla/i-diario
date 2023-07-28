@@ -10,7 +10,8 @@ class LessonsBoardsController < ApplicationController
 
   def show
     @lessons_board = resource
-    @teachers = teachers_to_select2(resource.classroom.id, resource.period)
+    @teachers = teachers_to_select2(resource.classrooms_grade.classroom.id, resource.period)
+    @classrooms = classrooms_to_select2(resource.classrooms_grade.grade_id, resource.classrooms_grade.classroom.unity&.id)
 
     ActiveRecord::Associations::Preloader.new.preload(
       @lessons_board,
@@ -40,8 +41,8 @@ class LessonsBoardsController < ApplicationController
 
   def edit
     @lessons_board = resource
-    @teachers = teachers_to_select2(resource.classroom.id, resource.period)
-    @classroom = resource.classroom
+    @teachers = teachers_to_select2(resource.classrooms_grade.classroom.id, resource.period)
+    @classrooms = Classroom.where(unity_id: resource.classrooms_grade.classroom&.unity&.id)
     validate_lessons_number
 
     authorize @lessons_board
@@ -79,6 +80,7 @@ class LessonsBoardsController < ApplicationController
   end
 
   def lesson_unities
+
     lessons_unities = if current_user.current_user_role.try(:role_administrator?)
                         LessonsBoard.by_unity(unities_id)
                                     .map(&:unity_id)

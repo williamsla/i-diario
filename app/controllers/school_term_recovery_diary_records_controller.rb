@@ -37,15 +37,7 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
     @school_term_recovery_diary_record.build_recovery_diary_record
     @school_term_recovery_diary_record.recovery_diary_record.unity = current_unity
 
-    if current_test_setting.blank?
-      flash[:error] = t('errors.avaliations.require_setting')
-
-      redirect_to(school_term_recovery_diary_records_path)
-    end
-
     return if performed?
-
-    @number_of_decimal_places = current_test_setting.number_of_decimal_places
   end
 
   def create
@@ -59,7 +51,8 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
     if @school_term_recovery_diary_record.save
       respond_with @school_term_recovery_diary_record, location: school_term_recovery_diary_records_path
     else
-      @number_of_decimal_places = current_test_setting.number_of_decimal_places
+      @number_of_decimal_places = current_test_setting.blank? ? decimal_places : current_test_setting.number_of_decimal_places
+
       render :new
     end
   end
@@ -86,7 +79,7 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
     add_missing_students(students_in_recovery)
 
     @any_student_exempted_from_discipline = any_student_exempted_from_discipline?
-    @number_of_decimal_places = current_test_setting.number_of_decimal_places
+    @number_of_decimal_places = current_test_setting.blank? ? decimal_places : current_test_setting.number_of_decimal_places
   end
 
   def update
@@ -100,7 +93,7 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
     if @school_term_recovery_diary_record.save
       respond_with @school_term_recovery_diary_record, location: school_term_recovery_diary_records_path
     else
-      @number_of_decimal_places = current_test_setting.number_of_decimal_places
+      @number_of_decimal_places = current_test_setting.blank? ? decimal_places : current_test_setting.number_of_decimal_places
       reload_students_list
       render :edit
     end
