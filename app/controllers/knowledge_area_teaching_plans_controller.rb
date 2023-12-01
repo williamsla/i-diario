@@ -10,7 +10,7 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
 
   def index
     params[:filter] ||= {}
-    author_type = PlansAuthors::MY_PLANS if params[:filter].empty?
+    author_type = "" if params[:filter].empty? # PlansAuthors::MY_PLANS por ""
     author_type ||= (params[:filter] || []).delete(:by_author)
 
     @knowledge_area_teaching_plans = apply_scopes(
