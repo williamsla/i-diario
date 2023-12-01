@@ -565,10 +565,10 @@ class DailyFrequenciesInBatchsController < ApplicationController
       return true
     end
 
-    if start_date > Time.zone.today || end_date > Time.zone.today
-      flash[:error] = t('daily_frequencies_in_batchs.create_or_update_multiple.future_date')
-      return true
-    end
+    # if start_date > Time.zone.today || end_date > Time.zone.today
+    #   flash[:error] = t('daily_frequencies_in_batchs.create_or_update_multiple.future_date')
+    #   return true
+    # end
 
     if start_date > end_date
       flash[:error] = t('daily_frequencies_in_batchs.create_or_update_multiple.start_date_greater_end_date')

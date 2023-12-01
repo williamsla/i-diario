@@ -128,9 +128,9 @@ class DailyNote < ApplicationRecord
   def avaliation_date_must_be_less_than_or_equal_to_today
     return unless avaliation
 
-    if avaliation.test_date > Time.zone.today
-      errors.add(:avaliation, :must_be_less_than_or_equal_to_today)
-    end
+    # if avaliation.test_date > Time.zone.today
+    #   errors.add(:avaliation, :must_be_less_than_or_equal_to_today)
+    # end
   end
 
   def avaliation_test_date_must_be_valid_posting_date

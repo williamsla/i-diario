@@ -18,10 +18,10 @@ class DateValidator < ActiveModel::EachValidator
 
     value = parse_as_date(value)
 
-    if options[:not_in_future].present? && value > Time.zone.today
-      record.errors.add(attribute, I18n.t('errors.messages.not_in_future'))
-      return
-    end
+    # if options[:not_in_future].present? && value > Time.zone.today
+    #   record.errors.add(attribute, I18n.t('errors.messages.not_in_future'))
+    #   return
+    # end
 
     options.slice(*CHECKS.keys).each do |option, raw_option_value|
       case raw_option_value

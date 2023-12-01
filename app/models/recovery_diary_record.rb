@@ -48,7 +48,7 @@ class RecoveryDiaryRecord < ActiveRecord::Base
   validates :recorded_at, presence: true, school_calendar_day: true, posting_date: true
 
   validate :at_least_one_assigned_student
-  # validate :recorded_at_must_be_less_than_or_equal_to_today
+  validate :recorded_at_must_be_less_than_or_equal_to_today
 
   before_validation :self_assign_to_students
 
@@ -71,9 +71,9 @@ class RecoveryDiaryRecord < ActiveRecord::Base
   def recorded_at_must_be_less_than_or_equal_to_today
     return unless recorded_at
 
-    if recorded_at > Time.zone.today
-      errors.add(:recorded_at, :recorded_at_must_be_less_than_or_equal_to_today)
-    end
+    # if recorded_at > Time.zone.today
+    #   errors.add(:recorded_at, :recorded_at_must_be_less_than_or_equal_to_today)
+    # end
   end
 
   def self_assign_to_students
