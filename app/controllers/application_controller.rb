@@ -449,8 +449,9 @@ class ApplicationController < ActionController::Base
   end
 
   def error_generic(expection)
+    Rails.logger.error "#{expection.backtrace.join("\n")}"
     set_honeybadger_error(expection)
-
+    
     unless Rails.env.development?
       redirect_to :root
     end
