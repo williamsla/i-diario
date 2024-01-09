@@ -103,25 +103,24 @@ class ConceptualExam < ActiveRecord::Base
   def status
     discipline_ids = TeacherDisciplineClassroom.where(classroom_id: classroom_id, teacher_id: teacher_id)
                                                .pluck(:discipline_id)
-
+    
     exempted_discipline_ids = ExemptedDisciplinesInStep.discipline_ids(
       classroom.id,
       step_number
     )
 
-    values = ConceptualExamValue.where(
-      conceptual_exam_id: id,
-      exempted_discipline: false,
-      discipline_id: discipline_ids
-    ).where.not(discipline_id: exempted_discipline_ids)
+    values = ConceptualExamValue.joins(:conceptual_exam).active.where(conceptual_exam_id: id, value: nil)
+      .where(conceptual_exams: { classroom_id: classroom_id })
+      .where.not(discipline_id: exempted_discipline_ids)
+      .by_discipline_id(discipline_ids)
 
-    return ConceptualExamStatus::INCOMPLETE if values.blank?
+    return ConceptualExamStatus::COMPLETE if values.blank?
 
     return ConceptualExamStatus::INCOMPLETE if values.any? { |conceptual_exam_value|
       conceptual_exam_value.value.blank?
     }
 
-    ConceptualExamStatus::COMPLETE
+    ConceptualExamStatus::INCOMPLETE
   end
 
   def valid_for_destruction?
