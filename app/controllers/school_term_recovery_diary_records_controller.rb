@@ -33,11 +33,11 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
     set_options_by_user
     fetch_disciplines_by_classroom
 
-    if current_test_setting.blank? && @admin_or_teacher
-      flash[:error] = t('errors.avaliations.require_setting')
+    # if current_test_setting.blank? && @admin_or_teacher
+    #   flash[:error] = t('errors.avaliations.require_setting')
 
-      redirect_to(school_term_recovery_diary_records_path)
-    end
+    #   redirect_to(school_term_recovery_diary_records_path)
+    # end
 
     return if performed?
   end
