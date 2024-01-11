@@ -38,7 +38,11 @@ class AvaliationsController < ApplicationController
     return if not_allow_numerical_exam
 
     fetch_linked_by_teacher unless current_user.current_role_is_admin_or_employee?
-    @grades = current_user_classroom.classrooms_grades.by_score_type(ScoreTypes::NUMERIC).map(&:grade)
+                          
+    @numeric_grades = current_user_classroom.classrooms_grades.by_score_type(ScoreTypes::NUMERIC)
+    @numeric_and_concept_grades = current_user_classroom.classrooms_grades.by_score_type(ScoreTypes::NUMERIC_AND_CONCEPT)
+    
+    @grades ||= (@numeric_grades + @numeric_and_concept_grades).map(&:grade)
 
     @avaliation = resource
     @avaliation.school_calendar = current_school_calendar
@@ -434,7 +438,7 @@ class AvaliationsController < ApplicationController
   def score_types_redirect
     available_score_types = (teacher_differentiated_discipline_score_types + teacher_discipline_score_types).uniq
 
-    return if available_score_types.any? { |discipline_score_type| discipline_score_type == ScoreTypes::NUMERIC }
+    return if available_score_types.any? { |discipline_score_type| discipline_score_type == ScoreTypes::NUMERIC || discipline_score_type == ScoreTypes::NUMERIC_AND_CONCEPT }
 
     if current_user.current_role_is_admin_or_employee?
       redirect_to avaliations_path, alert: t('avaliation.numeric_exam_absence')

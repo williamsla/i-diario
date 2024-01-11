@@ -283,7 +283,7 @@ class ApplicationController < ActionController::Base
     return if exam_rule.blank?
     return unless (score_type = exam_rule.score_type)
     return if score_type == ScoreTypes::DONT_USE
-    return score_type if [ScoreTypes::NUMERIC, ScoreTypes::CONCEPT].include?(score_type)
+    return score_type if [ScoreTypes::NUMERIC, ScoreTypes::CONCEPT, ScoreTypes::NUMERIC_AND_CONCEPT].include?(score_type)
 
     TeacherDisciplineClassroom.find_by(
       classroom: classroom,
