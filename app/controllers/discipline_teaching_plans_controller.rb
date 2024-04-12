@@ -11,7 +11,7 @@ class DisciplineTeachingPlansController < ApplicationController
 
   def index
     params[:filter] ||= {}
-    author_type = "" if params[:filter].blank? # PlansAuthors::MY_PLANS por ""
+    author_type = PlansAuthors::MY_PLANS if params[:filter].blank?
     author_type ||= (params[:filter] || []).delete(:by_author)
 
     set_options_by_user

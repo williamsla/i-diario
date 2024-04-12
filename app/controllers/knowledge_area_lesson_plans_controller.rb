@@ -8,7 +8,7 @@ class KnowledgeAreaLessonPlansController < ApplicationController
 
   def index
     params[:filter] ||= {}
-    author_type = "" if params[:filter].empty? # PlansAuthors::MY_PLANS por ""
+    author_type = PlansAuthors::MY_PLANS if params[:filter].empty?
     author_type ||= (params[:filter] || []).delete(:by_author)
 
     if current_user.current_role_is_admin_or_employee?
