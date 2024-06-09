@@ -132,7 +132,7 @@ class AttendanceRecordReport < BaseReport
     self.any_student_with_dependence = false
 
     daily_frequencies = @daily_frequencies.reject { |daily_frequency| !daily_frequency.students.any? }
-    frequencies_and_events = daily_frequencies.to_a + @events.to_a
+    frequencies_and_events = daily_frequencies.to_a #+ @events.to_a
 
     @daily_frequency_students = DailyFrequencyStudent.by_daily_frequency_id(@daily_frequencies.map(&:id)).to_a
 
