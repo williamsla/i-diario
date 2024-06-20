@@ -5,12 +5,13 @@ class AvaliationExemptionsController < ApplicationController
   before_action :require_allow_to_modify_prev_years, only: [:create, :update, :destroy]
 
   def index
+    ## EXIBINDO SOMENTE AVALIAÇÃO DA TURMA ATUAL SELECIONADA NO PERFIL
     set_options_by_user
     @avaliation_exemptions = apply_scopes(AvaliationExemption)
                              .includes(:avaliation)
                              .by_unity(current_unity)
-                             .by_classroom(@classrooms.map(&:id))
-                             .by_discipline(@disciplines.map(&:id))
+                             .by_classroom(current_user_classroom) # @classrooms.map(&:id)
+                             .by_discipline(current_user_discipline) # @disciplines.map(&:id)
 
     authorize @avaliation_exemptions
   end
@@ -146,12 +147,13 @@ class AvaliationExemptionsController < ApplicationController
   end
 
   def set_options_by_user
-    if current_user.current_role_is_admin_or_employee?
+    ## EXIBINDO SOMENTE AVALIAÇÃO DA TURMA ATUAL SELECIONADA NO PERFIL
+    # if current_user.current_role_is_admin_or_employee?
       @classrooms ||= [current_user_classroom]
       @disciplines ||= [current_user_discipline]
-    else
-      fetch_linked_by_teacher
-    end
+    # else
+    #   fetch_linked_by_teacher
+    # end
   end
 
   def fetch_linked_by_teacher

@@ -13,6 +13,7 @@ function fetchStudentsInRecovery(classroom, discipline, exam_rule, step_id, reco
     return function() {
       cached_function.apply(this, arguments);
       $loadingClone.addClass('hidden');
+      loadDecimalMasks();
     };
   })();
 
@@ -34,7 +35,7 @@ function hideNoItemMessage() {
 }
 
 function loadDecimalMasks() {
-  let numberOfDecimalPlaces = $('#recovery-diary-record-students').data('scale');
+  let numberOfDecimalPlaces = $('#recovery-diary-record-students').data('scale') || 1;
   $('.nested-fields input.decimal').inputmask('customDecimal', { digits: numberOfDecimalPlaces });
 }
 

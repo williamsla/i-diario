@@ -27,7 +27,7 @@
 
   <td>
     <%= f.input :score, label: false,
-        input_html: decimal_input_mask(decimal_places),
+        input_html: decimal_input_mask(1),
         readonly: (!f.object.active && !f.object.active.nil?) || f.object.exempted_from_discipline %>
   </td>
 </tr>

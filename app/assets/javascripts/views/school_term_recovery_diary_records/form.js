@@ -262,7 +262,7 @@ $(function () {
   }
 
   function loadDecimalMasks() {
-    let numberOfDecimalPlaces = $('#recovery-diary-record-students').data('scale');
+    let numberOfDecimalPlaces = $('#recovery-diary-record-students').data('scale') || 1;
     $('.nested-fields input.decimal').inputmask('customDecimal', { digits: numberOfDecimalPlaces });
   }
 

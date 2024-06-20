@@ -14,12 +14,13 @@ class AvaliationsController < ApplicationController
   ]
 
   def index
-    if current_user.current_role_is_admin_or_employee?
+    ## EXIBINDO SOMENTE AVALIAÇÃO DA TURMA ATUAL SELECIONADA NO PERFIL
+    # if current_user.current_role_is_admin_or_employee?
       @classrooms = [current_user_classroom]
       @disciplines = [current_user_discipline]
-    else
-      fetch_linked_by_teacher
-    end
+    # else
+    #   fetch_linked_by_teacher
+    # end
 
     if params[:filter].present? && params[:filter][:by_step_id].present?
       step_id = params[:filter].delete(:by_step_id)
