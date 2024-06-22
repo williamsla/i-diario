@@ -450,6 +450,7 @@ class ApplicationController < ActionController::Base
 
   def error_generic(expection)
     Rails.logger.error "#{expection.backtrace.join("\n")}"
+    binding.pry
     set_honeybadger_error(expection)
     
     unless Rails.env.development?

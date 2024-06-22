@@ -33,6 +33,7 @@ module ExamPoster
       scores = Hash.new { |hash, key| hash[key] = Hash.new(&hash.default_proc) }
 
       teacher_discipline_classrooms = teacher.teacher_discipline_classrooms
+                                             .where.not(grade_id: nil)
                                              .by_score_type([ScoreTypes::NUMERIC, nil])
                                              .by_year(@post_data.step.school_calendar.year)
                                              .includes(:classroom, :discipline)
@@ -43,9 +44,15 @@ module ExamPoster
         classroom = tdc.classroom
         discipline = tdc.discipline
         step = get_step(classroom)
-        school_term_recovery_diary_record = school_term_recovery_diary_record(classroom, discipline, step.id)
+        school_term_recovery_diary_record = school_term_recovery_diary_record(
+          classroom, discipline, step.id
+        )
 
-        score_rounder = ScoreRounder.new(classroom, RoundedAvaliations::SCHOOL_TERM_RECOVERY)
+        score_rounder = ScoreRounder.new(
+          classroom,
+          RoundedAvaliations::SCHOOL_TERM_RECOVERY,
+          step
+        )
 
         next unless can_post?(classroom)
 

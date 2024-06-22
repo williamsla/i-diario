@@ -2,6 +2,7 @@ class DisciplineLessonPlanReportController < ApplicationController
   DISCIPLINE_LESSON_PLAN_REPORT = "1"
   DISCIPLINE_CONTENT_RECORD = "2"
 
+  before_action :require_current_classroom, only: [:form, :lesson_plan_report, :content_record_report]
   before_action :require_current_teacher
 
   def form
@@ -111,5 +112,6 @@ class DisciplineLessonPlanReportController < ApplicationController
                              .by_year(current_user_school_year || Date.current.year)
                              .ordered
     @disciplines ||= Discipline.by_classroom_id(@discipline_lesson_plan_report_form.classroom_id)
+                               .not_descriptor
   end
 end

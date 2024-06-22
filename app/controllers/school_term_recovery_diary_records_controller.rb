@@ -11,7 +11,7 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
 
     set_options_by_user
 
-    @school_term_recovery_diary_records = set_school_term_recovery_diary_records
+    set_school_term_recovery_diary_records
 
     if step_id.present?
       @school_term_recovery_diary_records = @school_term_recovery_diary_records.by_step_id(
@@ -33,13 +33,18 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
     set_options_by_user
     fetch_disciplines_by_classroom
 
-    # if current_test_setting.blank? && @admin_or_teacher
-    #   flash[:error] = t('errors.avaliations.require_setting')
+    # current_year_last_step = StepsFetcher.new(current_user_classroom).last_step_by_year
+
+    # if current_test_setting.blank? && @admin_or_teacher && current_year_last_step.blank?
+      # flash[:error] = t('errors.avaliations.require_setting')
 
     #   redirect_to(school_term_recovery_diary_records_path)
     # end
 
     return if performed?
+
+    @number_of_decimal_places = current_test_setting&.number_of_decimal_places ||
+      current_test_setting_step(current_year_last_step)&.number_of_decimal_places
   end
 
   def create
@@ -67,7 +72,8 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
   def edit
     @school_term_recovery_diary_record = SchoolTermRecoveryDiaryRecord.find(params[:id]).localized
     step_number = @school_term_recovery_diary_record.step_number
-    @school_term_recovery_diary_record.step_id = steps_fetcher.step(step_number).try(:id)
+    step = steps_fetcher.step(step_number)
+    @school_term_recovery_diary_record.step_id = step.try(:id)
     set_options_by_user
     fetch_disciplines_by_classroom
 
@@ -88,7 +94,8 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
     add_missing_students(students_in_recovery)
 
     @any_student_exempted_from_discipline = any_student_exempted_from_discipline?
-    @number_of_decimal_places = current_test_setting.blank? ? decimal_places : current_test_setting.number_of_decimal_places
+    @number_of_decimal_places = current_test_setting&.number_of_decimal_places ||
+      current_test_setting_step(step)&.number_of_decimal_places
   end
 
   def update
@@ -283,12 +290,11 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
 
   def set_options_by_user
     @admin_or_teacher = current_user.current_role_is_admin_or_employee?
-    if @admin_or_teacher
-      @classrooms ||= [current_user_classroom]
-      @disciplines ||= [current_user_discipline]
-    else
-      fetch_linked_by_teacher
-    end
+
+    return fetch_linked_by_teacher unless @admin_or_teacher
+
+    @classrooms ||= [current_user_classroom]
+    @disciplines ||= [current_user_discipline]
   end
 
   def fetch_linked_by_teacher
@@ -302,7 +308,7 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
   end
 
   def set_school_term_recovery_diary_records
-    apply_scopes(SchoolTermRecoveryDiaryRecord)
+    @school_term_recovery_diary_records = apply_scopes(SchoolTermRecoveryDiaryRecord)
       .includes(
           recovery_diary_record: [
             :unity,
@@ -313,6 +319,11 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
       .by_classroom_id(@classrooms.map(&:id))
       .by_discipline_id(@disciplines.map(&:id))
       .ordered
+      .distinct
+
+    unless @admin_or_teacher
+      @school_term_recovery_diary_records = @school_term_recovery_diary_records.by_teacher_id(current_teacher.id).distinct
+    end
   end
 
   def fetch_disciplines_by_classroom

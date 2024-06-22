@@ -182,11 +182,7 @@ Rails.application.routes.draw do
     get '/discipline_teaching_plans/:id/copy', as: :copy_discipline_teaching_plans, to: 'discipline_teaching_plans#copy'
     post '/discipline_teaching_plans/:id/copy', as: :copy_discipline_teaching_plans, to: 'discipline_teaching_plans#do_copy'
 
-    resources :knowledge_area_teaching_plans, concerns: :history do
-      collection do
-        get :set_knowledge_areas_by_classroom
-      end
-    end
+    resources :knowledge_area_teaching_plans, concerns: :history
     resources :knowledge_area_teaching_plans, concerns: :history
 
     get '/knowledge_area_teaching_plans/:id/copy', as: :copy_knowledge_area_teaching_plans, to: 'knowledge_area_teaching_plans#copy'
@@ -276,8 +272,7 @@ Rails.application.routes.draw do
     resources :daily_notes, only: [:index, :new, :create, :edit, :update, :destroy], concerns: :history do
       collection do
         get :search
-        get :classrooms
-        get :disciplines
+        get :fetch_classrooms
       end
       member do
         post :exempt_students
@@ -349,7 +344,11 @@ Rails.application.routes.draw do
     end
     get 'daily_frequency/history_multiple', to: 'daily_frequencies#history_multiple', as: 'history_multiple_daily_frequency'
 
-    resources :absence_justifications, concerns: :history
+    resources :absence_justifications, concerns: :history do
+      collection do
+        get :valid_teacher_period_in_classroom
+      end
+    end
     resources :observation_diary_records, concerns: :history
     resources :ieducar_api_exam_postings do
       member do
@@ -395,6 +394,16 @@ Rails.application.routes.draw do
     get '/reports/attendance_record/period', to: 'attendance_record_report#period', as: 'period_attendance_record_report'
     get '/reports/attendance_record/number_of_classes', to: 'attendance_record_report#number_of_classes', as: 'number_of_classes_attendance_record_report'
     post '/reports/attendance_record', to: 'attendance_record_report#report', as: 'attendance_record_report'
+
+    get '/reports/attendance_record_report_by_students',
+      to: 'attendance_record_report_by_students#form',
+      as: 'attendance_record_report_by_students'
+    get '/reports/attendance_record_report_by_students/fetch_period_by_classroom',
+      to: 'attendance_record_report_by_students#fetch_period_by_classroom',
+      as: 'fetch_period_by_classroom_attendance_record_report_by_students'
+    get '/reports/attendance_record_report_by_students/report',
+      to: 'attendance_record_report_by_students#report',
+      as: 'attendance_record_report_by_students_report'
 
     get '/reports/absence_justification', to: 'absence_justification_report#form', as: 'absence_justification_report'
     post '/reports/absence_justification', to: 'absence_justification_report#report', as: 'absence_justification_report'
