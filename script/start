@@ -9,6 +9,7 @@ if ! test -f ".setup"; then
   development:
     secret_key_base: `bundle exec rake secret`
     redis_url: redis://redis-idiario
+    shortcuts_enabled: true
     " > config/secrets.yml
 
   cp config/database.sample.yml config/database.yml

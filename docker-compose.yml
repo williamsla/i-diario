@@ -30,6 +30,7 @@ services:
       - 3000
     environment:
       - DATABASE_HOST=postgres
+      - REDIS_URL=redis://redis-idiario:6379/0
     depends_on:
       - postgres
       - redis
