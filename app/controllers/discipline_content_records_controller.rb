@@ -263,7 +263,8 @@ class DisciplineContentRecordsController < ApplicationController
   helper_method :disciplines
 
   def set_options_by_user
-    return fetch_linked_by_teacher unless current_user.current_role_is_admin_or_employee?
+    # retorna os registros de todas as disciplinas e turmas do professor, somente na visão do professor
+    # return fetch_linked_by_teacher unless current_user.current_role_is_admin_or_employee?
 
     @classrooms ||= [current_user_classroom]
     @disciplines ||= [current_user_discipline]
