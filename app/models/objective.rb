@@ -3,6 +3,7 @@ class Objective < ApplicationRecord
   has_associated_audits
 
   has_many :teaching_plans, dependent: :restrict_with_error
+  has_many :content_records, dependent: :restrict_with_error
 
   validates :description, presence: true
 

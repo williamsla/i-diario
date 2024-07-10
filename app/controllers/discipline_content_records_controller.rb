@@ -56,6 +56,7 @@ class DisciplineContentRecordsController < ApplicationController
     @discipline_content_record = DisciplineContentRecord.new(resource_params)
     @discipline_content_record.content_record.teacher = current_teacher
     @discipline_content_record.content_record.content_ids = content_ids
+    @discipline_content_record.content_record.objective_ids = objective_ids
     @discipline_content_record.content_record.origin = OriginTypes::WEB
     @discipline_content_record.content_record.creator_type = 'discipline_content_record'
     @discipline_content_record.content_record.teacher = current_teacher
@@ -86,6 +87,7 @@ class DisciplineContentRecordsController < ApplicationController
     @discipline_content_record = DisciplineContentRecord.find(params[:id])
     @discipline_content_record.assign_attributes(resource_params)
     @discipline_content_record.content_record.content_ids = content_ids
+    @discipline_content_record.content_record.objective_ids = objective_ids
     @discipline_content_record.teacher_id = current_teacher_id
     @discipline_content_record.content_record.current_user = current_user
     @discipline_content_record.current_user = current_user
@@ -186,6 +188,28 @@ class DisciplineContentRecordsController < ApplicationController
     param_content_ids + new_contents_ids
   end
 
+  def objective_ids
+    param_objective_ids = params[:discipline_content_record][:content_record_attributes][:objective_ids] || []
+    objective_descriptions =
+      params[:discipline_content_record][:content_record_attributes][:objective_descriptions] || []
+
+    @discipline_content_record.content_record.objectives_created_at_position = {}
+
+    param_objective_ids.each_with_index do |objective_id, index|
+      @discipline_content_record.content_record.objectives_created_at_position[objective_id.to_i] = index
+    end
+
+    new_objectives_ids = objective_descriptions.each_with_index.map { |description, index|
+      objective = Objective.find_or_create_by!(description: description)
+      @discipline_content_record.content_record.objectives_created_at_position[objective.id] =
+        param_objective_ids.size + index
+
+      objective.id
+    }
+
+    @ordered_objective_ids = param_objective_ids + new_objectives_ids
+  end
+
   def resource_params
     params.require(:discipline_content_record).permit(
       :class_number,
@@ -196,7 +220,10 @@ class DisciplineContentRecordsController < ApplicationController
         :classroom_id,
         :record_date,
         :daily_activities_record,
-        :content_ids
+        :content,
+        :content_ids,
+        :objective,
+        :objective_ids
       ]
     )
   end
@@ -218,7 +245,7 @@ class DisciplineContentRecordsController < ApplicationController
     classroom = @discipline_content_record.content_record.classroom
     discipline = @discipline_content_record.discipline
     date = @discipline_content_record.content_record.record_date
-
+    
     if teacher && classroom && discipline && date
       @contents = ContentsForDisciplineRecordFetcher.new(teacher, classroom, discipline, date).fetch
       @contents.each { |content| content.is_editable = false }
@@ -238,6 +265,24 @@ class DisciplineContentRecordsController < ApplicationController
     Content.ordered
   end
   helper_method :all_contents
+
+  def objectives
+    @objectives = []
+
+    teacher = current_teacher
+    classroom = @discipline_content_record.content_record.classroom
+    discipline = @discipline_content_record.discipline
+    date = @discipline_content_record.content_record.record_date
+
+    if @discipline_content_record.content_record.objectives
+      objectives = @discipline_content_record.content_record.objectives_ordered
+      objectives.each { |objective| objective.is_editable = true }
+      @objectives << objectives
+    end
+
+    @objectives.flatten.uniq
+  end
+  helper_method :objectives
 
   def unities
     @unities = [current_unity]
