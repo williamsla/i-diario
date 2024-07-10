@@ -105,6 +105,7 @@ class DisciplineContentRecordReport < BaseReport
     @unity_header = make_cell(content: 'Unidade', size: 8, font_style: :bold, borders: [:left, :right, :top], padding: [2, 2, 4, 4], colspan: 2)
     @discipline_header = make_cell(content: 'Disciplina', size: 8, font_style: :bold, borders: [:left, :right, :top], padding: [2, 2, 4, 4])
     @date_header = make_cell(content: 'Data', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', width: 60, padding: [2, 2, 4, 4])
+    @class_number_header = make_cell(content: 'Sequência da aula', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', width: 60, padding: [2, 2, 4, 4])
     @classroom_header = make_cell(content: 'Turma', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
     @conteudo_header = make_cell(content: Translator.t('activerecord.attributes.discipline_content_record.contents'), size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
     if @display_daily_activies_log
@@ -148,6 +149,7 @@ class DisciplineContentRecordReport < BaseReport
 
     general_information_headers = [
       @date_header,
+      @class_number_header,
       @conteudo_header
     ]
 
@@ -157,6 +159,7 @@ class DisciplineContentRecordReport < BaseReport
 
     @discipline_content_record.each do |discipline_content_record|
       date_cell = make_cell(content: discipline_content_record.content_record.record_date.strftime("%d/%m/%Y"), size: 10, align: :left, width: 60)
+      class_number = make_cell(content: "#{discipline_content_record.class_number}", size: 10, align: :center)
       content_cell = make_cell(content: content_cell_content(discipline_content_record.content_record), size: 10, align: :left)
       if @display_daily_activies_log
         daily_acitivies_cell = make_cell(content: discipline_content_record.content_record.daily_activities_record.to_s, size: 10, align: :left)
@@ -164,6 +167,7 @@ class DisciplineContentRecordReport < BaseReport
 
       general_information_cells << [
         date_cell,
+        class_number,
         content_cell
       ]
       general_information_cells.last << daily_acitivies_cell if @display_daily_activies_log
@@ -202,8 +206,11 @@ class DisciplineContentRecordReport < BaseReport
   end
 
   def signatures
-    start_new_page if cursor < 45
-
+    start_new_page if cursor < 55
+    
+    move_down 5
+    text_box("Total de aulas dadas: #{@discipline_content_record.count}", size: 12, align: :left, at: [0, cursor], width: 260)
+    
     move_down 30
     text_box("______________________________________________\nProfessor(a)", size: 10, align: :center, at: [0, cursor], width: 260)
     text_box("______________________________________________\nCoordenador(a)/diretor(a)", size: 10, align: :center, at: [306, cursor], width: 260)
