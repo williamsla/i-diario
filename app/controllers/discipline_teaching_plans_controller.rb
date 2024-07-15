@@ -338,14 +338,15 @@ class DisciplineTeachingPlansController < ApplicationController
   end
 
   def set_options_by_user
-    if current_user.current_role_is_admin_or_employee?
+    # retorna os registros de todas as disciplinas e turmas do professor, somente na visão do professor
+    # if current_user.current_role_is_admin_or_employee?
       fetch_grades
       fetch_disciplines
 
       discipline = current_user_discipline&.grouper? ? Discipline.where(knowledge_area_id: current_user_discipline.knowledge_area_id).all : [current_user_discipline]
-    else
-      fetch_linked_by_teacher
-    end
+    # else
+    #   fetch_linked_by_teacher
+    # end
   end
 
   def fetch_linked_by_teacher

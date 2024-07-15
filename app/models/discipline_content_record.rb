@@ -71,7 +71,7 @@ class DisciplineContentRecord < ActiveRecord::Base
   validate :ensure_is_school_day
   validate :uniqueness_of_class_number, if: -> { allow_class_number? }
 
-  delegate :contents, :record_date, :classroom, to: :content_record
+  delegate :contents, :objectives, :record_date, :classroom, to: :content_record
   delegate :grades, to: :classroom
 
   private

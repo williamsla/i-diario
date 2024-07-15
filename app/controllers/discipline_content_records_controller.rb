@@ -46,7 +46,8 @@ class DisciplineContentRecordsController < ApplicationController
 
     unless current_user.current_role_is_admin_or_employee?
       classroom_id = @discipline_content_record.content_record.classroom_id
-      @disciplines = @disciplines.by_classroom_id(classroom_id).not_descriptor
+      @disciplines = Discipline.by_classroom_id(classroom_id)
+                            .not_descriptor
     end
 
     authorize @discipline_content_record
@@ -88,15 +89,34 @@ class DisciplineContentRecordsController < ApplicationController
     @discipline_content_record.assign_attributes(resource_params)
     @discipline_content_record.content_record.content_ids = content_ids
     @discipline_content_record.content_record.objective_ids = objective_ids
+    # @discipline_content_record.content_record.teacher = current_teacher
+    @discipline_content_record.content_record.origin = OriginTypes::WEB
     @discipline_content_record.teacher_id = current_teacher_id
-    @discipline_content_record.content_record.current_user = current_user
-    @discipline_content_record.current_user = current_user
+    # @discipline_content_record.current_user = current_user
+    @discipline_content_record.content_record.creator_type = 'discipline_content_record'
+    
+    #### TODO: REMOVE
+    puts "---1"
+    puts @discipline_content_record.content_record.teacher
+    puts @discipline_content_record.content_record.content_ids
+    puts @discipline_content_record.content_record.objective_ids
+    puts @discipline_content_record.content_record.origin
+    puts "---2"
+    puts @discipline_content_record.content_record.creator_type
+    puts @discipline_content_record.content_record.teacher
+    puts @discipline_content_record.teacher_id
+    puts 'aula: ', @discipline_content_record.class_number
+    puts "---3"
 
     authorize @discipline_content_record
 
-    if @discipline_content_record.save
+    # return render_content_with_multiple_class_numbers if allow_class_number
+
+    if @discipline_content_record.save!
+      puts "\n--salvo 1"
       respond_with @discipline_content_record, location: discipline_content_records_path
     else
+      puts "\n--salvo 2"
       set_options_by_user
 
       render :edit
@@ -132,6 +152,7 @@ class DisciplineContentRecordsController < ApplicationController
   private
 
   def render_content_with_multiple_class_numbers
+    puts resource_params
     @class_numbers = resource_params[:class_number].split(',').sort
     @discipline_content_record.class_number = @class_numbers.first
 
@@ -308,7 +329,8 @@ class DisciplineContentRecordsController < ApplicationController
   helper_method :disciplines
 
   def set_options_by_user
-    return fetch_linked_by_teacher unless current_user.current_role_is_admin_or_employee?
+    # retorna os registros de todas as disciplinas e turmas do professor, somente na visão do professor
+    # return fetch_linked_by_teacher unless current_user.current_role_is_admin_or_employee?
 
     @classrooms ||= [current_user_classroom]
     @disciplines ||= [current_user_discipline]

@@ -45,11 +45,11 @@
 
         <% if @allow_class_number %>
           <div class="col col-sm-4">
-            <% show_classes = action_name == ('new' || 'create') ? false : true %>
+            <% isDisabled = ['new', 'create', 'edit', 'update'].include?(action_name) ? false : true %>
             <%= f.input :class_number, as: :select2, multiple: true,
                                      elements: number_of_classes_elements(@number_of_classes),
                                      placeholder: 'Selecione uma ou mais aulas',
-                                     disabled: show_classes %>
+                                     disabled: isDisabled %>
           </div>
         <% end %>
       </div>

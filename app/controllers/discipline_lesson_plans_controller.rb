@@ -334,10 +334,11 @@ class DisciplineLessonPlansController < ApplicationController
   end
 
   def set_options_by_user
+    
     if current_user.current_role_is_admin_or_employee?
       fetch_classrooms
       fetch_disciplines
-
+      
       discipline = if current_user_discipline&.grouper?
                      Discipline.where(knowledge_area_id: @disciplines.map(&:knowledge_area_id)).all
                    else
@@ -346,7 +347,11 @@ class DisciplineLessonPlansController < ApplicationController
 
       @discipline_lesson_plans = fetch_discipline_lesson_plan(discipline)
     else
-      fetch_linked_by_teacher
+      # retorna os registros de todas as disciplinas e turmas do professor, somente na visão do professor
+      # fetch_linked_by_teacher
+      fetch_classrooms
+      fetch_disciplines
+      
       @discipline_lesson_plans = fetch_discipline_lesson_plan(@disciplines)
     end
   end
