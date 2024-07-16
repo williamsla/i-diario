@@ -52,16 +52,23 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     @knowledge_area_content_record.knowledge_area_ids = resource_params[:knowledge_area_ids].split(',')
     @knowledge_area_content_record.content_record.teacher = current_teacher
     @knowledge_area_content_record.content_record.content_ids = content_ids
+    @knowledge_area_content_record.content_record.objective_ids = objective_ids
     @knowledge_area_content_record.content_record.origin = OriginTypes::WEB
     @knowledge_area_content_record.content_record.creator_type = 'knowledge_area_content_record'
     @knowledge_area_content_record.content_record.teacher = current_teacher
     @knowledge_area_content_record.teacher_id = current_teacher_id
 
+    puts '-----1-start'
+    puts @knowledge_area_content_record.content_record.content_ids
+    puts @knowledge_area_content_record.content_record.objective_ids
+    puts '-----1-end'
     authorize @knowledge_area_content_record
 
-    if @knowledge_area_content_record.save
+    if @knowledge_area_content_record.save!
+      puts '--then'
       respond_with @knowledge_area_content_record, location: knowledge_area_content_records_path
     else
+      puts '--else'
       set_options_by_user
       set_knowledge_area_by_classroom(@knowledge_area_content_record.classroom_id)
       render :new
@@ -82,6 +89,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     @knowledge_area_content_record.assign_attributes(resource_params)
     @knowledge_area_content_record.knowledge_area_ids = resource_params[:knowledge_area_ids].split(',')
     @knowledge_area_content_record.content_record.content_ids = content_ids
+    @knowledge_area_content_record.content_record.objective_ids = objective_ids
     @knowledge_area_content_record.teacher_id = current_teacher_id
     @knowledge_area_content_record.content_record.current_user = current_user
 
@@ -140,6 +148,28 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     param_content_ids + new_contents_ids
   end
 
+  def objective_ids
+    param_objective_ids = params[:knowledge_area_content_record][:content_record_attributes][:objective_ids] || []
+    objective_descriptions =
+      params[:knowledge_area_content_record][:content_record_attributes][:objective_descriptions] || []
+
+    @knowledge_area_content_record.content_record.objectives_created_at_position = {}
+
+    param_objective_ids.each_with_index do |objective_id, index|
+      @knowledge_area_content_record.content_record.objectives_created_at_position[objective_id.to_i] = index
+    end
+
+    new_objectives_ids = objective_descriptions.each_with_index.map { |description, index|
+      objective = Objective.find_or_create_by!(description: description)
+      @knowledge_area_content_record.content_record.objectives_created_at_position[objective.id] =
+        param_objective_ids.size + index
+
+      objective.id
+    }
+
+    @ordered_objective_ids = param_objective_ids + new_objectives_ids
+  end
+
   def resource_params
     params.require(:knowledge_area_content_record).permit(
       :knowledge_area_ids,
@@ -150,7 +180,8 @@ class KnowledgeAreaContentRecordsController < ApplicationController
         :classroom_id,
         :record_date,
         :daily_activities_record,
-        :content_ids
+        :content_ids,
+        :objective_ids
       ]
     )
   end
@@ -192,6 +223,24 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     Content.ordered
   end
   helper_method :all_contents
+
+  def objectives
+    @objectives = []
+
+    teacher = current_teacher
+    classroom = @knowledge_area_content_record.content_record.classroom
+    # knowledge_areas = @knowledge_area_content_record.knowledge_areas
+    date = @knowledge_area_content_record.content_record.record_date
+
+    if @knowledge_area_content_record.content_record.objectives
+      objectives = @knowledge_area_content_record.content_record.objectives_ordered
+      objectives.each { |objective| objective.is_editable = true }
+      @objectives << objectives
+    end
+
+    @objectives.flatten.uniq
+  end
+  helper_method :objectives
 
   def unities
     @unities = [current_unity]

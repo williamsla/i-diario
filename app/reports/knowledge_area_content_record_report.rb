@@ -116,6 +116,7 @@ class KnowledgeAreaContentRecordReport < BaseReport
     @record_date_header = make_cell(content: 'Data', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
     @knowledge_area_header = make_cell(content: 'Áreas de conhecimento', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
     @conteudo_header = make_cell(content: Translator.t('activerecord.attributes.knowledge_area_content_record.contents'), size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
+    @habilidade_header = make_cell(content: 'Habilidade', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
   end
 
   def identification
@@ -157,7 +158,8 @@ class KnowledgeAreaContentRecordReport < BaseReport
     general_information_headers = [
       @record_date_header,
       @knowledge_area_header,
-      @conteudo_header
+      @conteudo_header,
+      @habilidade_header
     ]
 
     if @show_daily_activities_in_knowledge_area_content_record_report
@@ -170,7 +172,8 @@ class KnowledgeAreaContentRecordReport < BaseReport
       knowledge_area_descriptions = knowledge_area_content_record.knowledge_areas.map(&:description).join(", ")
       record_date_cell = make_cell(content: knowledge_area_content_record.content_record.record_date.strftime("%d/%m/%Y"), size: 10, width: 80, align: :left)
       content_cell = make_cell(content: content_cell_content(knowledge_area_content_record.content_record), size: 10, align: :left)
-      knowledge_area_cell = make_cell(content: knowledge_area_descriptions, size: 10, width: 150, align: :left)
+      knowledge_area_cell = make_cell(content: knowledge_area_descriptions, size: 8, width: 150, align: :left)
+      habilidade_cell = make_cell(content: objective_cell_content(knowledge_area_content_record.content_record), size: 8, align: :left)
 
       if @show_daily_activities_in_knowledge_area_content_record_report
         daily_activties_cell = make_cell(content: knowledge_area_content_record.content_record.daily_activities_record.to_s, size: 10, align: :left)
@@ -179,7 +182,8 @@ class KnowledgeAreaContentRecordReport < BaseReport
       general_information_cells << [
         record_date_cell,
         knowledge_area_cell,
-        content_cell
+        content_cell,
+        habilidade_cell
       ]
 
       if @show_daily_activities_in_knowledge_area_content_record_report
@@ -218,9 +222,17 @@ class KnowledgeAreaContentRecordReport < BaseReport
   def content_cell_content(content_record)
     content_record.contents_ordered.map(&:to_s).join(', ')
   end
+  
+  def objective_cell_content(content_record)
+    content_record.objectives_ordered.map(&:to_s).join(', ')
+  end
 
   def signatures
-    start_new_page if cursor < 45
+    start_new_page if cursor < 55
+
+    move_down 5
+    text_box("Total de dias registrados: #{@knowledge_area_content_records.count}", size: 12, align: :left, at: [0, cursor], width: 260)
+
     move_down 30
     text_box("______________________________________________\nProfessor(a)", size: 10, align: :center, at: [0, cursor], width: 260)
     text_box("______________________________________________\nCoordenador(a)/diretor(a)", size: 10, align: :center, at: [306, cursor], width: 260)

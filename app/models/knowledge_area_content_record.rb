@@ -45,7 +45,7 @@ class KnowledgeAreaContentRecord < ActiveRecord::Base
   validate :uniqueness_of_knowledge_area_content_record
   validate :ensure_is_school_day
 
-  delegate :contents, :classroom, :record_date, to: :content_record
+  delegate :contents, :objectives, :classroom, :record_date, to: :content_record
   delegate :grades, to: :classroom
 
   def knowledge_area_ids
