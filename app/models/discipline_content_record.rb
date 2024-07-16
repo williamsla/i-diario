@@ -112,14 +112,18 @@ class DisciplineContentRecord < ActiveRecord::Base
   end
 
   def uniqueness_of_class_number
-    discipline_content_record = DisciplineContentRecord.by_teacher_id(content_record.teacher_id)
+    return if allow_class_number?
+    return unless content_record.present? && content_record.classroom.present? && content_record.record_date.present?
+
+    discipline_content_records = DisciplineContentRecord.by_teacher_id(content_record.teacher_id)
                                                        .by_classroom_id(content_record.classroom_id)
                                                        .by_discipline_id(discipline_id)
                                                        .by_date(content_record.record_date)
                                                        .by_class_number(class_number)
-                                                       .exists?
-
-    if discipline_content_record
+    
+    discipline_content_records = discipline_content_records.where.not(id: id) if persisted?
+    
+    if discipline_content_records.any?
       errors.add(:class_number, I18n.t('activerecord.errors.models.discipline_content_record.attributes.discipline_id.class_number_in_use'))
     end
   end
@@ -132,7 +136,7 @@ class DisciplineContentRecord < ActiveRecord::Base
 
     grades.each do |grade|
       unless content_record.school_calendar.school_day?(record_date, grade, classroom_id, discipline)
-        errors.add(:base, "")
+        errors.add(:base, :not_school_calendar_day)
         content_record.errors.add(:record_date, :not_school_calendar_day)
       end
     end

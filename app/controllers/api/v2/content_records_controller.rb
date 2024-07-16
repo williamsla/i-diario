@@ -29,6 +29,7 @@ module Api
 
       def sync
         contents = params[:contents]
+        objectives = params[:objectives]
         classroom_id = params[:classroom_id]
         teacher_id = params[:teacher_id]
         record_date = params[:record_date]
@@ -77,11 +78,21 @@ module Api
           content_ids << content_id if content_id.present?
         end
 
+        objective_ids = []
+
+        (objectives || []).each do |objective|
+          objective_id = objective[:id]
+          objective_id ||= Objective.find_or_create_by(description: objective[:description]).id
+
+          objective_ids << objective_id if objective_id.present?
+        end
+
         user = User.find_by_teacher_id(teacher_id)
 
         Audited.audit_class.as_user(user) do
           if content_ids.present?
             @content_record.content_ids = content_ids
+            @content_record.objective_ids = objective_ids
             @content_record.save
           elsif @content_record.persisted?
             @content_record.destroy
