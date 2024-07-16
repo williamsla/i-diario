@@ -108,6 +108,7 @@ class DisciplineContentRecordReport < BaseReport
     @class_number_header = make_cell(content: 'Sequência da aula', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', width: 60, padding: [2, 2, 4, 4])
     @classroom_header = make_cell(content: 'Turma', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
     @conteudo_header = make_cell(content: Translator.t('activerecord.attributes.discipline_content_record.contents'), size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
+    @habilidade_header = make_cell(content: 'Habilidade', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
     if @display_daily_activies_log
       @daily_acitivies_header = make_cell(content: 'Registro das atividades', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
     end
@@ -123,8 +124,8 @@ class DisciplineContentRecordReport < BaseReport
   def identification
     identification_table_data = [
       [@identification_header_cell],
-      [@unity_header],
-      [@unity_cell],
+      # [@unity_header],
+      # [@unity_cell],
       [@discipline_header, @classroom_header],
       [@discipline_cell, @classroom_cell],
       [@teacher_header, @period_header],
@@ -149,8 +150,9 @@ class DisciplineContentRecordReport < BaseReport
 
     general_information_headers = [
       @date_header,
-      @class_number_header,
-      @conteudo_header
+      @class_number_header,      
+      @conteudo_header,
+      @habilidade_header
     ]
 
     general_information_headers << @daily_acitivies_header if @display_daily_activies_log
@@ -158,17 +160,20 @@ class DisciplineContentRecordReport < BaseReport
     general_information_cells = []
 
     @discipline_content_record.each do |discipline_content_record|
-      date_cell = make_cell(content: discipline_content_record.content_record.record_date.strftime("%d/%m/%Y"), size: 10, align: :left, width: 60)
+      date_cell = make_cell(content: discipline_content_record.content_record.record_date.strftime("%d/%m/%Y"), size: 8, align: :left, width: 10)
       class_number = make_cell(content: "#{discipline_content_record.class_number}", size: 10, align: :center)
-      content_cell = make_cell(content: content_cell_content(discipline_content_record.content_record), size: 10, align: :left)
+      content_cell = make_cell(content: content_cell_content(discipline_content_record.content_record), size: 8, align: :left, width: 150)
+      habilidade_cell = make_cell(content: objective_cell_content(discipline_content_record.content_record), size: 8, align: :left)
+
       if @display_daily_activies_log
-        daily_acitivies_cell = make_cell(content: discipline_content_record.content_record.daily_activities_record.to_s, size: 10, align: :left)
+        daily_acitivies_cell = make_cell(content: discipline_content_record.content_record.daily_activities_record.to_s, size: 8, align: :left)
       end
 
       general_information_cells << [
         date_cell,
         class_number,
-        content_cell
+        content_cell,
+        habilidade_cell
       ]
       general_information_cells.last << daily_acitivies_cell if @display_daily_activies_log
     end
@@ -203,6 +208,10 @@ class DisciplineContentRecordReport < BaseReport
 
   def content_cell_content(content_record)
     content_record.contents_ordered.map(&:to_s).join(", ")
+  end
+
+  def objective_cell_content(content_record)
+    content_record.objectives_ordered.map(&:to_s).join(", ")
   end
 
   def signatures

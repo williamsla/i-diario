@@ -45,11 +45,12 @@
 
         <% if @allow_class_number %>
           <div class="col col-sm-4">
-            <% show_classes = action_name == ('new' || 'create') ? false : true %>
-            <%= f.input :class_number, as: :select2, multiple: true,
+            <% isDisabled = ['new', 'create', 'edit', 'update'].include?(action_name) ? false : true %>
+            <% isMultiple = ['edit', 'update'].include?(action_name) ? false : true %>
+            <%= f.input :class_number, as: :select2, multiple: isMultiple,
                                      elements: number_of_classes_elements(@number_of_classes),
                                      placeholder: 'Selecione uma ou mais aulas',
-                                     disabled: show_classes %>
+                                     disabled: isDisabled %>
           </div>
         <% end %>
       </div>
@@ -111,8 +112,61 @@
             %>
           </div>
         </div>
-    </fieldset>
 
+        <div class="row textarea">
+          <div class="col col-sm-12">
+            <legend style="margin-bottom: 10px;">
+              <span>Objetivos</span>
+            </legend>
+            <% if f.object.errors[:'content_record.objectives'].any? %>
+              <div class="alert alert-danger fade in">
+                <i class="fa-fw fa fa-times"></i>
+                <%= f.object.errors[:'content_record.objectives'].first %>
+              </div>
+            <% end %>
+
+            <div class="well" style="max-height: 300px;overflow-y: auto; margin-top: 10px;">
+              <ul class="list-group checked-list-box" id="objectives-list">
+              <% objectives.each do |objective| %>
+                <li class="list-group-item manual" style="display: flex;" id="objective_<%= objective.id %>">
+                  <%= check_box_tag("discipline_content_record[content_record_attributes][objective_ids][]",
+                    objective.id, objective.id.in?(@discipline_content_record.objectives.collect(&:id)),
+                    hidden: true, 'data-objective_description': objective.to_s ) %>
+                  <span style="margin-left: 5px;display: block;width: calc(100% - 85px);"><%= objective %></span>
+                  <% if objective.is_editable %>
+                    <div style="width: 80px;">
+                      <a class="btn btn-danger" onclick="removeObjective('objective_<%= objective.id %>')">
+                        <i class="fa fa-trash"></i>
+                      </a>
+                    </div>
+                  <% end %>
+                </li>
+              <% end %>
+              </ul>
+            </div>
+            <% if !action_name.eql?('show') %>
+              <div class="row textarea">
+                <div class="col col-sm-12 objectives-select2-container">
+                  <%= content_record.input :objectives_tags,
+                      as: :string,
+                      label: "Adicionar Habilidades",
+                      input_html: {
+                        class: 'select2-content-tags-ajax',
+                        value: '',
+                        data: {
+                          url: contents_path,
+                          data: []
+                        }
+                      }
+                  %>
+                </div>
+              </div>
+            <% end %>
+
+          </div>
+        </div>
+        
+    </fieldset>    
   <% end %>
 
   <footer>

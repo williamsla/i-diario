@@ -14,8 +14,8 @@ if ! test -f ".setup"; then
 
   cp config/database.sample.yml config/database.yml
 
-  bundle exec rake db:create
-  bundle exec rake db:migrate
+  RAILS_ENV=development bundle exec rake db:create
+  RAILS_ENV=development bundle exec rake db:migrate
   bundle exec rake entity:setup NAME=prefeitura DOMAIN=localhost DATABASE=idiario
   bundle exec rake entity:admin:create NAME=prefeitura ADMIN_PASSWORD=A123456789$
 

@@ -126,4 +126,31 @@ $(function () {
     }
     $(this).select2('val', '');
   });
+
+  $('#discipline_content_record_content_record_attributes_objectives_tags').on('change', function (e) {
+    if (e.val.length) {
+      var uniqueId = 'customId_' + idContentsCounter++;
+      var objective_description = e.val.join(", ");
+      if (objective_description.trim().length &&
+        !$('input[type=checkbox][data-objective_description="' + objective_description + '"]').length) {
+
+        var html = JST['templates/layouts/objectives_list_manual_item']({
+          id: uniqueId,
+          description: objective_description,
+          model_name: 'discipline_content_record',
+          submodel_name: 'content_record'
+        });
+
+        $('#objectives-list').append(html);
+        $('.list-group.checked-list-box .list-group-item:not(.initialized)').each(initializeListEvents);
+      } else {
+        var objective_input = $('input[type=checkbox][data-objective_description="' + objective_description + '"]');
+        objective_input.closest('li').show();
+        objective_input.prop('checked', true).trigger('change');
+      }
+
+      $('.discipline_content_record_content_record_objectives_tags .select2-input').val("");
+    }
+    $(this).select2('val', '');
+  });
 });

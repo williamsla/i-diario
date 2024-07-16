@@ -17,6 +17,7 @@ class ContentRecord < ApplicationRecord
 
   attr_writer :unity_id
   attr_writer :contents_tags
+  attr_writer :objectives_tags
   attr_accessor :creator_type
 
   has_one :discipline_content_record, dependent: :delete
@@ -24,8 +25,11 @@ class ContentRecord < ApplicationRecord
 
   has_many :content_records_contents, dependent: :destroy
   deferred_has_many :contents, through: :content_records_contents
+  has_many :objectives_content_records, dependent: :destroy
+  deferred_has_many :objectives, through: :objectives_content_records
 
   accepts_nested_attributes_for :contents
+  accepts_nested_attributes_for :objectives, allow_destroy: true
 
   # validates_date :record_date, on_or_before: -> { Date.current }
   validates :unity_id, presence: true
@@ -39,6 +43,8 @@ class ContentRecord < ApplicationRecord
 
   scope :by_unity_id, lambda { |unity_id| joins(:classroom).merge(Classroom.by_unity(unity_id)) }
   scope :by_teacher_id, lambda { |teacher_id| where(teacher_id: teacher_id) }
+
+  attr_accessor :objectives_created_at_position
 
   def to_s
     return discipline_content_record.discipline.to_s if discipline_content_record
@@ -73,6 +79,10 @@ class ContentRecord < ApplicationRecord
 
   def contents_ordered
     contents.order(' "content_records_contents"."id" ')
+  end
+
+  def objectives_ordered
+    objectives.order('objectives_content_records.position')
   end
 
   def origin=(value)
