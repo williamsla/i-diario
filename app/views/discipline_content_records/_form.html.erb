@@ -129,6 +129,9 @@
               <ul class="list-group checked-list-box" id="objectives-list">
               <% objectives.each do |objective| %>
                 <li class="list-group-item manual" style="display: flex;" id="objective_<%= objective.id %>">
+                  <%= check_box_tag("discipline_content_record[content_record_attributes][objective_ids][]",
+                    objective.id, objective.id.in?(@discipline_content_record.objectives.collect(&:id)),
+                    hidden: true, 'data-objective_description': objective.to_s ) %>
                   <span style="margin-left: 5px;display: block;width: calc(100% - 85px);"><%= objective %></span>
                   <% if objective.is_editable %>
                     <div style="width: 80px;">
