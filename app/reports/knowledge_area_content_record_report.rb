@@ -224,7 +224,7 @@ class KnowledgeAreaContentRecordReport < BaseReport
   end
   
   def objective_cell_content(content_record)
-    content_record.objectives_ordered.map(&:to_s).join(', ')
+    content_record.objectives_ordered.map(&:to_s).join("\n")
   end
 
   def signatures

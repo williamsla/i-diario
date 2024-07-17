@@ -13,7 +13,7 @@ pt-BR:
         discipline_id: "Disciplina"
         author: "Autor"
         contents: "Conteúdos"
-        class_number: "Aula"
+        class_number: "Número de aulas"
     errors:
       models:
         discipline_content_record:

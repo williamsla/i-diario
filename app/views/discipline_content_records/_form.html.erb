@@ -46,10 +46,9 @@
         <% if @allow_class_number %>
           <div class="col col-sm-4">
             <% isDisabled = ['new', 'create', 'edit', 'update'].include?(action_name) ? false : true %>
-            <% isMultiple = ['edit', 'update'].include?(action_name) ? false : true %>
-            <%= f.input :class_number, as: :select2, multiple: isMultiple,
+            <%= f.input :class_number, as: :select2, multiple: false,
                                      elements: number_of_classes_elements(@number_of_classes),
-                                     placeholder: 'Selecione uma ou mais aulas',
+                                     placeholder: 'Selecione a quantidade de aulas',
                                      disabled: isDisabled %>
           </div>
         <% end %>

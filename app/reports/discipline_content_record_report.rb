@@ -104,8 +104,8 @@ class DisciplineContentRecordReport < BaseReport
     @teacher_header = make_cell(content: 'Professor', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
     @unity_header = make_cell(content: 'Unidade', size: 8, font_style: :bold, borders: [:left, :right, :top], padding: [2, 2, 4, 4], colspan: 2)
     @discipline_header = make_cell(content: 'Disciplina', size: 8, font_style: :bold, borders: [:left, :right, :top], padding: [2, 2, 4, 4])
-    @date_header = make_cell(content: 'Data', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', width: 60, padding: [2, 2, 4, 4])
-    @class_number_header = make_cell(content: 'Sequência da aula', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', width: 60, padding: [2, 2, 4, 4])
+    @date_header = make_cell(content: 'Data', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', width: 49, padding: [2, 2, 4, 4])
+    @class_number_header = make_cell(content: 'Aulas', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', width: 27, padding: [2, 2, 4, 4])
     @classroom_header = make_cell(content: 'Turma', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
     @conteudo_header = make_cell(content: Translator.t('activerecord.attributes.discipline_content_record.contents'), size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
     @habilidade_header = make_cell(content: 'Habilidade', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
@@ -160,9 +160,9 @@ class DisciplineContentRecordReport < BaseReport
     general_information_cells = []
 
     @discipline_content_record.each do |discipline_content_record|
-      date_cell = make_cell(content: discipline_content_record.content_record.record_date.strftime("%d/%m/%Y"), size: 8, align: :left, width: 10)
-      class_number = make_cell(content: "#{discipline_content_record.class_number}", size: 10, align: :center)
-      content_cell = make_cell(content: content_cell_content(discipline_content_record.content_record), size: 8, align: :left, width: 150)
+      date_cell = make_cell(content: discipline_content_record.content_record.record_date.strftime("%d/%m/%Y"), size: 8, align: :left)
+      class_number = make_cell(content: "#{discipline_content_record.class_number}", size: 8, align: :center)
+      content_cell = make_cell(content: content_cell_content(discipline_content_record.content_record), size: 8, align: :left)
       habilidade_cell = make_cell(content: objective_cell_content(discipline_content_record.content_record), size: 8, align: :left)
 
       if @display_daily_activies_log
@@ -211,14 +211,14 @@ class DisciplineContentRecordReport < BaseReport
   end
 
   def objective_cell_content(content_record)
-    content_record.objectives_ordered.map(&:to_s).join(", ")
+    content_record.objectives_ordered.map(&:to_s).join("\n")
   end
 
   def signatures
     start_new_page if cursor < 55
     
     move_down 5
-    text_box("Total de aulas dadas: #{@discipline_content_record.count}", size: 12, align: :left, at: [0, cursor], width: 260)
+    text_box("Total de aulas dadas: #{@discipline_content_record.sum(&:class_number)}", size: 12, align: :left, at: [0, cursor], width: 260)
     
     move_down 30
     text_box("______________________________________________\nProfessor(a)", size: 10, align: :center, at: [0, cursor], width: 260)
