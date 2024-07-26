@@ -58,17 +58,11 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     @knowledge_area_content_record.content_record.teacher = current_teacher
     @knowledge_area_content_record.teacher_id = current_teacher_id
 
-    puts '-----1-start'
-    puts @knowledge_area_content_record.content_record.content_ids
-    puts @knowledge_area_content_record.content_record.objective_ids
-    puts '-----1-end'
     authorize @knowledge_area_content_record
 
-    if @knowledge_area_content_record.save!
-      puts '--then'
+    if @knowledge_area_content_record.save
       respond_with @knowledge_area_content_record, location: knowledge_area_content_records_path
     else
-      puts '--else'
       set_options_by_user
       set_knowledge_area_by_classroom(@knowledge_area_content_record.classroom_id)
       render :new
