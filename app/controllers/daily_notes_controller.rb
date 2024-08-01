@@ -252,9 +252,9 @@ class DailyNotesController < ApplicationController
   private
 
   def set_options_by_user
-    @admin_or_teacher = current_user.current_role_is_admin_or_employee?
+    # @admin_or_teacher = current_user.current_role_is_admin_or_employee?
 
-    return fetch_linked_by_teacher unless @admin_or_teacher
+    # return fetch_linked_by_teacher unless @admin_or_teacher
 
     @classrooms ||= [current_user_classroom]
     @disciplines ||= [current_user_discipline]
