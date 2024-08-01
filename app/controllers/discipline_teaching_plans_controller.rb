@@ -11,7 +11,7 @@ class DisciplineTeachingPlansController < ApplicationController
 
   def index
     params[:filter] ||= {}
-    author_type = PlansAuthors::MY_PLANS if params[:filter].blank?
+    # author_type = PlansAuthors::MY_PLANS if params[:filter].blank?
     author_type ||= (params[:filter] || []).delete(:by_author)
 
     set_options_by_user
@@ -363,6 +363,7 @@ class DisciplineTeachingPlansController < ApplicationController
                             .by_discipline(@disciplines.map(&:id))
                             .by_unity(current_unity)
                             .by_year(current_school_year)
+                            .by_grade(current_grade.first.grade_id)
                             .order_by_grades
                             .order('teaching_plans.school_term_type_step_id')
     )
