@@ -286,6 +286,8 @@ $(function () {
   };
 
   function loadSelect2ForConceptualExamValues() {
+    const lastElement = [...window.roundingTableValues].pop();
+
     _.each($('input.conceptual-exam-value-select2'), function (element) {
       $(element).select2({
         formatResult: function (el) {
@@ -301,6 +303,9 @@ $(function () {
         $(element).select2({
           data: window.roundingTableValues
         });
+        
+        $(element).val(lastElement.id);
+        $(element).trigger('change');
       }
     });
   }
