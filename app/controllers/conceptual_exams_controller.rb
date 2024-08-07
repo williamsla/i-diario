@@ -26,7 +26,7 @@ class ConceptualExamsController < ApplicationController
     discipline_score_types = (teacher_differentiated_discipline_score_types + teacher_discipline_score_types).uniq
 
     not_concept_score = discipline_score_types.none? { |discipline_score_type|
-      discipline_score_type == ScoreTypes::CONCEPT
+      discipline_score_type == ScoreTypes::CONCEPT || discipline_score_type == ScoreTypes::NUMERIC_AND_CONCEPT
     }
 
     if not_concept_score
