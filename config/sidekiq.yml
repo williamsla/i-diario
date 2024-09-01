@@ -3,7 +3,7 @@
 staging:
   :concurrency: 10
 production:
-  :concurrency: 50
+  :concurrency: <%= ENV.fetch("RAILS_MAX_THREADS") { 10 } %>
 :queues:
   - [default, 1]
   - [low, 1]

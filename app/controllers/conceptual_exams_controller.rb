@@ -26,7 +26,7 @@ class ConceptualExamsController < ApplicationController
     discipline_score_types = (teacher_differentiated_discipline_score_types + teacher_discipline_score_types).uniq
 
     not_concept_score = discipline_score_types.none? { |discipline_score_type|
-      discipline_score_type == ScoreTypes::CONCEPT
+      discipline_score_type == ScoreTypes::CONCEPT || discipline_score_type == ScoreTypes::NUMERIC_AND_CONCEPT
     }
 
     if not_concept_score
@@ -162,7 +162,7 @@ class ConceptualExamsController < ApplicationController
   def find_step_number_by_classroom
     classroom = Classroom.find(params[:classroom_id])
     step_numbers = StepsFetcher.new(classroom)&.steps
-    steps = step_numbers.map { |step| { id: step.id, description: step.to_s } }
+    steps = step_numbers.map { |step| { id: step.id, description: step.to_s, start_at: step.start_at, end_at: step.end_at } }
 
     render json: steps.to_json
   end
