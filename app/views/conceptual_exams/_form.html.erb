@@ -9,11 +9,13 @@
 
   <fieldset>
     <div class="row">
-      <div class="col col-sm-4">
+      <input id="only_one_conceptual_avaliation" type="hidden" value="<%= Rails.application.secrets.only_one_conceptual_avaliation.present? && Rails.application.secrets.only_one_conceptual_avaliation %>" />
+      
+      <div class="col col-sm-4 can_hide">
         <%= f.input :unity_id, as: :select2_unity, user: current_user %>
       </div>
 
-      <div class="col col-sm-4">
+      <div class="col col-sm-4 can_hide">
         <% if current_user.current_role_is_admin_or_employee? %>
           <%= f.association :classroom, as: :select2_classroom, user: current_user, record: f.object %>
         <% else %>
@@ -22,14 +24,14 @@
         <% end %>
       </div>
 
-      <div class="col col-sm-4">
+      <div class="col col-sm-4 can_hide">
         <%= f.input :step_id, as: :select2_step, classroom: current_user_classroom,
                     readonly: @conceptual_exam.persisted?, required: true %>
       </div>
     </div>
 
     <div class="row">
-      <div class="col col-sm-4">
+      <div class="col col-sm-4 can_hide">
         <%= f.input :recorded_at %>
       </div>
 

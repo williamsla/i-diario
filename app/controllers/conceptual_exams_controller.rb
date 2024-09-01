@@ -162,7 +162,7 @@ class ConceptualExamsController < ApplicationController
   def find_step_number_by_classroom
     classroom = Classroom.find(params[:classroom_id])
     step_numbers = StepsFetcher.new(classroom)&.steps
-    steps = step_numbers.map { |step| { id: step.id, description: step.to_s } }
+    steps = step_numbers.map { |step| { id: step.id, description: step.to_s, start_at: step.start_at, end_at: step.end_at } }
 
     render json: steps.to_json
   end

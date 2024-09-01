@@ -4,6 +4,9 @@ $(function () {
   var $classroom = $('#conceptual_exam_classroom_id');
   var $step = $('#conceptual_exam_step_id');
   var $student = $('#conceptual_exam_student_id');
+  var $recorded_at = $('#conceptual_exam_recorded_at');
+  var only_one_conceptual_avaliation = $('#only_one_conceptual_avaliation');
+
   var old_values = {};
   var flashMessages = new FlashMessages();
 
@@ -12,6 +15,10 @@ $(function () {
     await getDisciplineScoreTypes();
   })
 
+  if (only_one_conceptual_avaliation) {
+    $('.can_hide').hide();
+  }
+  
   async function getStep() {
     let classroom_id = $('#conceptual_exam_classroom_id').select2('val');
 
@@ -29,11 +36,15 @@ $(function () {
 
   function handleFetchStepByClassroomSuccess(data) {
     let selectedSteps = data.map(function (step) {
-      return { id: step['id'], text: step['description'] };
+      return { id: step['id'], text: step['description'], start_at: step['start_at'], end_at: step['end_at'] };
     });
     $step.select2({ data: selectedSteps });
     // Define a primeira opção como selecionada por padrão
     $step.val(selectedSteps[0].id).trigger('change');
+
+    //preenche a data como sendo o ínicio da 1ª etapa
+    let inverterData = selectedSteps[0].end_at.split('-');
+    $recorded_at.val(`${inverterData[2]}/${inverterData[1]}/${inverterData[0]}`);
   }
 
   function handleFetchStepByClassroomError() {
@@ -377,7 +388,7 @@ $(function () {
 
   function exists_conceptual_exam(conceptual_exam_id) {
     removeDisciplines();
-    let text_step = $step.closest('div').find('#s2id_conceptual_exam_step_id').find('.select2-choice').text().trim();
+    let text_step = (only_one_conceptual_avaliation) ? '' : $step.closest('div').find('#s2id_conceptual_exam_step_id').find('.select2-choice').text().trim();
     let student_name = $student.closest('div').find('#s2id_conceptual_exam_student_id').find('.select2-choice').text().trim();
     let redirect_link = Routes.edit_conceptual_exam_pt_br_path(conceptual_exam_id);
     let message = `O(a) aluno(a) ${student_name} já possui uma avaliação conceitual na etapa ${text_step}, para modificar a mesma clique aqui <a href="${redirect_link}" style="color: white"><b>Avaliação</b></a>.`;
@@ -415,7 +426,8 @@ $(function () {
 
   if ($('#current_action_').val() == 'new') {
     $student.trigger('change');
-  }
+    getStep();
+  } 
 
   $step.on('change', function () {
     fetchStudents();

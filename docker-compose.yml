@@ -3,12 +3,13 @@ version: "3.7"
 services:
 
   postgres:
-    image: postgres:alpine
+    image: postgres:14-alpine
     container_name: postgres-idiario
     ports:
       - 5432
     volumes:
       - pg_data:/var/lib/postgresql/data
+      - /home/williams/Downloads/backup:/backup
     environment:
       - POSTGRES_DB=idiario_development
       - POSTGRES_PASSWORD=postgres
