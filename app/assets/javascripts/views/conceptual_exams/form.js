@@ -5,6 +5,7 @@ $(function () {
   var $step = $('#conceptual_exam_step_id');
   var $student = $('#conceptual_exam_student_id');
   var $recorded_at = $('#conceptual_exam_recorded_at');
+  var year = $('#current-school-year-container input').first().val();
   var only_one_conceptual_avaliation = $('#only_one_conceptual_avaliation');
 
   var old_values = {};
@@ -15,7 +16,10 @@ $(function () {
     await getDisciplineScoreTypes();
   })
 
-  if (only_one_conceptual_avaliation) {
+
+  if (year < 2024) {
+    $('.can_hide').show();
+  }else if (only_one_conceptual_avaliation) {
     $('.can_hide').hide();
   }
   
