@@ -24,6 +24,9 @@ task post_avaliations: :environment do
       puts "","#{school.id} - #{school.name}"
 
       last_calendar = SchoolCalendar.by_unity_id(school.id).ordered.first
+      if last_calendar == nil
+        next
+      end
 
       calendar_steps = SchoolCalendarStep.by_school_calendar_id(last_calendar.id).by_unity(school.id).ordered
       # calendar_classroom_steps = SchoolCalendarClassroomStep.by_school_calendar_id(last_calendar.id).ordered
