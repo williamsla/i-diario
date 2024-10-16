@@ -14,10 +14,43 @@ task post_avaliations: :environment do
                                   )")
   end
 
+  def sync(entity, step, post_type, author, teacher)
+    
+    new_permitted_attributes = {}
+    new_permitted_attributes = new_permitted_attributes.merge!({ school_calendar_step: step })
+    new_permitted_attributes = new_permitted_attributes.merge!({ post_type: post_type })
+    new_permitted_attributes = new_permitted_attributes.merge!({ author: author })
+    new_permitted_attributes = new_permitted_attributes.merge!({ teacher: teacher })
+    new_permitted_attributes = new_permitted_attributes.merge!({ ieducar_api_configuration: IeducarApiConfiguration.current })
+    new_permitted_attributes = new_permitted_attributes.merge!({ status: ApiSynchronizationStatus::STARTED })
+    
+    ieducar_api_exam_posting_started = IeducarApiExamPosting.where(new_permitted_attributes).last
+    if ieducar_api_exam_posting_started != nil
+      puts '  Já existe um envio em andamento'
+      return -1
+    end
+    
+    ieducar_api_exam_posting = IeducarApiExamPosting.create!(new_permitted_attributes)            
+    ieducar_api_exam_posting_last = IeducarApiExamPosting.where(new_permitted_attributes.merge({status: ApiSynchronizationStatus::COMPLETED })).last
+
+    jid = IeducarExamPostingWorker.perform_in(5.seconds, entity.id, ieducar_api_exam_posting.id, ieducar_api_exam_posting_last.try(:id), false)
+
+    WorkerBatch.create!(
+      main_job_class: 'IeducarExamPostingWorker',
+      main_job_id: jid,
+      stateable: ieducar_api_exam_posting
+    )
+
+    return ieducar_api_exam_posting.id
+  end
+
+
   entity = Entity.active.last
     
   entity.using_connection do
     connection = ActiveRecord::Base.connection
+
+    @admin_user = User.find_by(login: 'admin')
 
     # get schools
     Unity.to_select.each do |school|
@@ -96,34 +129,33 @@ task post_avaliations: :environment do
             if last_change != nil
               if last_post == nil or last_change > last_post
                   puts "    etapa #{step.step_number} #{postType.first}: última_mudança #{last_change} X último_envio #{last_post}"
+              
+                  posting_id = sync(entity, step, postType.last, @admin_user, teacher)
+
+                  if posting_id == -1
+                    next
+                  end
+                  
+                  
+                  # verificando se o worker finalizou antes de enviar a próxima etapa
+                  count=0
+
+                  loop do
+                    puts "  aguardando mais 30 segundos até o posting id #{posting_id} finalizar"
+                    sleep(30.seconds)
+
+                    posting = IeducarApiExamPosting.find(posting_id)
+                    if posting.status != ApiSynchronizationStatus::STARTED or count == 10
+                      break
+                    end
+                    
+                    count=count+1
+                  end
               end
-            end
-
+            end                
           end
-
         end
       end
-    end
-    
-      # ieducar_api_exam_postings_path(
-      #   step_column => step.id, post_type: postType.last
-      # )
-
-      # new_permitted_attributes = permitted_attributes.merge!({ author: current_user })
-      # new_permitted_attributes = new_permitted_attributes.merge!({ teacher: current_user.current_teacher })
-      # new_permitted_attributes = new_permitted_attributes.merge!({ ieducar_api_configuration: IeducarApiConfiguration.current })
-      # new_permitted_attributes = new_permitted_attributes.merge!({ status: ApiSynchronizationStatus::STARTED })
-
-      # ieducar_api_exam_posting = IeducarApiExamPosting.create!(new_permitted_attributes)
-
-      # ieducar_api_exam_posting_last = IeducarApiExamPosting.where(new_permitted_attributes.merge({status: ApiSynchronizationStatus::COMPLETED })).last
-
-      # jid = IeducarExamPostingWorker.perform_in(5.seconds, current_entity.id, ieducar_api_exam_posting.id, ieducar_api_exam_posting_last.try(:id), params[:force_posting])
-
-      # WorkerBatch.create!(
-      #   main_job_class: 'IeducarExamPostingWorker',
-      #   main_job_id: jid,
-      #   stateable: ieducar_api_exam_posting
-      # )
+    end # fim loop escola
   end
 end
