@@ -17,7 +17,11 @@ task post_avaliations: :environment do
   def sync(entity, step, post_type, author, teacher)
     
     new_permitted_attributes = {}
-    new_permitted_attributes = new_permitted_attributes.merge!({ school_calendar_step: step })
+    if step.instance_of? SchoolCalendarStep
+      new_permitted_attributes = new_permitted_attributes.merge!({ school_calendar_step: step })
+    else 
+      new_permitted_attributes = new_permitted_attributes.merge!({ school_calendar_classroom_step: step })
+    end
     new_permitted_attributes = new_permitted_attributes.merge!({ post_type: post_type })
     new_permitted_attributes = new_permitted_attributes.merge!({ author: author })
     new_permitted_attributes = new_permitted_attributes.merge!({ teacher: teacher })
@@ -62,14 +66,20 @@ task post_avaliations: :environment do
       end
 
       calendar_steps = SchoolCalendarStep.by_school_calendar_id(last_calendar.id).by_unity(school.id).ordered
-      # calendar_classroom_steps = SchoolCalendarClassroomStep.by_school_calendar_id(last_calendar.id).ordered
-      # steps = calendar_steps + calendar_classroom_steps
       
       # get teachers
       Teacher.by_unity_id(school.id).by_year(last_calendar.year).active_query.order_by_name.each do |teacher|
         puts "  #{teacher.name} - #{teacher.id}"
 
-        calendar_steps.each do |step|
+        steps = calendar_steps
+
+        # get classrooms that do not follow the standard school year
+        TeacherDisciplineClassroom.by_teacher_id(teacher.id).by_year(last_calendar.year).each do |tdc|
+          calendar_classroom_steps = SchoolCalendarClassroomStep.by_school_calendar_id(last_calendar.id).by_classroom(tdc.classroom.id)
+          steps = steps + calendar_classroom_steps
+        end
+
+        steps.each do |step|
 
           ApiPostingTypes.to_a.each_with_index do |postType, index|
             
