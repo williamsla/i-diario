@@ -10,6 +10,17 @@ class ContentsRecordFetcher
     plans.map(&:contents).uniq.flatten
   end
 
+  def fetch_objectives
+    plans = same_teacher_lesson_plans.presence ||
+            same_teacher_teaching_plans.presence ||
+            same_teacher_yearly_teaching_plans.presence ||
+            other_teacher_lesson_plans.presence ||
+            other_teacher_teaching_plans.presence ||
+            []
+
+    plans.map(&:objectives).uniq.flatten
+  end
+
   protected
 
   def same_teacher_lesson_plans

@@ -278,6 +278,11 @@ class DisciplineContentRecordsController < ApplicationController
     discipline = @discipline_content_record.discipline
     date = @discipline_content_record.content_record.record_date
 
+    if teacher && classroom && discipline && date
+      @objectives = ContentsForDisciplineRecordFetcher.new(teacher, classroom, discipline, date).fetch_objectives
+      @objectives.each { |objective| objective.is_editable = false }
+    end
+
     if @discipline_content_record.content_record.objectives
       objectives = @discipline_content_record.content_record.objectives_ordered
       objectives.each { |objective| objective.is_editable = true }
