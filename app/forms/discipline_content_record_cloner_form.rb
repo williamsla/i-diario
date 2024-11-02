@@ -22,6 +22,12 @@ class DisciplineContentRecordClonerForm< ApplicationRecord
             new_content_record.content_record.teacher = teacher
             # `contents` is a deferred association so the original association is prepended with `original_`
             new_content_record.content_record.original_contents = discipline_content_record.content_record.contents
+            new_content_record.content_record.original_objectives = discipline_content_record.content_record.objectives
+            new_content_record.content_record.objectives_created_at_position = {}
+            new_content_record.content_record.original_objectives.each_with_index do |objective, position|
+              new_content_record.content_record.objectives_created_at_position[objective.id] = position
+            end
+
             new_content_record.content_record.classroom = @classrooms.find_by_id(item.classroom_id)
             new_content_record.content_record.record_date = item.record_date
 
