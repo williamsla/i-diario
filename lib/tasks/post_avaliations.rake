@@ -93,6 +93,14 @@ task post_avaliations: :environment do
                                                 and c.year=#{last_calendar.year}"
                                         )
             elsif postType.last == 'conceptual_exam'
+                last_change = connection.select_value("SELECT max(cev.updated_at)
+                                          FROM public.conceptual_exams ce
+                                          inner join public.conceptual_exam_values cev on cev.conceptual_exam_id = ce.id 
+                                          inner join public.classrooms c on c.id = ce.classroom_id 
+                                          inner join public.teacher_discipline_classrooms tdc on tdc.classroom_id = c.id 
+                                          where ce.step_number=#{step.step_number} and c.unity_id=#{school.id} and tdc.teacher_id =#{teacher.id}
+                                              and c.year=#{last_calendar.year}"
+                                        )
             elsif postType.last == 'descriptive_exam'
                 last_change = connection.select_value("SELECT max(des.updated_at)
                                           FROM public.descriptive_exams de
@@ -151,7 +159,7 @@ task post_avaliations: :environment do
                   count=0
 
                   loop do
-                    puts "  aguardando mais 30 segundos até o posting id #{posting_id} finalizar"
+                    puts "      aguardando mais 30 segundos até o posting id #{posting_id} finalizar"
                     sleep(30.seconds)
 
                     posting = IeducarApiExamPosting.find(posting_id)
