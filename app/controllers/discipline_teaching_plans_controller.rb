@@ -20,9 +20,9 @@ class DisciplineTeachingPlansController < ApplicationController
 
     @discipline_teaching_plans = fetch_discipline_teaching_plans
 
-    unless current_user.current_role_is_admin_or_employee?
-      @discipline_teaching_plans = filter_by_grade_discipline(@discipline_teaching_plans)
-    end
+    # unless current_user.current_role_is_admin_or_employee?
+      # @discipline_teaching_plans = filter_by_grade_discipline(@discipline_teaching_plans)
+    # end
     @discipline_teaching_plans = filter_by_author(@discipline_teaching_plans, author_type) if author_type.present?
 
     authorize @discipline_teaching_plans
@@ -343,9 +343,9 @@ class DisciplineTeachingPlansController < ApplicationController
       fetch_grades
       fetch_disciplines
 
-      discipline = current_user_discipline&.grouper? ? Discipline.where(knowledge_area_id: current_user_discipline.knowledge_area_id).all : [current_user_discipline]
+      # discipline = current_user_discipline&.grouper? ? Discipline.where(knowledge_area_id: current_user_discipline.knowledge_area_id).all : [current_user_discipline]
     # else
-    #   fetch_linked_by_teacher
+      # fetch_linked_by_teacher
     # end
   end
 
@@ -363,7 +363,7 @@ class DisciplineTeachingPlansController < ApplicationController
                             .by_discipline(@disciplines.map(&:id))
                             .by_unity(current_unity)
                             .by_year(current_school_year)
-                            .by_grade(current_grade.first.grade_id)
+                            .by_grade(current_grade.map(&:grade_id))
                             .order_by_grades
                             .order('teaching_plans.school_term_type_step_id')
     )
@@ -386,6 +386,6 @@ class DisciplineTeachingPlansController < ApplicationController
   def fetch_disciplines_by_grade
     return if current_user.current_role_is_admin_or_employee?
 
-    @disciplines = @disciplines.by_grade(current_grade.first.grade_id).not_descriptor
+    @disciplines = @disciplines.by_grade(current_grade.map(&:grade_id)).not_descriptor
   end
 end
