@@ -29,7 +29,7 @@ class DailyNoteStudentPresenter < BasePresenter
     elsif exempted_from_discipline
       "****#{student}"
     else
-      student.to_s
+      "#{student.to_s} #{grade_description}"
     end
   end
 

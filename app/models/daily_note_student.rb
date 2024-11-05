@@ -5,7 +5,7 @@ class DailyNoteStudent < ApplicationRecord
 
   audited associated_with: [:daily_note, :transfer_note], except: [:daily_note_id, :transfer_note_id, :active]
 
-  attr_accessor :exempted, :dependence, :exempted_from_discipline, :in_active_search
+  attr_accessor :exempted, :dependence, :exempted_from_discipline, :in_active_search, :grade_description
 
   before_save :nullify_notes_for_inactive_students
 

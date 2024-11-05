@@ -61,6 +61,10 @@ class DailyNotesController < ApplicationController
         note_student.exempted_from_discipline = student_exempted_from_discipline?(student_enrollment, @daily_note)
         note_student.in_active_search = ActiveSearch.new.in_active_search?(student_enrollment.id, @daily_note.avaliation.test_date)
 
+        classroom_grade_id = student_enrollment.student_enrollment_classrooms.first.classrooms_grade_id
+        classroom_grade = ClassroomsGrade.by_id(classroom_grade_id).first
+        note_student.grade_description = classroom_grade.grade.description
+
         @students << note_student
       end
     end
