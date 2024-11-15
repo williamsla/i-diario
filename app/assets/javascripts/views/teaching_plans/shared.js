@@ -23,9 +23,8 @@ function updateSchoolTermInput(schoolTermType, schoolTerm, schoolTermContainer, 
   $flashMessages = flashMessagesParam;
   selectedSchoolTermTypeId = $('#yearly_school_term_type_id').val();
   isSchoolTermIdValid = school_term_type_id.trim() &&
-                        school_term_type_id.trim() != selectedSchoolTermTypeId &&
-                        school_term_type_id.trim() != '2'; // 2 is the value for 'Anual' in the select2
-
+                        school_term_type_id.trim() != selectedSchoolTermTypeId;
+    
   if (isSchoolTermIdValid) {
     $.ajax({
       url: Routes.steps_by_school_term_type_id_pt_br_path({

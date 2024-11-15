@@ -73,6 +73,7 @@
             elements: SchoolTermType.to_select2(
               current_user.current_school_year,
               current_user.current_unity_id,
+              @discipline_teaching_plan.teaching_plan.grade_id,
               add_empty_element: false
             ).to_json,
             input_html: { value: teaching_plan_form.object.school_term_type_id,

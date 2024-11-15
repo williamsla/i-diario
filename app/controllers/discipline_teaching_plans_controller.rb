@@ -372,7 +372,8 @@ class DisciplineTeachingPlansController < ApplicationController
   def school_term_type
     @school_term_type ||= SchoolTermType.to_select2(
       current_user.current_school_year,
-      current_user.current_unity_id
+      current_user.current_unity_id,
+      current_grade.map(&:grade_id)
     ).to_json
   end
 

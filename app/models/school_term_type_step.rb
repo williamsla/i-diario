@@ -8,8 +8,8 @@ class SchoolTermTypeStep < ApplicationRecord
     "#{step_number}º #{school_term_type.description}"
   end
 
-  def self.to_select2(year, unity_id = nil)
-    school_term_type_ids = current_year_school_term_types(year, unity_id, false)&.map(&:id)
+  def self.to_select2(year, unity_id=nil, grade_id=nil)
+    school_term_type_ids = current_year_school_term_types(year, unity_id, grade_id, false)&.map(&:id)
 
     return {} if school_term_type_ids.blank?
 

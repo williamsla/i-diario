@@ -2,7 +2,7 @@ module SchoolCalendarFilterable
   extend ActiveSupport::Concern
 
   included do
-    def self.current_year_school_term_types(year, unity_id, add_yearly)
+    def self.current_year_school_term_types(year, unity_id, grade_id, add_yearly)
       school_calendar = SchoolCalendar.includes(:steps).where(year: year)
       school_calendar = school_calendar.where(unity_id: unity_id) if unity_id
       school_calendar = school_calendar.map { |calendar| step_type_description_formatter(calendar) }.uniq
@@ -18,6 +18,7 @@ module SchoolCalendarFilterable
         school_calendar_classroom = school_calendar_classroom.where(school_calendars: {
                                                                       unity_id: unity_id
                                                                     })
+                                                                    .by_grade_id(grade_id)
       end
 
       school_calendar_classroom = school_calendar_classroom.map { |calendar|

@@ -15,6 +15,9 @@ class SchoolCalendarClassroom < ActiveRecord::Base
   scope :by_classroom_api_code, ->(api_code) { joins(:classroom).where(classrooms: { api_code: api_code }) }
   scope :by_classroom_id, ->(classroom_id) { where(classroom_id: classroom_id) }
   scope :by_school_calendar_id, ->(school_calendar_id) { where(school_calendar_id: school_calendar_id) }
+  scope :by_grade_id, ->(grade_id) {
+    joins(classroom: [classrooms_grades: :grade]).where(grades: { id: grade_id })
+  }
   scope :ordered_by_grade, lambda {
     joins(classroom: [classrooms_grades: :grade]).order('grades.course_id')
   }
