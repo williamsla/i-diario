@@ -78,6 +78,7 @@ pt-BR:
     daily_frequencies_in_batchs: 'frequencia-em-lote'
     attendance_record_report_by_students: 'registro-de-frequencia-por-aluno'
     attendance_record_report_by_students_report: 'registro-de-frequencia-por-aluno-report'
+    diary_report: 'imprimir-diario'
     # actions
     copy: 'copiar'
     edit: 'editar'

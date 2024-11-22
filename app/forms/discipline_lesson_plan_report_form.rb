@@ -39,6 +39,14 @@ class DisciplineLessonPlanReportForm
   end
 
   def discipline_content_record
+    Rails.logger.info "imprimindo parametros de conteúdo"
+    Rails.logger.info "#{unity_id}"
+    Rails.logger.info "#{author}"
+    Rails.logger.info "#{teacher_id}"
+    Rails.logger.info "#{classroom_id}"
+    Rails.logger.info "#{discipline_id}"
+    Rails.logger.info "#{date_start.to_date}"
+    Rails.logger.info "#{date_end.to_date}"
     DisciplineContentRecord.by_unity_id(unity_id)
                            .by_author(author, teacher_id)
                            .by_classroom_id(classroom_id)

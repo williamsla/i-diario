@@ -54,6 +54,7 @@ class DisciplineContentRecord < ActiveRecord::Base
   scope :by_author, lambda { |author_type, current_teacher_id|
     if author_type == PlansAuthors::MY_PLANS
       joins(:content_record).merge(ContentRecord.where(teacher_id: current_teacher_id))
+    elsif author_type == PlansAuthors::ALL      
     else
       joins(:content_record).merge(ContentRecord.where.not(teacher_id: current_teacher_id))
     end

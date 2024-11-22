@@ -35,6 +35,14 @@ class AttendanceRecordReportForm
   end
 
   def fetch_daily_frequencies
+    global_absence = false
+    # class_numbers = 5
+    Rails.logger.info "imprimindo pârametros da frequência"
+    Rails.logger.info "#{classroom_id}"
+    Rails.logger.info "#{period}"
+    Rails.logger.info "#{global_absence}"
+    Rails.logger.info "#{discipline_id}"
+    Rails.logger.info "#{class_numbers}"
     DailyFrequencyQuery.call(
       classroom_id: classroom_id,
       period: period,

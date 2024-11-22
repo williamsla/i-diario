@@ -1,4 +1,5 @@
 require "application_responder"
+require "combine_pdf"
 
 class ApplicationController < ActionController::Base
   MAX_STEPS_FOR_SCHOOL_CALENDAR = 4
@@ -389,6 +390,28 @@ class ApplicationController < ActionController::Base
       f.write(pdf_to_s)
     end
 
+    username = Rails.application.secrets[:REPORTS_SERVER_USERNAME]
+    server = Rails.application.secrets[:REPORTS_SERVER_IP]
+    dir = Rails.application.secrets[:REPORTS_SERVER_DIR]
+
+    if username && server && dir
+      system("rsync -aHAXx --remove-source-files --quiet \"ssh -T -c aes128-gcm@openssh.com -o Compression=no -x \" #{Rails.root}/public#{name} #{username}@#{server}:#{dir}")
+    end
+
+    redirect_to name
+  end
+
+  def add_report_pdf(pdf, name, render)
+    file_path = "#{Rails.root}/public#{name}"
+    File.open(file_path, 'wb') do |f|
+      f.write(render)
+    end
+    Rails.logger.info "#{file_path}"
+    pdf << CombinePDF.load(file_path, allow_optional_content: true)
+    return pdf
+  end
+
+  def merge_pdf(name)
     username = Rails.application.secrets[:REPORTS_SERVER_USERNAME]
     server = Rails.application.secrets[:REPORTS_SERVER_IP]
     dir = Rails.application.secrets[:REPORTS_SERVER_DIR]
