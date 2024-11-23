@@ -5,11 +5,13 @@ services:
   postgres:
     image: postgres:14-alpine
     container_name: postgres-idiario
+    # command: executar manualmente dentro do container postgres-idiario os comandos do arquivo ./script/restore-backup
     ports:
       - 5432
     volumes:
       - pg_data:/var/lib/postgresql/data
-      - /home/williams/Downloads/backup:/backup
+      - /home/usuario/Downloads/backup:/backup
+      - ./script:/script
     environment:
       - POSTGRES_DB=idiario_development
       - POSTGRES_PASSWORD=postgres
@@ -34,7 +36,7 @@ services:
       - REDIS_URL=redis://redis-idiario:6379/0
     depends_on:
       - postgres
-      - redis
+      - redis      
 
 volumes:
   app:

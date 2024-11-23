@@ -52,6 +52,13 @@ docker-compose up -d --build
 
 * Use o comando `docker-compose logs -f app` para acompanhar o log da aplicação.
 
+* ERROS COMUNS
+
+* docker: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?.
+** Run sudo update-alternatives --config iptables
+** Enter 1 to select iptables-legacy
+** Now run sudo service docker start, and Docker will start as expected!
+
 * Aguarde a instalação finalizar até algo similar aparecer na tela:
 
 ```log

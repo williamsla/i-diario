@@ -1,0 +1,13 @@
+#!/bin/bash
+
+if ! test -f ".setup-backup-db"; then
+  echo 'criando banco de dados'
+  psql -U postgres -c "CREATE ROLE idiario WITH LOGIN PASSWORD 'idiario';"
+  psql -U postgres -c "CREATE DATABASE idiario OWNER idiario;" 
+  
+  echo 'restaurando banco de dados'
+  psql -U postgres --dbname idiario --file /backup/idiario.sql
+
+  touch .setup-backup-db
+fi
+
