@@ -52,9 +52,7 @@ class DiaryReportController < ApplicationController
   
     def print_report
       
-
-      pdf = CombinePDF.new
-      
+      pdfTarget = HexaPDF::Document.new     
       
       if @attendance_record_report_form.valid?
         attendance_record_report = AttendanceRecordReport.build(
@@ -72,11 +70,8 @@ class DiaryReportController < ApplicationController
           current_user,
           current_user_classroom.id #resource_params[:classroom_id]
         )
-
-        name_report_attendance = report_name('frequencia')
         
-        pdf = add_report_pdf(pdf, name_report_attendance, attendance_record_report.render)
-        
+        add_pdf_to_merge(pdfTarget, report_name('frequencia'), attendance_record_report.render)
         
       else
         Rails.logger.info "entrou no else 1"
@@ -98,25 +93,15 @@ class DiaryReportController < ApplicationController
                                                                  @discipline_lesson_plan_report_form.discipline_content_record,
                                                                  current_teacher)
                                                                  
-        name_report_content = report_name('conteudo')
-        pdf = add_report_pdf(pdf, name_report_content, lesson_plan_report.render)
-        # pdf << CombinePDF.load(name_report_content)        
-
+        add_pdf_to_merge(pdfTarget, report_name('conteudo'), lesson_plan_report.render)
+        
       else
         Rails.logger.info "entrou no else 2"
         @discipline_lesson_plan_report_form
         set_options_by_user
-  
       end
 
-      Rails.logger.info "#{pdf.inspect}"
-      name_report_diario = report_name('diario')
-      Rails.logger.info "#{Rails.root}/public#{name_report_diario}"
-
-      pdf = pdf.to_pdf
-      # pdf.save "#{Rails.root}/public#{name_report_diario}"
-
-      merge_pdf(name_report_diario)
+      merge_pdf(pdfTarget, report_name('diario'))
     end
   
     private
