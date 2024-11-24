@@ -1,9 +1,11 @@
 class AttendanceRecordReport < BaseReport
   # This number represent how many students are printed on each page
-  STUDENT_BY_PAGE_COUNT = 29
+  STUDENT_BY_PAGE_COUNT = 31
 
   # This factor represent the quantitty of students with social name needed to reduce 1 student by page
   SOCIAL_NAME_REDUCTION_FACTOR = 2
+
+  NUMBER_OF_COLS = 20
 
   def self.build(
     entity_configuration,
@@ -20,7 +22,7 @@ class AttendanceRecordReport < BaseReport
     current_user,
     classroom_id
   )
-    new(:landscape)
+    new(:portrait)
       .build(entity_configuration,
              teacher,
              year,
@@ -99,23 +101,26 @@ class AttendanceRecordReport < BaseReport
     entity_name = @entity_configuration ? @entity_configuration.entity_name : ''
     organ_name = @entity_configuration ? @entity_configuration.organ_name : ''
 
-    entity_organ_and_unity_cell = make_cell(content: "#{entity_name}\n#{organ_name}\n#{@daily_frequencies.first.unity.name}", size: 12, leading: 1.5, align: :center, valign: :center, rowspan: 4, padding: [6, 0, 8, 0])
-    classroom_header = make_cell(content: 'Turma', size: 8, font_style: :bold, width: 100, borders: [:top, :left, :right], padding: [2, 2, 4, 4], height: 2, colspan: 2)
-    year_header = make_cell(content: 'Ano letivo', size: 8, font_style: :bold, borders: [:top, :left, :right], padding: [2, 2, 4, 4], height: 2)
-    period_header = make_cell(content: 'Período', size: 8, font_style: :bold, borders: [:top, :left, :right], padding: [2, 2, 4, 4], height: 2)
-    discipline_header = make_cell(content: 'Disciplina', size: 8, font_style: :bold, width: 200, colspan: 3, borders: [:top, :left, :right], padding: [2, 2, 4, 4], height: 2)
-    teacher_header = make_cell(content: 'Professor', size: 8, font_style: :bold, width: 200, borders: [:top, :left, :right], padding: [2, 2, 4, 4], height: 2)
-    classroom_cell = make_cell(content: @daily_frequencies.first.classroom.description, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], height: 4, colspan: 2)
-    year_cell = make_cell(content: @year.to_s, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], height: 4)
-    period_cell = make_cell(content: "De #{@start_at} a #{@end_at}", size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], height: 4)
-    discipline_cell = make_cell(content: discipline_display, size: 10, colspan: 3, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], height: 4)
-    teacher_cell = make_cell(content: @teacher.name, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], height: 4)
+    entity_organ_and_unity_cell = make_cell(content: "#{entity_name}\n#{organ_name}\n#{@daily_frequencies.first.unity.name}", size: 10, leading: 1.5, align: :center, valign: :center, rowspan: 4, width:300, padding: [6, 0, 8, 0])
+    classroom_header = make_cell(content: 'Turma', size: 8, font_style: :bold, borders: [:top, :left, :right], padding: [2, 2, 4, 4], colspan: 3)
+    year_header = make_cell(content: 'Ano letivo', size: 8, font_style: :bold, borders: [:top, :left, :right], padding: [2, 2, 4, 4], colspan:1)
+    teacher_header = make_cell(content: 'Professor(a)', size: 8, font_style: :bold, borders: [:top, :left, :right], padding: [2, 2, 4, 4], colspan: 4)
+    classroom_cell = make_cell(content: @daily_frequencies.first.classroom.description, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan: 3)
+    year_cell = make_cell(content: @year.to_s, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan:1)
+    teacher_cell = make_cell(content: @teacher.name, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan: 4)
 
+    discipline_header = make_cell(content: 'Disciplina', size: 8, font_style: :bold, colspan: 1, borders: [:top, :bottom, :left], padding: [2, 2, 4, 4])
+    discipline_cell = make_cell(content: discipline_display, size: 10, colspan: 5, borders: [:top, :bottom, :right], padding: [0, 2, 4, 4])
+    period_header = make_cell(content: 'Período', size: 8, colspan:1, font_style: :bold, borders: [:top, :bottom, :left], padding: [2, 2, 4, 4])
+    period_cell = make_cell(content: "De #{@start_at} a #{@end_at}", size: 10, colspan: 5, borders: [:bottom, :right], padding: [0, 2, 4, 4])
+    
     first_table_data = [[attendance_header],
-                        [logo_cell, entity_organ_and_unity_cell, classroom_header, year_header, period_header],
-                        [classroom_cell, year_cell, period_cell],
-                        [discipline_header, teacher_header],
-                        [discipline_cell, teacher_cell]]
+                        [logo_cell, entity_organ_and_unity_cell, classroom_header, year_header],
+                        [classroom_cell, year_cell],
+                        [teacher_header],
+                        [teacher_cell],
+                        [discipline_header, discipline_cell],
+                        [period_header, period_cell]]
 
     page_header do
       table(first_table_data, width: bounds.width, header: true) do
@@ -149,7 +154,7 @@ class AttendanceRecordReport < BaseReport
     all_exempts = StudentEnrollmentExemptedDiscipline.by_student_enrollment(student_enrollment_ids)
                                                      .includes(student_enrollment: [:student]).to_a
 
-    sliced_frequencies_and_events = frequencies_and_events.each_slice(40).to_a
+    sliced_frequencies_and_events = frequencies_and_events.each_slice(NUMBER_OF_COLS).to_a
 
     sliced_frequencies_and_events.each_with_index do |frequencies_and_events_slice, index|
       class_numbers = []
@@ -274,20 +279,20 @@ class AttendanceRecordReport < BaseReport
       percentage_absences_header = make_cell(content: 'Freq.', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, valign: :center, rowspan: 3)
 
       first_headers_and_class_numbers_cells = [sequential_number_header, student_name_header, class_number_header].concat(class_numbers)
-
-      (40 - class_numbers.count).times { first_headers_and_class_numbers_cells << make_cell(content: '', background_color: 'FFFFFF') }
+      
+      (NUMBER_OF_COLS - class_numbers.count).times { first_headers_and_class_numbers_cells << make_cell(content: '', background_color: 'FFFFFF') }
 
       first_headers_and_class_numbers_cells << absences_header
 
       first_headers_and_class_numbers_cells << percentage_absences_header if @show_percentage_on_attendance
 
       days_header_and_cells = [day_header].concat(days)
-
-      (40 - days.count).times { days_header_and_cells << make_cell(content: '', background_color: 'FFFFFF') }
+      
+      (NUMBER_OF_COLS - days.count).times { days_header_and_cells << make_cell(content: '', background_color: 'FFFFFF') }
 
       months_header_and_cells = [month_header].concat(months)
-
-      (40 - months.count).times { months_header_and_cells << make_cell(content: '', background_color: 'FFFFFF') }
+      
+      (NUMBER_OF_COLS - months.count).times { months_header_and_cells << make_cell(content: '', background_color: 'FFFFFF') }
 
       students_cells = []
       students = students.sort_by { |(_key, value)| value[:dependence] ? 1 : 0 }
@@ -307,8 +312,8 @@ class AttendanceRecordReport < BaseReport
         end
 
         student_cells = [sequence_cell, { content: (value[:dependence] ? '* ' : '') + value[:name], colspan: 2 }].concat(value[:attendances])
-
-        (40 - value[:attendances].count).times { student_cells << nil }
+        
+        (NUMBER_OF_COLS - value[:attendances].count).times { student_cells << nil }
 
         student_cells << make_cell(content: value[:absences].to_s, align: :center)
 
@@ -338,10 +343,11 @@ class AttendanceRecordReport < BaseReport
 
         data.concat(students_cells_slice)
 
-        column_widths = { 0 => 20, 1 => 140, 43 => 30 }
+        column_widths = { 0 => 20, 1 => 140, (NUMBER_OF_COLS+3) => 30 } #43
 
-        (3..42).each { |i| column_widths[i] = 13 }
-
+        # 3..42
+        (3..(NUMBER_OF_COLS+2)).each { |i| column_widths[i] = 13 }
+        
         page_content do
           table(data, row_colors: ['FFFFFF', 'DEDEDE'], cell_style: { size: 8, padding: [2, 2, 2, 2] },
                       column_widths: column_widths, width: bounds.width) do |t|
@@ -356,12 +362,12 @@ class AttendanceRecordReport < BaseReport
           end
         end
 
-        text_box(self.legend, size: 8, at: [0, 30 + bottom_offset], width: 825, height: 20)
+        text_box(self.legend, size: 8, at: [0, 30 + bottom_offset], width: 585, height: 20)
 
         start_new_page if slice_index < sliced_students_cells.count - 1
       end
 
-      text_box(self.legend, size: 8, at: [0, 30 + bottom_offset], width: 825, height: 20)
+      text_box(self.legend, size: 8, at: [0, 30 + bottom_offset], width: 585, height: 20)
 
       self.legend = 'Legenda: N - Não enturmado, D - Dispensado da disciplina, FJ - Falta justificada'
 
@@ -378,7 +384,7 @@ class AttendanceRecordReport < BaseReport
           start_new_page
         end
 
-        text_box_overflow_to_new_page(events, 8, at, 825, height)
+        text_box_overflow_to_new_page(events, 8, at, 585, height)
       end
     end
   end
@@ -391,18 +397,18 @@ class AttendanceRecordReport < BaseReport
     page_footer do
       repeat(:all) do
         if @second_teacher_signature
-          draw_text('Assinatura do(a) professor(a):', size: 8, style: :bold, at: [0, 24])
-          draw_text('________________________________________', size: 8, at: [117, 24])
+          # draw_text('Assinatura do(a) professor(a):', size: 8, style: :bold, at: [0, 24])
+          # draw_text('________________________________________', size: 8, at: [117, 24])
         end
 
         draw_text('Assinatura do(a) professor(a):', size: 8, style: :bold, at: [0, 0])
-        draw_text('________________________________________', size: 8, at: [117, 0])
+        draw_text('________________________________________', size: 8, at: [0, 14])
 
-        draw_text('Assinatura do(a) coordenador(a)/diretor(a):', size: 8, style: :bold, at: [300, 0])
-        draw_text('________________________________________', size: 8, at: [470, 0])
+        draw_text('Assinatura do(a) coordenador(a):', size: 8, style: :bold, at: [300, 0])
+        draw_text('________________________________________', size: 8, at: [300, 14])
 
-        draw_text('Data:', size: 8, style: :bold, at: [652, 0])
-        draw_text('________________', size: 8, at: [674, 0])
+        draw_text('Data:', size: 8, style: :bold, at: [450, 34])
+        draw_text('________________', size: 8, at: [472, 34])
 
         if any_student_with_dependence
           offset = @second_teacher_signature ? 24 : 0
