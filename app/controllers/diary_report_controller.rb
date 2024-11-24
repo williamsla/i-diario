@@ -6,9 +6,11 @@ class DiaryReportController < ApplicationController
     before_action :require_current_teacher
   
     def form
-      Rails.logger.info "\n\n\n\n--- form teste----\n\n\n\n\n"
-      Rails.logger.info "\n\n\n\n chamando print"
+      Rails.logger.info "\n\n\n\n iniciando print"
+
       @steps = steps_fetcher.steps
+      set_options_by_user
+      set_school_calendars
 
       @attendance_record_report_form = AttendanceRecordReportForm.new(
         unity_id: current_unity.id,
@@ -29,20 +31,48 @@ class DiaryReportController < ApplicationController
         year: current_user_school_year
       )
 
-      @discipline_lesson_plan_report_form = DisciplineLessonPlanReportForm.new(
-        teacher_id: current_teacher_id,
-        unity_id: current_user_unity.id,
-        classroom_id: current_user_classroom.id,
-        discipline_id: current_user_discipline.id,
-        date_start: @steps.first.start_at,
-        date_end: @steps.last.end_at
-      )
+      @content_forms = []
+      @avaliation_forms = []
 
-      @discipline_lesson_plan_report_form.author = PlansAuthors::ALL
-      @discipline_lesson_plan_report_form.report_type = DISCIPLINE_CONTENT_RECORD
+      @disciplines.each do |discipline|
+        @discipline_lesson_plan_report_form = DisciplineLessonPlanReportForm.new(
+          teacher_id: current_teacher_id,
+          unity_id: current_user_unity.id,
+          classroom_id: current_user_classroom.id,
+          discipline_id: discipline.id,
+          date_start: @steps.first.start_at,
+          date_end: @steps.last.end_at
+        )
+
+        @discipline_lesson_plan_report_form.author = PlansAuthors::ALL
+        @discipline_lesson_plan_report_form.report_type = DISCIPLINE_CONTENT_RECORD
+
+        @content_forms << @discipline_lesson_plan_report_form
+
+        @school_calendar_steps.each do |step|
+          @exam_record_report_form = ExamRecordReportForm.new(
+            unity_id: current_user_unity.id,
+            classroom_id: current_user_classroom.id,
+            discipline_id: discipline.id,
+            school_calendar_step_id: step.id
+          )
+
+          @avaliation_forms << @exam_record_report_form
+        end
+        
+        @school_calendar_classroom_steps.each do |step|
+          @exam_record_report_form = ExamRecordReportForm.new(
+            unity_id: current_user_unity.id,
+            classroom_id: current_user_classroom.id,
+            discipline_id: discipline.id,
+            school_calendar_classroom_step_id: step.id
+          )
+
+          @avaliation_forms << @exam_record_report_form
+        end
+
+      end
       
-      Rails.logger.info "#{@discipline_lesson_plan_report_form.inspect}"
-
       print_report()
       
       Rails.logger.info "finalizou print"
@@ -74,35 +104,41 @@ class DiaryReportController < ApplicationController
         add_pdf_to_merge(pdfTarget, report_name('frequencia'), attendance_record_report.render)
         
       else
-        Rails.logger.info "entrou no else 1"
-        @attendance_record_report_form.school_calendar_year = current_school_year
-
-        set_options_by_user
-        fetch_collections
-        
-        # render :form
+        Rails.logger.error "Ocorreu um erro ao carregar frequência"        
+        # return
       end
 
-
-      # @discipline_lesson_plan_report_form = DisciplineLessonPlanReportForm.new(resource_params)
       
-      if @discipline_lesson_plan_report_form.valid?
-        lesson_plan_report = DisciplineContentRecordReport.build(current_entity_configuration,
-                                                                 @discipline_lesson_plan_report_form.date_start,
-                                                                 @discipline_lesson_plan_report_form.date_end,
-                                                                 @discipline_lesson_plan_report_form.discipline_content_record,
-                                                                 current_teacher)
-                                                                 
-        add_pdf_to_merge(pdfTarget, report_name('conteudo'), lesson_plan_report.render)
-        
-      else
-        Rails.logger.info "entrou no else 2"
-        @discipline_lesson_plan_report_form
-        set_options_by_user
+      @content_forms.each do |content_discipline|
+        if content_discipline.valid?
+          lesson_plan_report = DisciplineContentRecordReport.build(current_entity_configuration,
+                                                                content_discipline.date_start,
+                                                                content_discipline.date_end,
+                                                                content_discipline.discipline_content_record,
+                                                                current_teacher)
+                                                                
+          add_pdf_to_merge(pdfTarget, report_name('conteudo'), lesson_plan_report.render)
+          
+        else
+          Rails.logger.error "Ocorreu um erro ao carregar conteúdos da disciplina"  
+          Rails.logger.error "#{content_discipline.inspect}"  
+          # return        
+        end
+      end
+
+      @avaliation_forms.each do |avaliation_discipline|
+        if avaliation_discipline.valid?
+          exam_record_report = @school_calendar_classroom_steps.any? ? build_by_classroom_steps(avaliation_discipline) : build_by_school_steps(avaliation_discipline)
+          add_pdf_to_merge(pdfTarget, report_name('avaliacao'), exam_record_report.render)
+        else
+          Rails.logger.error "Ocorreu um erro ao carregar avaliações da disciplina"  
+          Rails.logger.error "#{avaliation_discipline.inspect}"  
+        end
       end
 
       merge_pdf(pdfTarget, report_name('diario'))
     end
+    
   
     private
   
@@ -129,15 +165,51 @@ class DiaryReportController < ApplicationController
                                                             :current_teacher_id,
                                                             :second_teacher_signature,
                                                             :global_absence)
+      
+      params.require(:exam_record_report_form).permit(:unity_id,
+                                                    :classroom_id,
+                                                    :discipline_id,
+                                                    :school_calendar_step_id,
+                                                    :school_calendar_classroom_step_id)
+    end
+
+    def build_by_school_steps(exam_record_report_form)
+      ExamRecordReport.build(
+        current_entity_configuration,
+        current_teacher,
+        current_school_year,
+        exam_record_report_form.step,
+        current_test_setting_step(exam_record_report_form.step),
+        exam_record_report_form.daily_notes,
+        exam_record_report_form.students_enrollments,
+        [],
+        exam_record_report_form.school_term_recoveries,
+        [],
+        exam_record_report_form.lowest_notes
+      )
+    end
+  
+    def build_by_classroom_steps(exam_record_report_form)
+      ExamRecordReport.build(
+        current_entity_configuration,
+        current_teacher,
+        current_school_calendar.year,
+        exam_record_report_form.classroom_step,
+        current_test_setting_step(exam_record_report_form.classroom_step),
+        exam_record_report_form.daily_notes_classroom_steps,
+        exam_record_report_form.students_enrollments,
+        [],
+        exam_record_report_form.school_term_recoveries,
+        [],
+        exam_record_report_form.lowest_notes
+      )
     end
   
     def set_options_by_user
-      @admin_or_teacher ||= current_user.current_role_is_admin_or_employee?
-      @unities ||= @admin_or_teacher ? Unity.ordered : [current_user_unity]
+      @unities = [current_user_unity]
   
-      return fetch_linked_by_teacher unless @admin_or_teacher
-  
-      fetch_collections
+      return fetch_linked_by_teacher
+
     end
   
     def fetch_linked_by_teacher
@@ -148,17 +220,20 @@ class DiaryReportController < ApplicationController
       )
       @classrooms ||= @fetch_linked_by_teacher[:classrooms]
       @disciplines ||= @fetch_linked_by_teacher[:disciplines].by_classroom_id(
-        @discipline_lesson_plan_report_form.classroom_id
+        current_user_classroom.id
       ).not_descriptor
     end
+
+    def set_school_calendars
+      school_calendar = CurrentSchoolCalendarFetcher.new(
+        Unity.find(current_user_unity.id),
+        Classroom.find(current_user_classroom.id),
+        current_school_year
+      ).fetch
   
-    def fetch_collections
-      @number_of_classes = current_school_calendar.number_of_classes
-      @classrooms ||= Classroom.by_unity(current_unity.id)
-                               .by_year(current_user_school_year || Date.current.year)
-                               .ordered
-      @disciplines ||= Discipline.by_classroom_id(current_user_classroom.id)
-                                 .not_descriptor
+      @school_calendar_steps = SchoolCalendarStep.where(school_calendar: school_calendar).ordered
+      @school_calendar_classroom_steps = SchoolCalendarClassroomStep.by_classroom(current_user_classroom.id).ordered
     end
+  
   end
   

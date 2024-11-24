@@ -4,13 +4,13 @@ class ExamRecordReport < BaseReport
   include ActionView::Helpers::NumberHelper
 
   # This number represent how many students are printed on each page
-  STUDENT_BY_PAGE_COUNT = 25
+  STUDENT_BY_PAGE_COUNT = 40
 
   # This factor represent the quantitty of students with social name needed to reduce 1 student by page
   SOCIAL_NAME_REDUCTION_FACTOR = 3
 
   def self.build(entity_configuration, teacher, year, school_calendar_step, test_setting, daily_notes, students_enrollments, complementary_exams, school_term_recoveries, recovery_lowest_notes, lowest_notes)
-    new(:landscape).build(entity_configuration, teacher, year, school_calendar_step, test_setting, daily_notes, students_enrollments, complementary_exams, school_term_recoveries, recovery_lowest_notes, lowest_notes)
+    new(:portrait).build(entity_configuration, teacher, year, school_calendar_step, test_setting, daily_notes, students_enrollments, complementary_exams, school_term_recoveries, recovery_lowest_notes, lowest_notes)
   end
 
   def build(entity_configuration, teacher, year, school_calendar_step, test_setting, daily_notes, students_enrollments, complementary_exams, school_term_recoveries, recovery_lowest_notes, lowest_notes)
@@ -75,23 +75,25 @@ class ExamRecordReport < BaseReport
     entity_name = @entity_configuration ? @entity_configuration.entity_name : ''
     organ_name = @entity_configuration ? @entity_configuration.organ_name : ''
 
-    entity_organ_and_unity_cell = make_cell(content: "#{entity_name}\n#{organ_name}\n#{@daily_notes.first.unity.name}", size: 12, leading: 1.5, align: :center, valign: :center, rowspan: 4, padding: [6, 2, 8, 2])
-    classroom_header = make_cell(content: 'Turma', size: 8, font_style: :bold, width: 100, borders: [:top, :left, :right], padding: [2, 2, 4, 4], height: 2)
+    entity_organ_and_unity_cell = make_cell(content: "#{entity_name}\n#{organ_name}\n#{@daily_notes.first.unity.name}", size: 10, leading: 1.5, align: :center, valign: :center, rowspan: 4, width: 300, padding: [4, 2, 8, 2])
+    classroom_header = make_cell(content: 'Turma', size: 8, font_style: :bold, colspan: 2, borders: [:top, :left, :right], padding: [2, 2, 4, 4], height: 2)
     year_header = make_cell(content: 'Ano letivo', size: 8, font_style: :bold, borders: [:top, :left, :right], padding: [2, 2, 4, 4], height: 2)
-    step_header = make_cell(content: 'Etapa', size: 8, font_style: :bold, borders: [:top, :left, :right], padding: [2, 2, 4, 4], height: 2)
-    discipline_header = make_cell(content: 'Disciplina', size: 8, font_style: :bold, width: 200, colspan: 2, borders: [:top, :left, :right], padding: [2, 2, 4, 4], height: 2)
-    teacher_header = make_cell(content: 'Professor', size: 8, font_style: :bold, width: 200, borders: [:top, :left, :right], padding: [2, 2, 4, 4], height: 2)
-    classroom_cell = make_cell(content: classroom.description, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], height: 4)
+    teacher_header = make_cell(content: 'Professor(a)', size: 8, font_style: :bold, colspan: 3, borders: [:top, :left, :right], padding: [2, 2, 4, 4])
+    classroom_cell = make_cell(content: classroom.description, size: 10, colspan: 2, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], height: 4)
     year_cell = make_cell(content: @year.to_s, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], height: 4)
-    step_cell = make_cell(content: @school_calendar_step.to_s, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], height: 4)
-    discipline_cell = make_cell(content: (discipline ? discipline.description : 'Geral'), size: 10, colspan: 2, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], height: 4)
-    teacher_cell = make_cell(content: @teacher.name, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], height: 4)
+    teacher_cell = make_cell(content: @teacher.name, size: 10, colspan: 3, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4])
+    discipline_header = make_cell(content: 'Disciplina', size: 8, font_style: :bold, colspan:1, rowspan:1, borders: [:top, :bottom, :left], padding: [2, 2, 4, 4])
+    discipline_cell = make_cell(content: (discipline ? discipline.description : 'Geral'), size: 10, colspan: 4, borders: [:top, :bottom, :right], padding: [0, 2, 4, 4])
+    step_header = make_cell(content: 'Etapa', size: 8, colspan:1, rowspan:1, font_style: :bold, borders: [:top, :bottom, :left], padding: [2, 2, 4, 4])
+    step_cell = make_cell(content: @school_calendar_step.to_s, size: 10, colspan: 4, borders: [:bottom, :right], padding: [0, 2, 4, 4])
 
     first_table_data = [[exam_header],
-                        [logo_cell, entity_organ_and_unity_cell, classroom_header, year_header, step_header],
-                        [classroom_cell, year_cell, step_cell],
-                        [discipline_header, teacher_header],
-                        [discipline_cell, teacher_cell]]
+                        [logo_cell, entity_organ_and_unity_cell, classroom_header, year_header],
+                        [classroom_cell, year_cell],
+                        [teacher_header],
+                        [teacher_cell],
+                        [discipline_header, discipline_cell],
+                        [step_header, step_cell]]
 
     page_header do
       table(first_table_data, width: bounds.width, header: true) do
@@ -160,7 +162,7 @@ class ExamRecordReport < BaseReport
     end
 
     exams.to_a
-    sliced_exams = exams.each_slice(10).to_a
+    sliced_exams = exams.each_slice(5).to_a
     pos = 0
 
     sliced_exams.each_with_index do |daily_notes_slice, index|
@@ -247,7 +249,7 @@ class ExamRecordReport < BaseReport
         first_headers_and_cells << lowest_note_header
       end
 
-      (10 - avaliations.count).times { first_headers_and_cells << make_cell(content: '', background_color: 'FFFFFF', width: 55) }
+      (5 - avaliations.count).times { first_headers_and_cells << make_cell(content: '', background_color: 'FFFFFF', width: 55) }
       first_headers_and_cells << average_header
 
       students_cells = []
@@ -268,7 +270,7 @@ class ExamRecordReport < BaseReport
           student_cells << make_cell(content: "#{recovery_lowest_note[key]}", align: :center)
         end
 
-        number_colums = 10
+        number_colums = 5
 
         (number_colums - data_column_count).times { student_cells << nil }
 
@@ -292,10 +294,10 @@ class ExamRecordReport < BaseReport
         sequence += 1
       end
 
-      (10 - students_cells.count).times do
+      (5 - students_cells.count).times do
         sequence_cell = make_cell(content: (students_cells.count + 1).to_s, align: :center)
         scores = []
-        10.times { scores << make_cell(content: '', align: :center) }
+        5.times { scores << make_cell(content: '', align: :center) }
         student_cells = [sequence_cell, { content: '' }].concat(scores)
         student_cells << make_cell(content: '', align: :center)
         students_cells << student_cells
@@ -362,17 +364,17 @@ class ExamRecordReport < BaseReport
     page_footer do
       repeat(:all) do
         draw_text('Assinatura do(a) professor(a):', size: 8, style: :bold, at: [0, 0])
-        draw_text('____________________________', size: 8, at: [117, 0])
+        draw_text('________________________________', size: 8, at: [0, 8])
 
-        draw_text('Assinatura do(a) coordenador(a)/diretor(a):', size: 8, style: :bold, at: [259, 0])
-        draw_text('____________________________', size: 8, at: [429, 0])
+        draw_text('Assinatura do(a) coordenador(a):', size: 8, style: :bold, at: [259, 0])
+        draw_text('________________________________', size: 8, at: [259, 8])
 
-        draw_text('Data:', size: 8, style: :bold, at: [559, 0])
-        draw_text('________________', size: 8, at: [581, 0])
+        draw_text('Data:', size: 8, style: :bold, at: [450, 34])
+        draw_text('________________', size: 8, at: [472, 34])
         if @active_search
-          draw_text('Legendas: N - Não enturmado, D - Dispensado da avaliação ou da disciplina, B - Busca ativa', size: 8, style: :bold, at: [0, 17])
+          draw_text('Legendas: N - Não enturmado, D - Dispensado da avaliação ou da disciplina, B - Busca ativa', size: 8, style: :bold, at: [0, 34])
         else
-          draw_text('Legendas: N - Não enturmado, D - Dispensado da avaliação ou da disciplina', size: 8, style: :bold, at: [0, 17])
+          draw_text('Legendas: N - Não enturmado, D - Dispensado da avaliação ou da disciplina', size: 8, style: :bold, at: [0, 34])
         end
         draw_text('* Alunos cursando dependência', size: 8, at: [0, 32]) if self.any_student_with_dependence
       end

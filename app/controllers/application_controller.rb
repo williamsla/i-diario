@@ -407,15 +407,25 @@ class ApplicationController < ActionController::Base
     
     File.open(file_path, 'wb') do |f|
       f.write(render)
-    end
+      
+      # last_page_number = pdfTarget.pages.size
 
-    localpdf = HexaPDF::Document.open(file_path)
-    localpdf.pages.each {|page| pdfTarget.pages << pdfTarget.import(page)}
+      localpdf = HexaPDF::Document.open(file_path)
+      localpdf.pages.each {|page| pdfTarget.pages << pdfTarget.import(page)}
+
+      # pdfTarget.outline.add_item("Main") do |main|
+      #   main.add_item(name, destination: last_page_number)      
+      # end
+
+      File.delete(f)    
+    end
     
   end
 
   def merge_pdf(pdfTarget, name)
     full_path_report_diario = "#{Rails.root}/public#{name}"
+
+    # pdfTarget.catalog[:PageMode] = :UseOutlines
 
     pdfTarget.write(full_path_report_diario, optimize: true)
 
