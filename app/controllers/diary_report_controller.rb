@@ -35,6 +35,7 @@ class DiaryReportController < ApplicationController
       @avaliation_forms = []
 
       @disciplines.each do |discipline|
+        #content
         @discipline_lesson_plan_report_form = DisciplineLessonPlanReportForm.new(
           teacher_id: current_teacher_id,
           unity_id: current_user_unity.id,
@@ -49,27 +50,28 @@ class DiaryReportController < ApplicationController
 
         @content_forms << @discipline_lesson_plan_report_form
 
-        @school_calendar_steps.each do |step|
-          @exam_record_report_form = ExamRecordReportForm.new(
-            unity_id: current_user_unity.id,
-            classroom_id: current_user_classroom.id,
-            discipline_id: discipline.id,
-            school_calendar_step_id: step.id
-          )
+        #avaliations
+        # @school_calendar_steps.each do |step|
+        #   @exam_record_report_form = ExamRecordReportForm.new(
+        #     unity_id: current_user_unity.id,
+        #     classroom_id: current_user_classroom.id,
+        #     discipline_id: discipline.id,
+        #     school_calendar_step_id: step.id
+        #   )
 
-          @avaliation_forms << @exam_record_report_form
-        end
+        #   @avaliation_forms << @exam_record_report_form
+        # end
         
-        @school_calendar_classroom_steps.each do |step|
-          @exam_record_report_form = ExamRecordReportForm.new(
-            unity_id: current_user_unity.id,
-            classroom_id: current_user_classroom.id,
-            discipline_id: discipline.id,
-            school_calendar_classroom_step_id: step.id
-          )
+        # @school_calendar_classroom_steps.each do |step|
+        #   @exam_record_report_form = ExamRecordReportForm.new(
+        #     unity_id: current_user_unity.id,
+        #     classroom_id: current_user_classroom.id,
+        #     discipline_id: discipline.id,
+        #     school_calendar_classroom_step_id: step.id
+        #   )
 
-          @avaliation_forms << @exam_record_report_form
-        end
+        #   @avaliation_forms << @exam_record_report_form
+        # end
 
       end
       
@@ -87,18 +89,19 @@ class DiaryReportController < ApplicationController
       if @attendance_record_report_form.valid?
         attendance_record_report = AttendanceRecordReport.build(
           current_entity_configuration,
+          current_user_unity,
           current_teacher,
           current_user_school_year,
           @attendance_record_report_form.start_at,
           @attendance_record_report_form.end_at,
           @attendance_record_report_form.daily_frequencies,
           @attendance_record_report_form.enrollment_classrooms_list,
-          @attendance_record_report_form.school_calendar_events,
+          [],
           @attendance_record_report_form.school_calendar,
           @attendance_record_report_form.second_teacher_signature,
           @attendance_record_report_form.students_frequencies_percentage,
           current_user,
-          current_user_classroom.id #resource_params[:classroom_id]
+          current_user_classroom.description
         )
         
         add_pdf_to_merge(pdfTarget, report_name('frequencia'), attendance_record_report.render)
@@ -112,10 +115,12 @@ class DiaryReportController < ApplicationController
       @content_forms.each do |content_discipline|
         if content_discipline.valid?
           lesson_plan_report = DisciplineContentRecordReport.build(current_entity_configuration,
+                                                                current_unity,
                                                                 content_discipline.date_start,
                                                                 content_discipline.date_end,
                                                                 content_discipline.discipline_content_record,
-                                                                current_teacher)
+                                                                current_teacher,
+                                                                current_user_classroom)
                                                                 
           add_pdf_to_merge(pdfTarget, report_name('conteudo'), lesson_plan_report.render)
           
@@ -126,15 +131,15 @@ class DiaryReportController < ApplicationController
         end
       end
 
-      @avaliation_forms.each do |avaliation_discipline|
-        if avaliation_discipline.valid?
-          exam_record_report = @school_calendar_classroom_steps.any? ? build_by_classroom_steps(avaliation_discipline) : build_by_school_steps(avaliation_discipline)
-          add_pdf_to_merge(pdfTarget, report_name('avaliacao'), exam_record_report.render)
-        else
-          Rails.logger.error "Ocorreu um erro ao carregar avaliações da disciplina"  
-          Rails.logger.error "#{avaliation_discipline.inspect}"  
-        end
-      end
+      # @avaliation_forms.each do |avaliation_discipline|
+      #   if avaliation_discipline.valid?
+      #     exam_record_report = @school_calendar_classroom_steps.any? ? build_by_classroom_steps(avaliation_discipline) : build_by_school_steps(avaliation_discipline)
+      #     add_pdf_to_merge(pdfTarget, report_name('avaliacao'), exam_record_report.render)
+      #   else
+      #     Rails.logger.error "Ocorreu um erro ao carregar avaliações da disciplina"  
+      #     Rails.logger.error "#{avaliation_discipline.inspect}"  
+      #   end
+      # end
 
       merge_pdf(pdfTarget, report_name('diario'))
     end
@@ -185,7 +190,7 @@ class DiaryReportController < ApplicationController
         [],
         exam_record_report_form.school_term_recoveries,
         [],
-        exam_record_report_form.lowest_notes
+        []
       )
     end
   
@@ -201,7 +206,7 @@ class DiaryReportController < ApplicationController
         [],
         exam_record_report_form.school_term_recoveries,
         [],
-        exam_record_report_form.lowest_notes
+        []
       )
     end
   

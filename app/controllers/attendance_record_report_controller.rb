@@ -25,18 +25,19 @@ class AttendanceRecordReportController < ApplicationController
     if @attendance_record_report_form.valid?
       attendance_record_report = AttendanceRecordReport.build(
         current_entity_configuration,
+        current_unity,
         current_teacher,
         current_user_school_year,
         @attendance_record_report_form.start_at,
         @attendance_record_report_form.end_at,
         @attendance_record_report_form.daily_frequencies,
         @attendance_record_report_form.enrollment_classrooms_list,
-        @attendance_record_report_form.school_calendar_events,
+        [],
         @attendance_record_report_form.school_calendar,
         @attendance_record_report_form.second_teacher_signature,
         @attendance_record_report_form.students_frequencies_percentage,
         current_user,
-        resource_params[:classroom_id]
+        current_user_classroom.description
       )
       send_pdf(t('routes.attendance_record'), attendance_record_report.render)
     else

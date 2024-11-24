@@ -5,10 +5,11 @@ class AttendanceRecordReport < BaseReport
   # This factor represent the quantitty of students with social name needed to reduce 1 student by page
   SOCIAL_NAME_REDUCTION_FACTOR = 2
 
-  NUMBER_OF_COLS = 20
+  NUMBER_OF_COLS = 25
 
   def self.build(
     entity_configuration,
+    unity,
     teacher,
     year,
     start_at,
@@ -20,10 +21,11 @@ class AttendanceRecordReport < BaseReport
     second_teacher_signature,
     students_frequencies_percentage,
     current_user,
-    classroom_id
+    classroom_description
   )
     new(:portrait)
       .build(entity_configuration,
+             unity,
              teacher,
              year,
              start_at,
@@ -35,12 +37,13 @@ class AttendanceRecordReport < BaseReport
              second_teacher_signature,
              students_frequencies_percentage,
              current_user,
-             classroom_id)
+             classroom_description)
 
   end
 
   def build(
     entity_configuration,
+    unity,
     teacher,
     year,
     start_at,
@@ -52,10 +55,13 @@ class AttendanceRecordReport < BaseReport
     second_teacher_signature,
     students_frequencies_percentage,
     current_user,
-    classroom_id
+    classroom_description
   )
+    ini = Time.now
+
     @entity_configuration = entity_configuration
-    @teacher = set_teacher(teacher, classroom_id, current_user)
+    @unity = unity
+    @teacher = teacher
     @year = year
     @start_at = start_at
     @end_at = end_at
@@ -69,6 +75,7 @@ class AttendanceRecordReport < BaseReport
     @exists_legend_hybrid = false
     @exists_legend_remote = false
     @students_frequency_percentage = students_frequencies_percentage
+    @classroom_description = classroom_description
 
     self.legend = 'Legenda: N - Não enturmado, D - Dispensado da disciplina, FJ - Falta justificada'
 
@@ -80,6 +87,11 @@ class AttendanceRecordReport < BaseReport
     header
     content
     footer
+
+    fim = Time.now
+    tempo_resultante = fim - ini
+    Rails.logger.info "\n\ntempo carregamento de frequência: #{tempo_resultante}"
+    # exit
 
     self
   end
@@ -101,11 +113,11 @@ class AttendanceRecordReport < BaseReport
     entity_name = @entity_configuration ? @entity_configuration.entity_name : ''
     organ_name = @entity_configuration ? @entity_configuration.organ_name : ''
 
-    entity_organ_and_unity_cell = make_cell(content: "#{entity_name}\n#{organ_name}\n#{@daily_frequencies.first.unity.name}", size: 10, leading: 1.5, align: :center, valign: :center, rowspan: 4, width:300, padding: [6, 0, 8, 0])
+    entity_organ_and_unity_cell = make_cell(content: "#{entity_name}\n#{organ_name}\n#{@unity.name}", size: 10, leading: 1.5, align: :center, valign: :center, rowspan: 4, width:300, padding: [6, 0, 8, 0])
     classroom_header = make_cell(content: 'Turma', size: 8, font_style: :bold, borders: [:top, :left, :right], padding: [2, 2, 4, 4], colspan: 3)
     year_header = make_cell(content: 'Ano letivo', size: 8, font_style: :bold, borders: [:top, :left, :right], padding: [2, 2, 4, 4], colspan:1)
     teacher_header = make_cell(content: 'Professor(a)', size: 8, font_style: :bold, borders: [:top, :left, :right], padding: [2, 2, 4, 4], colspan: 4)
-    classroom_cell = make_cell(content: @daily_frequencies.first.classroom.description, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan: 3)
+    classroom_cell = make_cell(content: @classroom_description, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan: 3)
     year_cell = make_cell(content: @year.to_s, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan:1)
     teacher_cell = make_cell(content: @teacher.name, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan: 4)
 
@@ -151,9 +163,7 @@ class AttendanceRecordReport < BaseReport
 
     active_searches = active_searches_by_range(daily_frequencies, student_enrollment_ids)
     all_dependances = StudentEnrollmentDependence.where(student_enrollment_id: student_enrollment_ids)
-    all_exempts = StudentEnrollmentExemptedDiscipline.by_student_enrollment(student_enrollment_ids)
-                                                     .includes(student_enrollment: [:student]).to_a
-
+    
     sliced_frequencies_and_events = frequencies_and_events.each_slice(NUMBER_OF_COLS).to_a
 
     sliced_frequencies_and_events.each_with_index do |frequencies_and_events_slice, index|
@@ -165,7 +175,7 @@ class AttendanceRecordReport < BaseReport
       frequencies_and_events_slice.each do |daily_frequency_or_event|
         if daily_frequency?(daily_frequency_or_event)
           daily_frequency = daily_frequency_or_event
-          next unless frequency_in_period(daily_frequency) && is_school_day?(daily_frequency.frequency_date)
+          # next unless frequency_in_period(daily_frequency)
 
           class_numbers << make_cell(content: daily_frequency.class_number.to_s, background_color: 'FFFFFF', align: :center)
           days << make_cell(content: daily_frequency.frequency_date.day.to_s, background_color: 'FFFFFF', align: :center)
@@ -178,10 +188,8 @@ class AttendanceRecordReport < BaseReport
             joined_at = enrollment_classroom[:student_enrollment_classroom].joined_at.to_date
             left_at = get_left_at(enrollment_classroom[:student_enrollment_classroom].left_at)
             sequence = enrollment_classroom[:student_enrollment_classroom].sequence
-
-            if exempted_from_discipline?(all_exempts, student_enrollment, daily_frequency)
-              student_frequency = ExemptedDailyFrequencyStudent.new
-            elsif in_active_search?(student.id, active_searches, daily_frequency)
+            
+            if in_active_search?(student.id, active_searches, daily_frequency)
               @show_legend_active_search = true
               student_frequency = ActiveSearchFrequencyStudent.new
             elsif @show_inactive_enrollments
@@ -203,7 +211,7 @@ class AttendanceRecordReport < BaseReport
 
             (students[student_enrollment_classroom.id] ||= {})[:name] = student.to_s
             students[student_enrollment_classroom.id] = {} if students[student_enrollment_classroom.id].nil?
-            students[student_enrollment_classroom.id][:dependence] = students[student_enrollment_classroom.id][:dependence] || student_has_dependence?(all_dependances, student_enrollment, daily_frequency)
+            students[student_enrollment_classroom.id][:dependence] = students[student_enrollment_classroom.id][:dependence] #|| student_has_dependence?(all_dependances, student_enrollment, daily_frequency)
             self.any_student_with_dependence = self.any_student_with_dependence || students[student_enrollment_classroom.id][:dependence]
             students[student_enrollment_classroom.id][:absences] ||= 0
             students[student_enrollment_classroom.id][:sequence] ||= sequence if @show_inactive_enrollments
@@ -221,26 +229,12 @@ class AttendanceRecordReport < BaseReport
               students[student_enrollment_classroom.id][:absences] +=  absences
             end
 
-            hybrid_or_remote = frequency_hybrid_or_remote(student_enrollment, daily_frequency)
-
-            if hybrid_or_remote
-              student_frequency = hybrid_or_remote
-            else
-              student_frequency
-            end
-
-            if @show_legend_hybrid && !@exists_legend_hybrid
-              @exists_legend_hybrid = true
-              self.legend += ', S - Modalidade semipresencial'
-            elsif @show_legend_remote && !@exists_legend_remote
-              @exists_legend_remote = true
-              self.legend += ', R - Modalidade remota'
-            end
+            student_frequency
 
             (students[student_enrollment_classroom.id][:attendances] ||= []) <<
               make_cell(content: student_frequency.to_s, align: :center)
           end
-        else
+        else # Se não for dia letivo
           school_calendar_event = daily_frequency_or_event
           legend = ', ' + school_calendar_event[:legend].to_s + ' - ' + school_calendar_event[:description]
           self.legend += legend unless self.legend.include?(legend)
@@ -311,6 +305,7 @@ class AttendanceRecordReport < BaseReport
           sequence_cell = make_cell(content: sequence.to_s, align: :center)
         end
 
+        #nome do aluno
         student_cells = [sequence_cell, { content: (value[:dependence] ? '* ' : '') + value[:name], colspan: 2 }].concat(value[:attendances])
         
         (NUMBER_OF_COLS - value[:attendances].count).times { student_cells << nil }
@@ -584,10 +579,4 @@ class AttendanceRecordReport < BaseReport
     @events.detect { |event| event[:date].eql?(date) && event[:type].eql?(EventTypes::NO_SCHOOL) }.blank?
   end
 
-  def set_teacher(teacher, classroom_id, current_user)
-    return teacher unless current_user.current_role_is_admin_or_employee?
-
-    teachers = Classroom.find(classroom_id).teacher_discipline_classrooms.map(&:teacher)
-    teachers.include?(teacher) ? teacher : teachers.first
-  end
 end
