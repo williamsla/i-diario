@@ -30,16 +30,8 @@ class LessonBoardsService
     teacher_id = teacher_discipline_classroom.teacher.id
     year = teacher_discipline_classroom.classroom.year
 
-    linked = LessonsBoardLessonWeekday.includes(teacher_discipline_classroom: [:teacher, classroom: :unity])
-                                      .where(weekday: weekday)
-                                      .joins(lessons_board_lesson: :lessons_board,
-                                             teacher_discipline_classroom: [:teacher, classroom: :classrooms_grades])
-                                      .where(teachers: { id: teacher_id })
-                                      .where(classrooms: { year: year, period: period })
-                                      .where(lessons_board_lessons: { lesson_number: lesson_number })
-                                      .where.not(classrooms_grades: { classroom_id: classroom.to_i })
-                                      .first
-
+    linked = LessonsBoardLessonWeekday.by_classroom(classroom.to_i).first
+    
     return false if linked.nil?
 
     return false if end_period?(linked.teacher_discipline_classroom.classroom_id, classroom.to_i)
