@@ -6,8 +6,6 @@ class DiaryReportController < ApplicationController
     before_action :require_current_teacher
   
     def form
-      Rails.logger.info "\n\n\n\n iniciando print"
-
       @steps = steps_fetcher.steps
       set_options_by_user
       set_school_calendars
@@ -77,60 +75,81 @@ class DiaryReportController < ApplicationController
       
       print_report()
       
-      Rails.logger.info "finalizou print"
-
     end
   
   
     def print_report
       
-      pdfTarget = HexaPDF::Document.new     
+      pdfTarget = HexaPDF::Document.new
       
-      if @attendance_record_report_form.valid?
-        attendance_record_report = AttendanceRecordReport.build(
-          current_entity_configuration,
-          current_user_unity,
-          current_teacher,
-          current_user_school_year,
-          @attendance_record_report_form.start_at,
-          @attendance_record_report_form.end_at,
-          @attendance_record_report_form.daily_frequencies,
-          @attendance_record_report_form.enrollment_classrooms_list,
-          [],
-          @attendance_record_report_form.school_calendar,
-          @attendance_record_report_form.second_teacher_signature,
-          @attendance_record_report_form.students_frequencies_percentage,
-          current_user,
-          current_user_classroom.description
-        )
+
+      coverReport = DiaryCoverReport.build(
+        pdfTarget,
+        current_entity_configuration,
+        current_user_unity,
+        current_user_classroom,
+        '',
+        current_teacher,
+        current_user_school_year
+      )
+
+      descriptive_report = DescriptiveReport.build(
+        current_entity_configuration, 
+        current_user_unity, 
+        current_user_school_year, 
+        '1', 
+        [], 
+        current_user_classroom
+      )
+      add_pdf_to_merge(pdfTarget, report_name('parecer'), descriptive_report.render)
+
+      # if @attendance_record_report_form.valid?
+      #   attendance_record_report = AttendanceRecordReport.build(
+      #     current_entity_configuration,
+      #     current_user_unity,
+      #     current_teacher,
+      #     current_user_school_year,
+      #     @attendance_record_report_form.start_at,
+      #     @attendance_record_report_form.end_at,
+      #     @attendance_record_report_form.daily_frequencies,
+      #     @attendance_record_report_form.enrollment_classrooms_list,
+      #     [],
+      #     @attendance_record_report_form.school_calendar,
+      #     @attendance_record_report_form.second_teacher_signature,
+      #     @attendance_record_report_form.students_frequencies_percentage,
+      #     current_user,
+      #     current_user_classroom.description
+      #   )
         
-        add_pdf_to_merge(pdfTarget, report_name('frequencia'), attendance_record_report.render)
+      #   add_pdf_to_merge(pdfTarget, report_name('frequencia'), attendance_record_report.render)
         
-      else
-        Rails.logger.error "Ocorreu um erro ao carregar frequência"        
-        # return
-      end
+      # else
+      #   Rails.logger.error "Ocorreu um erro ao carregar frequência"        
+      #   # return
+      # end
 
       
-      @content_forms.each do |content_discipline|
-        if content_discipline.valid?
-          lesson_plan_report = DisciplineContentRecordReport.build(current_entity_configuration,
-                                                                current_unity,
-                                                                content_discipline.date_start,
-                                                                content_discipline.date_end,
-                                                                content_discipline.discipline_content_record,
-                                                                current_teacher,
-                                                                current_user_classroom)
+      # @content_forms.each do |content_discipline|
+      #   if content_discipline.valid?
+      #     lesson_plan_report = DisciplineContentRecordReport.build(current_entity_configuration,
+      #                                                           current_unity,
+      #                                                           content_discipline.date_start,
+      #                                                           content_discipline.date_end,
+      #                                                           content_discipline.discipline_content_record,
+      #                                                           current_teacher,
+      #                                                           current_user_classroom)
                                                                 
-          add_pdf_to_merge(pdfTarget, report_name('conteudo'), lesson_plan_report.render)
+      #     add_pdf_to_merge(pdfTarget, report_name('conteudo'), lesson_plan_report.render)
           
-        else
-          Rails.logger.error "Ocorreu um erro ao carregar conteúdos da disciplina"  
-          Rails.logger.error "#{content_discipline.inspect}"  
-          # return        
-        end
-      end
+      #   else
+      #     Rails.logger.error "Ocorreu um erro ao carregar conteúdos da disciplina"  
+      #     Rails.logger.error "#{content_discipline.inspect}"  
+      #     # return        
+      #   end
+      # end
 
+      # ---------------------------------------------------
+      
       # @avaliation_forms.each do |avaliation_discipline|
       #   if avaliation_discipline.valid?
       #     exam_record_report = @school_calendar_classroom_steps.any? ? build_by_classroom_steps(avaliation_discipline) : build_by_school_steps(avaliation_discipline)
