@@ -70,8 +70,15 @@ class ConceptualExamsController < ApplicationController
       @conceptual_exam = find_or_initialize_conceptual_exam
 
       authorize @conceptual_exam
+      
+      enrollment_classroom = StudentEnrollmentClassroom.by_classroom(resource_params[:classroom_id]).by_student(resource_params[:student_id]).first
+      step = find_step_by_date(current_user_classroom, enrollment_classroom.joined_at)
+      
+      resource_params_changed = resource_params.merge!("step_id": step.id)
+      resource_params_changed = resource_params_changed.merge!("step_number": step.step_number)
+      resource_params_changed = resource_params_changed.merge!("recorded_at": enrollment_classroom.joined_at)
 
-      @conceptual_exam.assign_attributes(resource_params)
+      @conceptual_exam.assign_attributes(resource_params_changed)
       @conceptual_exam.merge_conceptual_exam_values
       @conceptual_exam.step_number = @conceptual_exam.step.try(:step_number)
       @conceptual_exam.teacher_id = current_teacher_id
@@ -228,6 +235,10 @@ class ConceptualExamsController < ApplicationController
 
   def find_step_id
     steps_fetcher(@classroom).step(@conceptual_exam.step_number).try(:id)
+  end
+
+  def find_step_by_date(classroom, date)
+    steps_fetcher(classroom).step_by_date(date)
   end
 
   def find_conceptual_exam
