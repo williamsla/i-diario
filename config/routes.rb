@@ -422,6 +422,9 @@ Rails.application.routes.draw do
     get '/reports/discipline_lesson_plan', to: 'discipline_lesson_plan_report#form', as: 'discipline_lesson_plan_report'
     post '/reports/discipline_lesson_plan', to: 'discipline_lesson_plan_report#lesson_plan_report', as: 'discipline_lesson_plan_report'
     post '/reports/discipline_content_record', to: 'discipline_lesson_plan_report#content_record_report', as: 'discipline_content_record_report'
+
+    get '/reports/descriptive', to: 'descriptive_report#form', as: 'descriptive_report'
+    post '/reports/descriptive', to: 'descriptive_report#report', as: 'descriptive_report'
     
     get '/reports/diary', to: 'diary_report#form', as: 'diary_report'
     post '/reports/diary', to: 'diary_report#print_report', as: 'diary_report'

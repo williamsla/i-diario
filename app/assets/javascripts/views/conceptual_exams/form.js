@@ -327,24 +327,16 @@ $(function () {
     } catch (error) {
       console.error(error);
       
-      if (repeat >= 5) {
+      if (repeat >= 10) {
         return;
       }
-      sleep(2000);
-      loadSelect2ForConceptualExamValues(repeat + 1);
+      
+      setTimeout(()=>{
+        loadSelect2ForConceptualExamValues(repeat + 1);
+      }, 2000);
+      
     }
     
-  }
-
-  function sleep(milliseconds) {
-    console.log('aguardando por '+ milliseconds + ' milisegundos');
-    
-    var start = new Date().getTime();
-    for (var i = 0; i < 1e7; i++) {
-      if ((new Date().getTime() - start) > milliseconds){
-        break;
-      }
-    }
   }
 
   function removeDisciplines() {

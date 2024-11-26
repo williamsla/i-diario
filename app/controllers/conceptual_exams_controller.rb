@@ -510,12 +510,12 @@ class ConceptualExamsController < ApplicationController
   end
 
   def set_options_by_user
-    if current_user.current_role_is_admin_or_employee?
-      @classrooms ||= [current_user_classroom]
-      @disciplines ||= [current_user_discipline]
-    else
+    # if current_user.current_role_is_admin_or_employee?
+    #   @classrooms ||= [current_user_classroom]
+    #   @disciplines ||= [current_user_discipline]
+    # else
       fetch_linked_by_teacher
-    end
+    # end
   end
 
   def check_status_and_step(step_id, status)
@@ -542,6 +542,8 @@ class ConceptualExamsController < ApplicationController
     @fetch_linked_by_teacher ||= TeacherClassroomAndDisciplineFetcher.fetch!(current_teacher.id, current_unity, current_school_year)
     @classrooms = @fetch_linked_by_teacher[:classrooms].by_score_type(ScoreTypes::CONCEPT)
     @disciplines = @fetch_linked_by_teacher[:disciplines].by_score_type(ScoreTypes::CONCEPT)
+    # Rails.logger.info "#{@disciplines.inspect}"
+    # exit
   end
 
   def allow_teacher_modify_prev_years

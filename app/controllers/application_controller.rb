@@ -407,19 +407,18 @@ class ApplicationController < ActionController::Base
     
     File.open(file_path, 'wb') do |f|
       f.write(render)
-      
-      # last_page_number = pdfTarget.pages.size
-
-      localpdf = HexaPDF::Document.open(file_path)
-      localpdf.pages.each {|page| pdfTarget.pages << pdfTarget.import(page)}
-
-      # pdfTarget.outline.add_item("Main") do |main|
-      #   main.add_item(name, destination: last_page_number)      
-      # end
-
-      File.delete(f)    
     end
-    
+
+    # last_page_number = pdfTarget.pages.size
+
+    localpdf = HexaPDF::Document.open(file_path)
+    localpdf.pages.each {|page| pdfTarget.pages << pdfTarget.import(page)}
+
+    # pdfTarget.outline.add_item("Main") do |main|
+    #   main.add_item(name, destination: last_page_number)      
+    # end
+
+    File.delete(file_path)
   end
 
   def merge_pdf(pdfTarget, name)

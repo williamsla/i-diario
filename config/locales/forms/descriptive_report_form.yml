@@ -1,0 +1,13 @@
+pt-BR:
+  activemodel:
+    attributes:
+      descriptive_report_form:
+        unity_id: "Escola"
+        classroom_id: "Turma"
+
+    errors:
+      models:
+        descriptive_report_form:
+          attributes:
+            base:
+              must_have_daily_note_students: "Nenhum resultado foi encontrado para os dados informados"

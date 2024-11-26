@@ -222,6 +222,9 @@ navigation:
             type: "partial_score_record_report"
             path: "partial_score_record_report_path"
         - menu:
+            type: "descriptive_report"
+            path: "descriptive_report_path"
+        - menu:
             type: "diary_report"
             path: "diary_report_path"
 
