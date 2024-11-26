@@ -27,7 +27,8 @@ class DescriptiveReportController < ApplicationController
           current_user_school_year, 
           @descriptive_report_form.fetch_exam_values, 
           @descriptive_report_form.fetch_students, 
-          current_user_classroom
+          current_user_classroom,
+          @descriptive_report_form.is_annual
         )
         
         send_pdf('parecer', descriptive_report.render)

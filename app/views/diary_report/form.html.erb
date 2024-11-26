@@ -1,5 +1,5 @@
 <% content_for :js do %>
-  <%= javascript_include_tag 'views/diary_report/form' %>
+  <%= javascript_include_tag 'views/report' %>
 <% end %>
 <div class="widget-body no-padding">
   <%= simple_form_for @diary_report_form, url: diary_report_path, method: :post, html: { class: 'smart-form', target: '_blank' } do |f| %>

@@ -179,7 +179,9 @@ class DiaryReportController < ApplicationController
           current_user_school_year, 
           @descriptive_form.fetch_exam_values, 
           @descriptive_form.fetch_students, 
-          current_user_classroom
+          current_user_classroom,
+          @descriptive_report_form.is_annual,
+          true
         )
   
         add_pdf_to_merge(pdfTarget, report_name('parecer'), descriptive_report.render)

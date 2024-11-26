@@ -1,13 +1,14 @@
 # require 'action_view'
+require 'nokogiri'
 
 class DescriptiveReport < BaseReport
   include ActionView::Helpers::NumberHelper
 
-  def self.build(entity_configuration, unity, year, descriptives, students, classroom, is_embedded=false)
-    new.build(entity_configuration, unity, year, descriptives, students, classroom, is_embedded)
+  def self.build(entity_configuration, unity, year, descriptives, students, classroom, is_annual=false, is_embedded=false)
+    new.build(entity_configuration, unity, year, descriptives, students, classroom, is_annual, is_embedded)
   end
 
-  def build(entity_configuration, unity, year, descriptives, students, classroom, is_embedded=false)
+  def build(entity_configuration, unity, year, descriptives, students, classroom, is_annual=false, is_embedded=false)
     @entity_configuration = entity_configuration
     @year = year
     @descriptives = descriptives
@@ -17,6 +18,7 @@ class DescriptiveReport < BaseReport
     @show_subtitles = false
     @display_header_on_all_reports_pages = true
     @is_embedded = is_embedded
+    @is_annual = is_annual
 
     header
     body
@@ -57,10 +59,14 @@ class DescriptiveReport < BaseReport
   end
 
   def identification(student)
-    student_cell = make_cell(content: "Aluno: #{student.name}", size: 10, borders: [:top, :left, :right], padding: [1, 2, 4, 4])
+    student_cell_header = make_cell(content: "Aluno", size: 10, borders: [:top, :left, :right], padding: [1, 2, 4, 4], colspan:2)
+    student_cell = make_cell(content: student.name, size: 10, borders: [:bottom, :left, :right], padding: [1, 2, 4, 4], colspan:2)
+    year_cell = make_cell(content: "Ano: #{@year}", size: 10, borders: [:top, :left, :right], padding: [1, 2, 4, 4], colspan:2)
+    classroom_cell = make_cell(content: "Turma: #{@classroom.description}", size: 10, borders: [:bottom, :left, :right], padding: [1, 2, 4, 4], colspan:2)
 
     identification_table_data = [
-      [student_cell]
+      [student_cell_header, year_cell],
+      [student_cell, classroom_cell]
     ]
 
     table(identification_table_data, width: bounds.width) do
@@ -74,8 +80,9 @@ class DescriptiveReport < BaseReport
 
   def write_descriptive_exam(exam_number, exam_value)
 
-    exam_cell_header = make_cell(content: "Parecer #{exam_number}", size: 8, font_style: :bold, width: 100, borders: [:left, :right], padding: [2, 2, 4, 4], colspan: 2)
-    exam_cell = make_cell(content: exam_value.value, size: 10, width: 100, borders: [:left, :right], padding: [0, 2, 4, 4], colspan: 2)
+    descriptive_number = @is_annual == true ? '' : exam_number
+    exam_cell_header = make_cell(content: "Parecer #{descriptive_number}", size: 8, font_style: :bold, width: 100, borders: [:left, :right], padding: [2, 2, 4, 4], colspan: 2)
+    exam_cell = make_cell(content: Nokogiri::HTML(exam_value.value).text, size: 10, width: 100, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan: 2)
     
     identification_table_data = [
       [exam_cell_header],
@@ -94,6 +101,7 @@ class DescriptiveReport < BaseReport
   end
 
   def body
+    Rails.logger.info "#{@students.inspect}"
     page_content do
       @students.each_with_index do |student, index|
         identification(student)
