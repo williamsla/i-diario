@@ -72,8 +72,8 @@ class ConceptualExamsController < ApplicationController
       authorize @conceptual_exam
       
       enrollment_classroom = StudentEnrollmentClassroom.by_classroom(resource_params[:classroom_id]).by_student(resource_params[:student_id]).first
-      step = find_step_by_date(current_user_classroom, enrollment_classroom.joined_at)
-      
+      step = find_step_by_date(enrollment_classroom.joined_at)
+     
       resource_params_changed = resource_params.merge!("step_id": step.id)
       resource_params_changed = resource_params_changed.merge!("step_number": step.step_number)
       resource_params_changed = resource_params_changed.merge!("recorded_at": enrollment_classroom.joined_at)
@@ -237,8 +237,8 @@ class ConceptualExamsController < ApplicationController
     steps_fetcher(@classroom).step(@conceptual_exam.step_number).try(:id)
   end
 
-  def find_step_by_date(classroom, date)
-    steps_fetcher(classroom).step_by_date(date)
+  def find_step_by_date(date)
+    steps_fetcher(@classroom).step_by_date(date)
   end
 
   def find_conceptual_exam
@@ -510,6 +510,7 @@ class ConceptualExamsController < ApplicationController
   end
 
   def set_options_by_user
+    @classroom ||= current_user_classroom
     # if current_user.current_role_is_admin_or_employee?
     #   @classrooms ||= [current_user_classroom]
     #   @disciplines ||= [current_user_discipline]

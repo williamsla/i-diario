@@ -19,8 +19,6 @@ class DiaryReportController < ApplicationController
         start_at: @steps.first.start_at,
         end_at: @steps.last.end_at
       )
-      # Rails.logger.info "#{@diary_report_form.inspect}"
-      
 
       # @content_forms = []
       # @avaliation_forms = []
@@ -180,7 +178,7 @@ class DiaryReportController < ApplicationController
           @descriptive_form.fetch_exam_values, 
           @descriptive_form.fetch_students, 
           current_user_classroom,
-          @descriptive_report_form.is_annual,
+          @descriptive_form.is_annual,
           true
         )
   
