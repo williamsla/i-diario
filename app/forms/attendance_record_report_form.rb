@@ -35,6 +35,8 @@ class AttendanceRecordReportForm
   end
 
   def fetch_daily_frequencies
+    global_absence = false
+    # class_numbers = 5
     DailyFrequencyQuery.call(
       classroom_id: classroom_id,
       period: period,

@@ -78,6 +78,8 @@ pt-BR:
     copy_discipline_teaching_plan: "Copiar planos de ensino por disciplina"
     copy_knowledge_area_teaching_plan: "Copiar planos de ensino por área de conhecimento"
     attendance_record_report_by_students: "Registro de frequência por aluno"
+    descriptive_report: "Imprimir parecer"
+    diary_report: "Imprimir diário"
 
   enumerations:
     features:
@@ -96,3 +98,4 @@ pt-BR:
       absence_justification_report: "Relatório de registro de justificativa de faltas"
       attendance_record_report: "Relatório de registro de frequência"
       attendance_record_report_by_students: "Relatório de registro de frequência por aluno"
+      

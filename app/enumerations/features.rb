@@ -51,7 +51,9 @@ class Features < EnumerateIt::Base
                    :lessons_boards,
                    :daily_frequencies_in_batchs,
                    :avaliation_recovery_lowest_notes,
-                   :attendance_record_report_by_students
+                   :attendance_record_report_by_students,
+                   :diary_report,
+                   :descriptive_report
 
 
   sort_by :translation

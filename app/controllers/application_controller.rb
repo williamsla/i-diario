@@ -1,4 +1,6 @@
 require "application_responder"
+require 'hexapdf'
+
 
 class ApplicationController < ActionController::Base
   MAX_STEPS_FOR_SCHOOL_CALENDAR = 4
@@ -396,6 +398,35 @@ class ApplicationController < ActionController::Base
     if username && server && dir
       system("rsync -aHAXx --remove-source-files --quiet \"ssh -T -c aes128-gcm@openssh.com -o Compression=no -x \" #{Rails.root}/public#{name} #{username}@#{server}:#{dir}")
     end
+
+    redirect_to name
+  end
+
+  def add_pdf_to_merge(pdfTarget, name, render)
+    file_path = "#{Rails.root}/public#{name}"
+    
+    File.open(file_path, 'wb') do |f|
+      f.write(render)
+    end
+
+    # last_page_number = pdfTarget.pages.size
+
+    localpdf = HexaPDF::Document.open(file_path)
+    localpdf.pages.each {|page| pdfTarget.pages << pdfTarget.import(page)}
+
+    # pdfTarget.outline.add_item("Main") do |main|
+    #   main.add_item(name, destination: last_page_number)      
+    # end
+
+    File.delete(file_path)
+  end
+
+  def merge_pdf(pdfTarget, name)
+    full_path_report_diario = "#{Rails.root}/public#{name}"
+
+    # pdfTarget.catalog[:PageMode] = :UseOutlines
+
+    pdfTarget.write(full_path_report_diario, optimize: true)
 
     redirect_to name
   end

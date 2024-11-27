@@ -1,0 +1,27 @@
+<% content_for :js do %>
+  <%= javascript_include_tag 'views/report' %>
+<% end %>
+<div class="widget-body no-padding">
+  <%= simple_form_for @diary_report_form, url: diary_report_path, method: :post, html: { class: 'smart-form', target: '_blank' } do |f| %>
+    <fieldset>
+      <div class="row">
+        <div class="col col-sm-4">
+          <%= f.input :unity_id, as: :select2_unity, user: current_user %>
+          <%= f.input :classroom_id, as: :select2_classroom, user: current_user %>
+          <%= f.hidden_field :school_calendar_year %>          
+          <%= f.hidden_field :teacher_id %>
+          <%= f.hidden_field :start_at %>
+          <%= f.hidden_field :end_at %>
+        </div>
+        <div class="col col-sm-4">
+          <%= f.input :discipline_id, as: :select2_discipline, user: current_user %>          
+        </div>
+      </div>
+
+    </fieldset>
+
+    <footer>
+      <%= f.submit 'Imprimir', class: 'btn btn-primary' %>
+    </footer>
+  <% end %>
+</div>

@@ -22,6 +22,8 @@ class FeaturesAccessLevels
       :daily_frequencies,
       :daily_notes,
       :descriptive_exams,
+      :descriptive_report,
+      :diary_report,
       :discipline_content_records,
       :discipline_lesson_plan_report,
       :discipline_lesson_plans,

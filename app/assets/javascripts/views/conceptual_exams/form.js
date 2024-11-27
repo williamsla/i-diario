@@ -300,29 +300,43 @@ $(function () {
     flashMessages.error('Ocorreu um erro ao buscar as disciplinas da turma selecionada.');
   };
 
-  function loadSelect2ForConceptualExamValues() {
-    const lastElement = [...window.roundingTableValues].pop();
+  function loadSelect2ForConceptualExamValues(repeat=1) {
+    try {
+      const lastElement = [...window.roundingTableValues].pop();
 
-    _.each($('input.conceptual-exam-value-select2'), function (element) {
-      $(element).select2({
-        formatResult: function (el) {
-          return "<div class='select2-user-result'>" + el.name + "</div>";
-        },
-        formatSelection: function (el) {
-          return el.name;
-        },
-        data: $(element).data('elements')
-      });
-
-      if (!_.isEmpty(window.roundingTableValues)) {
+      _.each($('input.conceptual-exam-value-select2'), function (element) {
         $(element).select2({
-          data: window.roundingTableValues
+          formatResult: function (el) {
+            return "<div class='select2-user-result'>" + el.name + "</div>";
+          },
+          formatSelection: function (el) {
+            return el.name;
+          },
+          data: $(element).data('elements')
         });
-        
-        $(element).val(lastElement.id);
-        $(element).trigger('change');
+
+        if (!_.isEmpty(window.roundingTableValues)) {
+          $(element).select2({
+            data: window.roundingTableValues
+          });
+          
+          $(element).val(lastElement.id);
+          $(element).trigger('change');
+        }
+      });
+    } catch (error) {
+      console.error(error);
+      
+      if (repeat >= 10) {
+        return;
       }
-    });
+      
+      setTimeout(()=>{
+        loadSelect2ForConceptualExamValues(repeat + 1);
+      }, 2000);
+      
+    }
+    
   }
 
   function removeDisciplines() {
