@@ -3,6 +3,7 @@ class PedagogicalTrackingsController < ApplicationController
   before_action :minimum_year
 
   def index
+    ini = Time.now
     if (last_refresh = MvwFrequencyBySchoolClassroomTeacher.first&.last_refresh ||
                        MvwContentRecordBySchoolClassroomTeacher.first&.last_refresh)
 
@@ -38,6 +39,9 @@ class PedagogicalTrackingsController < ApplicationController
                 else
                   paginate(filter(percents, params.dig(:filter)))
                 end
+    fim = Time.now
+    tempo_resultante = fim - ini
+    Rails.logger.info "\n\ntempo carregamento de frequência: #{tempo_resultante}"
   end
 
   def recalculate
