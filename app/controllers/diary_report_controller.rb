@@ -99,33 +99,30 @@ class DiaryReportController < ApplicationController
         # global_absence: true
       )
 
-      # @attendance_record_report_form.start_at = @steps.first.start_at
-      # @attendance_record_report_form.end_at = @steps.last.end_at
-
       @attendance_record_report_form.school_calendar = SchoolCalendar.find_by(
         unity: @attendance_record_report_form.unity_id,
         year: current_user_school_year
       )
 
       if @attendance_record_report_form.valid?
-        # attendance_record_report = AttendanceRecordReport.build(
-        #   current_entity_configuration,
-        #   current_user_unity,
-        #   current_teacher,
-        #   current_user_school_year,
-        #   @attendance_record_report_form.start_at,
-        #   @attendance_record_report_form.end_at,
-        #   @attendance_record_report_form.daily_frequencies,
-        #   @attendance_record_report_form.enrollment_classrooms_list,
-        #   [],
-        #   @attendance_record_report_form.school_calendar,
-        #   @attendance_record_report_form.second_teacher_signature,
-        #   @attendance_record_report_form.students_frequencies_percentage,
-        #   current_user,
-        #   current_user_classroom.description
-        # )
+        attendance_record_report = AttendanceRecordReport.build(
+          current_entity_configuration,
+          current_user_unity,
+          current_teacher,
+          current_user_school_year,
+          @attendance_record_report_form.start_at,
+          @attendance_record_report_form.end_at,
+          @attendance_record_report_form.daily_frequencies,
+          @attendance_record_report_form.enrollment_classrooms_list,
+          [],
+          @attendance_record_report_form.school_calendar,
+          @attendance_record_report_form.second_teacher_signature,
+          @attendance_record_report_form.students_frequencies_percentage,
+          current_user,
+          current_user_classroom.description
+        )
         
-        # add_pdf_to_merge(pdfTarget, report_name('frequencia'), attendance_record_report.render)        
+        add_pdf_to_merge(pdfTarget, report_name('frequencia'), attendance_record_report.render)        
       else
         Rails.logger.error "Ocorreu um erro ao carregar frequência"        
         # return
