@@ -14,12 +14,7 @@ class StepsFetcher
   def step_by_date(date)
     return if school_calendar.blank?
     
-    step = school_calendar_steps.started_after_and_before(date).first
-    if step.blank?
-      # step = school_calendar_steps.first
-      step = school_calendar_steps.started_after_or_before(date).first
-    end
-    step
+    school_calendar_steps.started_after_and_before(date).first    
   end
 
   def steps_by_date_range(start_date, end_date)

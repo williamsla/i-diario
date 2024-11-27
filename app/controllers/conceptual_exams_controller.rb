@@ -238,7 +238,12 @@ class ConceptualExamsController < ApplicationController
   end
 
   def find_step_by_date(date)
-    steps_fetcher(@classroom).step_by_date(date)
+    step = steps_fetcher(@classroom).step_by_date(date)
+    if step.blank?
+      step = steps_fetcher(@classroom).steps.first
+    end
+
+    step
   end
 
   def find_conceptual_exam
