@@ -47,83 +47,84 @@ class DiaryReportController < ApplicationController
 
       ini = Time.now
 
-      @attendance_record_report_form = AttendanceRecordReportForm.new(
-        unity_id: current_unity.id,
-        school_calendar_year: current_school_year,
-        classroom_id: current_user_classroom.id,
-        discipline_id: current_user_discipline.id,
-        period: Periods::FULL,
-        current_teacher_id: current_teacher.id,
-        start_at: @diary_report_form.start_at,
-        end_at: @diary_report_form.end_at,
-        class_numbers: '', # get all class_numbers
-        # global_absence: true
-      )
+      # @attendance_record_report_form = AttendanceRecordReportForm.new(
+      #   unity_id: current_unity.id,
+      #   school_calendar_year: current_school_year,
+      #   classroom_id: current_user_classroom.id,
+      #   discipline_id: current_user_discipline.id,
+      #   period: Periods::FULL,
+      #   current_teacher_id: current_teacher.id,
+      #   start_at: @diary_report_form.start_at,
+      #   end_at: @diary_report_form.end_at,
+      #   class_numbers: '', # get all class_numbers
+      #   # global_absence: true
+      # )
 
-      @attendance_record_report_form.school_calendar = SchoolCalendar.find_by(
-        unity: @attendance_record_report_form.unity_id,
-        year: current_user_school_year
-      )
+      # @attendance_record_report_form.school_calendar = SchoolCalendar.find_by(
+      #   unity: @attendance_record_report_form.unity_id,
+      #   year: current_user_school_year
+      # )
 
-      if @attendance_record_report_form.valid?
-        attendance_record_report = AttendanceRecordReport.build(
-          current_entity_configuration,
-          current_user_unity,
-          current_teacher,
-          current_user_school_year,
-          @attendance_record_report_form.start_at,
-          @attendance_record_report_form.end_at,
-          @attendance_record_report_form.daily_frequencies,
-          @attendance_record_report_form.enrollment_classrooms_list,
-          [],
-          @attendance_record_report_form.school_calendar,
-          @attendance_record_report_form.second_teacher_signature,
-          @attendance_record_report_form.students_frequencies_percentage,
-          current_user,
-          current_user_classroom.description
-        )
+      # if @attendance_record_report_form.valid?
+      #   attendance_record_report = AttendanceRecordReport.build(
+      #     current_entity_configuration,
+      #     current_user_unity,
+      #     current_teacher,
+      #     current_user_school_year,
+      #     @attendance_record_report_form.start_at,
+      #     @attendance_record_report_form.end_at,
+      #     @attendance_record_report_form.daily_frequencies,
+      #     @attendance_record_report_form.enrollment_classrooms_list,
+      #     [],
+      #     @attendance_record_report_form.school_calendar,
+      #     @attendance_record_report_form.second_teacher_signature,
+      #     @attendance_record_report_form.students_frequencies_percentage,
+      #     current_user,
+      #     current_user_classroom.description
+      #   )
         
-        add_pdf_to_merge(pdfTarget, report_name('frequencia'), attendance_record_report.render)        
-      else
-        Rails.logger.error "Ocorreu um erro ao carregar frequência"        
-        # return
-      end
+      #   add_pdf_to_merge(pdfTarget, report_name('frequencia'), attendance_record_report.render)        
+      # else
+      #   Rails.logger.error "Ocorreu um erro ao carregar frequência"        
+      #   # return
+      # end
       finish = Time.now
       diff = finish - ini
       tempo_total += diff
       my_logger.info("Tempo de carregamento frequência #{diff}")
 
       ini = Time.now
-      @disciplines.each do |discipline|
-        #content
-        @discipline_lesson_plan_report_form = DisciplineLessonPlanReportForm.new(
-          teacher_id: current_teacher_id,
-          unity_id: current_user_unity.id,
-          classroom_id: current_user_classroom.id,
-          discipline_id: discipline.id,
-          date_start: @diary_report_form.start_at,
-          date_end: @diary_report_form.end_at
-        )
+      # @disciplines.each do |discipline|
+      #   #content
+      #   @discipline_lesson_plan_report_form = DisciplineLessonPlanReportForm.new(
+      #     teacher_id: current_teacher_id,
+      #     unity_id: current_user_unity.id,
+      #     classroom_id: current_user_classroom.id,
+      #     discipline_id: discipline.id,
+      #     date_start: @diary_report_form.start_at,
+      #     date_end: @diary_report_form.end_at
+      #   )
 
-        @discipline_lesson_plan_report_form.author = PlansAuthors::ALL
-        @discipline_lesson_plan_report_form.report_type = DISCIPLINE_CONTENT_RECORD
+      #   @discipline_lesson_plan_report_form.author = PlansAuthors::ALL
+      #   @discipline_lesson_plan_report_form.report_type = DISCIPLINE_CONTENT_RECORD
 
-        if @discipline_lesson_plan_report_form.valid?
-          lesson_plan_report = DisciplineContentRecordReport.build(current_entity_configuration,
-                                                                current_unity,
-                                                                @discipline_lesson_plan_report_form.date_start,
-                                                                @discipline_lesson_plan_report_form.date_end,
-                                                                @discipline_lesson_plan_report_form.discipline_content_record,
-                                                                current_teacher,
-                                                                current_user_classroom)
+      #   if @discipline_lesson_plan_report_form.valid?
+      #     lesson_plan_report = DisciplineContentRecordReport.build(current_entity_configuration,
+      #                                                           current_unity,
+      #                                                           @discipline_lesson_plan_report_form.date_start,
+      #                                                           @discipline_lesson_plan_report_form.date_end,
+      #                                                           @discipline_lesson_plan_report_form.discipline_content_record,
+      #                                                           current_teacher,
+      #                                                           current_user_classroom)
                                                                 
-          add_pdf_to_merge(pdfTarget, report_name('conteudo'), lesson_plan_report.render)
+      #     add_pdf_to_merge(pdfTarget, report_name('conteudo'), lesson_plan_report.render)
           
-        else
-          Rails.logger.error "Ocorreu um erro ao carregar conteúdos da disciplina"  
-          Rails.logger.error "#{@discipline_lesson_plan_report_form.inspect}"  
-        end
-      end
+      #   else
+      #     Rails.logger.error "Ocorreu um erro ao carregar conteúdos da disciplina"  
+      #     Rails.logger.error "#{@discipline_lesson_plan_report_form.inspect}"  
+      #   end
+
+      # end
       finish = Time.now
       diff = finish - ini
       tempo_total += diff
@@ -134,30 +135,30 @@ class DiaryReportController < ApplicationController
       ini = Time.now
       @disciplines.each do |discipline|
         @avaliation_forms = []
-        @school_calendar_steps.each do |step|
-          @exam_record_report_form = ExamRecordReportForm.new(
+        # @school_calendar_steps.each do |step|
+          @exam_record_report_form = ExamAverageReportForm.new(
             unity_id: current_user_unity.id,
             classroom_id: current_user_classroom.id,
             discipline_id: discipline.id,
-            school_calendar_step_id: step.id
+            school_calendar_steps: @school_calendar_steps
           )
 
           @avaliation_forms << @exam_record_report_form
-        end
+        # end
         
-        @school_calendar_classroom_steps.each do |step|
-          @exam_record_report_form = ExamRecordReportForm.new(
+        # @school_calendar_classroom_steps.each do |step|
+          @exam_record_report_form = ExamAverageReportForm.new(
             unity_id: current_user_unity.id,
             classroom_id: current_user_classroom.id,
             discipline_id: discipline.id,
-            school_calendar_classroom_step_id: step.id
+            school_calendar_classroom_steps: @school_calendar_classroom_steps
           )
 
           @avaliation_forms << @exam_record_report_form
-        end
+        # end
 
         @avaliation_forms.each do |avaliation_discipline|
-          if avaliation_discipline.valid?
+          if avaliation_discipline.valid? 
             exam_record_report = @school_calendar_classroom_steps.any? ? build_by_classroom_steps(avaliation_discipline) : build_by_school_steps(avaliation_discipline)
             add_pdf_to_merge(pdfTarget, report_name('avaliacao'), exam_record_report.render)
           else
@@ -165,6 +166,8 @@ class DiaryReportController < ApplicationController
             Rails.logger.error "#{avaliation_discipline.inspect}"  
           end
         end
+
+        break
       end
       finish = Time.now
       diff = finish - ini
@@ -175,26 +178,26 @@ class DiaryReportController < ApplicationController
 
       # parecer
       ini = Time.now
-      @descriptive_form = DescriptiveReportForm.new(
-        classroom_id: current_user_classroom.id,
-        start_at: @diary_report_form.start_at,
-        end_at: @diary_report_form.end_at
-      )
+      # @descriptive_form = DescriptiveReportForm.new(
+      #   classroom_id: current_user_classroom.id,
+      #   start_at: @diary_report_form.start_at,
+      #   end_at: @diary_report_form.end_at
+      # )
 
-      if @descriptive_form.valid?
-        descriptive_report = DescriptiveReport.build(
-          current_entity_configuration, 
-          current_user_unity, 
-          current_user_school_year, 
-          @descriptive_form.fetch_exam_values, 
-          @descriptive_form.fetch_students, 
-          current_user_classroom,
-          @descriptive_form.is_annual,
-          true
-        )
+      # if @descriptive_form.valid?
+      #   descriptive_report = DescriptiveReport.build(
+      #     current_entity_configuration, 
+      #     current_user_unity, 
+      #     current_user_school_year, 
+      #     @descriptive_form.fetch_exam_values, 
+      #     @descriptive_form.fetch_students, 
+      #     current_user_classroom,
+      #     @descriptive_form.is_annual,
+      #     true
+      #   )
   
-        add_pdf_to_merge(pdfTarget, report_name('parecer'), descriptive_report.render)
-      end
+      #   add_pdf_to_merge(pdfTarget, report_name('parecer'), descriptive_report.render)
+      # end
       finish = Time.now
       diff = finish - ini
       tempo_total += diff
@@ -227,34 +230,26 @@ class DiaryReportController < ApplicationController
     end
 
     def build_by_school_steps(exam_record_report_form)
-      ExamRecordReport.build(
+      ExamStepAverageReport.build(
         current_entity_configuration,
         current_teacher,
         current_school_year,
-        exam_record_report_form.step,
-        current_test_setting_step(exam_record_report_form.step),
-        exam_record_report_form.daily_notes,
-        exam_record_report_form.students_enrollments,
-        [],
-        exam_record_report_form.school_term_recoveries,
-        [],
-        []
+        current_user_classroom,
+        Discipline.find(exam_record_report_form.discipline_id),
+        exam_record_report_form.steps,
+        exam_record_report_form.students_enrollments        
       )
     end
   
     def build_by_classroom_steps(exam_record_report_form)
-      ExamRecordReport.build(
+      ExamStepAverageReport.build(
         current_entity_configuration,
         current_teacher,
         current_school_calendar.year,
-        exam_record_report_form.classroom_step,
-        current_test_setting_step(exam_record_report_form.classroom_step),
-        exam_record_report_form.daily_notes_classroom_steps,
-        exam_record_report_form.students_enrollments,
-        [],
-        exam_record_report_form.school_term_recoveries,
-        [],
-        []
+        current_user_classroom,
+        Discipline.find(exam_record_report_form.discipline_id),
+        exam_record_report_form.classroom_steps,
+        exam_record_report_form.students_enrollments
       )
     end
   
