@@ -20,60 +20,21 @@ class DiaryReportController < ApplicationController
         end_at: @steps.last.end_at
       )
 
-      # @content_forms = []
-      # @avaliation_forms = []
-
-      # @disciplines.each do |discipline|
-      #   #content
-      #   @discipline_lesson_plan_report_form = DisciplineLessonPlanReportForm.new(
-      #     teacher_id: current_teacher_id,
-      #     unity_id: current_user_unity.id,
-      #     classroom_id: current_user_classroom.id,
-      #     discipline_id: discipline.id,
-      #     date_start: @steps.first.start_at,
-      #     date_end: @steps.last.end_at
-      #   )
-
-      #   @discipline_lesson_plan_report_form.author = PlansAuthors::ALL
-      #   @discipline_lesson_plan_report_form.report_type = DISCIPLINE_CONTENT_RECORD
-
-      #   @content_forms << @discipline_lesson_plan_report_form
-
-      #   #avaliations
-      #   # @school_calendar_steps.each do |step|
-      #   #   @exam_record_report_form = ExamRecordReportForm.new(
-      #   #     unity_id: current_user_unity.id,
-      #   #     classroom_id: current_user_classroom.id,
-      #   #     discipline_id: discipline.id,
-      #   #     school_calendar_step_id: step.id
-      #   #   )
-
-      #   #   @avaliation_forms << @exam_record_report_form
-      #   # end
-        
-      #   # @school_calendar_classroom_steps.each do |step|
-      #   #   @exam_record_report_form = ExamRecordReportForm.new(
-      #   #     unity_id: current_user_unity.id,
-      #   #     classroom_id: current_user_classroom.id,
-      #   #     discipline_id: discipline.id,
-      #   #     school_calendar_classroom_step_id: step.id
-      #   #   )
-
-      #   #   @avaliation_forms << @exam_record_report_form
-      #   # end
-
-      # end
-      
     end
   
   
     def print_report
-      
+      set_options_by_user
+      set_school_calendars
+
+      my_logger = Logger.new("#{Rails.root}/log/my.log")
+      my_logger.info("--------------------------------\nINICIARIO IMPRESSÃO DO DIÁRIO")
+      tempo_total = 0
+
       @diary_report_form = DiaryReportForm.new(resource_params)
 
       pdfTarget = HexaPDF::Document.new
       
-
       coverReport = DiaryCoverReport.build(
         pdfTarget,
         current_entity_configuration,
@@ -84,7 +45,7 @@ class DiaryReportController < ApplicationController
         current_user_school_year
       )
 
-      Rails.logger.info "#{@diary_report_form.inspect}"
+      ini = Time.now
 
       @attendance_record_report_form = AttendanceRecordReportForm.new(
         unity_id: current_unity.id,
@@ -127,40 +88,93 @@ class DiaryReportController < ApplicationController
         Rails.logger.error "Ocorreu um erro ao carregar frequência"        
         # return
       end
+      finish = Time.now
+      diff = finish - ini
+      tempo_total += diff
+      my_logger.info("Tempo de carregamento frequência #{diff}")
 
-      
-      # @content_forms.each do |content_discipline|
-      #   if content_discipline.valid?
-      #     lesson_plan_report = DisciplineContentRecordReport.build(current_entity_configuration,
-      #                                                           current_unity,
-      #                                                           content_discipline.date_start,
-      #                                                           content_discipline.date_end,
-      #                                                           content_discipline.discipline_content_record,
-      #                                                           current_teacher,
-      #                                                           current_user_classroom)
+      ini = Time.now
+      @disciplines.each do |discipline|
+        #content
+        @discipline_lesson_plan_report_form = DisciplineLessonPlanReportForm.new(
+          teacher_id: current_teacher_id,
+          unity_id: current_user_unity.id,
+          classroom_id: current_user_classroom.id,
+          discipline_id: discipline.id,
+          date_start: @diary_report_form.start_at,
+          date_end: @diary_report_form.end_at
+        )
+
+        @discipline_lesson_plan_report_form.author = PlansAuthors::ALL
+        @discipline_lesson_plan_report_form.report_type = DISCIPLINE_CONTENT_RECORD
+
+        if @discipline_lesson_plan_report_form.valid?
+          lesson_plan_report = DisciplineContentRecordReport.build(current_entity_configuration,
+                                                                current_unity,
+                                                                @discipline_lesson_plan_report_form.date_start,
+                                                                @discipline_lesson_plan_report_form.date_end,
+                                                                @discipline_lesson_plan_report_form.discipline_content_record,
+                                                                current_teacher,
+                                                                current_user_classroom)
                                                                 
-      #     add_pdf_to_merge(pdfTarget, report_name('conteudo'), lesson_plan_report.render)
+          add_pdf_to_merge(pdfTarget, report_name('conteudo'), lesson_plan_report.render)
           
-      #   else
-      #     Rails.logger.error "Ocorreu um erro ao carregar conteúdos da disciplina"  
-      #     Rails.logger.error "#{content_discipline.inspect}"  
-      #     # return        
-      #   end
-      # end
+        else
+          Rails.logger.error "Ocorreu um erro ao carregar conteúdos da disciplina"  
+          Rails.logger.error "#{@discipline_lesson_plan_report_form.inspect}"  
+        end
+      end
+      finish = Time.now
+      diff = finish - ini
+      tempo_total += diff
+      my_logger.info("Tempo de carregamento conteúdos #{diff}")
 
-      # ---------------------------------------------------
-      
-      # @avaliation_forms.each do |avaliation_discipline|
-      #   if avaliation_discipline.valid?
-      #     exam_record_report = @school_calendar_classroom_steps.any? ? build_by_classroom_steps(avaliation_discipline) : build_by_school_steps(avaliation_discipline)
-      #     add_pdf_to_merge(pdfTarget, report_name('avaliacao'), exam_record_report.render)
-      #   else
-      #     Rails.logger.error "Ocorreu um erro ao carregar avaliações da disciplina"  
-      #     Rails.logger.error "#{avaliation_discipline.inspect}"  
-      #   end
-      # end
+
+      ### avaliations
+      ini = Time.now
+      @disciplines.each do |discipline|
+        @avaliation_forms = []
+        @school_calendar_steps.each do |step|
+          @exam_record_report_form = ExamRecordReportForm.new(
+            unity_id: current_user_unity.id,
+            classroom_id: current_user_classroom.id,
+            discipline_id: discipline.id,
+            school_calendar_step_id: step.id
+          )
+
+          @avaliation_forms << @exam_record_report_form
+        end
+        
+        @school_calendar_classroom_steps.each do |step|
+          @exam_record_report_form = ExamRecordReportForm.new(
+            unity_id: current_user_unity.id,
+            classroom_id: current_user_classroom.id,
+            discipline_id: discipline.id,
+            school_calendar_classroom_step_id: step.id
+          )
+
+          @avaliation_forms << @exam_record_report_form
+        end
+
+        @avaliation_forms.each do |avaliation_discipline|
+          if avaliation_discipline.valid?
+            exam_record_report = @school_calendar_classroom_steps.any? ? build_by_classroom_steps(avaliation_discipline) : build_by_school_steps(avaliation_discipline)
+            add_pdf_to_merge(pdfTarget, report_name('avaliacao'), exam_record_report.render)
+          else
+            Rails.logger.error "Ocorreu um erro ao carregar avaliações da disciplina"  
+            Rails.logger.error "#{avaliation_discipline.inspect}"  
+          end
+        end
+      end
+      finish = Time.now
+      diff = finish - ini
+      tempo_total += diff
+      my_logger.info("Tempo de carregamento avaliações numéricas #{diff}")
+
+
 
       # parecer
+      ini = Time.now
       @descriptive_form = DescriptiveReportForm.new(
         classroom_id: current_user_classroom.id,
         start_at: @diary_report_form.start_at,
@@ -181,9 +195,21 @@ class DiaryReportController < ApplicationController
   
         add_pdf_to_merge(pdfTarget, report_name('parecer'), descriptive_report.render)
       end
+      finish = Time.now
+      diff = finish - ini
+      tempo_total += diff
+      my_logger.info("Tempo de carregamento de parecer descritivo #{diff}")
+
+      ini = Time.now
 
       merge_pdf(pdfTarget, report_name('diario'))
 
+      finish = Time.now
+      diff = finish - ini
+      tempo_total += diff
+      my_logger.info("Tempo de carregamento do PDF #{diff}")
+      
+      my_logger.info("TEMPO TOTAL: #{tempo_total}")
     end    
   
     private

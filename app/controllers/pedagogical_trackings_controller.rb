@@ -3,6 +3,9 @@ class PedagogicalTrackingsController < ApplicationController
   before_action :minimum_year
 
   def index
+    my_logger = Logger.new("#{Rails.root}/log/my.log")
+    my_logger.info("-----------------------\nACOMPANHAMENTO PEDAGÓGICO")
+    
     ini = Time.now
     if (last_refresh = MvwFrequencyBySchoolClassroomTeacher.first&.last_refresh ||
                        MvwContentRecordBySchoolClassroomTeacher.first&.last_refresh)
@@ -41,7 +44,7 @@ class PedagogicalTrackingsController < ApplicationController
                 end
     fim = Time.now
     tempo_resultante = fim - ini
-    Rails.logger.info "\n\ntempo carregamento de frequência: #{tempo_resultante}"
+    my_logger.info("tempo carregamento: #{tempo_resultante}")
   end
 
   def recalculate
