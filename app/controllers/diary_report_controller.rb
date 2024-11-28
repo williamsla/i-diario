@@ -264,7 +264,7 @@ class DiaryReportController < ApplicationController
       @classrooms ||= @fetch_linked_by_teacher[:classrooms]
       @disciplines ||= @fetch_linked_by_teacher[:disciplines].by_classroom_id(
         current_user_classroom.id
-      ).not_descriptor
+      ).not_descriptor.not_grouper
     end
 
     def set_school_calendars
