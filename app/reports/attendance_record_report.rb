@@ -331,7 +331,7 @@ class AttendanceRecordReport < BaseReport
         ]
 
         if slice_index == sliced_students_cells.count - 1 && index == sliced_frequencies_and_events.count - 1
-          columns = @show_percentage_on_attendance ? 45 : 44
+          columns = @show_percentage_on_attendance ? NUMBER_OF_COLS + 5 : NUMBER_OF_COLS + 4
           students_cells_slice <<
             [{ content: "Aulas dadas: #{daily_frequencies.count}", colspan: columns, align: :center }]
         end
@@ -344,16 +344,21 @@ class AttendanceRecordReport < BaseReport
         (3..(NUMBER_OF_COLS+2)).each { |i| column_widths[i] = 13 }
         
         page_content do
-          table(data, row_colors: ['FFFFFF', 'DEDEDE'], cell_style: { size: 8, padding: [2, 2, 2, 2] },
-                      column_widths: column_widths, width: bounds.width) do |t|
-            t.cells.border_width = 0.25
+          begin
+            table(data, row_colors: ['FFFFFF', 'DEDEDE'], cell_style: { size: 8, padding: [2, 2, 2, 2] },
+                        column_widths: column_widths, width: bounds.width) do |t|
+              t.cells.border_width = 0.25
 
-            t.before_rendering_page do |page|
-              page.row(0).border_top_width = 0.25
-              page.row(-1).border_bottom_width = 0.25
-              page.column(0).border_left_width = 0.25
-              page.column(-1).border_right_width = 0.25
+              t.before_rendering_page do |page|
+                page.row(0).border_top_width = 0.25
+                page.row(-1).border_bottom_width = 0.25
+                page.column(0).border_left_width = 0.25
+                page.column(-1).border_right_width = 0.25
+              end
             end
+          rescue Exception => e
+            Rails.logger.info "#{e.message}"
+            Rails.logger.info "#{e.inspect}"
           end
         end
 
