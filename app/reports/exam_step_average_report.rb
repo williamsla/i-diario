@@ -80,16 +80,13 @@ class ExamStepAverageReport < BaseReport
     teacher_cell = make_cell(content: @teacher.name, size: 10, colspan: 3, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4])
     discipline_header = make_cell(content: 'Disciplina', size: 8, font_style: :bold, colspan:1, rowspan:1, borders: [:top, :bottom, :left], padding: [2, 2, 4, 4])
     discipline_cell = make_cell(content: (discipline ? discipline.description : 'Geral'), size: 10, colspan: 4, borders: [:top, :bottom, :right], padding: [0, 2, 4, 4])
-    step_header = make_cell(content: 'Etapa', size: 8, colspan:1, rowspan:1, font_style: :bold, borders: [:top, :bottom, :left], padding: [2, 2, 4, 4])
-    step_cell = make_cell(content: '', size: 10, colspan: 4, borders: [:bottom, :right], padding: [0, 2, 4, 4])
-
+    
     first_table_data = [[exam_header],
                         [logo_cell, entity_organ_and_unity_cell, classroom_header, year_header],
                         [classroom_cell, year_cell],
                         [teacher_header],
                         [teacher_cell],
-                        [discipline_header, discipline_cell],
-                        [step_header, step_cell]]
+                        [discipline_header, discipline_cell]]
 
     page_header do
       table(first_table_data, width: bounds.width, header: true) do
@@ -103,128 +100,102 @@ class ExamStepAverageReport < BaseReport
   end
 
   def data_table
+    avaliations = []
+    students = {}
+    
     @steps.each do |school_calendar_step| 
+        avaliations << make_cell(content: "#{school_calendar_step.step_number}ª Etapa", font_style: :bold, background_color: 'FFFFFF', align: :center, width: 55)
+
         averages = {}
         recovery_lowest_note = {}
-        school_term_recovery_scores = {}
         self.any_student_with_dependence = false
-
+    
         @students_enrollments.each do |student_enrollment|
-        averages[student_enrollment.id] = StudentAverageCalculator.new(
-            student_enrollment.student
-        ).calculate(
-            classroom,
-            discipline,
-            school_calendar_step
-        )
-        end
+            student_id = student_enrollment.student_id
+            student = Student.find(student_id)
 
-        exams = []
+            self.any_student_with_dependence = any_student_with_dependence #|| student_has_dependence?(student_enrollment, exam.discipline_id)
 
-        avaliations = []
-        students = {}
+            (students[student_enrollment.id] ||= {})[:name] = student.to_s
 
-        avaliations << make_cell(content: "1º Bim", font_style: :bold, background_color: 'FFFFFF', align: :center, width: 55)
-        
-
-            @students_enrollments.each do |student_enrollment|
-                student_id = student_enrollment.student_id
-                score = 0 ###########
-                student = Student.find(student_id)
-
-                self.any_student_with_dependence = any_student_with_dependence #|| student_has_dependence?(student_enrollment, exam.discipline_id)
-
-                (students[student_enrollment.id] ||= {})[:name] = student.to_s
-
-                students[student_enrollment.id] = {} if students[student_enrollment.id].nil?
-                students[student_enrollment.id][:dependence] = students[student_enrollment.id][:dependence] #|| student_has_dependence?(student_enrollment, exam.discipline_id)
-                (students[student_enrollment.id][:scores] ||= []) << make_cell(content: localize_score(score), align: :center)
-                students[student_enrollment.id][:social_name] = student.social_name
-                students[student_enrollment.id][:student_id] = student.id
-            end
-        
-
-        sequential_number_header = make_cell(content: 'Nº', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, width: 15)
-        student_name_header = make_cell(content: 'Nome do aluno', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, width: 170)
-        average_header = make_cell(content: "Média", size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, width: 30)
-
-        first_headers_and_cells = [sequential_number_header, student_name_header].concat(avaliations)
-
-            lowest_note_header = make_cell(content: "Rec. geral", size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, width: 30)
-            first_headers_and_cells << lowest_note_header
-
-        (5 - avaliations.count).times { first_headers_and_cells << make_cell(content: '', background_color: 'FFFFFF', width: 55) }
-        first_headers_and_cells << average_header
-
-        students_cells = []
-        students = students.sort_by { |(key, value)| value[:dependence] ? 1 : 0 }
-        sequence = 1
-        sequence_reseted = false
-        students.each do |key, value|
-            if !sequence_reseted && value[:dependence]
-            sequence = 1
-            sequence_reseted = true
-            end
-
-            sequence_cell = make_cell(content: sequence.to_s, align: :center)
-            student_cells = [sequence_cell, { content: (value[:dependence] ? '* ' : '') + value[:name] }].concat(value[:scores])
-            data_column_count = value[:scores].count + (value[:recoveries].nil? ? 0 : value[:recoveries].count)
-
-            student_cells << make_cell(content: "#{recovery_lowest_note[key]}", align: :center)
-
-            number_colums = 5
-
-            (number_colums - data_column_count).times { student_cells << nil }
-
-            recovery_score = if school_term_recovery_scores[key]
-                                calculate_recovery_score(value[:student_id], school_term_recovery_scores[key], school_calendar_step)
-                            end
-
-            recovery_average = SchoolTermAverageCalculator.new(classroom)
-                                                        .calculate(averages[key], recovery_score)
-            averages[key] = ScoreRounder.new(classroom, RoundedAvaliations::SCHOOL_TERM_RECOVERY, school_calendar_step)
-                                        .round(recovery_average)
-
-            average = averages[key]
-            student_cells << make_cell(content: "#{average}", font_style: :bold, align: :center)
+            students[student_enrollment.id] = {} if students[student_enrollment.id].nil?
+            students[student_enrollment.id][:dependence] = students[student_enrollment.id][:dependence] #|| student_has_dependence?(student_enrollment, exam.discipline_id)
             
-            students_cells << student_cells
+            students[student_enrollment.id][:social_name] = student.social_name
+            students[student_enrollment.id][:student_id] = student.id
 
-            sequence += 1
-        end
-
-        (5 - students_cells.count).times do
-            sequence_cell = make_cell(content: (students_cells.count + 1).to_s, align: :center)
-            scores = []
-            5.times { scores << make_cell(content: '', align: :center) }
-            student_cells = [sequence_cell, { content: '' }].concat(scores)
-            student_cells << make_cell(content: '', align: :center)
-            students_cells << student_cells
-        end
-
-        sliced_students_cells = students_cells.each_slice(student_slice_size(students)).to_a
-
-        sliced_students_cells.each_with_index do |students_cells_slice, index|
-            data = [
-            first_headers_and_cells
-            ]
-            data.concat(students_cells_slice)
-
-            page_content do
-            table(data, row_colors: ['FFFFFF', 'DEDEDE'], cell_style: { size: 8, padding: [2, 2, 2, 2], inline_format: true }, width: bounds.width) do |t|
-                t.cells.border_width = 0.25
-                t.before_rendering_page do |page|
-                page.row(0).border_top_width = 0.25
-                page.row(-1).border_bottom_width = 0.25
-                page.column(0).border_left_width = 0.25
-                page.column(-1).border_right_width = 0.25
-                end
-            end
-            end
-
-            start_new_page if index < sliced_students_cells.count - 1
+            score = StudentAverageCalculator.new(
+                student_enrollment.student
+            ).calculate(
+                classroom,
+                discipline,
+                school_calendar_step
+            )
+            (students[student_enrollment.id][:scores_number] ||= []) << score
+            (students[student_enrollment.id][:scores] ||= []) << make_cell(content: localize_score(score), align: :center)
         end
     end
+
+    sequential_number_header = make_cell(content: 'Nº', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, width: 15)
+    student_name_header = make_cell(content: 'Nome do aluno', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, width: 170)
+    final_recovery_header = make_cell(content: "Rec. Final", size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, width: 30)
+    average_header = make_cell(content: "Média Final", size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, width: 30)
+
+    first_headers_and_cells = [sequential_number_header, student_name_header].concat(avaliations)
+    first_headers_and_cells << final_recovery_header
+    first_headers_and_cells << average_header
+
+    students_cells = []
+    students = students.sort_by { |(key, value)| value[:dependence] ? 1 : 0 }
+    sequence = 1
+    sequence_reseted = false
+    students.each do |key, value|
+        if !sequence_reseted && value[:dependence]
+        sequence = 1
+        sequence_reseted = true
+        end
+
+        sequence_cell = make_cell(content: sequence.to_s, align: :center)
+        student_cells = [sequence_cell, { content: (value[:dependence] ? '* ' : '') + value[:name] }].concat(value[:scores])
+        data_column_count = value[:scores].count + (value[:recoveries].nil? ? 0 : value[:recoveries].count)
+
+        avg = calculate_avg(value[:scores_number], @steps.count)
+        student_cells << make_cell(content: "", align: :center) # recuperação final
+        student_cells << make_cell(content: localize_score(avg), align: :center)
+        # student_cells << make_cell(content: "#{recovery_lowest_note[key]}", align: :center)
+
+        # number_colums = 5
+
+        # (number_colums - data_column_count).times { student_cells << nil }
+        
+        students_cells << student_cells
+
+        sequence += 1
+    end
+
+    sliced_students_cells = students_cells.each_slice(student_slice_size(students)).to_a
+
+    sliced_students_cells.each_with_index do |students_cells_slice, index|
+        data = [
+            first_headers_and_cells
+        ]
+        data.concat(students_cells_slice)
+
+        page_content do
+        table(data, row_colors: ['FFFFFF', 'DEDEDE'], cell_style: { size: 8, padding: [2, 2, 2, 2], inline_format: true }, width: bounds.width) do |t|
+            t.cells.border_width = 0.25
+            t.before_rendering_page do |page|
+            page.row(0).border_top_width = 0.25
+            page.row(-1).border_bottom_width = 0.25
+            page.column(0).border_left_width = 0.25
+            page.column(-1).border_right_width = 0.25
+            end
+        end
+        end
+
+        start_new_page if index < sliced_students_cells.count - 1
+    end
+    
   end
 
   def student_transferred?(note_student)
@@ -243,6 +214,16 @@ class ExamStepAverageReport < BaseReport
       classroom.id,
       step
     ).calculate(score)
+  end
+
+  def calculate_avg(scores, steps_size)
+    sum = 0
+    scores.each { |v| 
+       if v.is_a? Numeric
+        sum = sum + v 
+       end
+    }
+    sum/steps_size
   end
 
   def student_slice_size(students)
