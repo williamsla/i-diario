@@ -101,7 +101,6 @@ class DescriptiveReport < BaseReport
   end
 
   def body
-    Rails.logger.info "#{@students.inspect}"
     page_content do
       @students.each_with_index do |student, index|
         identification(student)
