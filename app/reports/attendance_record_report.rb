@@ -57,7 +57,6 @@ class AttendanceRecordReport < BaseReport
     current_user,
     classroom_description
   )
-    ini = Time.now
 
     @entity_configuration = entity_configuration
     @unity = unity
@@ -87,11 +86,6 @@ class AttendanceRecordReport < BaseReport
     header
     content
     footer
-
-    fim = Time.now
-    tempo_resultante = fim - ini
-    Rails.logger.info "\n\ntempo carregamento de frequência: #{tempo_resultante}"
-    # exit
 
     self
   end

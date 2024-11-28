@@ -5,8 +5,6 @@ class DisciplineContentRecordReport < BaseReport
 
   def build(entity_configuration, unity, date_start, date_end, discipline_content_record, current_teacher, classroom)
 
-    ini = Time.now
-
     @entity_configuration = entity_configuration
     @unity = unity
     @date_start = date_start
@@ -19,11 +17,6 @@ class DisciplineContentRecordReport < BaseReport
     header
     body
     footer
-
-    fim = Time.now
-    tempo_resultante = fim - ini
-    Rails.logger.info "\n\ntempo carregamento de conteúdo: #{tempo_resultante}"
-    # exit
 
     self
   end
