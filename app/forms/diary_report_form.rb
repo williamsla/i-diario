@@ -7,7 +7,8 @@ class DiaryReportForm
                   :discipline_id,
                   :teacher_id,
                   :start_at,
-                  :end_at
+                  :end_at,
+                  :receive_email_confirmation
   
     validates :unity_id, presence: true
     validates :classroom_id, presence: true

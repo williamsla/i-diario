@@ -36,22 +36,6 @@ class ExamStepAverageReport < BaseReport
 
   private
 
-  def student_enrolled_on_date?(student_id, date)
-    student_list(date).include?(student_id)
-  end
-
-  def student_list(date)
-    student_list ||= {}
-    student_list[date] ||= StudentEnrollmentsList.new(
-      classroom: classroom,
-      discipline: discipline,
-      date: date,
-      search_type: :by_date,
-      show_inactive: false
-    ).student_enrollments
-    .map(&:student_id)
-  end
-
   def classroom
     @classroom
   end
@@ -61,7 +45,7 @@ class ExamStepAverageReport < BaseReport
   end
 
   def header
-    exam_header = make_cell(content: 'Registro de avaliações', size: 12, font_style: :bold, background_color: 'DEDEDE', height: 20, padding: [2, 2, 4, 4], align: :center, colspan: 5)
+    exam_header = make_cell(content: 'Avaliações numéricas', size: 12, font_style: :bold, background_color: 'DEDEDE', height: 20, padding: [2, 2, 4, 4], align: :center, colspan: 5)
     begin
       logo_cell = make_cell(image: open(@entity_configuration.logo.url), fit: [50, 50], width: 70, rowspan: 4, position: :center, vposition: :center)
     rescue
@@ -112,7 +96,7 @@ class ExamStepAverageReport < BaseReport
     
         @students_enrollments.each do |student_enrollment|
             student_id = student_enrollment.student_id
-            student = Student.find(student_id)
+            student = student_enrollment.student
 
             self.any_student_with_dependence = any_student_with_dependence #|| student_has_dependence?(student_enrollment, exam.discipline_id)
 
@@ -125,7 +109,7 @@ class ExamStepAverageReport < BaseReport
             students[student_enrollment.id][:student_id] = student.id
 
             score = StudentAverageCalculator.new(
-                student_enrollment.student
+                student
             ).calculate(
                 classroom,
                 discipline,
@@ -162,11 +146,6 @@ class ExamStepAverageReport < BaseReport
         avg = calculate_avg(value[:scores_number], @steps.count)
         student_cells << make_cell(content: "", align: :center) # recuperação final
         student_cells << make_cell(content: localize_score(avg), align: :center)
-        # student_cells << make_cell(content: "#{recovery_lowest_note[key]}", align: :center)
-
-        # number_colums = 5
-
-        # (number_colums - data_column_count).times { student_cells << nil }
         
         students_cells << student_cells
 

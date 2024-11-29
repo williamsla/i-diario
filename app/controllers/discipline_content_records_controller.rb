@@ -168,7 +168,11 @@ class DisciplineContentRecordsController < ApplicationController
   end
 
   def allow_class_number
-    @allow_class_number ||= GeneralConfiguration.first.allow_class_number_on_content_records
+    begin
+      @allow_class_number ||= GeneralConfiguration.first.allow_class_number_on_content_records
+    rescue
+      @allow_class_number ||= false
+    end
   end
 
   def set_number_of_classes
@@ -284,8 +288,12 @@ class DisciplineContentRecordsController < ApplicationController
     end
 
     if @discipline_content_record.content_record.objectives
-      objectives = @discipline_content_record.content_record.objectives_ordered
-      objectives.each { |objective| objective.is_editable = true }
+      begin
+        objectives = @discipline_content_record.content_record.objectives_ordered
+        objectives.each { |objective| objective.is_editable = true }
+      rescue 
+        objectives = []
+      end
       @objectives << objectives
     end
 

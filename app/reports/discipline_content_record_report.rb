@@ -160,7 +160,11 @@ class DisciplineContentRecordReport < BaseReport
 
     @discipline_content_record.each do |discipline_content_record|
       date_cell = make_cell(content: discipline_content_record.content_record.record_date.strftime("%d/%m"), size: 8, align: :left, width:30)
-      class_number = make_cell(content: "#{discipline_content_record.class_number}", size: 8, align: :center)
+      begin
+        class_number = make_cell(content: "#{discipline_content_record.class_number}", size: 8, align: :center)
+      rescue
+        class_number = make_cell(content: "-", size: 8, align: :center)
+      end
       
       texto_praticas_pedagogicas_e_habilidades = [ 
         discipline_content_record.content_record.daily_activities_record.to_s.gsub("\n", ' ').squeeze(' ') ,
@@ -209,14 +213,22 @@ class DisciplineContentRecordReport < BaseReport
   end
 
   def objective_cell_content(content_record)
-    content_record.objectives_ordered.map(&:to_s).join("\n")
+    begin
+      content_record.objectives_ordered.map(&:to_s).join("\n")
+    rescue
+      ""
+    end
   end
 
   def signatures
     start_new_page if cursor < 55
     
     move_down 5
-    text_box("Total de aulas dadas: #{@discipline_content_record.sum(&:class_number)}", size: 12, align: :left, at: [0, cursor], width: 260)
+    begin
+      text_box("Total de aulas dadas: #{@discipline_content_record.sum(&:class_number)}", size: 12, align: :left, at: [0, cursor], width: 260)
+    rescue
+      text_box("Total de aulas dadas: #{@discipline_content_record.count}", size: 12, align: :left, at: [0, cursor], width: 260)
+    end
     
     move_down 30
     text_box("______________________________________________\nProfessor(a)", size: 10, align: :center, at: [0, cursor], width: 260)

@@ -78,7 +78,11 @@ class DisciplineContentRecord < ActiveRecord::Base
   private
 
   def allow_class_number?
-    GeneralConfiguration.first.allow_class_number_on_content_records
+    begin
+      GeneralConfiguration.first.allow_class_number_on_content_records
+    rescue
+      false
+    end
   end
 
   def valid_for_destruction?

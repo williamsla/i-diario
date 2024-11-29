@@ -7,21 +7,31 @@
       <div class="row">
         <div class="col col-sm-4">
           <%= f.input :unity_id, as: :select2_unity, user: current_user %>
-          <%= f.input :classroom_id, as: :select2_classroom, user: current_user %>
+          <%= f.input :teacher_id, as: :select2, elements:[current_teacher] %>
           <%= f.hidden_field :school_calendar_year %>          
-          <%= f.hidden_field :teacher_id %>
+          <%= f.hidden_field :discipline_id %>
           <%= f.hidden_field :start_at %>
           <%= f.hidden_field :end_at %>
         </div>
         <div class="col col-sm-4">
-          <%= f.input :discipline_id, as: :select2_discipline, user: current_user %>          
-        </div>
+          <%= f.input :classroom_id, as: :select2_classroom, user: current_user %>          
+        </div>        
       </div>
-
+      <div class="row">
+        <div class="col col-sm-4" style="margin-right: 10px;">
+          <%= f.input :receive_email_confirmation, as: :boolean, label: false, inline_label: 'Enviar por e-mail' %>
+        </div>
+      </div>      
+      <div id="flash-message">
+        <p class="alert alert-warning" id="substitution-calculation-type-info">
+          <i class="fa-fw fa fa-warning"></i>
+          <%= "A preparação do arquivo do diário pode levar até 7 minutos para finalizar. Caso você não possa esperar, nós te avisaremos por e-mail quando estiver pronto. Mantenha o seu e-mail atualizado através do menu MEU PERFIL" %>
+        </p>
+      </div>
     </fieldset>
-
+    
     <footer>
-      <%= f.submit 'Imprimir', class: 'btn btn-primary' %>
+      <%= f.submit 'Imprimir / Gerar PDF', class: 'btn btn-primary', data: { disable_with: 'Carregando...'} %>
     </footer>
   <% end %>
 </div>
