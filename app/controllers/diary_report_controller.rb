@@ -17,9 +17,9 @@ class DiaryReportController < ApplicationController
         discipline_id: current_user_discipline.id,
         teacher_id: current_teacher.id,
         start_at: @steps.first.start_at,
-        end_at: @steps.last.end_at
+        end_at: @steps.last.end_at,
+        receive_email_confirmation: true
       )
-
     end
   
   
@@ -28,7 +28,7 @@ class DiaryReportController < ApplicationController
       set_school_calendars
 
       my_logger = Logger.new("#{Rails.root}/log/my.log")
-      my_logger.info("--------------------------------\nINICIARIO IMPRESSÃO DO DIÁRIO")
+      my_logger.info("--------------------------------\nINICIANDO IMPRESSÃO DO DIÁRIO")
       tempo_total = 0
 
       @diary_report_form = DiaryReportForm.new(resource_params)
@@ -136,23 +136,23 @@ class DiaryReportController < ApplicationController
       @disciplines.each do |discipline|
         @avaliation_forms = []
         
-        @exam_record_report_form = ExamAverageReportForm.new(
+        @exam_average_report_form = ExamAverageReportForm.new(
           unity_id: current_user_unity.id,
           classroom_id: current_user_classroom.id,
           discipline_id: discipline.id,
           school_calendar_steps: @school_calendar_steps
         )
 
-        @avaliation_forms << @exam_record_report_form
+        @avaliation_forms << @exam_average_report_form
         
-        @exam_record_report_form = ExamAverageReportForm.new(
+        @exam_average_report_form = ExamAverageReportForm.new(
           unity_id: current_user_unity.id,
           classroom_id: current_user_classroom.id,
           discipline_id: discipline.id,
           school_calendar_classroom_steps: @school_calendar_classroom_steps
         )
 
-        @avaliation_forms << @exam_record_report_form
+        @avaliation_forms << @exam_average_report_form
 
         @avaliation_forms.each do |avaliation_discipline|
           if avaliation_discipline.valid? 
@@ -200,7 +200,18 @@ class DiaryReportController < ApplicationController
 
       ini = Time.now
 
-      merge_pdf(pdfTarget, report_name('diario'))
+      filename_diary = report_name("diario#{current_user_school_year}-#{current_teacher.name.split.first}-#{current_user_classroom.description}", 4)
+      
+      filename_diary_full_path = merge_pdf(pdfTarget, filename_diary)
+
+      if @diary_report_form.receive_email_confirmation == true
+        send_mail("Chegou um novo diário", 
+                  "Olá! Segue anexo o diário escolar do(a) professor(a) #{current_teacher.name}\nTurma: #{current_user_classroom.description}", 
+                  filename_diary_full_path, 
+                  current_user.email) 
+      end
+
+      redirect_to filename_diary
 
       finish = Time.now
       diff = finish - ini
@@ -220,31 +231,34 @@ class DiaryReportController < ApplicationController
         :start_at,
         :end_at,
         :teacher_id,
-        :school_calendar_year
+        :school_calendar_year,
+        :receive_email_confirmation
       )
     end
 
-    def build_by_school_steps(exam_record_report_form)
+    def build_by_school_steps(exam_average_report_form)
+      @students_enrollments ||= exam_average_report_form.students_enrollments
       ExamStepAverageReport.build(
         current_entity_configuration,
         current_teacher,
         current_school_year,
         current_user_classroom,
-        Discipline.find(exam_record_report_form.discipline_id),
-        exam_record_report_form.steps,
-        exam_record_report_form.students_enrollments        
+        Discipline.find(exam_average_report_form.discipline_id),
+        exam_average_report_form.steps,
+        @students_enrollments
       )
     end
   
-    def build_by_classroom_steps(exam_record_report_form)
+    def build_by_classroom_steps(exam_average_report_form)
+      @students_enrollments ||= exam_average_report_form.students_enrollments
       ExamStepAverageReport.build(
         current_entity_configuration,
         current_teacher,
         current_school_calendar.year,
         current_user_classroom,
-        Discipline.find(exam_record_report_form.discipline_id),
-        exam_record_report_form.classroom_steps,
-        exam_record_report_form.students_enrollments
+        Discipline.find(exam_average_report_form.discipline_id),
+        exam_average_report_form.classroom_steps,
+        @students_enrollments
       )
     end
   

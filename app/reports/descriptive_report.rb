@@ -103,6 +103,7 @@ class DescriptiveReport < BaseReport
   def body
     page_content do
       @students.each_with_index do |student, index|
+        move_down 10
         identification(student)
         
         descriptives_by_student = @descriptives.select{ |item| item.student.id == student.id}
@@ -115,8 +116,8 @@ class DescriptiveReport < BaseReport
         end
 
         move_down 50
-        text('___________________________________________', size: 8, align: :center)
-        text('Professor(a)', size: 10, align: :center)
+        text('___________________________________________                        ___________________________________________', size: 8, align: :center)
+        text('        Coordenador(a)                                                           Professor(a)',               size: 10, align: :center)
         
         start_new_page
       end
@@ -127,12 +128,7 @@ class DescriptiveReport < BaseReport
 
   def footer
     
-    page_footer(draw_datetime: true) do
-      # repeat(:all) do
-        # draw_text('Legendas: N - Não enturmado, D - Dispensado da avaliação ou disciplina', size: 8, at: [0, 15]) if @show_subtitles
-        
-      # end
-    end
+    page_footer(draw_datetime: true)
 
   end
 

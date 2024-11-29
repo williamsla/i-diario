@@ -427,12 +427,12 @@ class ApplicationController < ActionController::Base
     # pdfTarget.catalog[:PageMode] = :UseOutlines
 
     pdfTarget.write(full_path_report_diario, optimize: true)
-
-    redirect_to name
+    
+    full_path_report_diario
   end
 
-  def report_name(prefix)
-    "/relatorios/#{prefix}-#{SecureRandom.hex}.pdf"
+  def report_name(prefix, qtd_char=10)
+    "/relatorios/#{prefix}-#{SecureRandom.hex(qtd_char)}.pdf"
   end
 
   def check_user_has_name
@@ -493,5 +493,13 @@ class ApplicationController < ActionController::Base
     flash[:success] = nil
     flash[:alert] = t('errors.general.error')
     Honeybadger.notify(expection)
+  end
+
+  def send_mail(subject, body, attach_path, recipient)
+    command = "java -cp #{Rails.root}/lib/send-mail.jar Main '#{subject}' '#{body}' '#{full_path_report_diario}' '#{recipient}'"
+    result = system(command)
+    if result == false
+      Rails.logger.error "Ocorreu um erro ao enviar o e-mail com o seguinte comando: #{command}"
+    end
   end
 end
