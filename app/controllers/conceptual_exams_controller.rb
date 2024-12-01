@@ -73,21 +73,26 @@ class ConceptualExamsController < ApplicationController
       
       enrollment_classroom = StudentEnrollmentClassroom.by_classroom(resource_params[:classroom_id]).by_student(resource_params[:student_id]).first
       step = find_step_by_date(enrollment_classroom.joined_at)
-     
+      record_at = (enrollment_classroom.joined_at.to_date < step.start_at) ? step.start_at : enrollment_classroom.joined_at.to_date
+      
       resource_params_changed = resource_params.merge!("step_id": step.id)
       resource_params_changed = resource_params_changed.merge!("step_number": step.step_number)
-      resource_params_changed = resource_params_changed.merge!("recorded_at": enrollment_classroom.joined_at)
+      resource_params_changed = resource_params_changed.merge!("recorded_at": record_at)
 
       @conceptual_exam.assign_attributes(resource_params_changed)
       @conceptual_exam.merge_conceptual_exam_values
-      @conceptual_exam.step_number = @conceptual_exam.step.try(:step_number)
+      # @conceptual_exam.step_number = @conceptual_exam.step.try(:step_number)
       @conceptual_exam.teacher_id = current_teacher_id
       @conceptual_exam.current_user = current_user
 
-      render :new and return unless @conceptual_exam.save
+      render :new and return unless @conceptual_exam.save!
       respond_to_save
     rescue ActiveRecord::RecordNotUnique
+      Rails.logger.error("Ocorreu um erro ao salvar avaliação conceitual")
       retry
+    rescue Exception => e
+      Rails.logger.error(e.message)
+      e.backtrace.each { |line| Rails.logger.error line }
     end
     return if performed?
 
@@ -517,8 +522,8 @@ class ConceptualExamsController < ApplicationController
   def set_options_by_user
     @classroom ||= current_user_classroom
     # if current_user.current_role_is_admin_or_employee?
-    #   @classrooms ||= [current_user_classroom]
-    #   @disciplines ||= [current_user_discipline]
+      # @classrooms ||= [current_user_classroom]
+      # @disciplines ||= [current_user_discipline]
     # else
       fetch_linked_by_teacher
     # end
@@ -526,7 +531,7 @@ class ConceptualExamsController < ApplicationController
 
   def check_status_and_step(step_id, status)
     if step_id.present?
-      @conceptual_exams = @conceptual_exams.by_step_id(@classrooms, step_id)
+      @conceptual_exams = @conceptual_exams.by_step_id(@classroom, step_id)
       params[:filter][:by_step] = step_id
     end
 
@@ -539,7 +544,7 @@ class ConceptualExamsController < ApplicationController
   def fetch_conceptual_exams
     apply_scopes(ConceptualExam).includes(:student, :classroom)
                                 .by_unity(current_unity)
-                                .by_classroom(@classrooms.map(&:id))
+                                .by_classroom(@classroom.id)
                                 .by_teacher(current_teacher_id)
                                 .ordered_by_date_and_student
   end
