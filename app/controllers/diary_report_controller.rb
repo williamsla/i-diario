@@ -66,7 +66,7 @@ class DiaryReportController < ApplicationController
       )
 
       if @attendance_record_report_form.valid?
-        attendance_record_report = AttendanceRecordReport.build(
+        attendance_record_report = AttendanceRecordReportPortrait.build(
           current_entity_configuration,
           current_user_unity,
           current_teacher,

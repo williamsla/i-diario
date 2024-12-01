@@ -502,4 +502,9 @@ class ApplicationController < ActionController::Base
       Rails.logger.error "Ocorreu um erro ao enviar o e-mail com o seguinte comando: #{command}"
     end
   end
+
+  def date_to_br(date)
+    parts = date.to_s.split('-')
+    "#{parts[2]}/#{parts[1]}/#{parts[0]}"
+  end
 end
