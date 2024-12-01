@@ -93,9 +93,9 @@ class DiaryReportController < ApplicationController
       tempo_total += diff
       my_logger.info("Tempo de carregamento frequência #{diff}")
 
+      #contents
       ini = Time.now
       @disciplines.each do |discipline|
-        #content
         @discipline_lesson_plan_report_form = DisciplineLessonPlanReportForm.new(
           teacher_id: current_teacher_id,
           unity_id: current_user_unity.id,
@@ -123,17 +123,44 @@ class DiaryReportController < ApplicationController
           Rails.logger.error "Ocorreu um erro ao carregar conteúdos da disciplina"  
           Rails.logger.error "#{@discipline_lesson_plan_report_form.inspect}"  
         end
-
       end
+
+      @knowledge_areas.each do |knowledge_area|
+        @knowledge_area_lesson_plan_report_form = KnowledgeAreaLessonPlanReportForm.new(
+          unity_id: current_unity.id,
+          classroom_id: current_user_classroom.id,
+          teacher_id: current_teacher_id,
+          knowledge_area_id: knowledge_area.id,
+          date_start: @diary_report_form.start_at,
+          date_end: @diary_report_form.end_at
+        )
+
+        @knowledge_area_lesson_plan_report_form.author = PlansAuthors::ALL
+        @knowledge_area_lesson_plan_report_form.report_type = ContentRecordReportTypes::CONTENT_RECORD
+
+        if @knowledge_area_lesson_plan_report_form.valid?
+          knowledge_area_lesson_plan_report = KnowledgeAreaContentRecordReport.build(current_entity_configuration,
+                                                                                     @knowledge_area_lesson_plan_report_form.date_start,
+                                                                                     @knowledge_area_lesson_plan_report_form.date_end,
+                                                                                     @knowledge_area_lesson_plan_report_form.knowledge_area_content_record,
+                                                                                     current_teacher)      
+          add_pdf_to_merge(pdfTarget, report_name('conteudo'), knowledge_area_lesson_plan_report.render)
+        else
+          Rails.logger.error "Ocorreu um erro ao carregar conteúdos da área de conhecimento: #{knowledge_area.description}"
+          Rails.logger.error "#{@knowledge_area_lesson_plan_report_form.inspect}"  
+        end
+      end
+
       finish = Time.now
       diff = finish - ini
       tempo_total += diff
       my_logger.info("Tempo de carregamento conteúdos #{diff}")
 
 
+
       ### avaliations
       ini = Time.now
-      @disciplines.each do |discipline|
+      @disciplines.by_score_type(ScoreTypes::NUMERIC).each do |discipline|
         @avaliation_forms = []
         
         @exam_average_report_form = ExamAverageReportForm.new(
@@ -228,6 +255,7 @@ class DiaryReportController < ApplicationController
         :unity_id,
         :classroom_id,
         :discipline_id,
+        :knowledge_area_id,
         :start_at,
         :end_at,
         :teacher_id,
@@ -279,6 +307,11 @@ class DiaryReportController < ApplicationController
       @disciplines ||= @fetch_linked_by_teacher[:disciplines].by_classroom_id(
         current_user_classroom.id
       ).not_descriptor.not_grouper
+
+      @knowledge_areas ||= KnowledgeArea.by_teacher(current_teacher.id)
+                                      .by_classroom_id(current_user_classroom.id)
+                                      .ordered
+
     end
 
     def set_school_calendars
