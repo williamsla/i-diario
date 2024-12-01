@@ -23,7 +23,7 @@ class KnowledgeAreaContentRecordReport < BaseReport
   def header
     entity_name = @entity_configuration.try(:entity_name).to_s
     organ_name = @entity_configuration.try(:organ_name).to_s
-    title = 'Registros de conteúdos por áreas de conhecimento - Registros de conteúdo'
+    title = 'Registros de conteúdos por áreas de conhecimento'
 
     header_cell = make_cell(
       content: title,
@@ -114,8 +114,7 @@ class KnowledgeAreaContentRecordReport < BaseReport
     @period_cell = make_cell(content: (@date_start == '' || @date_end == '' ? '-' : "#{@date_start} a #{@date_end}"), borders: [:bottom, :left, :right], size: 10, align: :left, padding: [0, 2, 4, 4])
 
     @record_date_header = make_cell(content: 'Data', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
-    @knowledge_area_header = make_cell(content: 'Áreas de conhecimento', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
-    @conteudo_header = make_cell(content: Translator.t('activerecord.attributes.knowledge_area_content_record.contents'), size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
+    @knowledge_area_header = make_cell(content: "Áreas de conhecimento / #{Translator.t('activerecord.attributes.knowledge_area_content_record.contents')}", size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
     @habilidade_header = make_cell(content: 'Habilidade', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
   end
 
@@ -158,7 +157,6 @@ class KnowledgeAreaContentRecordReport < BaseReport
     general_information_headers = [
       @record_date_header,
       @knowledge_area_header,
-      @conteudo_header,
       @habilidade_header
     ]
 
@@ -170,25 +168,28 @@ class KnowledgeAreaContentRecordReport < BaseReport
 
     @knowledge_area_content_records.each do |knowledge_area_content_record|
       knowledge_area_descriptions = knowledge_area_content_record.knowledge_areas.map(&:description).join(", ")
-      record_date_cell = make_cell(content: knowledge_area_content_record.content_record.record_date.strftime("%d/%m/%Y"), size: 10, width: 80, align: :left)
-      content_cell = make_cell(content: content_cell_content(knowledge_area_content_record.content_record), size: 10, align: :left)
-      knowledge_area_cell = make_cell(content: knowledge_area_descriptions, size: 8, width: 150, align: :left)
-      habilidade_cell = make_cell(content: objective_cell_content(knowledge_area_content_record.content_record), size: 8, align: :left)
+      record_date_cell = make_cell(content: knowledge_area_content_record.content_record.record_date.strftime("%d/%m"), size: 8, width: 30, align: :left)
 
-      if @show_daily_activities_in_knowledge_area_content_record_report
-        daily_activties_cell = make_cell(content: knowledge_area_content_record.content_record.daily_activities_record.to_s, size: 10, align: :left)
-      end
+      knowledge_area_and_content = [ 
+        knowledge_area_descriptions.to_s.gsub("\n", ' ').squeeze(' ') ,
+        content_cell_content(knowledge_area_content_record.content_record).to_s.gsub("\n", ' ').squeeze(' ')
+      ].join("\n")
+      knowledge_area_and_content_cell = make_cell(content: knowledge_area_and_content, size: 8, align: :left)
+
+
+      texto_praticas_pedagogicas_e_habilidades = [ 
+        knowledge_area_content_record.content_record.daily_activities_record.to_s.gsub("\n", ' ').squeeze(' ') ,
+        objective_cell_content(knowledge_area_content_record.content_record)
+      ].join("\n")
+      texto_praticas_pedagogicas_e_habilidades_cell = make_cell(content: texto_praticas_pedagogicas_e_habilidades, size: 7, align: :left, colspan: 2)
+
 
       general_information_cells << [
         record_date_cell,
-        knowledge_area_cell,
-        content_cell,
-        habilidade_cell
+        knowledge_area_and_content_cell,
+        texto_praticas_pedagogicas_e_habilidades_cell
       ]
 
-      if @show_daily_activities_in_knowledge_area_content_record_report
-        general_information_cells.last << daily_activties_cell
-      end
     end
 
     general_information_table_data = [general_information_headers]
