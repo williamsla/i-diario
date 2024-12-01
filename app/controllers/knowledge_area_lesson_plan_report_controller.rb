@@ -3,9 +3,13 @@ class KnowledgeAreaLessonPlanReportController < ApplicationController
   before_action :require_current_classroom, only: [:form, :lesson_plan_report, :content_record_report]
 
   def form
+    steps = steps_fetcher.current_step.blank? ? steps_fetcher.steps : [steps_fetcher.current_step]
+    
     @knowledge_area_lesson_plan_report_form = KnowledgeAreaLessonPlanReportForm.new(
       unity_id: current_unity.id,
-      classroom_id: current_user_classroom.id
+      classroom_id: current_user_classroom.id,
+      date_start: date_to_br(steps.first.start_at),
+      date_end: date_to_br(steps.last.end_at)
     )
 
     select_options_by_user

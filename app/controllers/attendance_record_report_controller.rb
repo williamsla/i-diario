@@ -3,12 +3,16 @@ class AttendanceRecordReportController < ApplicationController
   before_action :require_current_teacher
 
   def form
+    steps = steps_fetcher.current_step.blank? ? steps_fetcher.steps : [steps_fetcher.current_step]
+    
     @attendance_record_report_form = AttendanceRecordReportForm.new(
       unity_id: current_unity.id,
       school_calendar_year: current_school_year,
       classroom_id: current_user_classroom.id,
       discipline_id: current_user_discipline.id,
-      period: current_teacher_period
+      period: current_teacher_period,
+      start_at: date_to_br(steps.first.start_at),
+      end_at: date_to_br(steps.last.end_at)
     )
 
     set_options_by_user
@@ -25,7 +29,6 @@ class AttendanceRecordReportController < ApplicationController
     if @attendance_record_report_form.valid?
       attendance_record_report = AttendanceRecordReport.build(
         current_entity_configuration,
-        current_unity,
         current_teacher,
         current_user_school_year,
         @attendance_record_report_form.start_at,

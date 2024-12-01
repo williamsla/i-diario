@@ -6,15 +6,15 @@ class DisciplineLessonPlanReportController < ApplicationController
   before_action :require_current_teacher
 
   def form
-    @steps = steps_fetcher.steps
+    steps = steps_fetcher.current_step.blank? ? steps_fetcher.steps : [steps_fetcher.current_step]
 
     @discipline_lesson_plan_report_form = DisciplineLessonPlanReportForm.new(
       teacher_id: current_teacher_id,
       unity_id: current_user_unity.id,
       classroom_id: current_user_classroom.id,
       discipline_id: current_user_discipline.id,
-      date_start: @steps.first.start_at,
-      date_end: @steps.last.end_at
+      date_start: date_to_br(steps.first.start_at),
+      date_end: date_to_br(steps.last.end_at)
     )
     
     set_options_by_user
