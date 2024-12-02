@@ -231,7 +231,7 @@ class DiaryReportController < ApplicationController
       
       filename_diary_full_path = merge_pdf(pdfTarget, filename_diary)
 
-      if @diary_report_form.receive_email_confirmation == true
+      if @diary_report_form.receive_email_confirmation_as_boolean == true
         send_mail("Chegou um novo diário", 
                   "Olá! Segue anexo o diário escolar do(a) professor(a) #{current_teacher.name}\nTurma: #{current_user_classroom.description}", 
                   filename_diary_full_path, 

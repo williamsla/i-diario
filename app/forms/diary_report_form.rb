@@ -13,6 +13,11 @@ class DiaryReportForm
     validates :unity_id, presence: true
     validates :classroom_id, presence: true
 
+    def receive_email_confirmation_as_boolean
+        ActiveRecord::Type::Boolean.new.cast(
+            receive_email_confirmation
+        )
+    end
     private
 
 end
