@@ -496,7 +496,7 @@ class ApplicationController < ActionController::Base
   end
 
   def send_mail(subject, body, attach_path, recipient)
-    command = "java -cp #{Rails.root}/lib/send-mail.jar Main '#{subject}' '#{body}' '#{full_path_report_diario}' '#{recipient}'"
+    command = "java -cp #{Rails.root}/lib/send-mail.jar Main '#{subject}' '#{body}' '#{attach_path}' '#{recipient}'"
     result = system(command)
     if result == false
       Rails.logger.error "Ocorreu um erro ao enviar o e-mail com o seguinte comando: #{command}"
