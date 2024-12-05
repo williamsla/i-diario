@@ -99,7 +99,7 @@ module ExamPoster
         date_avaliation = avaliations[avaliation_id].to_date
 
         enrollment_classroom_on_date += active_enrollment_classrooms.select do |sec|
-          left_at = sec.left_at&.to_date || Date.current
+          left_at = sec.left_at&.to_date || @step.end_at
 
           date_avaliation >= sec.joined_at.to_date && date_avaliation < left_at
         end
