@@ -229,7 +229,9 @@ class DescriptiveExamsController < ApplicationController
       exam_student.value = exam_student.value.gsub(regular_expression, '') if exam_student.value.present?
 
       left_at = enrollment_classroom[:student_enrollment_classroom].left_at.to_date
-      exam_student.active_student = left_at.present? && left_at < @descriptive_exam.step.try(:end_at)
+
+      exam_student.left_at = left_at
+      exam_student.active_student = left_at.present? && left_at < @descriptive_exam.step.try(:start_at)
       
       classroom_grade = current_user_classroom.classrooms_grades.by_id(enrollment_classroom[:student_enrollment_classroom].classrooms_grade_id).first
       exam_student.grade_description = classroom_grade.grade.description

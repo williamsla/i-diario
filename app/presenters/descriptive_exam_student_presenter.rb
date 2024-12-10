@@ -15,7 +15,7 @@ class DescriptiveExamStudentPresenter < BasePresenter
     if dependence
       "*#{student.api_code} - #{student} \nSérie: #{grade_description}"
     elsif exempted_from_discipline || active_student
-      "****#{student.api_code} - #{student} \nSérie: #{grade_description}"
+      "****#{student.api_code} - #{student}\n\n   Série: #{grade_description}\n  Saiu em: #{left_at}"
     else
       "#{student.api_code} - #{student} \n\nSérie: #{grade_description}"
     end
