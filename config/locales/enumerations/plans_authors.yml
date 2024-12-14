@@ -2,4 +2,5 @@ pt-BR:
   enumerations:
     plans_authors:
       my_plans: "Meus planos"
-      others: "Outros"
+      others: "Outros planos"
+      all: "Todos os planos"
