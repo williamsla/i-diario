@@ -14,6 +14,31 @@ task post_avaliations: :environment do
                                   )")
   end
 
+  def counting_started_postings(connection)
+    connection.select_value("SELECT count(iaep.id)
+                              FROM public.ieducar_api_exam_postings iaep
+                              WHERE iaep.status = '#{ApiSynchronizationStatus::STARTED}'")
+  end
+
+  def validate_started_postings(connection)
+    loop do
+      qtd_postings = counting_started_postings(connection)
+      if qtd_postings > 5
+        time_waiting_finish_postings = 5.minutes
+        puts "      aguardando #{time_waiting_finish_postings} minutos para diminuir quantidade de envios"
+        sleep(time_waiting_finish_postings)
+      else
+        break
+      end
+    end
+  end
+
+  def validate_today_is_weekend()
+    today = Date.today
+
+    return today.saturday? || today.sunday?      
+  end
+
   def sync(entity, step, post_type, author, teacher)
     
     new_permitted_attributes = {}
@@ -30,7 +55,7 @@ task post_avaliations: :environment do
     
     ieducar_api_exam_posting_started = IeducarApiExamPosting.where(new_permitted_attributes).last
     if ieducar_api_exam_posting_started != nil
-      puts '  Já existe um envio em andamento'
+      puts '      Já existe um envio em andamento'
       return -1
     end
     
@@ -56,6 +81,8 @@ task post_avaliations: :environment do
 
     @admin_user = User.find_by(login: 'admin')
 
+    count_posting_active = 0
+
     # get schools
     Unity.to_select.each do |school|
       puts "","#{school.id} - #{school.name}"
@@ -75,17 +102,24 @@ task post_avaliations: :environment do
 
           steps = calendar_steps
 
+          do_break_teacher_loop = false
+
           # get classrooms that do not follow the standard school year
-          TeacherDisciplineClassroom.by_teacher_id(teacher.id).by_year(calendar.year).each do |tdc|
-            calendar_classroom_steps = SchoolCalendarClassroomStep.by_school_calendar_id(calendar.id).by_classroom(tdc.classroom.id)
-            steps = steps + calendar_classroom_steps
-          end
+          # TeacherDisciplineClassroom.by_teacher_id(teacher.id).by_year(calendar.year).each do |tdc|
+          #   calendar_classroom_steps = SchoolCalendarClassroomStep.by_school_calendar_id(calendar.id).by_classroom(tdc.classroom.id)
+          #   steps = steps + calendar_classroom_steps
+          # end
+          puts "antes #{steps.count}"
+          steps = steps.uniq()
+          puts "depois #{steps.count}"
 
           steps.each do |step|
 
+            next if do_break_teacher_loop
+
             ApiPostingTypes.to_a.each_with_index do |postType, index|
               
-              if postType.last == 'absence'
+              if validate_today_is_weekend && postType.last == 'absence'
                   last_change = connection.select_value("SELECT max(dfs.updated_at) 
                                             FROM public.daily_frequencies df
                                             inner join public.daily_frequency_students dfs on dfs.daily_frequency_id = df.id 
@@ -94,7 +128,7 @@ task post_avaliations: :environment do
                                                   and df.frequency_date between '#{step.start_at}' and '#{step.end_at}'
                                                   and c.year=#{calendar.year}"
                                           )
-              elsif postType.last == 'conceptual_exam'
+              elsif validate_today_is_weekend && postType.last == 'conceptual_exam'
                   last_change = connection.select_value("SELECT max(cev.updated_at)
                                             FROM public.conceptual_exams ce
                                             inner join public.conceptual_exam_values cev on cev.conceptual_exam_id = ce.id 
@@ -142,12 +176,17 @@ task post_avaliations: :environment do
                                             where c.year=#{calendar.year} and strdr.step_number=#{step.step_number}
                                                 and tdc.teacher_id=#{teacher.id}"
                                           )
+              else
+                next
               end
 
               last_post = get_last_post_date(connection, postType.last, teacher.id, step.step_number)
 
               if last_change != nil
                 if last_post == nil or last_change > last_post
+                    
+                    validate_started_postings(connection)
+                    
                     puts "    etapa #{step.step_number} #{postType.first}: última_mudança #{last_change} X último_envio #{last_post}"
                 
                     posting_id = sync(entity, step, postType.last, @admin_user, teacher)
@@ -161,11 +200,12 @@ task post_avaliations: :environment do
                     count=0
 
                     loop do
-                      puts "      aguardando mais 30 segundos até o posting id #{posting_id} finalizar"
+                      puts "      aguardando 30 segundos até o posting id #{posting_id} finalizar"
                       sleep(30.seconds)
 
                       posting = IeducarApiExamPosting.find(posting_id)
-                      if posting.status != ApiSynchronizationStatus::STARTED or count == 10
+                      if posting.status != ApiSynchronizationStatus::STARTED or count == 5
+                        do_break_teacher_loop = true
                         break
                       end
                       
@@ -177,6 +217,6 @@ task post_avaliations: :environment do
           end
         end
       end
-    end # fim loop escola
-  end
+    end # end school loop
+  end # end connection loop
 end

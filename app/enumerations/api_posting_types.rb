@@ -3,8 +3,8 @@ class ApiPostingTypes < EnumerateIt::Base
     :conceptual_exam,
     :descriptive_exam,
     :numerical_exam,
-    :final_recovery,
-    :school_term_recovery
+    :school_term_recovery,
+    :final_recovery
 
   sort_by :none
 end
