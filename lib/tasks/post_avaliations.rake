@@ -25,7 +25,7 @@ task post_avaliations: :environment do
       qtd_postings = counting_started_postings(connection)
       if qtd_postings > 5
         time_waiting_finish_postings = 5.minutes
-        puts "      aguardando #{time_waiting_finish_postings} minutos para diminuir quantidade de envios"
+        puts "      aguardando #{time_waiting_finish_postings} segundos para diminuir quantidade de envios"
         sleep(time_waiting_finish_postings)
       else
         break
@@ -74,149 +74,175 @@ task post_avaliations: :environment do
   end
 
 
-  entity = Entity.active.last
-    
-  entity.using_connection do
-    connection = ActiveRecord::Base.connection
+  def start()
+    has_change = false
 
-    @admin_user = User.find_by(login: 'admin')
+    entity = Entity.active.last
+      
+    entity.using_connection do
+      connection = ActiveRecord::Base.connection
 
-    count_posting_active = 0
+      @admin_user = User.find_by(login: 'admin')
 
-    # get schools
-    Unity.to_select.each do |school|
-      puts "","#{school.id} - #{school.name}"
+      count_posting_active = 0
 
-      calendars = SchoolCalendar.by_unity_id(school.id).only_opened_years.ordered
-      calendars.each do |calendar|
-        ## TODO: remover a verificação do ano letivo quando todos estiverem finalizados
-        if calendar == nil || calendar.year < 2024
-          next
-        end
+      # get schools
+      Unity.to_select.each do |school|
+        puts "","#{school.id} - #{school.name}"
 
-        calendar_steps = SchoolCalendarStep.by_school_calendar_id(calendar.id).by_unity(school.id).ordered
-        
-        # get teachers
-        Teacher.by_unity_id(school.id).by_year(calendar.year).active_query.order_by_name.each do |teacher|
-          puts "  #{teacher.name} - #{teacher.id}"
+        calendars = SchoolCalendar.by_unity_id(school.id).only_opened_years.ordered
+        calendars.each do |calendar|
+          ## TODO: remover a verificação do ano letivo quando todos estiverem finalizados
+          if calendar == nil || calendar.year < 2024
+            next
+          end
 
-          steps = calendar_steps
+          calendar_steps = SchoolCalendarStep.by_school_calendar_id(calendar.id).by_unity(school.id).ordered
+          
+          # get teachers
+          Teacher.by_unity_id(school.id).by_year(calendar.year).active_query.order_by_name.each do |teacher|
+            puts "\t #{teacher.name} - #{teacher.id}"
+            steps = calendar_steps
 
-          do_break_teacher_loop = false
+            do_break_teacher_loop = false
 
-          # get classrooms that do not follow the standard school year
-          # TeacherDisciplineClassroom.by_teacher_id(teacher.id).by_year(calendar.year).each do |tdc|
-          #   calendar_classroom_steps = SchoolCalendarClassroomStep.by_school_calendar_id(calendar.id).by_classroom(tdc.classroom.id)
-          #   steps = steps + calendar_classroom_steps
-          # end
-          puts "antes #{steps.count}"
-          steps = steps.uniq()
-          puts "depois #{steps.count}"
+            # get classrooms that do not follow the standard school year
+            TeacherDisciplineClassroom.by_teacher_id(teacher.id).by_year(calendar.year).each do |tdc|
+              calendar_classroom_steps = SchoolCalendarClassroomStep.by_school_calendar_id(calendar.id).by_classroom(tdc.classroom.id)
+              steps = steps + calendar_classroom_steps
+            end
 
-          steps.each do |step|
+            steps = steps.uniq()
 
-            next if do_break_teacher_loop
+            steps.each do |step|
 
-            ApiPostingTypes.to_a.each_with_index do |postType, index|
-              
-              if validate_today_is_weekend && postType.last == 'absence'
-                  last_change = connection.select_value("SELECT max(dfs.updated_at) 
-                                            FROM public.daily_frequencies df
-                                            inner join public.daily_frequency_students dfs on dfs.daily_frequency_id = df.id 
-                                            inner join public.classrooms c on c.id = df.classroom_id 
-                                            where df.unity_id=#{school.id} and df.owner_teacher_id=#{teacher.id} 
-                                                  and df.frequency_date between '#{step.start_at}' and '#{step.end_at}'
-                                                  and c.year=#{calendar.year}"
-                                          )
-              elsif validate_today_is_weekend && postType.last == 'conceptual_exam'
-                  last_change = connection.select_value("SELECT max(cev.updated_at)
-                                            FROM public.conceptual_exams ce
-                                            inner join public.conceptual_exam_values cev on cev.conceptual_exam_id = ce.id 
-                                            inner join public.classrooms c on c.id = ce.classroom_id 
-                                            inner join public.teacher_discipline_classrooms tdc on tdc.classroom_id = c.id and tdc.classroom_id = c.id
-                                            where ce.step_number=#{step.step_number} and c.unity_id=#{school.id} and tdc.teacher_id =#{teacher.id}
-                                                and c.year=#{calendar.year}"
-                                          )
-              elsif postType.last == 'descriptive_exam'
-                  last_change = connection.select_value("SELECT max(des.updated_at)
-                                            FROM public.descriptive_exams de
-                                            inner join public.descriptive_exam_students des on des.descriptive_exam_id = de.id 
-                                            inner join public.classrooms c on c.id = de.classroom_id
-                                            inner join public.teacher_discipline_classrooms tdc on tdc.classroom_id = c.id and tdc.classroom_id = c.id
-                                            where de.step_number=#{step.step_number} and c.unity_id=#{school.id} and tdc.teacher_id =#{teacher.id}
-                                                and c.year=#{calendar.year}"
-                                          )
-              elsif postType.last == 'numerical_exam'
-                  last_change = connection.select_value("SELECT max(dns.updated_at)
-                                            FROM public.avaliations ava
-                                            inner join public.classrooms c on c.id = ava.classroom_id
-                                            inner join public.daily_notes dn on dn.avaliation_id = ava.id 
-                                            inner join public.daily_note_students dns on dns.daily_note_id = dn.id 
-                                            inner join public.teacher_discipline_classrooms tdc on tdc.discipline_id = ava.discipline_id and tdc.classroom_id = c.id
-                                            where tdc.teacher_id=#{teacher.id} and ava.test_date between '#{step.start_at}' and '#{step.end_at}'
-                                                  and c.year=#{calendar.year} and c.unity_id=#{school.id}"
-                                          )
-              elsif postType.last == 'final_recovery'
-                  last_change = connection.select_value("SELECT max(rdrs.updated_at) 
-                                            FROM public.final_recovery_diary_records frdr 
-                                            inner join public.recovery_diary_records rdr on rdr.id = frdr.recovery_diary_record_id 
-                                            inner join public.recovery_diary_record_students rdrs on rdrs.recovery_diary_record_id = rdr.id 
-                                            inner join public.classrooms c on c.id = rdr.classroom_id
-                                            inner join public.teacher_discipline_classrooms tdc on tdc.classroom_id = c.id and tdc.classroom_id = c.id
-                                            where c.year=#{calendar.year} and c.unity_id=#{school.id} 
-                                                  and tdc.teacher_id=#{teacher.id} and rdr.recorded_at BETWEEN '#{step.start_at}' and '#{step.end_at}'"
-                                          )
-              elsif postType.last == 'school_term_recovery'
-                  last_change = connection.select_value("SELECT max(rdrs.updated_at) 
-                                            FROM public.recovery_diary_records rdr
-                                            inner join public.classrooms c on c.id = rdr.classroom_id 
-                                            inner join public.school_term_recovery_diary_records strdr  on strdr.recovery_diary_record_id = rdr.id
-                                            inner join public.recovery_diary_record_students rdrs on rdrs.recovery_diary_record_id = rdr.id 
-                                            inner join public.teacher_discipline_classrooms tdc on tdc.classroom_id = c.id and tdc.classroom_id = c.id
-                                            where c.year=#{calendar.year} and strdr.step_number=#{step.step_number}
-                                                and tdc.teacher_id=#{teacher.id}"
-                                          )
-              else
-                next
-              end
+              next if do_break_teacher_loop
 
-              last_post = get_last_post_date(connection, postType.last, teacher.id, step.step_number)
-
-              if last_change != nil
-                if last_post == nil or last_change > last_post
-                    
-                    validate_started_postings(connection)
-                    
-                    puts "    etapa #{step.step_number} #{postType.first}: última_mudança #{last_change} X último_envio #{last_post}"
+              ApiPostingTypes.to_a.each_with_index do |postType, index|
                 
-                    posting_id = sync(entity, step, postType.last, @admin_user, teacher)
+                if postType.last == 'absence'
+                    last_change = connection.select_value("SELECT max(dfs.updated_at) 
+                                              FROM public.daily_frequencies df
+                                              inner join public.daily_frequency_students dfs on dfs.daily_frequency_id = df.id 
+                                              inner join public.classrooms c on c.id = df.classroom_id 
+                                              where df.unity_id=#{school.id} and df.owner_teacher_id=#{teacher.id} 
+                                                    and df.frequency_date between '#{step.start_at}' and '#{step.end_at}'
+                                                    and c.year=#{calendar.year}"
+                                            )
+                elsif validate_today_is_weekend && postType.last == 'conceptual_exam'
+                    last_change = connection.select_value("SELECT max(cev.updated_at)
+                                              FROM public.conceptual_exams ce
+                                              inner join public.conceptual_exam_values cev on cev.conceptual_exam_id = ce.id 
+                                              inner join public.classrooms c on c.id = ce.classroom_id 
+                                              inner join public.teacher_discipline_classrooms tdc on tdc.classroom_id = c.id and tdc.classroom_id = c.id
+                                              where ce.step_number=#{step.step_number} and c.unity_id=#{school.id} and tdc.teacher_id =#{teacher.id}
+                                                  and c.year=#{calendar.year}"
+                                            )
+                elsif postType.last == 'descriptive_exam'
+                    last_change = connection.select_value("SELECT max(des.updated_at)
+                                              FROM public.descriptive_exams de
+                                              inner join public.descriptive_exam_students des on des.descriptive_exam_id = de.id 
+                                              inner join public.classrooms c on c.id = de.classroom_id
+                                              inner join public.teacher_discipline_classrooms tdc on tdc.classroom_id = c.id and tdc.classroom_id = c.id
+                                              where de.step_number=#{step.step_number} and c.unity_id=#{school.id} and tdc.teacher_id =#{teacher.id}
+                                                  and c.year=#{calendar.year}"
+                                            )
+                elsif postType.last == 'numerical_exam'
+                    last_change = connection.select_value("SELECT max(dns.updated_at)
+                                              FROM public.avaliations ava
+                                              inner join public.classrooms c on c.id = ava.classroom_id
+                                              inner join public.daily_notes dn on dn.avaliation_id = ava.id 
+                                              inner join public.daily_note_students dns on dns.daily_note_id = dn.id 
+                                              inner join public.teacher_discipline_classrooms tdc on tdc.discipline_id = ava.discipline_id and tdc.classroom_id = c.id
+                                              where tdc.teacher_id=#{teacher.id} and ava.test_date between '#{step.start_at}' and '#{step.end_at}'
+                                                    and c.year=#{calendar.year} and c.unity_id=#{school.id}"
+                                            )
+                elsif postType.last == 'final_recovery'
+                    last_change = connection.select_value("SELECT max(rdrs.updated_at) 
+                                              FROM public.final_recovery_diary_records frdr 
+                                              inner join public.recovery_diary_records rdr on rdr.id = frdr.recovery_diary_record_id 
+                                              inner join public.recovery_diary_record_students rdrs on rdrs.recovery_diary_record_id = rdr.id 
+                                              inner join public.classrooms c on c.id = rdr.classroom_id
+                                              inner join public.teacher_discipline_classrooms tdc on tdc.classroom_id = c.id and tdc.classroom_id = c.id
+                                              where c.year=#{calendar.year} and c.unity_id=#{school.id} 
+                                                    and tdc.teacher_id=#{teacher.id} and rdr.recorded_at BETWEEN '#{step.start_at}' and '#{step.end_at}'"
+                                            )
+                elsif postType.last == 'school_term_recovery'
+                    last_change = connection.select_value("SELECT max(rdrs.updated_at) 
+                                              FROM public.recovery_diary_records rdr
+                                              inner join public.classrooms c on c.id = rdr.classroom_id 
+                                              inner join public.school_term_recovery_diary_records strdr  on strdr.recovery_diary_record_id = rdr.id
+                                              inner join public.recovery_diary_record_students rdrs on rdrs.recovery_diary_record_id = rdr.id 
+                                              inner join public.teacher_discipline_classrooms tdc on tdc.classroom_id = c.id and tdc.classroom_id = c.id
+                                              where c.year=#{calendar.year} and strdr.step_number=#{step.step_number}
+                                                  and tdc.teacher_id=#{teacher.id}"
+                                            )
+                else
+                  next
+                end
 
-                    if posting_id == -1
-                      next
-                    end
-                    
-                    
-                    # verificando se o worker finalizou antes de enviar a próxima etapa
-                    count=0
+                last_post = get_last_post_date(connection, postType.last, teacher.id, step.step_number)
 
-                    loop do
-                      puts "      aguardando 30 segundos até o posting id #{posting_id} finalizar"
-                      sleep(30.seconds)
+                if last_change != nil
+                  if last_post == nil or last_change > last_post
 
-                      posting = IeducarApiExamPosting.find(posting_id)
-                      if posting.status != ApiSynchronizationStatus::STARTED or count == 5
-                        do_break_teacher_loop = true
-                        break
+                      has_change = true
+                      
+                      validate_started_postings(connection)
+                      
+                      puts "\t\t etapa #{step.step_number} #{postType.first}: última_mudança #{last_change} X último_envio #{last_post}"
+                      
+                      posting_id = sync(entity, step, postType.last, @admin_user, teacher)
+
+                      if posting_id == -1
+                        next
                       end
                       
-                      count=count+1
-                    end
-                end
-              end                
+                      
+                      # verificando se o worker finalizou antes de enviar a próxima etapa
+                      count=0
+
+                      loop do
+                        time_sleep = 30.seconds
+                        puts "\t\t\t aguardando #{time_sleep} segundos até o posting id #{posting_id} finalizar"                      
+                        sleep(time_sleep)
+
+                        posting = IeducarApiExamPosting.find(posting_id)
+                        
+                        if posting.status != ApiSynchronizationStatus::STARTED
+                          do_break_teacher_loop = false # deve seguir para os proximos envios do professor
+                          break 
+                        elsif count == 10 # tempo equivalente a 5 minutos
+                          do_break_teacher_loop = true # deve abandonar o loop do professor
+                          break
+                        end
+                        
+                        count=count+1
+                      end
+                  end
+                end                
+              end
             end
           end
         end
-      end
-    end # end school loop
-  end # end connection loop
+      end # end school loop
+    end # end connection loop
+
+    puts "==> FIM <=="
+    return has_change
+  end
+
+  # init script
+  loop do
+    Rake::Task["ieducar_api:cancel"].invoke
+
+    was_changed = start()
+
+    if was_changed == false
+      puts "\n\t não houve mudanças desde a última sincronização.\n\t Aguardando 1h antes de fazer uma nova sincronização.\n"
+      sleep(60.minutes)
+    else
+      sleep(10.minutes)
+    end
+  end
 end

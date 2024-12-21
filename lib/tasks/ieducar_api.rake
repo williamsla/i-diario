@@ -22,7 +22,8 @@ namespace :ieducar_api do
       entity.using_connection do
         postings = IeducarApiExamPosting.where(status: :started)
                                         .where('created_at < ?', 1.day.ago)
-
+        puts "Cancelando #{postings.count} envios"
+        
         postings.each do |posting|
           posting.add_error!(
             I18n.t('ieducar_api.error.messages.sync_error'),
