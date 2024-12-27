@@ -92,9 +92,8 @@ class StudentEnrollmentsList
   end
 
   def fetch_student_enrollments(as_relation)
+
     students_enrollments ||= StudentEnrollment.by_classroom(classroom)
-                                              .by_discipline(discipline)
-                                              .by_score_type(score_type, classroom)
                                               .joins(:student)
                                               .includes(:student)
                                               .includes(:dependences)
