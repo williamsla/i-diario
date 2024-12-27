@@ -55,6 +55,7 @@ class ConceptualExamsController < ApplicationController
     fetch_collections
 
     (@disciplines || []).each do |discipline|
+
       @conceptual_exam.conceptual_exam_values.build(
         conceptual_exam: @conceptual_exam,
         discipline: discipline
@@ -380,6 +381,7 @@ class ConceptualExamsController < ApplicationController
     )
 
     @disciplines = @disciplines.not_grouper
+                               .descriptor
                                .where.not(id: exempted_discipline_ids)
                                .where(id: disciplines_in_grade)
   end

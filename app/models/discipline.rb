@@ -67,6 +67,7 @@ class Discipline < ApplicationRecord
   scope :not_grouper, -> { where(grouper: false) }
   scope :grouper, -> { where(grouper: true) }
   scope :not_descriptor, -> { where(descriptor: false) }
+  scope :descriptor, -> { where(descriptor: true) }
   scope :by_description, lambda { |description|
     joins(:knowledge_area)
       .where(<<-SQL, description: "%#{description}%")

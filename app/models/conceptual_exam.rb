@@ -101,7 +101,9 @@ class ConceptualExam < ActiveRecord::Base
 
 
   def status
-    discipline_ids = TeacherDisciplineClassroom.where(classroom_id: classroom_id, teacher_id: teacher_id)
+    discipline_ids = TeacherDisciplineClassroom.joins(:discipline)
+                                               .where(classroom_id: classroom_id, teacher_id: teacher_id)
+                                               .where(disciplines: { descriptor: true })
                                                .pluck(:discipline_id)
     
     exempted_discipline_ids = ExemptedDisciplinesInStep.discipline_ids(
