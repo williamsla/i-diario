@@ -25,6 +25,10 @@ class DiaryReportController < ApplicationController
     def classroom_has_general_absence(classroom)
       classroom.first_exam_rule.frequency_type == FrequencyTypes::GENERAL
     end
+
+    def classroom_has_opinion_type(classroom)
+      classroom.first_exam_rule.opinion_type != OpinionTypes::DONT_USE
+    end
   
     def print_report
       set_options_by_user
@@ -201,34 +205,34 @@ class DiaryReportController < ApplicationController
       tempo_total += diff
       my_logger.info("Tempo de carregamento avaliações numéricas #{diff}")
 
-
-
       # parecer
-      ini = Time.now
-      @descriptive_form = DescriptiveReportForm.new(
-        classroom_id: current_user_classroom.id,
-        start_at: @diary_report_form.start_at,
-        end_at: @diary_report_form.end_at
-      )
-
-      if @descriptive_form.valid?
-        descriptive_report = DescriptiveReport.build(
-          current_entity_configuration, 
-          current_user_unity, 
-          current_user_school_year, 
-          @descriptive_form.fetch_exam_values, 
-          @descriptive_form.fetch_students, 
-          current_user_classroom,
-          @descriptive_form.is_annual,
-          true
+      if classroom_has_opinion_type(current_user_classroom) == true
+        ini = Time.now
+        @descriptive_form = DescriptiveReportForm.new(
+          classroom_id: current_user_classroom.id,
+          start_at: @diary_report_form.start_at,
+          end_at: @diary_report_form.end_at
         )
-  
-        add_pdf_to_merge(pdfTarget, report_name('parecer'), descriptive_report.render)
+
+        if @descriptive_form.valid?
+          descriptive_report = DescriptiveReport.build(
+            current_entity_configuration, 
+            current_user_unity, 
+            current_user_school_year, 
+            @descriptive_form.fetch_exam_values, 
+            @descriptive_form.fetch_students, 
+            current_user_classroom,
+            @descriptive_form.is_annual,
+            true
+          )
+    
+          add_pdf_to_merge(pdfTarget, report_name('parecer'), descriptive_report.render)
+        end
+        finish = Time.now
+        diff = finish - ini
+        tempo_total += diff
+        my_logger.info("Tempo de carregamento de parecer descritivo #{diff}")
       end
-      finish = Time.now
-      diff = finish - ini
-      tempo_total += diff
-      my_logger.info("Tempo de carregamento de parecer descritivo #{diff}")
 
       ini = Time.now
 
