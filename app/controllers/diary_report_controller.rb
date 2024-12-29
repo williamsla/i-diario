@@ -21,7 +21,10 @@ class DiaryReportController < ApplicationController
         receive_email_confirmation: true
       )
     end
-  
+
+    def classroom_has_general_absence(classroom)
+      classroom.first_exam_rule.frequency_type == FrequencyTypes::GENERAL
+    end
   
     def print_report
       set_options_by_user
@@ -56,9 +59,12 @@ class DiaryReportController < ApplicationController
         current_teacher_id: current_teacher.id,
         start_at: @diary_report_form.start_at,
         end_at: @diary_report_form.end_at,
-        class_numbers: '', # get all class_numbers
+        class_numbers: '',
         # global_absence: true
       )
+      
+      # get all class_numbers
+      @attendance_record_report_form.class_numbers = [1..5] if classroom_has_general_absence(current_user_classroom) == false
 
       @attendance_record_report_form.school_calendar = SchoolCalendar.find_by(
         unity: @attendance_record_report_form.unity_id,
@@ -86,7 +92,6 @@ class DiaryReportController < ApplicationController
         add_pdf_to_merge(pdfTarget, report_name('frequencia'), attendance_record_report.render)        
       else
         Rails.logger.error "Ocorreu um erro ao carregar frequência"        
-        # return
       end
       finish = Time.now
       diff = finish - ini
