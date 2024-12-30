@@ -74,15 +74,28 @@ task print_diary: :environment do
     classroom.first_exam_rule.opinion_type != OpinionTypes::DONT_USE
   end
 
-  def build_by_school_steps(exam_average_report_form, teacher, classroom, discipline, year, steps)
-    @students_enrollments ||= exam_average_report_form.students_enrollments
+  def build_by_school_steps(exam_average_report_form, teacher, classroom, discipline, year)
+    @students_enrollments = exam_average_report_form.students_enrollments
     ExamStepAverageReport.build(
       current_entity_configuration,
       teacher,
       year,
       classroom,
       Discipline.find(exam_average_report_form.discipline_id),
-      steps,
+      exam_average_report_form.steps,
+      @students_enrollments
+    )
+  end
+
+  def build_by_classroom_steps(exam_average_report_form, teacher, classroom, discipline, year)
+    @students_enrollments = exam_average_report_form.students_enrollments
+    ExamStepAverageReport.build(
+      current_entity_configuration,
+      teacher,
+      year,
+      classroom,
+      Discipline.find(exam_average_report_form.discipline_id),
+      exam_average_report_form.classroom_steps,
       @students_enrollments
     )
   end
@@ -111,17 +124,23 @@ task print_diary: :environment do
         end
 
         calendar = SchoolCalendar.by_unity_id(school.id).by_year(year).first
-          
+
         classrooms = Classroom.by_unity(school.id).by_year(calendar.year)
 
         classrooms.each do |classroom|
             puts "\t#{classroom.description} - #{classroom.id}"
-            steps = SchoolCalendarClassroomStep.by_school_calendar_id(calendar.id).by_classroom(classroom.id)
-            has_steps_by_classroom = true
-            if steps.blank?
-                steps = SchoolCalendarStep.by_school_calendar_id(calendar.id).by_unity(school.id).ordered
-                has_steps_by_classroom = false
+        
+            @school_calendar_steps = SchoolCalendarStep.where(school_calendar: calendar).ordered    
+            @school_calendar_classroom_steps = SchoolCalendarClassroomStep.by_classroom(classroom.id).ordered
+            
+            if @school_calendar_classroom_steps.any?
+              steps = @school_calendar_classroom_steps
+              has_steps_by_classroom = true
+            else
+              steps = @school_calendar_steps
+              has_steps_by_classroom = false
             end
+            
 
             # get teachers
             Teacher.by_unity_id(school.id).by_classroom(classroom.id).by_year(calendar.year).active_query.order_by_name.each do |teacher|
@@ -286,20 +305,24 @@ task print_diary: :environment do
                     #   next
                     # end
                     
-                    @exam_average_report_form = ExamAverageReportForm.new(
-                      unity_id: school.id,
-                      classroom_id: classroom.id,
-                      discipline_id: discipline.id                      
-                    )
-
                     if has_steps_by_classroom == true
-                      @exam_average_report_form.school_calendar_classroom_steps = steps
+                      @exam_average_report_form = ExamAverageReportForm.new(
+                        unity_id: school.id,
+                        classroom_id: classroom.id,
+                        discipline_id: discipline.id,
+                        school_calendar_classroom_steps: steps                        
+                      )
                     else
-                      @exam_average_report_form.school_calendar_steps = steps
+                      @exam_average_report_form = ExamAverageReportForm.new(
+                        unity_id: school.id,
+                        classroom_id: classroom.id,
+                        discipline_id: discipline.id,
+                        school_calendar_steps: steps
+                      )
                     end
             
                     if @exam_average_report_form.valid? 
-                      exam_record_report = build_by_school_steps(@exam_average_report_form, teacher, classroom, discipline, calendar.year, steps)
+                      exam_record_report = has_steps_by_classroom == true ? build_by_classroom_steps(@exam_average_report_form, teacher, classroom, discipline, calendar.year) : build_by_school_steps(@exam_average_report_form, teacher, classroom, discipline, calendar.year)
                       add_pdf_to_merge(pdfTarget, report_name('avaliacao'), exam_record_report.render)
                     else
                       puts "Ocorreu um erro ao carregar avaliações da disciplina"  
