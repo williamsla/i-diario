@@ -131,33 +131,21 @@ task print_diary: :environment do
                 puts "\t\t#{teacher.name} - #{teacher.id}"
 
                 pdfTarget = HexaPDF::Document.new
-      
-                frequency_is_general = true
-                class_numbers_array = []
+                      
+                fetch_linked_by_teacher ||= TeacherClassroomAndDisciplineFetcher.fetch!(
+                  teacher.id,
+                  school,
+                  calendar.year
+                )
+                disciplines ||= fetch_linked_by_teacher[:disciplines].by_classroom_id(
+                  classroom.id
+                ).not_descriptor.not_grouper
                 
-                disciplines = Discipline.by_teacher_and_classroom(
-                  teacher.id, classroom.id
-                ).ordered
-
                 knowledge_areas = KnowledgeArea.by_teacher(teacher.id)
                                               .by_classroom_id(classroom.id)
                                               .ordered
                 
-                # #get disciplines by teacher and classroom
-                # TeacherDisciplineClassroom.by_teacher_id(teacher.id).by_classroom_id(classroom.id).each do |tdc|
-                #     # puts tdc.inspect
-                #     sair=true
-                #     disciplines += [tdc.discipline]
-                #     if tdc.try(:allow_absence_by_discipline)
-                #         frequency_is_general = false
-                #         class_numbers_array = [1..5] # get all class_numbers
-                #     end
-                # end
                 
-                disciplines.sort_by {|d| d.description}
-                # puts disciplines.inspect
-                # puts knowledge_areas.inspect
-                #   exit
                 teacher_has_frequency_by_discipline = teacher_is_specific_area(connection, classroom.id, teacher.id)
                 if teacher_has_frequency_by_discipline == true
                   aux_disciplines = disciplines
@@ -294,6 +282,10 @@ task print_diary: :environment do
 
                   # avaliations
                   disciplines.by_score_type(ScoreTypes::NUMERIC).each do |discipline|
+                    # if discipline.description.match(/([a-zA-Z]{2}[0-9]{2}){2}/)
+                    #   next
+                    # end
+                    
                     @exam_average_report_form = ExamAverageReportForm.new(
                       unity_id: school.id,
                       classroom_id: classroom.id,
@@ -301,9 +293,9 @@ task print_diary: :environment do
                     )
 
                     if has_steps_by_classroom == true
-                      @exam_average_report_form.school_calendar_steps = steps
-                    else
                       @exam_average_report_form.school_calendar_classroom_steps = steps
+                    else
+                      @exam_average_report_form.school_calendar_steps = steps
                     end
             
                     if @exam_average_report_form.valid? 
@@ -341,7 +333,7 @@ task print_diary: :environment do
 
                   
                   # --
-                  filename_diary = report_name("diario#{calendar.year}-#{classroom.description}-#{teacher.name.split.first}", 4)
+                  filename_diary = report_name("diario#{calendar.year}-#{classroom.description.gsub('/','')}-#{teacher.name.split.first}", 4)
                   filename_diary_full_path = merge_pdf(pdfTarget, filename_diary, directory_name)
             end
         end
