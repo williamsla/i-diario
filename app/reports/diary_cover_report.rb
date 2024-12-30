@@ -34,14 +34,14 @@ class DiaryCoverReport < BaseReport
       page_box = canvas.context.box
       canvas.rectangle(20, 20, page_box.width - 40, page_box.height - 40, radius: 5).stroke
       
-      unless @entity_configuration.logo.url.nil?
-        path = "#{Rails.root}/public#{@entity_configuration.logo.url}"
-        begin          
+      begin
+        unless @entity_configuration.logo.url.nil?
+          path = "#{Rails.root}/public#{@entity_configuration.logo.url}"
           canvas.image(open(path), at: [250, 670], width: 70, height: 70)
-        rescue
-          Rails.logger.error "Não não conseguiu carregar a imagem #{path}"
-        end
-      end      
+        end      
+      rescue
+        Rails.logger.error "Não não conseguiu carregar a imagem #{path}"
+      end
       
       canvas.font('Helvetica', size: 14)
       x = calculate_xposition_to_center(@entity_configuration.entity_name.upcase.length, page_box.width)

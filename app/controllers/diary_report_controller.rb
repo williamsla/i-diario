@@ -54,53 +54,61 @@ class DiaryReportController < ApplicationController
 
       ini = Time.now
 
-      @attendance_record_report_form = AttendanceRecordReportForm.new(
-        unity_id: current_unity.id,
-        school_calendar_year: current_school_year,
-        classroom_id: current_user_classroom.id,
-        discipline_id: current_user_discipline.id,
-        period: Periods::FULL,
-        current_teacher_id: current_teacher.id,
-        start_at: @diary_report_form.start_at,
-        end_at: @diary_report_form.end_at,
-        class_numbers: '',
-        # global_absence: true
-      )
-      
-      # get all class_numbers
-      @attendance_record_report_form.class_numbers = [1..5] if classroom_has_general_absence(current_user_classroom) == false
+      if classroom_has_general_absence(current_user_classroom) == true
+        aux_disciplines = [@disciplines.first]
+        class_numbers_array = []
+      else
+        aux_disciplines = @disciplines
+        class_numbers_array = [1..5] # get all class_numbers
+      end
 
-      @attendance_record_report_form.school_calendar = SchoolCalendar.find_by(
-        unity: @attendance_record_report_form.unity_id,
-        year: current_user_school_year
-      )
+      aux_disciplines.each do |discipline|
 
-      if @attendance_record_report_form.valid?
-        attendance_record_report = AttendanceRecordReportPortrait.build(
-          current_entity_configuration,
-          current_user_unity,
-          current_teacher,
-          current_user_school_year,
-          @attendance_record_report_form.start_at,
-          @attendance_record_report_form.end_at,
-          @attendance_record_report_form.daily_frequencies,
-          @attendance_record_report_form.enrollment_classrooms_list,
-          [],
-          @attendance_record_report_form.school_calendar,
-          @attendance_record_report_form.second_teacher_signature,
-          @attendance_record_report_form.students_frequencies_percentage,
-          current_user,
-          current_user_classroom.description
+        @attendance_record_report_form = AttendanceRecordReportForm.new(
+          unity_id: current_unity.id,
+          school_calendar_year: current_school_year,
+          classroom_id: current_user_classroom.id,
+          discipline_id: current_user_discipline.id,
+          period: Periods::FULL,
+          current_teacher_id: current_teacher.id,
+          start_at: @diary_report_form.start_at,
+          end_at: @diary_report_form.end_at,
+          class_numbers: class_numbers_array,
+          # global_absence: true
         )
         
-        add_pdf_to_merge(pdfTarget, report_name('frequencia'), attendance_record_report.render)        
-      else
-        Rails.logger.error "Ocorreu um erro ao carregar frequência"        
+        @attendance_record_report_form.school_calendar = SchoolCalendar.find_by(
+          unity: @attendance_record_report_form.unity_id,
+          year: current_user_school_year
+        )
+
+        if @attendance_record_report_form.valid?
+          attendance_record_report = AttendanceRecordReportPortrait.build(
+            current_entity_configuration,
+            current_user_unity,
+            current_teacher,
+            current_user_school_year,
+            @attendance_record_report_form.start_at,
+            @attendance_record_report_form.end_at,
+            @attendance_record_report_form.daily_frequencies,
+            @attendance_record_report_form.enrollment_classrooms_list,
+            [],
+            @attendance_record_report_form.school_calendar,
+            @attendance_record_report_form.second_teacher_signature,
+            @attendance_record_report_form.students_frequencies_percentage,
+            current_user,
+            current_user_classroom.description
+          )
+          
+          add_pdf_to_merge(pdfTarget, report_name('frequencia'), attendance_record_report.render)        
+        else
+          Rails.logger.error "Ocorreu um erro ao carregar frequência"        
+        end
+        finish = Time.now
+        diff = finish - ini
+        tempo_total += diff
+        my_logger.info("Tempo de carregamento frequência #{diff}")
       end
-      finish = Time.now
-      diff = finish - ini
-      tempo_total += diff
-      my_logger.info("Tempo de carregamento frequência #{diff}")
 
       #contents
       ini = Time.now
@@ -236,7 +244,7 @@ class DiaryReportController < ApplicationController
 
       ini = Time.now
 
-      filename_diary = report_name("diario#{current_user_school_year}-#{current_teacher.name.split.first}-#{current_user_classroom.description}", 4)
+      filename_diary = report_name("diario#{current_user_school_year}-#{current_user_classroom.description}-#{current_teacher.name.split.first}", 4)
       
       filename_diary_full_path = merge_pdf(pdfTarget, filename_diary)
 
