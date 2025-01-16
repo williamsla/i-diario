@@ -40,7 +40,7 @@ class DiaryCoverReport < BaseReport
         canvas.image(open(@entity_configuration.logo.url), at: [250, 670], width: 70, height: 70)
         # end      
       rescue
-        Rails.logger.error "Não não conseguiu carregar a imagem #{path}"
+        Rails.logger.error "Não não conseguiu carregar a imagem"
       end
       
       canvas.font('Helvetica', size: 14)

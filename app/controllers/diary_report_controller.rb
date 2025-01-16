@@ -179,22 +179,22 @@ class DiaryReportController < ApplicationController
       ini = Time.now
       @disciplines.by_score_type(ScoreTypes::NUMERIC).each do |discipline|
         @avaliation_forms = []
-        
-        @exam_average_report_form = ExamAverageReportForm.new(
-          unity_id: current_user_unity.id,
-          classroom_id: current_user_classroom.id,
-          discipline_id: discipline.id,
-          school_calendar_steps: @school_calendar_steps
-        )
 
-        @avaliation_forms << @exam_average_report_form
-        
-        @exam_average_report_form = ExamAverageReportForm.new(
-          unity_id: current_user_unity.id,
-          classroom_id: current_user_classroom.id,
-          discipline_id: discipline.id,
-          school_calendar_classroom_steps: @school_calendar_classroom_steps
-        )
+        if @school_calendar_classroom_steps.any?
+          @exam_average_report_form = ExamAverageReportForm.new(
+            unity_id: current_user_unity.id,
+            classroom_id: current_user_classroom.id,
+            discipline_id: discipline.id,
+            school_calendar_classroom_steps: @school_calendar_classroom_steps                        
+          )
+        else
+          @exam_average_report_form = ExamAverageReportForm.new(
+            unity_id: current_user_unity.id,
+            classroom_id: current_user_classroom.id,
+            discipline_id: discipline.id,
+            school_calendar_steps: @school_calendar_steps
+          )
+        end
 
         @avaliation_forms << @exam_average_report_form
 
@@ -296,10 +296,11 @@ class DiaryReportController < ApplicationController
   
     def build_by_classroom_steps(exam_average_report_form)
       @students_enrollments ||= exam_average_report_form.students_enrollments
+      Rails.logger.info "#{exam_average_report_form.inspect}"
       ExamStepAverageReport.build(
         current_entity_configuration,
         current_teacher,
-        current_school_calendar.year,
+        current_school_year,
         current_user_classroom,
         Discipline.find(exam_average_report_form.discipline_id),
         exam_average_report_form.classroom_steps,
