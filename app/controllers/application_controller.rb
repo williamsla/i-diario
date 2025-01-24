@@ -432,6 +432,7 @@ class ApplicationController < ActionController::Base
   end
 
   def report_name(prefix, qtd_char=10)
+    prefix = prefix.sub('/','-')
     "/relatorios/#{prefix}-#{SecureRandom.hex(qtd_char)}.pdf"
   end
 
