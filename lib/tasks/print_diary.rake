@@ -74,10 +74,11 @@ task print_diary: :environment do
     classroom.first_exam_rule.opinion_type != OpinionTypes::DONT_USE
   end
 
-  def build_by_school_steps(exam_average_report_form, teacher, classroom, discipline, year)
+  def build_by_school_steps(exam_average_report_form, school, teacher, classroom, discipline, year)
     @students_enrollments = exam_average_report_form.students_enrollments
     ExamStepAverageReport.build(
       current_entity_configuration,
+      school,
       teacher,
       year,
       classroom,
@@ -87,10 +88,11 @@ task print_diary: :environment do
     )
   end
 
-  def build_by_classroom_steps(exam_average_report_form, teacher, classroom, discipline, year)
+  def build_by_classroom_steps(exam_average_report_form, school, teacher, classroom, discipline, year)
     @students_enrollments = exam_average_report_form.students_enrollments
     ExamStepAverageReport.build(
       current_entity_configuration,
+      school,
       teacher,
       year,
       classroom,
@@ -100,8 +102,8 @@ task print_diary: :environment do
     )
   end
 
-  
-  year = 2024
+  puts "Informe o ano letivo: "
+  year = gets.chomp
   root = "#{Rails.root}/impressao-diarios/#{year}"
   system("mkdir -p #{root}")
 
@@ -322,7 +324,7 @@ task print_diary: :environment do
                     end
             
                     if @exam_average_report_form.valid? 
-                      exam_record_report = has_steps_by_classroom == true ? build_by_classroom_steps(@exam_average_report_form, teacher, classroom, discipline, calendar.year) : build_by_school_steps(@exam_average_report_form, teacher, classroom, discipline, calendar.year)
+                      exam_record_report = has_steps_by_classroom == true ? build_by_classroom_steps(@exam_average_report_form, school, teacher, classroom, discipline, calendar.year) : build_by_school_steps(@exam_average_report_form, school, teacher, classroom, discipline, calendar.year)
                       add_pdf_to_merge(pdfTarget, report_name('avaliacao'), exam_record_report.render)
                     else
                       puts "Ocorreu um erro ao carregar avaliações da disciplina"  

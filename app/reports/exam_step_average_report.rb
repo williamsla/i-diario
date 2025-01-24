@@ -9,12 +9,13 @@ class ExamStepAverageReport < BaseReport
   # This factor represent the quantitty of students with social name needed to reduce 1 student by page
   SOCIAL_NAME_REDUCTION_FACTOR = 3
 
-  def self.build(entity_configuration, teacher, year, classroom, discipline, steps, students_enrollments)
-    new(:portrait).build(entity_configuration, teacher, year, classroom, discipline, steps, students_enrollments)
+  def self.build(entity_configuration, unity, teacher, year, classroom, discipline, steps, students_enrollments)
+    new(:portrait).build(entity_configuration, unity, teacher, year, classroom, discipline, steps, students_enrollments)
   end
 
-  def build(entity_configuration, teacher, year, classroom, discipline, steps, students_enrollments)
+  def build(entity_configuration, unity, teacher, year, classroom, discipline, steps, students_enrollments)
     @entity_configuration = entity_configuration
+    @unity = unity
     @teacher = teacher
     @year = year
     @classroom = classroom
@@ -55,7 +56,7 @@ class ExamStepAverageReport < BaseReport
     entity_name = @entity_configuration ? @entity_configuration.entity_name : ''
     organ_name = @entity_configuration ? @entity_configuration.organ_name : ''
 
-    entity_organ_and_unity_cell = make_cell(content: "#{entity_name}\n#{organ_name}\nNome da escola", size: 10, leading: 1.5, align: :center, valign: :center, rowspan: 4, width: 300, padding: [4, 2, 8, 2])
+    entity_organ_and_unity_cell = make_cell(content: "#{entity_name}\n#{organ_name}\n#{@unity.name}", size: 10, leading: 1.5, align: :center, valign: :center, rowspan: 4, width: 300, padding: [4, 2, 8, 2])
     classroom_header = make_cell(content: 'Turma', size: 8, font_style: :bold, colspan: 2, borders: [:top, :left, :right], padding: [2, 2, 4, 4], height: 2)
     year_header = make_cell(content: 'Ano letivo', size: 8, font_style: :bold, borders: [:top, :left, :right], padding: [2, 2, 4, 4], height: 2)
     teacher_header = make_cell(content: 'Professor(a)', size: 8, font_style: :bold, colspan: 3, borders: [:top, :left, :right], padding: [2, 2, 4, 4])
