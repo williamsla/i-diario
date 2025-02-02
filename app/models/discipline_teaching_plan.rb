@@ -38,6 +38,7 @@ class DisciplineTeachingPlan < ApplicationRecord
   scope :by_author, lambda { |author_type, current_teacher_id|
     if author_type == PlansAuthors::MY_PLANS
       joins(:teaching_plan).merge(TeachingPlan.where(teacher_id: current_teacher_id))
+    elsif author_type == PlansAuthors::ALL
     else
       joins(:teaching_plan).merge(TeachingPlan.where.not(teacher_id: current_teacher_id))
     end
