@@ -199,6 +199,7 @@ Rails.application.routes.draw do
       collection do
         get :teachers
         get :recalculate
+        get :resume
       end
     end
 
