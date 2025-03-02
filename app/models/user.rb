@@ -152,17 +152,6 @@ class User < ApplicationRecord
   def expired?
     return false if admin? || new_record?
 
-    days_to_expire = GeneralConfiguration.current.days_to_disable_access || 0
-    return false if expiration_date.blank? && days_to_expire.zero?
-
-    unless days_to_expire.zero?
-      days_without_access = (Date.current - last_activity_at.to_date).to_i
-      if days_without_access >= days_to_expire
-        update_status(UserStatus::PENDING)
-        return true
-      end
-    end
-
     return false if expiration_date.nil? || expiration_date.blank?
 
     if Date.current >= expiration_date
