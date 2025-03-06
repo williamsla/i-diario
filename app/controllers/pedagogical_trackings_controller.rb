@@ -1,3 +1,6 @@
+require 'write_xlsx'
+
+
 class PedagogicalTrackingsController < ApplicationController
   before_action :require_current_year
   before_action :minimum_year
@@ -14,26 +17,26 @@ class PedagogicalTrackingsController < ApplicationController
       @updated_at_hour = last_refresh.hour
     end
 
-    employee_unity = employee_unities.first.id if employee_unities.presence&.one?
-    unity_id = params.dig(:search, :unity_id).presence || params[:unity_id] || employee_unity
+    # employee_unity = employee_unities.first.id if employee_unities.presence&.one?
+    unity_id = params.dig(:search, :unity_id).presence || params[:unity_id]
 
     @start_date = params.dig(:search, :start_date).presence
     start_date = (@start_date || params[:start_date]).try(:to_date)
 
     @end_date = params.dig(:search, :end_date).presence
     end_date = (@end_date || params[:end_date]).try(:to_date)
-
+    
     fetch_school_days_by_unity(unity_id, start_date, end_date)
 
-    @school_days = @school_days_by_unity.values
-                                        .max_by { |school_days_by_unity|
-                                          school_days_by_unity[:school_days]
-                                        }[:school_days]
-    @school_frequency_done_percentage = school_frequency_done_percentage
-    @school_content_record_done_percentage = school_content_record_done_percentage
-    @unknown_teachers = school_unknown_teacher_frequency_done_percentage
+    @school_days = 200 #@school_days_by_unity.values
+                     #                   .max_by { |school_days_by_unity|
+                     #                     school_days_by_unity[:school_days]
+                     #                   }[:school_days]
+    @school_frequency_done_percentage = 100 #school_frequency_done_percentage
+    @school_content_record_done_percentage = 100 #school_content_record_done_percentage
+    @unknown_teachers = 100 #school_unknown_teacher_frequency_done_percentage
     @partial = :schools
-
+    
     @percents = if unity_id
                   @partial = :classrooms
                   @classrooms = Classroom.where(unity_id: unity_id, year: current_user_school_year).ordered
@@ -57,6 +60,139 @@ class PedagogicalTrackingsController < ApplicationController
     end
 
     redirect_to pedagogical_trackings_path
+  end
+
+  def resume
+    unity_id = params[:unity_id]
+    classroom_id = params[:classroom_id].presence || 0
+    
+    connection = ActiveRecord::Base.connection
+    unity_name = connection.select_value("SELECT DISTINCT escola.name
+        FROM public.unities escola
+        WHERE escola.id = #{unity_id}")
+    
+    rows = connection.select_rows("SELECT distinct c.description as TURMA, upper(t.name) as PROFESSOR, d.description as DISCIPLINA,
+			(
+				select count(df.id) 
+				from public.daily_frequencies df 
+				where df.classroom_id = c.id and df.owner_teacher_id = t.id 
+				and (case when df.discipline_id is not null then df.discipline_id = d.id else true end)
+			) as FREQUÊNCIA,
+			(
+					select count(lp.id) as qtd
+					from public.lesson_plans lp
+					left join public.discipline_lesson_plans dlp on dlp.lesson_plan_id = lp.id 	
+					left join public.knowledge_area_lesson_plans kalp on kalp.lesson_plan_id = lp.id 	
+					where lp.classroom_id = c.id and (case when dlp.id is not null then dlp.discipline_id = d.id else true end)
+			) as PLANOS_DE_AULA,
+			(
+					select coalesce(sum(dcr.class_number), 0) as qtd -- count(cr.id)
+					from public.content_records cr
+					left join public.discipline_content_records dcr on dcr.content_record_id = cr.id
+					left join public.knowledge_area_content_records kacr on kacr.content_record_id = cr.id
+					where cr.classroom_id = c.id and (case when dcr.id is not null then dcr.discipline_id = d.id else true end)
+			) as AULAS_DADAS,
+			(
+				select string_agg(distinct de.step_number::text,',')
+				from public.descriptive_exams de 
+				inner join public.descriptive_exam_students des on des.descriptive_exam_id = de.id
+				where de.classroom_id = c.id
+			) as ETAPAS_COM_PARECER_CRIADO,
+			(
+				select count(distinct se.student_id) - count(distinct des.student_id)
+				from public.student_enrollment_classrooms sec
+				inner join public.student_enrollments se on se.id = sec.student_enrollment_id and se.active = 1 and se.discarded_at is null
+				left join public.descriptive_exams de on de.classroom_id = c.id
+				left join public.descriptive_exam_students des on des.descriptive_exam_id = de.id and des.discarded_at is null
+				where sec.classroom_code = c.api_code
+			) as ALUNOS_SEM_PARECER
+		FROM public.teachers t 
+		inner join public.teacher_discipline_classrooms tdc on tdc.teacher_id = t.id and tdc.discarded_at is null and tdc.active = true
+		inner join public.classrooms c on c.id = tdc.classroom_id
+		inner join public.classrooms_grades cg on cg.classroom_id = c.id 
+		inner join public.grades g on g.id = cg.grade_id 
+		inner join public.courses c2 on c2.id = g.course_id
+		inner join public.disciplines d ON d.id = tdc.discipline_id and (d.descriptor = false and d.grouper = false)
+		inner join public.users u ON u.teacher_id = t.id
+		inner join public.user_roles ur ON ur.user_id = u.id 
+		inner join public.roles r ON r.id = ur.role_id and r.access_level = 'teacher'
+		inner join public.unities unity ON unity.id = c.unity_id 
+		WHERE tdc.year = #{current_user_school_year} 
+		AND u.current_school_year = #{current_user_school_year}
+		and c.year = #{current_user_school_year}
+		and unity.id = #{unity_id}
+    and (CASE WHEN #{classroom_id} > 0 THEN c.id = #{classroom_id} ELSE TRUE END)
+		GROUP by c.id, c.description,t.id, PROFESSOR, d.id, d.description
+		ORDER by c.description asc, PROFESSOR asc, DISCIPLINA asc")
+
+    # Create a new Excel workbook
+    date_str = "#{DateTime.now.strftime "%d%m"}#{DateTime.now.year % 100}"
+    classroom_str_identifier = classroom_id == 0 ? '' : "T#{classroom_id}-"
+    filename = "lancamentos-#{date_str}-#{classroom_str_identifier}#{unity_name}.xlsx"
+
+    workbook = WriteXLSX.new("#{Rails.root}/public/relatorios/#{filename}")
+    worksheet = workbook.add_worksheet
+
+    # Add and define a format
+    format_header = workbook.add_format
+    format_header.set_bold
+    format_header.set_align('center')
+    format_header.set_align('vcenter')
+    format_header.set_text_wrap(1)
+    format_header.set_size(10)
+
+    format_center = workbook.add_format
+    format_center.set_align('center')
+    format_center.set_align('vcenter')
+    format_center.set_text_wrap(1)
+    format_header.set_size(10)
+
+    format_left = workbook.add_format
+    format_left.set_align('left')
+    format_left.set_align('vcenter')
+    format_left.set_text_wrap(1)
+    format_header.set_size(10)
+    
+
+    worksheet.write(0, 0, ['TURMA','PROFESSOR(A)','DISCIPLINA', 'FREQUÊNCIA', 'PLANOS DE AULA', 'AULAS REGISTRADAS', 'ETAPAS COM PARECER CRIADO','ALUNOS SEM PARECER'], format_header)
+    worksheet.set_row(0, 30)
+
+    index_row = 1
+    rows.each do |row|
+      worksheet.set_row(index_row, 32)
+      index_col = 0
+      row.each do |value|
+        if index_col == 0 # turma
+          worksheet.set_column(index_col, index_col, 25, format_center)
+        elsif index_col == 1 # professor
+          worksheet.set_column(index_col, index_col, 32, format_left)
+        elsif index_col == 2 # disciplina
+          worksheet.set_column(index_col, index_col, 23, format_left)
+        elsif index_col == 3 # frequencia
+          worksheet.set_column(index_col, index_col, 11, format_center)
+        elsif index_col == 4 # plano de aula
+          worksheet.set_column(index_col, index_col, 11, format_center)
+        elsif index_col == 5 # aulas registradas
+          worksheet.set_column(index_col, index_col, 12, format_center)
+        elsif index_col == 6 # etapas com parecer
+          worksheet.set_column(index_col, index_col, 11, format_center)
+        elsif index_col == 7 # alunos sem parecer
+          worksheet.set_column(index_col, index_col, 11, format_center)
+        end
+        worksheet.write(index_row, index_col, value)
+        index_col = index_col+1
+      end
+      index_row = index_row +1
+    end
+
+    workbook.close
+
+    file_path = Rails.root.join('public/relatorios', filename)
+    if File.exist?(file_path)
+      redirect_to "/relatorios/#{filename}"
+    else
+      Rails.logger.info("\n\n--Arquivo não encontrado--\n")
+    end
   end
 
   def teachers
@@ -122,8 +258,8 @@ class PedagogicalTrackingsController < ApplicationController
   end
 
   def fetch_school_days_by_unity(unity_id, start_date, end_date)
-    unity = Unity.find(unity_id) if unity_id
-    unities = unity || employee_unities || all_unities
+    return unless unity_id
+    unities = [Unity.find(unity_id)]
 
     @school_days_by_unity = SchoolDaysCounterService.new(
       unities: unities,
@@ -137,14 +273,14 @@ class PedagogicalTrackingsController < ApplicationController
   def school_frequency_done_percentage
     percentage_sum = 0
 
-    @school_days_by_unity.each do |unity_id, school_days|
-      percentage_sum += frequency_done_percentage(
-        unity_id,
-        school_days[:start_date],
-        school_days[:end_date],
-        school_days[:school_days]
-      )
-    end
+    # @school_days_by_unity.each do |unity_id, school_days|
+    #   percentage_sum += frequency_done_percentage(
+    #     unity_id,
+    #     school_days[:start_date],
+    #     school_days[:end_date],
+    #     school_days[:school_days]
+    #   )
+    # end
 
     return 0 if unities_total.zero?
 
@@ -154,14 +290,14 @@ class PedagogicalTrackingsController < ApplicationController
   def school_unknown_teacher_frequency_done_percentage
     unknown_teacher_percentage_sum = 0
 
-    @school_days_by_unity.each do |unity_id, school_days|
-      unknown_teacher_percentage_sum += unknown_teacher_frequency_done(
-        unity_id,
-        school_days[:start_date],
-        school_days[:end_date],
-        school_days[:school_days]
-      )
-    end
+    # @school_days_by_unity.each do |unity_id, school_days|
+    #   unknown_teacher_percentage_sum += unknown_teacher_frequency_done(
+    #     unity_id,
+    #     school_days[:start_date],
+    #     school_days[:end_date],
+    #     school_days[:school_days]
+    #   )
+    # end
 
     return 0 if unities_total.zero?
 
@@ -171,14 +307,14 @@ class PedagogicalTrackingsController < ApplicationController
   def school_content_record_done_percentage
     percentage_sum = 0
 
-    @school_days_by_unity.each do |unity_id, school_days|
-      percentage_sum += content_record_done_percentage(
-        unity_id,
-        school_days[:start_date],
-        school_days[:end_date],
-        school_days[:school_days]
-      )
-    end
+    # @school_days_by_unity.each do |unity_id, school_days|
+    #   percentage_sum += content_record_done_percentage(
+    #     unity_id,
+    #     school_days[:start_date],
+    #     school_days[:end_date],
+    #     school_days[:school_days]
+    #   )
+    # end
 
     return 0 if unities_total.zero?
 
@@ -193,10 +329,20 @@ class PedagogicalTrackingsController < ApplicationController
     classroom_id = nil,
     teacher_id = nil
   )
-    @done_frequencies = MvwFrequencyBySchoolClassroomTeacher.by_unity_id(unity_id)
-                                                            .by_date_between(start_date, end_date)
-    @done_frequencies = @done_frequencies.by_classroom_id(classroom_id) if classroom_id
-    @done_frequencies = @done_frequencies.by_teacher_id(teacher_id) if teacher_id
+    if teacher_id
+      @done_frequencies = MvwFrequencyBySchoolClassroomTeacher.by_unity_id(unity_id)
+                                                              .by_date_between(start_date, end_date)
+                                                              .by_classroom_id(classroom_id)
+                                                              .by_teacher_id(teacher_id)
+    elsif classroom_id
+      @done_frequencies = MvwFrequencyBySchoolClassroomTeacher.by_unity_id(unity_id)
+                                                              .by_date_between(start_date, end_date)
+                                                              .by_classroom_id(classroom_id)
+    else
+      @done_frequencies = MvwFrequencyBySchoolClassroomTeacher.by_unity_id(unity_id)
+                                                              .by_date_between(start_date, end_date)
+    end
+    
     @done_frequencies = @done_frequencies.group_by(&:frequency_date).size
 
     ((@done_frequencies * 100).to_f / school_days).round(2)
@@ -221,28 +367,55 @@ class PedagogicalTrackingsController < ApplicationController
 
   def percents(classrooms_ids = nil, teacher_id = nil)
     percents = []
+    
+    if @school_days_by_unity.blank?
+      all_unities.each do |unity|
+        Rails.logger.info('\nclassrooms_ids')
+        Rails.logger.info(classrooms_ids.inspect)
+        if classrooms_ids.present?
+          classrooms_ids.each do |classroom_id|
+            percents << build_percent_table(
+              unity,
+              '',
+              '',
+              100,
+              classroom_id,
+              teacher_id
+            )
+          end
+        else
+          percents << build_percent_table(
+            unity,
+            '',
+            '',
+            100
+          )
+        end
+      end
+      
+    else
+      @school_days_by_unity.each do |unity_id, school_days|
+        unity = Unity.find(unity_id)
 
-    @school_days_by_unity.each do |unity_id, school_days|
-      unity = Unity.find(unity_id)
-
-      if classrooms_ids.present?
-        classrooms_ids.each do |classroom_id|
+        if classrooms_ids.present?
+          classrooms_ids.each do |classroom_id|
+            percents << build_percent_table(
+              unity,
+              school_days[:start_date],
+              school_days[:end_date],
+              school_days[:school_days],
+              classroom_id,
+              teacher_id
+            )
+          end
+        else
           percents << build_percent_table(
             unity,
             school_days[:start_date],
             school_days[:end_date],
-            school_days[:school_days],
-            classroom_id,
-            teacher_id
+            school_days[:school_days]
           )
         end
-      else
-        percents << build_percent_table(
-          unity,
-          school_days[:start_date],
-          school_days[:end_date],
-          school_days[:school_days]
-        )
       end
     end
 
@@ -355,6 +528,7 @@ class PedagogicalTrackingsController < ApplicationController
   end
 
   def paginate(array)
+    return unless array
     Kaminari.paginate_array(array).page(params[:page]).per(10)
   end
 

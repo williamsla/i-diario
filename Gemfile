@@ -64,6 +64,7 @@ gem 'uglifier', '4.1.20'
 gem 'uri_validator', '0.2.0'
 gem 'validates_timeliness', '3.0.14'
 gem 'webpacker', '~> 4.x'
+gem 'write_xlsx', '~> 1.9', '>= 1.09.5'
 gem 'scenic', '~> 1.7'
 gem 'tilt', '2.1.0'
 

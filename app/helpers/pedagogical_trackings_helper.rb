@@ -2,14 +2,14 @@ module PedagogicalTrackingsHelper
   def render_details_link(record)
     if (classroom_id = record.classroom_id.presence)
       link_to(
-        'Detalhes',
+        'Ver professores',
         '#',
         class: 'btn btn-info open_classroom_detail_modal',
         data: { classroom_id: classroom_id }
       )
     else
       link_to(
-        'Detalhes',
+        'Ver turmas',
         link_params(record),
         class: 'btn btn-info'
       )
@@ -25,6 +25,7 @@ module PedagogicalTrackingsHelper
   end
 
   def format(date)
+    return '' if date.empty?
     date.strftime('%d/%m/%Y')
   end
 end
