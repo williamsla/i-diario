@@ -11,12 +11,9 @@ class KnowledgeAreaLessonPlansController < ApplicationController
     # author_type = PlansAuthors::MY_PLANS if params[:filter].empty?
     author_type ||= (params[:filter] || []).delete(:by_author)
 
-    if current_user.current_role_is_admin_or_employee?
-      fetch_classrooms
-    else
-      fetch_linked_by_teacher unless current_user.current_role_is_admin_or_employee?
-    end
-
+    fetch_classrooms
+    fetch_linked_by_teacher unless current_user.current_role_is_admin_or_employee?
+    
     @knowledge_area_lesson_plans = fetch_knowledge_area_by_user
 
     if author_type.present?
