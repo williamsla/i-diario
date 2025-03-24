@@ -57,16 +57,49 @@ $(function () {
 
   }
 
+  var handleFetchObjectivesSuccess = function (data) {
+    // Limpar o campo
+    $('#objectives-list').empty();
+
+    if (!_.isEmpty(data.objectives)) {
+      _.each(data.objectives, function (objective) {
+        if (!$('input[type=checkbox][data-objective_description="' + objective.description + '"]').length) {
+          var html = JST['templates/discipline_content_records/contents_list_item'](objective);
+          $('#objectives-list').append(html);
+        }
+      });
+      $('.list-group.checked-list-box .list-group-item:not(.initialized)').each(initializeListEvents);
+    }
+  }
+
+  var fetchObjectives = function (classroom_id, discipline_id, date) {
+    var params = {
+      classroom_id: classroom_id,
+      discipline_id: discipline_id,
+      date: date,
+      fetch_for_discipline_records: true,
+      format: "json"
+    }
+    $.ajax({
+      url: Routes.objectives_pt_br_path(params),
+      success: handleFetchObjectivesSuccess,
+      error: handleFetchContentsError
+    });
+
+  }
+
   var loadContents = function () {
     var classroom_id = $classroom.select2('val');
     var discipline_id = $discipline.select2('val');
     var date = $recordDate.val();
     $('#contents-list .list-group-item:not(.manual)').remove();
+    $('#objectives-list .list-group-item:not(.manual)').remove();
 
     if (!_.isEmpty(classroom_id) &&
       !_.isEmpty(discipline_id) &&
       !_.isEmpty(date.match(dateRegex))) {
       fetchContents(classroom_id, discipline_id, date);
+      fetchObjectives(classroom_id, discipline_id, date);
     }
   }
 

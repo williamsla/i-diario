@@ -11,7 +11,7 @@ class ContentsRecordFetcher
   end
 
   def fetch_objectives
-    plans = same_teacher_lesson_plans.presence ||
+    plans = same_teacher_lesson_plans_objectives.presence ||
             same_teacher_teaching_plans.presence ||
             same_teacher_yearly_teaching_plans.presence ||
             other_teacher_lesson_plans.presence ||
@@ -25,6 +25,10 @@ class ContentsRecordFetcher
 
   def same_teacher_lesson_plans
     lesson_plans.by_teacher_id(@teacher.id)
+  end
+
+  def same_teacher_lesson_plans_objectives
+    lesson_plans_objectives.by_teacher_id(@teacher.id)
   end
 
   def same_teacher_teaching_plans

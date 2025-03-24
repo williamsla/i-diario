@@ -15,6 +15,13 @@ class ContentsForDisciplineRecordFetcher < ContentsRecordFetcher
                                           .by_date(@date)
   end
 
+  def lesson_plans_objectives
+    @lesson_plans ||= DisciplineLessonPlan.includes(lesson_plan: :objectives)
+                                          .by_classroom_id(@classroom.id)
+                                          .by_discipline_id(@discipline.id)
+                                          .by_date(@date)
+  end
+
   def teaching_plans
     @teaching_plans ||= DisciplineTeachingPlan.includes(teaching_plan: :contents)
                                               .by_unity(@classroom.unity_id)

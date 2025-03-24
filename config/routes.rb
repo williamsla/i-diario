@@ -239,6 +239,7 @@ Rails.application.routes.draw do
       resources :students, only: [:index]
     end
     resources :contents, only: :index
+    resources :objectives, only: :index
     resources :disciplines, only: [:index] do
       collection do
         get :search

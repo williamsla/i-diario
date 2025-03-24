@@ -258,12 +258,13 @@ class DisciplineContentRecordsController < ApplicationController
       @contents = ContentsForDisciplineRecordFetcher.new(teacher, classroom, discipline, date).fetch
       @contents.each { |content| content.is_editable = false }
     end
-
+    
+    # se tiver sido adicionado algum conteúdo novo manualmente
     if @discipline_content_record.content_record.contents
       contents = @discipline_content_record.content_record.contents_ordered
       contents.each { |content| content.is_editable = true }
       @contents << contents
-    end
+    end    
 
     @contents.flatten.uniq
   end
@@ -281,12 +282,13 @@ class DisciplineContentRecordsController < ApplicationController
     classroom = @discipline_content_record.content_record.classroom
     discipline = @discipline_content_record.discipline
     date = @discipline_content_record.content_record.record_date
-
+    
     if teacher && classroom && discipline && date
       @objectives = ContentsForDisciplineRecordFetcher.new(teacher, classroom, discipline, date).fetch_objectives
       @objectives.each { |objective| objective.is_editable = false }
     end
 
+    # se tiver sido adicionado algum objetivo novo manualmente
     if @discipline_content_record.content_record.objectives
       begin
         objectives = @discipline_content_record.content_record.objectives_ordered
