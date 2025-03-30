@@ -103,7 +103,7 @@ task print_diary: :environment do
   end
 
   puts "Informe o ano letivo: "
-  year = gets.chomp
+  year = $stdin.gets.chomp
   root = "#{Rails.root}/impressao-diarios/#{year}"
   system("mkdir -p #{root}")
 
