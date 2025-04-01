@@ -61,6 +61,7 @@ class DisciplineTeachingPlansController < ApplicationController
     fetch_unities
     set_options_by_user
     fetch_disciplines_by_grade
+    fetch_students
   end
 
   def create
@@ -69,6 +70,7 @@ class DisciplineTeachingPlansController < ApplicationController
     @discipline_teaching_plan.teaching_plan.content_ids = content_ids
     @discipline_teaching_plan.teaching_plan.objective_ids = objective_ids
     @discipline_teaching_plan.teacher_id = current_teacher_id
+    @discipline_teaching_plan.teaching_plan.student_id = resource_params[:teaching_plan_attributes][:student_id]
     @discipline_teaching_plan.teaching_plan.methodology = ActionController::Base.helpers.sanitize(
       resource_params[:teaching_plan_attributes][:methodology], tags: ['b', 'br', 'i', 'u', 'p']
     )
@@ -88,6 +90,7 @@ class DisciplineTeachingPlansController < ApplicationController
       fetch_unities
       set_options_by_user
       fetch_disciplines_by_grade
+      fetch_students
 
       render :new
     end
@@ -99,6 +102,7 @@ class DisciplineTeachingPlansController < ApplicationController
     fetch_unities
     set_options_by_user
     fetch_disciplines_by_grade
+    fetch_students
 
     authorize @discipline_teaching_plan
   end
@@ -110,6 +114,7 @@ class DisciplineTeachingPlansController < ApplicationController
     @discipline_teaching_plan.teaching_plan.objective_ids = objective_ids
     @discipline_teaching_plan.teacher_id = current_teacher_id
     @discipline_teaching_plan.current_user = current_user
+    @discipline_teaching_plan.teaching_plan.student_id = resource_params[:teaching_plan_attributes][:student_id]
     @discipline_teaching_plan.teaching_plan.methodology = ActionController::Base.helpers.sanitize(
       resource_params[:teaching_plan_attributes][:methodology], tags: ['b', 'br', 'i', 'u', 'p']
     )
@@ -129,6 +134,7 @@ class DisciplineTeachingPlansController < ApplicationController
       fetch_unities
       set_options_by_user
       fetch_disciplines_by_grade
+      fetch_students
 
       render :edit
     end
@@ -272,6 +278,7 @@ class DisciplineTeachingPlansController < ApplicationController
         :evaluation,
         :references,
         :teacher_id,
+        :student_id,
         :opinion,
         :validated,
         teaching_plan_attachments_attributes: [
@@ -388,5 +395,29 @@ class DisciplineTeachingPlansController < ApplicationController
     return if current_user.current_role_is_admin_or_employee?
 
     @disciplines = @disciplines.by_grade(current_grade.map(&:grade_id)).not_descriptor
+  end
+
+  def student_enrollments
+    StudentEnrollmentsList.new(
+      classroom: current_user_classroom,
+      discipline: current_user_discipline,
+      search_type: :by_year
+    ).student_enrollments
+  end
+
+  def fetch_students
+    @students = []
+
+    @student_enrollments ||= student_enrollments()
+
+    # if @conceptual_exam.student_id.present? &&
+    #   @student_enrollments.find { |enrollment| enrollment[:student_id] == @conceptual_exam.student_id }.blank?
+    #   @student_enrollments << StudentEnrollment.by_student(@conceptual_exam.student_id).first
+    # end
+
+    @student_ids = @student_enrollments.collect(&:student_id)
+
+    @students = Student.where(id: @student_ids).ordered
+    
   end
 end

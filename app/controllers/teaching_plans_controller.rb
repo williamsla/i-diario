@@ -111,6 +111,7 @@ class TeachingPlansController < ApplicationController
     params.require(:teaching_plan).permit(:year,
                                           :classroom_id,
                                           :discipline_id,
+                                          :student_id,
                                           :school_term_type_step_id,
                                           :school_term_type_id,
                                           :objectives,

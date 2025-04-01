@@ -70,6 +70,7 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
     @knowledge_area_teaching_plan.teaching_plan.objective_ids = objective_ids
     @knowledge_area_teaching_plan.teacher_id = current_teacher_id
     @knowledge_area_teaching_plan.knowledge_area_ids = resource_params[:knowledge_area_ids].split(',')
+    @knowledge_area_teaching_plan.teaching_plan.student_id = resource_params[:teaching_plan_attributes][:student_id]
     @knowledge_area_teaching_plan.teaching_plan.methodology = ActionController::Base.helpers.sanitize(
       resource_params[:teaching_plan_attributes][:methodology], tags: ['b', 'br', 'i', 'u', 'p']
     )
@@ -110,6 +111,7 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
     @knowledge_area_teaching_plan.knowledge_area_ids = resource_params[:knowledge_area_ids].split(',')
     @knowledge_area_teaching_plan.teacher_id = current_teacher_id
     @knowledge_area_teaching_plan.teaching_plan.teacher_id = current_teacher_id
+    @knowledge_area_teaching_plan.teaching_plan.student_id = resource_params[:teaching_plan_attributes][:student_id]
     @knowledge_area_teaching_plan.teaching_plan.methodology = ActionController::Base.helpers.sanitize(
       resource_params[:teaching_plan_attributes][:methodology], tags: ['b', 'br', 'i', 'u', 'p']
     )
@@ -265,6 +267,7 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
         :evaluation,
         :references,
         :teacher_id,
+        :student_id,
         :opinion,
         :validated,
         teaching_plan_attachments_attributes: [
@@ -307,6 +310,7 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
   helper_method :objectives
 
   def set_options_by_user
+    fetch_students
     return fetch_linked_by_teacher unless current_user.current_role_is_admin_or_employee?
 
     @grades ||= current_user_classroom.classrooms_grades.map(&:grade).uniq
@@ -348,5 +352,29 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
 
   def current_grade
     current_user_grade = ClassroomsGrade.by_classroom_id(current_user_classroom.id).first.grade
+  end
+
+  def student_enrollments
+    StudentEnrollmentsList.new(
+      classroom: current_user_classroom,
+      discipline: current_user_discipline,
+      search_type: :by_year
+    ).student_enrollments
+  end
+
+  def fetch_students
+    @students = []
+
+    @student_enrollments ||= student_enrollments()
+
+    # if @conceptual_exam.student_id.present? &&
+    #   @student_enrollments.find { |enrollment| enrollment[:student_id] == @conceptual_exam.student_id }.blank?
+    #   @student_enrollments << StudentEnrollment.by_student(@conceptual_exam.student_id).first
+    # end
+
+    @student_ids = @student_enrollments.collect(&:student_id)
+
+    @students = Student.where(id: @student_ids).ordered
+    
   end
 end

@@ -37,6 +37,10 @@
         <div class="col col-sm-4">
           <%= teaching_plan_form.input :year, readonly: true %>
         </div>
+
+        <div class="col col-sm-4">
+          <%= teaching_plan_form.association :student, as: :select2, elements: @students %>
+        </div>
       </div>
 
       <div class="row">

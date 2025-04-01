@@ -14,6 +14,8 @@ class TeachingPlan < ApplicationRecord
   belongs_to :teacher
   belongs_to :school_term_type
   belongs_to :school_term_type_step
+  belongs_to :student, optional: true
+
 
   validates :year, presence: true
   validates :unity, presence: true
