@@ -31,10 +31,6 @@
         <div class="col col-sm-4">
           <%= teaching_plan_form.input :year, readonly: true %>
         </div>
-
-        <div class="col col-sm-4">
-          <%= teaching_plan_form.input :student_id, as: :select2, elements: @students %>
-        </div>
       </div>
 
       <div class="row">
@@ -84,6 +80,12 @@
 
         <div class="col col-sm-4">
           <%= f.input :experience_fields, readonly: action_name.eql?('show') %>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col col-sm-4">
+          <%= teaching_plan_form.input :student_id, as: :select2, elements: @students %>
         </div>
       </div>
 

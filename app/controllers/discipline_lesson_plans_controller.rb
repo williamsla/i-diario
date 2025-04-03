@@ -271,6 +271,7 @@ class DisciplineLessonPlansController < ApplicationController
         :bibliography,
         :opinion,
         :teacher_id,
+        :student_id,
         :validated,
         lesson_plan_attachments_attributes: [
           :id,
@@ -337,6 +338,7 @@ class DisciplineLessonPlansController < ApplicationController
     
     if current_user.current_role_is_admin_or_employee?
       fetch_classrooms
+      fetch_students
       fetch_disciplines
       
       discipline = if current_user_discipline&.grouper?
@@ -350,6 +352,7 @@ class DisciplineLessonPlansController < ApplicationController
       # retorna os registros de todas as disciplinas e turmas do professor, somente na visão do professor
       # fetch_linked_by_teacher
       fetch_classrooms
+      fetch_students
       fetch_disciplines
       
       @discipline_lesson_plans = fetch_discipline_lesson_plan(@disciplines)
@@ -367,4 +370,29 @@ class DisciplineLessonPlansController < ApplicationController
     classroom = @discipline_lesson_plan.lesson_plan.classroom
     @disciplines = @disciplines.by_classroom(classroom).not_descriptor
   end
+
+  def student_enrollments
+    StudentEnrollmentsList.new(
+      classroom: current_user_classroom,
+      discipline: current_user_discipline,
+      search_type: :by_year
+    ).student_enrollments
+  end
+  
+  def fetch_students
+    @students = []
+  
+    @student_enrollments ||= student_enrollments()
+  
+    # if @conceptual_exam.student_id.present? &&
+    #   @student_enrollments.find { |enrollment| enrollment[:student_id] == @conceptual_exam.student_id }.blank?
+    #   @student_enrollments << StudentEnrollment.by_student(@conceptual_exam.student_id).first
+    # end
+  
+    @student_ids = @student_enrollments.collect(&:student_id)
+  
+    @students = Student.where(id: @student_ids).ordered
+    
+  end
+  
 end

@@ -12,6 +12,7 @@ class KnowledgeAreaLessonPlansController < ApplicationController
     author_type ||= (params[:filter] || []).delete(:by_author)
 
     fetch_classrooms
+    fetch_students
     fetch_linked_by_teacher unless current_user.current_role_is_admin_or_employee?
     
     @knowledge_area_lesson_plans = fetch_knowledge_area_by_user
@@ -55,6 +56,7 @@ class KnowledgeAreaLessonPlansController < ApplicationController
     else
       fetch_linked_by_teacher
     end
+    fetch_students
 
     @knowledge_area_lesson_plan = KnowledgeAreaLessonPlan.new.localized
     @knowledge_area_lesson_plan.build_lesson_plan
@@ -99,6 +101,7 @@ class KnowledgeAreaLessonPlansController < ApplicationController
     else
       fetch_unities
       fetch_classrooms
+      fetch_students
       @knowledge_areas = fetch_knowledge_area
 
       render :new
@@ -114,6 +117,7 @@ class KnowledgeAreaLessonPlansController < ApplicationController
 
     fetch_unities
     fetch_classrooms if current_user.current_role_is_admin_or_employee?
+    fetch_students
     @knowledge_areas = fetch_knowledge_area
   end
 
@@ -146,6 +150,7 @@ class KnowledgeAreaLessonPlansController < ApplicationController
 
       fetch_unities
       fetch_classrooms if current_user.current_role_is_admin_or_employee?
+      fetch_students
       @knowledge_areas = fetch_knowledge_area
 
       render :edit
@@ -279,6 +284,7 @@ class KnowledgeAreaLessonPlansController < ApplicationController
         :bibliography,
         :opinion,
         :teacher_id,
+        :student_id,
         :validated,
         lesson_plan_attachments_attributes: [
           :id,
@@ -359,4 +365,29 @@ class KnowledgeAreaLessonPlansController < ApplicationController
         LessonPlan.arel_table[:end_at]
       )
   end
+
+  def student_enrollments
+    StudentEnrollmentsList.new(
+      classroom: current_user_classroom,
+      discipline: current_user_discipline,
+      search_type: :by_year
+    ).student_enrollments
+  end
+  
+  def fetch_students
+    @students = []
+  
+    @student_enrollments ||= student_enrollments()
+  
+    # if @conceptual_exam.student_id.present? &&
+    #   @student_enrollments.find { |enrollment| enrollment[:student_id] == @conceptual_exam.student_id }.blank?
+    #   @student_enrollments << StudentEnrollment.by_student(@conceptual_exam.student_id).first
+    # end
+  
+    @student_ids = @student_enrollments.collect(&:student_id)
+  
+    @students = Student.where(id: @student_ids).ordered
+    
+  end
+  
 end

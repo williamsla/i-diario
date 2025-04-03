@@ -16,6 +16,7 @@ class LessonPlan < ApplicationRecord
   belongs_to :school_calendar
   belongs_to :classroom
   belongs_to :teacher
+  belongs_to :student, optional: true
 
   has_one :discipline_lesson_plan
   has_one :knowledge_area_lesson_plan

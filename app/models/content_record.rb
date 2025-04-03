@@ -14,6 +14,7 @@ class ContentRecord < ApplicationRecord
 
   belongs_to :classroom
   belongs_to :teacher
+  belongs_to :student, optional: true
 
   attr_writer :unity_id
   attr_writer :contents_tags

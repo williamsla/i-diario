@@ -13,6 +13,7 @@ pt-BR:
         unity_id: "Escola"
         classroom: "Turma"
         classroom_id: "Turma"
+        student_id: "Aluno AEE"
         start_at: "Data inicial"
         end_at: "Data final"
         contents: "Conteúdos"

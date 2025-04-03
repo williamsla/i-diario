@@ -37,10 +37,6 @@
         <div class="col col-sm-4">
           <%= teaching_plan_form.input :year, readonly: true %>
         </div>
-
-        <div class="col col-sm-4">
-          <%= teaching_plan_form.association :student, as: :select2, elements: @students %>
-        </div>
       </div>
 
       <div class="row">
@@ -92,6 +88,12 @@
 
         <div class="col col-sm-4">
           <%= f.input :thematic_unit, readonly: action_name.eql?('show') %>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col col-sm-4">
+          <%= teaching_plan_form.association :student, as: :select2, elements: @students %>
         </div>
       </div>
 
