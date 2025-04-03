@@ -185,6 +185,7 @@ class KnowledgeAreaLessonPlansController < ApplicationController
     return if params[:classroom_id].blank?
 
     @classroom = Classroom.find_by(id: params[:classroom_id])
+    @student_id = params[:student_id]
   end
 
   def teaching_plan_contents
@@ -195,7 +196,8 @@ class KnowledgeAreaLessonPlansController < ApplicationController
       @classroom,
       params[:knowledge_area_ids],
       params[:start_date],
-      params[:end_date]
+      params[:end_date],
+      @student_id
     ).fetch
 
     respond_with(@teaching_plan_contents)

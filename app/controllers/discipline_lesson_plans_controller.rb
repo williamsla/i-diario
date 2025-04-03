@@ -157,6 +157,7 @@ class DisciplineLessonPlansController < ApplicationController
 
     @classroom = Classroom.find_by(id: params[:classroom_id])
     @discipline_id = params[:discipline_id]
+    @student_id = params[:student_id]
   end
 
   def teaching_plan_contents
@@ -167,7 +168,8 @@ class DisciplineLessonPlansController < ApplicationController
       @classroom,
       @discipline_id,
       params[:start_date],
-      params[:end_date]
+      params[:end_date],
+      @student_id
     ).fetch
 
     respond_with(@teaching_plan_contents)

@@ -4,6 +4,7 @@ window['content_list_submodel_name'] = 'lesson_plan';
 $(function () {
   'use strict';
   var $classroom = $('#knowledge_area_lesson_plan_lesson_plan_attributes_classroom_id');
+  var $student = $('#knowledge_area_lesson_plan_lesson_plan_attributes_student_id');
   var idContentsCounter = 1;
 
   const copyTeachingPlanLink = document.getElementById('copy-from-teaching-plan-link');
@@ -16,6 +17,15 @@ $(function () {
     'lesson_plan_copy_from_objectives_teaching_plan_alert'
   );
   const flashMessages = new FlashMessages();
+
+  function studentChangeHandler() {
+    var student_id = $student.select2('val');
+    copyTeachingPlanLink.click();
+
+    alert('aluno alterado ' + student_id);
+  };
+
+  $student.on('change', studentChangeHandler);
 
   $('#knowledge_area_lesson_plan_lesson_plan_attributes_contents_tags').on('change', function (e) {
     if (e.val.length) {
@@ -114,7 +124,8 @@ $(function () {
         classroom_id: $classroom.val(),
         knowledge_area_ids: knowledgeAreasInput.value,
         start_date: startAtInput.value,
-        end_date: endAtInput.value
+        end_date: endAtInput.value,
+        student_id: $student.val()
       }
 
       $.getJSON(url, params)

@@ -7,6 +7,7 @@ $(function () {
   var flashMessages = new FlashMessages();
   var $classroom = $('#discipline_lesson_plan_lesson_plan_attributes_classroom_id');
   var $discipline = $('#discipline_lesson_plan_discipline_id');
+  var $student = $('#discipline_lesson_plan_lesson_plan_attributes_student_id');
   var $classes = $('#discipline_lesson_plan_classes');
   var $classes_div = $('.discipline_lesson_plan_classes');
   var $lesson_plan_attachment = $('#lesson_plan_attachment');
@@ -55,6 +56,15 @@ $(function () {
   };
 
   $classroom.on('change', classroomChangeHandler);
+
+  function studentChangeHandler() {
+    var student_id = $student.select2('val');
+    copyTeachingPlanLink.click();
+
+    alert('aluno alterado ' + student_id);
+  };
+
+  $student.on('change', studentChangeHandler);
 
   function fetchDisciplines(classroom_id) {
     $.ajax({
@@ -194,6 +204,7 @@ $(function () {
       const params = {
         classroom_id: $classroom.val(),
         discipline_id: $discipline.val(),
+        student_id: $student.val(),
         start_date: startAtInput.value,
         end_date: endAtInput.value
       }

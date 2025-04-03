@@ -30,6 +30,13 @@ class KnowledgeAreaTeachingPlan < ApplicationRecord
   }
   scope :by_knowledge_area, ->(knowledge_area) { by_knowledge_area(knowledge_area) }
   scope :by_teacher_id, ->(teacher_id) { joins(:teaching_plan).where(teaching_plans: { teacher_id: teacher_id }) }
+  scope :by_student_id, lambda { |student_id|
+    if student_id.to_i > 0
+      joins(:teaching_plan).where(teaching_plans: { student_id: student_id })
+    else 
+      joins(:teaching_plan).where('teaching_plans.student_id IS NULL')
+    end
+  }
   scope :by_other_teacher_id, lambda { |teacher_id|
     joins(:teaching_plan).where.not(teaching_plans: { teacher_id: [teacher_id, nil] })
   }
