@@ -310,7 +310,7 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
   helper_method :objectives
 
   def set_options_by_user
-    fetch_students
+    fetch_students_with_disabilities
     return fetch_linked_by_teacher unless current_user.current_role_is_admin_or_employee?
 
     @grades ||= current_user_classroom.classrooms_grades.map(&:grade).uniq
@@ -362,19 +362,14 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
     ).student_enrollments
   end
 
-  def fetch_students
+  def fetch_students_with_disabilities
     @students = []
 
     @student_enrollments ||= student_enrollments()
 
-    # if @conceptual_exam.student_id.present? &&
-    #   @student_enrollments.find { |enrollment| enrollment[:student_id] == @conceptual_exam.student_id }.blank?
-    #   @student_enrollments << StudentEnrollment.by_student(@conceptual_exam.student_id).first
-    # end
-
     @student_ids = @student_enrollments.collect(&:student_id)
 
-    @students = Student.where(id: @student_ids).ordered
+    @students = Student.where(id: @student_ids).where(uses_differentiated_exam_rule: true).ordered
     
   end
 end

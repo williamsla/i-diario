@@ -83,11 +83,13 @@
         </div>
       </div>
 
-      <div class="row">
-        <div class="col col-sm-4">
-          <%= teaching_plan_form.input :student_id, as: :select2, elements: @students %>
+      <% if @students.any? %>
+        <div class="row">
+          <div class="col col-sm-4">
+            <%= teaching_plan_form.input :student_id, as: :select2, elements: @students %>
+          </div>
         </div>
-      </div>
+      <% end %>
 
       <div class="row textarea">
         <div class="col col-sm-12">
