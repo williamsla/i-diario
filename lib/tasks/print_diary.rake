@@ -125,7 +125,13 @@ task print_diary: :environment do
           Dir.mkdir(directory_name)
         end
 
-        calendar = SchoolCalendar.by_unity_id(school.id).by_year(year).first
+        calendars = SchoolCalendar.by_unity_id(school.id).by_year(year)
+
+        unless calendars.any?
+          next
+        end
+
+        calendar = calendars.first
 
         classrooms = Classroom.by_unity(school.id).by_year(calendar.year)
 
@@ -277,7 +283,7 @@ task print_diary: :environment do
                                                                                     classroom)
                               report_name = report_name('conteudo') 
                           else
-                              report = DisciplineContentRecordReport.build(current_entity_configuration,
+                              report = DisciplineLessonPlanReport.build(current_entity_configuration,
                                                                                     school,
                                                                                     @discipline_lesson_plan_report_form.date_start,
                                                                                     @discipline_lesson_plan_report_form.date_end,
