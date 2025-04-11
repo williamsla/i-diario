@@ -329,7 +329,7 @@ task print_diary: :environment do
                                                                                             @knowledge_area_lesson_plan_report_form.date_start,
                                                                                             @knowledge_area_lesson_plan_report_form.date_end,
                                                                                             @knowledge_area_lesson_plan_report_form.knowledge_area_lesson_plan,
-                                                                                            current_teacher)      
+                                                                                            teacher)      
                               report_name = report_name('plano-de-aula')  
                           end
 
