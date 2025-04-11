@@ -108,7 +108,8 @@ class KnowledgeAreaLessonPlanReport < BaseReport
     @knowledge_area_header = make_cell(content: 'Áreas de conhecimento', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
     @content_header = make_cell(content: Translator.t('activerecord.attributes.knowledge_area_content_record.contents'), size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
     @period_header = make_cell(content: 'Período', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
-    @start_at_header = make_cell(content: 'Datas', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
+    @start_at_header = make_cell(content: 'Início', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
+    @end_at_header = make_cell(content: 'Fim', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
     @objective_header = make_cell(content: 'Habilidades e Práticas pedagógicas', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
 
     @unity_cell = make_cell(content:  @knowledge_area_lesson_plans.first.lesson_plan.unity.name, borders: [:bottom, :left, :right], size: 10, width: 240, align: :left, padding: [0, 2, 4, 4])
@@ -154,17 +155,16 @@ class KnowledgeAreaLessonPlanReport < BaseReport
     ]
 
     general_information_headers = [
-      @dates_header,
+      @start_at_header,
+      @end_at_header,
       @knowledge_area_header,
-      @content_header,
-      @objective_header
+      @content_header
     ]
 
     general_information_cells = []
     content_cell = []
 
     @knowledge_area_lesson_plans.each do |knowledge_area_lesson_plan|
-      dates = "Início: #{knowledge_area_lesson_plan.lesson_plan.start_at.strftime("%d/%m/%Y")}\nFim: #{knowledge_area_lesson_plan.lesson_plan.end_at.strftime("%d/%m/%Y")}"
       texto_praticas_pedagogicas_e_habilidades = "#{knowledge_area_lesson_plan.lesson_plan.objectives_ordered.map(&:to_s).join(", ")}\n\n#{knowledge_area_lesson_plan.lesson_plan.activities.gsub(/<[^>]*>/, '')}"
       
       knowledge_area_lesson_plans_knowledge_areas = KnowledgeAreaLessonPlanKnowledgeArea.where knowledge_area_lesson_plan_id: knowledge_area_lesson_plan.id
@@ -176,14 +176,19 @@ class KnowledgeAreaLessonPlanReport < BaseReport
       knowledge_area_descriptions = knowledge_areas.map(&:description).join(", ")
 
       knowledge_area_lesson_plan.lesson_plan.contents_ordered.each do |content|
-        dates_cell = make_cell(content: dates, size: 8, width: 80, align: :left)
-        objective_cell = make_cell(content: texto_praticas_pedagogicas_e_habilidades, size: 7, width: 80, align: :left)
-        knowledge_area_cell = make_cell(content: knowledge_area_descriptions, size: 7, width: 150, align: :left)
+        start_at_cell = make_cell(content: knowledge_area_lesson_plan.lesson_plan.start_at.strftime("%d/%m/%Y"), size: 8, width: 80, align: :left)
+        end_at_cell = make_cell(content: knowledge_area_lesson_plan.lesson_plan.end_at.strftime("%d/%m/%Y"), size: 8, width: 80, align: :left)
+        knowledge_area_cell = make_cell(content: knowledge_area_descriptions, size: 7, align: :left)
+        content_cell = make_cell(content: content.to_s, size: 9)
+        objective_cell = make_cell(content: texto_praticas_pedagogicas_e_habilidades, size: 7, align: :left, colspan: 4)
         general_information_cells << [
-          dates_cell,
+          start_at_cell,
+          end_at_cell,
           knowledge_area_cell,
-          make_cell(content: content.to_s, size: 9),
-          objective_cell
+          content
+        ]
+        general_information_cells << [
+          objective_cell 
         ]
       end
     end
