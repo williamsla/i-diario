@@ -113,58 +113,102 @@ class DiaryReportController < ApplicationController
       #contents
       ini = Time.now
       @disciplines.each do |discipline|
-        @discipline_lesson_plan_report_form = DisciplineLessonPlanReportForm.new(
-          teacher_id: current_teacher_id,
-          unity_id: current_user_unity.id,
-          classroom_id: current_user_classroom.id,
-          discipline_id: discipline.id,
-          date_start: @diary_report_form.start_at,
-          date_end: @diary_report_form.end_at
-        )
-
-        @discipline_lesson_plan_report_form.author = PlansAuthors::ALL
-        @discipline_lesson_plan_report_form.report_type = DISCIPLINE_CONTENT_RECORD
-
-        if @discipline_lesson_plan_report_form.valid?
-          lesson_plan_report = DisciplineContentRecordReport.build(current_entity_configuration,
-                                                                current_unity,
-                                                                @discipline_lesson_plan_report_form.date_start,
-                                                                @discipline_lesson_plan_report_form.date_end,
-                                                                @discipline_lesson_plan_report_form.discipline_content_record,
-                                                                current_teacher,
-                                                                current_user_classroom)
-                                                                
-          add_pdf_to_merge(pdfTarget, report_name('conteudo'), lesson_plan_report.render)
+        
+        continue_loop = true
+        [ContentRecordReportTypes::CONTENT_RECORD, ContentRecordReportTypes::LESSON_PLAN].each do |report_type|
           
-        else
-          Rails.logger.error "Ocorreu um erro ao carregar conteúdos da disciplina"  
-          Rails.logger.error "#{@discipline_lesson_plan_report_form.inspect}"  
+            if continue_loop == false
+              break
+            end
+            @discipline_lesson_plan_report_form = DisciplineLessonPlanReportForm.new(
+              teacher_id: current_teacher_id,
+              unity_id: current_user_unity.id,
+              classroom_id: current_user_classroom.id,
+              discipline_id: discipline.id,
+              date_start: @diary_report_form.start_at,
+              date_end: @diary_report_form.end_at
+            )
+
+            @discipline_lesson_plan_report_form.author = PlansAuthors::ALL
+            @discipline_lesson_plan_report_form.report_type = report_type
+
+            if @discipline_lesson_plan_report_form.valid?
+
+              if report_type == ContentRecordReportTypes::CONTENT_RECORD
+                report = DisciplineContentRecordReport.build(current_entity_configuration,
+                                                                      current_unity,
+                                                                      @discipline_lesson_plan_report_form.date_start,
+                                                                      @discipline_lesson_plan_report_form.date_end,
+                                                                      @discipline_lesson_plan_report_form.discipline_content_record,
+                                                                      current_teacher,
+                                                                      current_user_classroom)                                                                      
+                report_name = report_name('conteudo')
+              else
+
+                report = DisciplineLessonPlanReport.build(current_entity_configuration,
+                                                                      current_unity,
+                                                                      @discipline_lesson_plan_report_form.date_start,
+                                                                      @discipline_lesson_plan_report_form.date_end,
+                                                                      @discipline_lesson_plan_report_form.discipline_lesson_plan,
+                                                                      current_teacher,
+                                                                      current_user_classroom)                                                                      
+                report_name = report_name('plano-de-aula')
+              end
+              
+              add_pdf_to_merge(pdfTarget, report_name, report.render)
+              continue_loop = false
+
+            else
+              Rails.logger.error "Ocorreu um erro ao carregar conteúdos da disciplina"  
+              Rails.logger.error "#{@discipline_lesson_plan_report_form.inspect}"  
+            end
         end
       end
 
       @knowledge_areas.each do |knowledge_area|
-        @knowledge_area_lesson_plan_report_form = KnowledgeAreaLessonPlanReportForm.new(
-          unity_id: current_unity.id,
-          classroom_id: current_user_classroom.id,
-          teacher_id: current_teacher_id,
-          knowledge_area_id: knowledge_area.id,
-          date_start: @diary_report_form.start_at,
-          date_end: @diary_report_form.end_at
-        )
 
-        @knowledge_area_lesson_plan_report_form.author = PlansAuthors::ALL
-        @knowledge_area_lesson_plan_report_form.report_type = ContentRecordReportTypes::CONTENT_RECORD
+        continue_loop = true
+        [ContentRecordReportTypes::CONTENT_RECORD, ContentRecordReportTypes::LESSON_PLAN].each do |report_type|
+            if continue_loop == false
+              break
+            end
 
-        if @knowledge_area_lesson_plan_report_form.valid?
-          knowledge_area_lesson_plan_report = KnowledgeAreaContentRecordReport.build(current_entity_configuration,
-                                                                                     @knowledge_area_lesson_plan_report_form.date_start,
-                                                                                     @knowledge_area_lesson_plan_report_form.date_end,
-                                                                                     @knowledge_area_lesson_plan_report_form.knowledge_area_content_record,
-                                                                                     current_teacher)      
-          add_pdf_to_merge(pdfTarget, report_name('conteudo'), knowledge_area_lesson_plan_report.render)
-        else
-          Rails.logger.error "Ocorreu um erro ao carregar conteúdos da área de conhecimento: #{knowledge_area.description}"
-          Rails.logger.error "#{@knowledge_area_lesson_plan_report_form.inspect}"  
+            @knowledge_area_lesson_plan_report_form = KnowledgeAreaLessonPlanReportForm.new(
+              unity_id: current_unity.id,
+              classroom_id: current_user_classroom.id,
+              teacher_id: current_teacher_id,
+              knowledge_area_id: knowledge_area.id,
+              date_start: @diary_report_form.start_at,
+              date_end: @diary_report_form.end_at
+            )
+
+            @knowledge_area_lesson_plan_report_form.author = PlansAuthors::ALL
+            @knowledge_area_lesson_plan_report_form.report_type = report_type
+
+            if @knowledge_area_lesson_plan_report_form.valid?
+              if report_type == ContentRecordReportTypes::CONTENT_RECORD
+                  report = KnowledgeAreaContentRecordReport.build(current_entity_configuration,
+                                                                                            @knowledge_area_lesson_plan_report_form.date_start,
+                                                                                            @knowledge_area_lesson_plan_report_form.date_end,
+                                                                                            @knowledge_area_lesson_plan_report_form.knowledge_area_content_record,
+                                                                                            current_teacher)      
+                  report_name = report_name('conteudo')
+              else
+                  report = KnowledgeAreaLessonPlanReport.build(current_entity_configuration,
+                                                                                            @knowledge_area_lesson_plan_report_form.date_start,
+                                                                                            @knowledge_area_lesson_plan_report_form.date_end,
+                                                                                            @knowledge_area_lesson_plan_report_form.knowledge_area_lesson_plan,
+                                                                                            current_teacher)      
+                  report_name = report_name('plano-de-aula')
+
+              end
+              add_pdf_to_merge(pdfTarget, report_name, report.render)
+
+              continue_loop = false
+            else
+              Rails.logger.error "Ocorreu um erro ao carregar conteúdos da área de conhecimento: #{knowledge_area.description}"
+              Rails.logger.error "#{@knowledge_area_lesson_plan_report_form.inspect}"  
+            end
         end
       end
 

@@ -1,14 +1,16 @@
 class DisciplineLessonPlanReport < BaseReport
-  def self.build(entity_configuration, date_start, date_end, discipline_lesson_plan, current_teacher)
-    new.build(entity_configuration, date_start, date_end, discipline_lesson_plan, current_teacher)
+  def self.build(entity_configuration, unity, date_start, date_end, discipline_lesson_plan, current_teacher, classroom=nil)
+    new.build(entity_configuration, unity, date_start, date_end, discipline_lesson_plan, current_teacher,classroom)
   end
 
-  def build(entity_configuration, date_start, date_end, discipline_lesson_plan, current_teacher)
+  def build(entity_configuration, unity, date_start, date_end, discipline_lesson_plan, current_teacher, classroom)
     @entity_configuration = entity_configuration
+    @unity = unity
     @date_start = date_start
     @date_end = date_end
     @discipline_lesson_plans = discipline_lesson_plan
     @current_teacher = current_teacher
+    @classroom = classroom
     attributes
 
     header
@@ -104,17 +106,18 @@ class DisciplineLessonPlanReport < BaseReport
     @teacher_header = make_cell(content: 'Professor', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
     @unity_header = make_cell(content: 'Unidade', size: 8, font_style: :bold, borders: [:left, :right, :top], padding: [2, 2, 4, 4], colspan: 2)
     @discipline_header = make_cell(content: 'Disciplina', size: 8, font_style: :bold, borders: [:left, :right, :top], padding: [2, 2, 4, 4])
-    @start_at_header = make_cell(content: 'Data inicial', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', width: 60, padding: [2, 2, 4, 4])
-    @end_at_header = make_cell(content: 'Data final', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', width: 60, padding: [2, 2, 4, 4])
     @classroom_header = make_cell(content: 'Turma', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
-    @conteudo_header = make_cell(content: Translator.t('activerecord.attributes.discipline_content_record.contents'), size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
     @period_header = make_cell(content: 'Período', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
-
     @unity_cell = make_cell(content:  @discipline_lesson_plans.first.lesson_plan.unity.name, borders: [:bottom, :left, :right], size: 10, width: 240, align: :left, padding: [0, 2, 4, 4], colspan: 2)
     @discipline_cell = make_cell(content: @discipline_lesson_plans.first.discipline.to_s, borders: [:bottom, :left, :right], size: 10, align: :left, padding: [0, 2, 4, 4])
     @classroom_cell = make_cell(content: @discipline_lesson_plans.first.lesson_plan.classroom.description, borders: [:bottom, :left, :right], size: 10, align: :left, padding: [0, 2, 4, 4])
     @teacher_cell = make_cell(content: @current_teacher.name, borders: [:bottom, :left, :right], size: 10, align: :left, padding: [0, 2, 4, 4])
     @period_cell = make_cell(content: (@date_start == '' || @date_end == '' ? '-' : "#{@date_start} a #{@date_end}"), borders: [:bottom, :left, :right], size: 10, align: :left, padding: [0, 2, 4, 4])
+
+    @dates_header = make_cell(content: 'Datas', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', width: 10, padding: [2, 2, 4, 4])
+    @conteudo_header = make_cell(content: Translator.t('activerecord.attributes.discipline_content_record.contents'), size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', width: 50, padding: [2, 2, 4, 4])
+    @habilidade_header = make_cell(content: 'Habilidades', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', width: 90, padding: [2, 2, 4, 4])
+    
   end
 
   def identification
@@ -145,22 +148,25 @@ class DisciplineLessonPlanReport < BaseReport
     ]
 
     general_information_headers = [
-      @start_at_header,
-      @end_at_header,
-      @conteudo_header
+      @dates_header,
+      @conteudo_header,
+      @habilidade_header
     ]
 
     general_information_cells = []
 
     @discipline_lesson_plans.each do |discipline_lesson_plan|
-      start_at_cell = make_cell(content: discipline_lesson_plan.lesson_plan.start_at.strftime("%d/%m/%Y"), size: 10, align: :left)
-      end_at_cell = make_cell(content: discipline_lesson_plan.lesson_plan.end_at.strftime("%d/%m/%Y"), size: 10, align: :left)
-      conteudo_cell = make_cell(content: discipline_lesson_plan.lesson_plan.contents_ordered.map(&:to_s).join(", "), size: 10, align: :left)
+      dates = "Início: #{discipline_lesson_plan.lesson_plan.start_at.strftime("%d/%m/%Y")}\nFim: #{discipline_lesson_plan.lesson_plan.end_at.strftime("%d/%m/%Y")}"
+      texto_praticas_pedagogicas_e_habilidades = "#{discipline_lesson_plan.lesson_plan.objectives_ordered.map(&:to_s).join(", ")}\n\n#{discipline_lesson_plan.lesson_plan.activities.gsub(/<[^>]*>/, '')}"
+      
+      start_at_cell = make_cell(content: dates, size: 8, align: :left)
+      conteudo_cell = make_cell(content: discipline_lesson_plan.lesson_plan.contents_ordered.map(&:to_s).join(", "), size: 9, align: :left)
+      habilidade_cell = make_cell(content: texto_praticas_pedagogicas_e_habilidades, size: 8, align: :left)
 
       general_information_cells << [
         start_at_cell,
-        end_at_cell,
-        conteudo_cell
+        conteudo_cell,
+        habilidade_cell
       ]
     end
 
