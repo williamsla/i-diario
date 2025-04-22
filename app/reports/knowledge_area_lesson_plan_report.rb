@@ -175,22 +175,20 @@ class KnowledgeAreaLessonPlanReport < BaseReport
 
       knowledge_area_descriptions = knowledge_areas.map(&:description).join(", ")
 
-      knowledge_area_lesson_plan.lesson_plan.contents_ordered.each do |content|
-        start_at_cell = make_cell(content: knowledge_area_lesson_plan.lesson_plan.start_at.strftime("%d/%m/%Y"), size: 8, width: 80, align: :left)
-        end_at_cell = make_cell(content: knowledge_area_lesson_plan.lesson_plan.end_at.strftime("%d/%m/%Y"), size: 8, width: 80, align: :left)
-        knowledge_area_cell = make_cell(content: knowledge_area_descriptions, size: 7, align: :left)
-        content_cell = make_cell(content: content.to_s, size: 9)
-        objective_cell = make_cell(content: texto_praticas_pedagogicas_e_habilidades, size: 7, align: :left, colspan: 4)
-        general_information_cells << [
-          start_at_cell,
-          end_at_cell,
-          knowledge_area_cell,
-          content
-        ]
-        general_information_cells << [
-          objective_cell 
-        ]
-      end
+      start_at_cell = make_cell(content: knowledge_area_lesson_plan.lesson_plan.start_at.strftime("%d/%m/%Y"), size: 8, width: 80, align: :left)
+      end_at_cell = make_cell(content: knowledge_area_lesson_plan.lesson_plan.end_at.strftime("%d/%m/%Y"), size: 8, width: 80, align: :left)
+      knowledge_area_cell = make_cell(content: knowledge_area_descriptions, size: 7, align: :left)
+      content_cell = make_cell(content: content_cell_content(knowledge_area_lesson_plan.lesson_plan), size: 8)
+      objective_cell = make_cell(content: texto_praticas_pedagogicas_e_habilidades, size: 6, align: :left, colspan: 4)
+      general_information_cells << [
+        start_at_cell,
+        end_at_cell,
+        knowledge_area_cell,
+        content_cell
+      ]
+      general_information_cells << [
+        objective_cell 
+      ]
     end
 
     general_information_table_data = [general_information_headers]
@@ -211,6 +209,10 @@ class KnowledgeAreaLessonPlanReport < BaseReport
       column(0).border_left_width = 0.25
       column(-1).border_right_width = 0.25
     end
+  end
+
+  def content_cell_content(lesson_plan)
+    lesson_plan.contents_ordered.map(&:to_s).join(', ')
   end
 
   def body
