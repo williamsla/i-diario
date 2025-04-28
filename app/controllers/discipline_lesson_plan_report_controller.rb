@@ -27,10 +27,12 @@ class DisciplineLessonPlanReportController < ApplicationController
 
     if @discipline_lesson_plan_report_form.valid?
       lesson_plan_report = DisciplineLessonPlanReport.build(current_entity_configuration,
+                                                            current_unity,
                                                             @discipline_lesson_plan_report_form.date_start,
                                                             @discipline_lesson_plan_report_form.date_end,
                                                             @discipline_lesson_plan_report_form.discipline_lesson_plan,
-                                                            current_teacher)
+                                                            current_teacher,
+                                                            current_user_classroom)
       send_pdf(t("routes.lesson_plan_record"), lesson_plan_report.render)
     else
       @discipline_lesson_plan_report_form
