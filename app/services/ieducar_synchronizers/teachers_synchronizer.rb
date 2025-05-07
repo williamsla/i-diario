@@ -51,7 +51,7 @@ class TeachersSynchronizer < BaseSynchronizer
   end
 
   def update_users(teacher_id, cpf, school_id)
-    UserForTeacherCreatorWorker.perform_in(1.second, entity_id, teacher_id, cpf, school_id)
+    UserForTeacherUpdaterWorker.perform_in(1.second, entity_id, teacher_id, cpf, school_id)
   end
   
 end
