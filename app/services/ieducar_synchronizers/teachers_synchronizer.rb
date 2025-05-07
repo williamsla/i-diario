@@ -23,17 +23,22 @@ class TeachersSynchronizer < BaseSynchronizer
       next if teacher_record.nome.blank?
 
       Teacher.with_discarded.find_or_initialize_by(api_code: teacher_record.servidor_id).tap do |teacher|
+        
         teacher.name = teacher_record.nome
         teacher.active = teacher_record.ativo.to_s == IeducarBooleanState::ACTIVE
         teacher.save! if teacher.changed?
 
-        
         if CPF.valid?(teacher_record.cpf)
-          Rails.logger.info "verificando se professor já existe"
+          
           user = User.by_cpf(teacher_record.cpf)
           
+          # Se não encontrar e CPF começa com zero, tenta novamente sem o zero à esquerda
+          if !user.exists? && teacher_record.cpf.start_with?("0")
+            cpf_sem_zero = teacher_record.cpf.sub(/^0+/, "")
+            user = User.by_cpf(cpf_sem_zero)
+          end
+          
           if user.exists?
-            # TODO: atualizar o usuário
             Rails.logger.info "usuario do professor já existe #{user.inspect}"
             update_users(teacher.id, teacher_record.cpf, teacher_record.escola_id)
           else

@@ -23,16 +23,18 @@ class UserForTeacherUpdater
     raise 'Permissão de professor não encontrada.' if role_id.blank?
 
     return unless User.find_by(teacher_id: teacher.id, kind: RoleKind::EMPLOYEE)
-    
-    user = User.find_by(
-      teacher_id: teacher.id,
-      assumed_teacher_id: teacher.id
-    )
 
-    return if user.blank?
+    user = User.by_cpf(cpf).first
+          
+    # Se não encontrar e CPF começa com zero, tenta novamente sem o zero à esquerda
+    if user.nil? && cpf.start_with?("0")
+        cpf_sem_zero = cpf.sub(/^0+/, "")
+        user = User.by_cpf(cpf_sem_zero).first
+    end
+
+    return if user.nil?
 
     if user.cpf.length < cpf.length
-      Rails.logger.info "Atualizando o CPF antigo do usuário #{user.inspect} para o novo CPF #{cpf}"
       user.cpf = cpf
 
       new_password = generate_password(teacher.name, cpf)
@@ -45,10 +47,10 @@ class UserForTeacherUpdater
       user.status = new_status
     end
     
-    if user.user_roles.where(role_id: role_id, school_id: nil).exists?
-        user.user_roles.where(role_id: role_id, school_id: nil).first&.update(school_id: school_id)
-    else
-        user.user_roles.build(role_id: role_id, school_id: school_id)
+    if user.user_roles.where(role_id: role_id, unity_id: nil).exists?
+        user.user_roles.where(role_id: role_id, unity_id: nil).first&.update(unity_id: school_id)
+    elsif !user.user_roles.where(role_id: role_id, unity_id: school_id).exists?
+        user.user_roles.build(role_id: role_id, unity_id: school_id)
     end
     
 
