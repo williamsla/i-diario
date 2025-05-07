@@ -83,20 +83,25 @@
         </div>
       </div>
 
-      <% if @students.any? %>
+      <% if @students&.any? %>
         <div class="row">
           <div class="col col-sm-4">
             <%= teaching_plan_form.input :student_id, as: :select2, elements: @students %>
           </div>
         </div>
       <% end %>
-
+      
+      <a class="btn btn-primary" id="add-by-table-btn" style="margin-bottom: 10px;" href="#" data-toggle="modal" data-target="#addContentsByTableModal">
+        <i class="fa fa-table"></i> Adicionar por tabela
+      </a>
+      
       <div class="row textarea">
         <div class="col col-sm-12">
           <legend style="margin-bottom: 10px;">
             <%= @knowledge_area_teaching_plan.class.human_attribute_name(:contents) %>
             <abbr title="obrigatório">*</abbr>
           </legend>
+          
           <% if f.object.errors[:'teaching_plan.contents'].any? %>
             <div class="alert alert-danger fade in">
               <i class="fa-fw fa fa-times"></i>
@@ -317,4 +322,55 @@
     <%= link_to t('views.form.history'), history_knowledge_area_teaching_plan_path(@knowledge_area_teaching_plan), class: 'btn btn-info' if @knowledge_area_teaching_plan.persisted? %>
     <%= f.submit t('views.form.save'), class: 'btn btn-primary', data: { disable_with: 'Salvando...' } unless action_name.eql?('show') && current_user.teacher? %>
   </footer>
+
+  <% # modal%>
+  <div class="modal fade" id="addContentsByTableModal" tabindex="-1" role="dialog" aria-labelledby="addContentsByTableLabel">
+
+  <div class="modal-dialog modal-xl" role="document" style="max-width: 95% !important; width: 95vw;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Fechar">
+          <span aria-hidden="true">&times;</span>
+        </button>
+        <h4 class="modal-title" id="addContentsByTableLabel">Adicionar Conteúdos por Tabela</h4>
+      </div>
+
+      <div class="modal-body">
+        <p>Preencha as linhas com os dados desejados. Você pode adicionar várias linhas.</p>
+        <div class="table-responsive" style="overflow-x: auto;">
+          <table class="table table-bordered" id="modal-table">
+            <thead>
+              <tr>
+                <th>Conteúdo</th>
+                <th>Objetivos</th>
+                <th>Metodologia</th>
+                <th>Avaliação</th>
+                <th>Referências</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="min-width: 150px;"><input type="text" class="form-control input-lg" name="content[]"></td>
+                <td style="min-width: 250px;"><input type="text" class="form-control input-lg" name="objective[]"></td>
+                <td style="min-width: 200px;"><input type="text" class="form-control input-lg" name="methodology[]"></td>
+                <td style="min-width: 150px;"><input type="text" class="form-control input-lg" name="evaluation[]"></td>
+                <td style="min-width: 100px;"><input type="text" class="form-control input-lg" name="references[]"></td>
+                <td><button type="button" class="btn btn-danger btn-sm remove-row">×</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <button type="button" class="btn btn-default" id="add-new-row">+ Nova Linha</button>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success" id="confirm-add-contents">Adicionar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <% end %>

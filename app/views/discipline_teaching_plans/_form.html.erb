@@ -91,7 +91,7 @@
         </div>
       </div>
 
-      <% if @students.any? %>
+      <% if @students&.any? %>
         <div class="row">
           <div class="col col-sm-4">
             <%= teaching_plan_form.input :student_id, as: :select2, elements: @students %>

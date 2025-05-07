@@ -1,11 +1,17 @@
----
 :concurrency: 5
+
 staging:
   :concurrency: 10
+
 production:
-  :concurrency: <%= ENV.fetch("RAILS_MAX_THREADS") { 10 } %>
+  :concurrency: 10
+
 :queues:
   - [default, 1]
+  - [critical, 2]
   - [low, 1]
   - [exam_posting, 2]
+  - [exam_posting_1, 1]
+  - [exam_posting_2, 1]
   - [synchronizer, 1]
+  - [synchronizer_enqueue_next_job, 1]
