@@ -33,7 +33,7 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
     set_options_by_user
     fetch_disciplines_by_classroom
 
-    # current_year_last_step = StepsFetcher.new(current_user_classroom).last_step_by_year
+    current_year_last_step = StepsFetcher.new(current_user_classroom).last_step_by_year
 
     # if current_test_setting.blank? && @admin_or_teacher && current_year_last_step.blank?
       # flash[:error] = t('errors.avaliations.require_setting')
