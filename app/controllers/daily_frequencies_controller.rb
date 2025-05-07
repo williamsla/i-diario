@@ -77,6 +77,7 @@ class DailyFrequenciesController < ApplicationController
     authorize @daily_frequency
 
     @students = []
+    @students_list_marked_as_read = []
     @any_exempted_from_discipline = false
     @any_inactive_student = false
     @any_in_active_search = false
@@ -108,14 +109,12 @@ class DailyFrequenciesController < ApplicationController
       period: @period
     )
 
-    last_student_id = 0
-
     fetch_enrollment_classrooms.each do |enrollment_classroom|
       student = enrollment_classroom[:student]
 
-      next if last_student_id == student.id
-      last_student_id = student.id
-
+      next if @students_list_marked_as_read.include?(student.id)
+      @students_list_marked_as_read << student.id
+      
       student_enrollment_id = enrollment_classroom[:student_enrollment_id]
       activated_student = active.include?(enrollment_classroom[:student_enrollment_classroom_id])
       has_dependence = dependencies[student_enrollment_id] ? true : false
