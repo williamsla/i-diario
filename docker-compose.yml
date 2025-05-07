@@ -7,14 +7,15 @@ services:
     container_name: postgres-idiario
     # command: executar manualmente dentro do container postgres-idiario os comandos do arquivo ./script/restore-backup
     ports:
-      - 5432
+      - 5433:5432
     volumes:
       - pg_data:/var/lib/postgresql/data
-      - /home/usuario/Downloads/backup:/backup
+      - ../backup:/backup
       - ./script:/script
     environment:
       - POSTGRES_DB=idiario_development
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=idiario
+      - POSTGRES_PASSWORD=idiario
 
   redis:
     image: redis:alpine
@@ -30,13 +31,28 @@ services:
       - .:/app
       - box:/box
     ports:
-      - 3000
+      - 3000:3000
     environment:
       - DATABASE_HOST=postgres
-      - REDIS_URL=redis://redis-idiario:6379/0
+      - REDIS_URL=redis://redis:6379/0
     depends_on:
       - postgres
-      - redis      
+      - redis
+
+  sidekiq:
+    build: .
+    container_name: idiario-sidekiq
+    command: bundle exec sidekiq -C config/sidekiq.yml -e development
+    volumes:
+      - .:/app
+      - box:/box
+    environment:
+      - DATABASE_HOST=postgres
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - postgres
+  
 
 volumes:
   app:
