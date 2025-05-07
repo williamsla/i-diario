@@ -5,7 +5,7 @@ class UserForTeacherUpdaterWorker
 
   def perform(entity_id, teacher_id, cpf, school_id)
     Entity.find(entity_id).using_connection do
-      UserForTeacherUpdater.create!(teacher_id, cpf, school_id)
+      UserForTeacherUpdater.update!(teacher_id, cpf, school_id)
     end
   end
 end
