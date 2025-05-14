@@ -18,8 +18,9 @@ class TeachersSynchronizer < BaseSynchronizer
   end
 
   def update_teachers(teachers)
-
+    
     teachers.each do |teacher_record|
+      Rails.logger.info "teacher_record: #{teacher_record.inspect}"
       next if teacher_record.nome.blank?
 
       Teacher.with_discarded.find_or_initialize_by(api_code: teacher_record.servidor_id).tap do |teacher|
@@ -32,18 +33,10 @@ class TeachersSynchronizer < BaseSynchronizer
           
           user = User.by_cpf(teacher_record.cpf)
           
-          # Se não encontrar e CPF começa com zero, tenta novamente sem o zero à esquerda
-          if !user.exists? && teacher_record.cpf.start_with?("0")
-            cpf_sem_zero = teacher_record.cpf.sub(/^0+/, "")
-            user = User.by_cpf(cpf_sem_zero)
-          end
-          
           if user.exists?
-            Rails.logger.info "usuario do professor já existe #{user.inspect}"
             update_users(teacher.id, teacher_record.cpf, teacher_record.escola_id)
           else
-            Rails.logger.info "usuario do professor não existe #{teacher.inspect}"
-            create_users(teacher.id, teacher_record.cpf)
+            create_users(teacher.id, teacher_record.cpf, teacher_record.escola_id)
           end
         end
 
@@ -51,8 +44,8 @@ class TeachersSynchronizer < BaseSynchronizer
     end
   end
 
-  def create_users(teacher_id, cpf)
-    UserForTeacherCreatorWorker.perform_in(1.second, entity_id, teacher_id, cpf)
+  def create_users(teacher_id, cpf, school_id)
+    UserForTeacherCreatorWorker.perform_in(1.second, entity_id, teacher_id, cpf, school_id)
   end
 
   def update_users(teacher_id, cpf, school_id)

@@ -2,21 +2,23 @@ require 'i18n'
 I18n.enforce_available_locales = false
 
 class UserForTeacherCreator
-  def self.create!(teacher_id, cpf)
-    new.create!(teacher_id, cpf)
+  def self.create!(teacher_id, cpf, school_id)
+    new.create!(teacher_id, cpf, school_id)
   end
 
-  def create!(teacher_id, cpf)
+  def create!(teacher_id, cpf, school_id)
     teacher = Teacher.find(teacher_id)
 
     return if teacher.blank?
 
-    create_user(teacher, cpf)
+    unity = Unity.find_by(api_code: school_id)
+
+    create_user(teacher, cpf, unity)
   end
 
   private
 
-  def create_user(teacher, cpf)
+  def create_user(teacher, cpf, unity)
     role_id = Role.find_by(access_level: AccessLevel::TEACHER)&.id
 
     raise 'Permissão de professor não encontrada.' if role_id.blank?
@@ -52,7 +54,8 @@ class UserForTeacherCreator
     user.password = password
     user.password_confirmation = password
     user.status = teacher.active == true ? UserStatus::ACTIVE : UserStatus::PENDING
-    user.user_roles.build(role_id: role_id)
+    user.user_roles.build(role_id: role_id, unity_id: unity.id)
+    
     user.without_auditing do
       user.save!(validate: false)
     end

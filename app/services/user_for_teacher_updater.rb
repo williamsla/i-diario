@@ -26,21 +26,26 @@ class UserForTeacherUpdater
 
     return unless User.find_by(teacher_id: teacher.id, kind: RoleKind::EMPLOYEE)
 
-    user = User.by_cpf(cpf).first
-          
-    # Se não encontrar e CPF começa com zero, tenta novamente sem o zero à esquerda
-    if user.nil? && cpf.start_with?("0")
-        cpf_sem_zero = cpf.sub(/^0+/, "")
-        user = User.by_cpf(cpf_sem_zero).first
-    end
+    user = User.by_cpf(cpf).first          
 
     return if user.nil?
 
     split_name = teacher.name.strip.split
     first_name = split_name.first
     last_name = split_name.last
+    fullname = teacher.name
 
-    if user.cpf.length < cpf.length
+    if last_name.equal?('Sobrenome')
+      split_name.pop
+      last_name = split_name.last
+      fullname = split_name.join(' ')
+    end
+    
+    user.first_name = first_name
+    user.last_name = last_name
+    user.fullname = fullname
+
+    if user.cpf.to_s.length < cpf.to_s.length || (user.cpf.to_s.length == cpf.to_s.length && user.cpf != cpf)
       user.cpf = cpf
 
       new_password = generate_password(first_name, cpf)
@@ -59,7 +64,6 @@ class UserForTeacherUpdater
         user.user_roles.build(role_id: role_id, unity_id: unity.id)
     end
     
-
     if user.changed?
         user.without_auditing do
             user.save!(validate: false)
