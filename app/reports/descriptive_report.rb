@@ -80,7 +80,7 @@ class DescriptiveReport < BaseReport
   end
 
   def write_descriptive_exam(exam_number, exam_value)
-    parecer = exam_value&.value || ""
+    parecer = exam_value&.value || return
     
     descriptive_number = @is_annual == true ? '' : exam_number
     exam_cell_header = make_cell(content: "Parecer #{descriptive_number}", size: 8, font_style: :bold, width: 100, borders: [:left, :right], padding: [2, 2, 4, 4], colspan: 2)
@@ -106,8 +106,7 @@ class DescriptiveReport < BaseReport
       @students.each_with_index do |student, index|
         move_down 10
         identification(student)
-        Rails.logger.info "Aluno: #{@student.inspect}"
-        
+
         descriptives_values_by_student = @descriptives_values.select{ |item| item.student.id == student.id}
         
         if descriptives_values_by_student.empty?
