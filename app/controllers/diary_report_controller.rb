@@ -271,6 +271,7 @@ class DiaryReportController < ApplicationController
             current_entity_configuration, 
             current_user_unity, 
             current_user_school_year, 
+            @descriptive_form.fetch_exam_steps, 
             @descriptive_form.fetch_exam_values, 
             @descriptive_form.fetch_students, 
             current_user_classroom,
@@ -341,7 +342,6 @@ class DiaryReportController < ApplicationController
   
     def build_by_classroom_steps(exam_average_report_form)
       @students_enrollments ||= exam_average_report_form.students_enrollments
-      Rails.logger.info "#{exam_average_report_form.inspect}"
       ExamStepAverageReport.build(
         current_entity_configuration,
         current_user_unity,

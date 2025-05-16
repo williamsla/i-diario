@@ -4,14 +4,15 @@ require 'nokogiri'
 class DescriptiveReport < BaseReport
   include ActionView::Helpers::NumberHelper
 
-  def self.build(entity_configuration, unity, year, descriptives, students, classroom, is_annual=false, is_embedded=false)
-    new.build(entity_configuration, unity, year, descriptives, students, classroom, is_annual, is_embedded)
+  def self.build(entity_configuration, unity, year, descriptives_exams, descriptives_values, students, classroom, is_annual=false, is_embedded=false)
+    new.build(entity_configuration, unity, year, descriptives_exams, descriptives_values, students, classroom, is_annual, is_embedded)
   end
 
-  def build(entity_configuration, unity, year, descriptives, students, classroom, is_annual=false, is_embedded=false)
+  def build(entity_configuration, unity, year, descriptives_exams, descriptives_values, students, classroom, is_annual=false, is_embedded=false)
     @entity_configuration = entity_configuration
     @year = year
-    @descriptives = descriptives
+    @descriptives_exams = descriptives_exams
+    @descriptives_values = descriptives_values
     @students = students
     @unity = unity
     @classroom = classroom
@@ -79,10 +80,11 @@ class DescriptiveReport < BaseReport
   end
 
   def write_descriptive_exam(exam_number, exam_value)
-
+    parecer = exam_value&.value || ""
+    
     descriptive_number = @is_annual == true ? '' : exam_number
     exam_cell_header = make_cell(content: "Parecer #{descriptive_number}", size: 8, font_style: :bold, width: 100, borders: [:left, :right], padding: [2, 2, 4, 4], colspan: 2)
-    exam_cell = make_cell(content: Nokogiri::HTML(exam_value.value).text, size: 10, width: 100, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan: 2)
+    exam_cell = make_cell(content: Nokogiri::HTML(parecer).text, size: 10, width: 100, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan: 2)
     
     identification_table_data = [
       [exam_cell_header],
@@ -97,7 +99,6 @@ class DescriptiveReport < BaseReport
       column(-1).border_right_width = 0.25
     end
 
-    # move_down GAP
   end
 
   def body
@@ -105,14 +106,19 @@ class DescriptiveReport < BaseReport
       @students.each_with_index do |student, index|
         move_down 10
         identification(student)
+        Rails.logger.info "Aluno: #{@student.inspect}"
         
-        descriptives_by_student = @descriptives.select{ |item| item.student.id == student.id}
-        if descriptives_by_student.empty?
+        descriptives_values_by_student = @descriptives_values.select{ |item| item.student.id == student.id}
+        
+        if descriptives_values_by_student.empty?
           move_down 50
         else
-          descriptives_by_student.each_with_index do |exam, index|
-            write_descriptive_exam(index+1, exam)
-          end
+          @descriptives_exams.each_with_index do |exam, index|
+            value = descriptives_values_by_student.find { |item| item.descriptive_exam_id == exam.id }
+            
+            write_descriptive_exam(index+1, value)
+            
+          end          
         end
 
         move_down 50

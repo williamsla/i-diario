@@ -25,6 +25,7 @@ class DescriptiveReportController < ApplicationController
           current_entity_configuration, 
           current_user_unity, 
           current_user_school_year, 
+          @descriptive_report_form.fetch_exam_steps,
           @descriptive_report_form.fetch_exam_values, 
           @descriptive_report_form.fetch_students, 
           current_user_classroom,

@@ -32,6 +32,7 @@ class DescriptiveExam < ApplicationRecord
   scope :by_classroom_id, ->(classroom_id) { where(classroom_id: classroom_id) }
   scope :by_discipline_id, ->(discipline_id) { where(discipline_id: discipline_id) }
   scope :by_step_number, ->(step_number) { where(step_number: step_number) }
+  scope :ordered, -> { order(arel_table[:step_number].asc) }
 
   validates :unity, presence: true
   validates :opinion_type, presence: true

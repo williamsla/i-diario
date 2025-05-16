@@ -24,6 +24,10 @@ class DescriptiveReportForm
     @students = Student.where(id: student_ids).ordered
   end
 
+  def fetch_exam_steps
+    @descriptive_exams_steps ||= DescriptiveExam.by_classroom_id(classroom_id).ordered
+  end
+
   def fetch_exam_values
     @descriptive_exam_values ||= DescriptiveExamStudent.by_classroom(classroom_id)
   end
