@@ -32,18 +32,10 @@ class UserForTeacherUpdater
 
     split_name = teacher.name.strip.split
     first_name = split_name.first
-    last_name = split_name.last
-    fullname = teacher.name
-
-    if last_name.equal?('Sobrenome')
-      split_name.pop
-      last_name = split_name.last
-      fullname = split_name.join(' ')
-    end
     
     user.first_name = first_name
-    user.last_name = last_name
-    user.fullname = fullname
+    user.last_name = split_name.last
+    user.fullname = teacher.name
 
     if user.cpf.to_s.length < cpf.to_s.length || (user.cpf.to_s.length == cpf.to_s.length && user.cpf != cpf)
       user.cpf = cpf
@@ -57,11 +49,19 @@ class UserForTeacherUpdater
     if user.status != new_status
       user.status = new_status
     end
-    
-    if user.user_roles.where(role_id: role_id, unity_id: nil).exists?
-        user.user_roles.where(role_id: role_id, unity_id: nil).first&.update(unity_id: unity.id)
-    elsif !user.user_roles.where(role_id: role_id, unity_id: unity.id).exists?
-        user.user_roles.build(role_id: role_id, unity_id: unity.id)
+
+    # Verifica se há um vínculo com o role e unity_id nulo
+    existing_role_without_unity = user.user_roles.find_by(role_id: role_id, unity_id: nil)
+
+    if existing_role_without_unity
+      # Atualiza o vínculo existente para ter o unity_id atual
+      existing_role_without_unity.update!(unity_id: unity.id)
+    else
+      # Verifica se já existe um vínculo com o mesmo role_id e unity_id
+      unless user.user_roles.exists?(role_id: role_id, unity_id: unity.id)
+        # Cria um novo vínculo com role_id e unity_id informados
+        user.user_roles.create!(role_id: role_id, unity_id: unity.id)
+      end
     end
     
     if user.changed?
