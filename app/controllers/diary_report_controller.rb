@@ -54,6 +54,8 @@ class DiaryReportController < ApplicationController
 
       ini = Time.now
 
+      active_enrollment_classrooms = StudentEnrollmentClassroom.by_classroom(current_user_classroom.id).active
+
       if classroom_has_general_absence(current_user_classroom) == true
         aux_disciplines = [@disciplines.first]
         class_numbers_array = []
@@ -273,7 +275,8 @@ class DiaryReportController < ApplicationController
             current_user_school_year, 
             @descriptive_form.fetch_exam_steps, 
             @descriptive_form.fetch_exam_values, 
-            @descriptive_form.fetch_students, 
+            @descriptive_form.fetch_students,
+            active_enrollment_classrooms,
             current_user_classroom,
             @descriptive_form.is_annual,
             true

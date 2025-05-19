@@ -4,17 +4,18 @@ require 'nokogiri'
 class DescriptiveReport < BaseReport
   include ActionView::Helpers::NumberHelper
 
-  def self.build(entity_configuration, unity, year, descriptives_exams, descriptives_values, students, classroom, is_annual=false, is_embedded=false)
-    new.build(entity_configuration, unity, year, descriptives_exams, descriptives_values, students, classroom, is_annual, is_embedded)
+  def self.build(entity_configuration, unity, year, descriptives_exams, descriptives_values, students, student_enrollment_classroom, classroom, is_annual=false, is_embedded=false)
+    new.build(entity_configuration, unity, year, descriptives_exams, descriptives_values, students, student_enrollment_classroom, classroom, is_annual, is_embedded)
   end
 
-  def build(entity_configuration, unity, year, descriptives_exams, descriptives_values, students, classroom, is_annual=false, is_embedded=false)
+  def build(entity_configuration, unity, year, descriptives_exams, descriptives_values, students, student_enrollment_classroom, classroom, is_annual=false, is_embedded=false)
     @entity_configuration = entity_configuration
     @year = year
     @descriptives_exams = descriptives_exams
     @descriptives_values = descriptives_values
     @students = students
     @unity = unity
+    @student_enrollment_classroom = student_enrollment_classroom
     @classroom = classroom
     @show_subtitles = false
     @display_header_on_all_reports_pages = true
@@ -79,8 +80,8 @@ class DescriptiveReport < BaseReport
     end
   end
 
-  def write_descriptive_exam(exam_number, exam_value)
-    parecer = exam_value&.value || return
+  def write_descriptive_exam(exam_number, exam_value, enroll)
+    parecer = exam_value&.value || "Enturmado em #{enroll.joined_at&.to_date}\nDesenturmado em #{enroll.left_at&.to_date}" || return
     
     descriptive_number = @is_annual == true ? '' : exam_number
     exam_cell_header = make_cell(content: "Parecer #{descriptive_number}", size: 8, font_style: :bold, width: 100, borders: [:left, :right], padding: [2, 2, 4, 4], colspan: 2)
@@ -108,6 +109,7 @@ class DescriptiveReport < BaseReport
         identification(student)
 
         descriptives_values_by_student = @descriptives_values.select{ |item| item.student.id == student.id}
+        enrollment_classroom = @student_enrollment_classroom.find{ |item| item.student.id == student.id }
         
         if descriptives_values_by_student.empty?
           move_down 50
@@ -115,7 +117,7 @@ class DescriptiveReport < BaseReport
           @descriptives_exams.each_with_index do |exam, index|
             value = descriptives_values_by_student.find { |item| item.descriptive_exam_id == exam.id }
             
-            write_descriptive_exam(index+1, value)
+            write_descriptive_exam(index+1, value, enrollment_classroom)
             
           end          
         end

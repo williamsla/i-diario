@@ -148,7 +148,8 @@ task print_diary: :environment do
               steps = @school_calendar_steps
               has_steps_by_classroom = false
             end
-            
+
+            active_enrollment_classrooms = StudentEnrollmentClassroom.by_classroom(classroom.id).active            
 
             # get teachers
             Teacher.by_unity_id(school.id).by_classroom(classroom.id).by_year(calendar.year).active_query.order_by_name.each do |teacher|
@@ -392,8 +393,10 @@ task print_diary: :environment do
                         current_entity_configuration, 
                         school, 
                         calendar.year, 
+                        @descriptive_form.fetch_exam_steps, 
                         @descriptive_form.fetch_exam_values, 
                         @descriptive_form.fetch_students, 
+                        active_enrollment_classrooms,
                         classroom,
                         @descriptive_form.is_annual,
                         true
