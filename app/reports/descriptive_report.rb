@@ -84,10 +84,11 @@ class DescriptiveReport < BaseReport
     parecer = exam_value&.value
 
     unless parecer
-      mensagens = []
-      mensagens << "Enturmado em #{enroll.joined_at.to_date}" if enroll.joined_at
-      mensagens << "Desenturmado em #{enroll.left_at.to_date}" if enroll.left_at
-      parecer = mensagens.any? ? mensagens.join("\n") : return
+      if enroll.left_at&.to_date
+        parecer = "Desenturmado em #{enroll.left_at.to_date}"
+      else
+        parecer = "Enturmado em #{enroll.joined_at.to_date}"
+      end      
     end
     
     descriptive_number = @is_annual == true ? '' : exam_number
