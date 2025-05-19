@@ -81,7 +81,14 @@ class DescriptiveReport < BaseReport
   end
 
   def write_descriptive_exam(exam_number, exam_value, enroll)
-    parecer = exam_value&.value || "Enturmado em #{enroll.joined_at&.to_date}\nDesenturmado em #{enroll.left_at&.to_date}" || return
+    parecer = exam_value&.value
+
+    unless parecer
+      mensagens = []
+      mensagens << "Enturmado em #{enroll.joined_at.to_date}" if enroll.joined_at
+      mensagens << "Desenturmado em #{enroll.left_at.to_date}" if enroll.left_at
+      parecer = mensagens.any? ? mensagens.join("\n") : return
+    end
     
     descriptive_number = @is_annual == true ? '' : exam_number
     exam_cell_header = make_cell(content: "Parecer #{descriptive_number}", size: 8, font_style: :bold, width: 100, borders: [:left, :right], padding: [2, 2, 4, 4], colspan: 2)
@@ -109,7 +116,7 @@ class DescriptiveReport < BaseReport
         identification(student)
 
         descriptives_values_by_student = @descriptives_values.select{ |item| item.student.id == student.id}
-        enrollment_classroom = @student_enrollment_classroom.find{ |item| item.student.id == student.id }
+        enrollment_classroom = @student_enrollment_classroom.find{ |item| item.student_enrollment.student.id == student.id }
         
         if descriptives_values_by_student.empty?
           move_down 50
