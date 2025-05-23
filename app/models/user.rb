@@ -60,7 +60,7 @@ class User < ApplicationRecord
   validates :cpf, mask: { with: "999.999.999-99", message: :incorrect_format }, allow_blank: true, uniqueness: { case_sensitive: false }
   validates :phone, format: { with: /\A\([0-9]{2}\)\ [0-9]{8,9}\z/i }, allow_blank: true
   validates :email, email: true, allow_blank: true
-  validates :password, length: { minimum: 8 }, allow_blank: true
+  validates :password, length: { minimum: 6 }, allow_blank: true
   validates :login, uniqueness: true, allow_blank: true
   validates :teacher_id, uniqueness: true, allow_blank: true
   validates :student, presence: true, if: :only_student?
