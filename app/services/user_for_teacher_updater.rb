@@ -9,7 +9,6 @@ class UserForTeacherUpdater
 
   def update!(teacher_id, cpf, school_id)
     teacher = Teacher.find(teacher_id)
-
     unity = Unity.find_by(api_code: school_id)
     
     return if teacher.blank?
@@ -24,17 +23,15 @@ class UserForTeacherUpdater
 
     raise 'Permissão de professor não encontrada.' if role_id.blank?
 
-    return unless User.find_by(teacher_id: teacher.id, kind: RoleKind::EMPLOYEE)
-
-    user = User.by_cpf(cpf).first          
-
-    return if user.nil?
-
+    user = User.find_by(teacher_id: teacher.id, kind: RoleKind::EMPLOYEE)
+    return unless user
+    
     split_name = teacher.name.strip.split
     first_name = split_name.first
+    surname = split_name[1..].join(' ')
     
     user.first_name = first_name
-    user.last_name = split_name.last
+    user.last_name = surname
     user.fullname = teacher.name
 
     if user.cpf.to_s.length < cpf.to_s.length || (user.cpf.to_s.length == cpf.to_s.length && user.cpf != cpf)
@@ -54,15 +51,11 @@ class UserForTeacherUpdater
     existing_role_without_unity = user.user_roles.find_by(role_id: role_id, unity_id: nil)
 
     if existing_role_without_unity
-      # Atualiza o vínculo existente para ter o unity_id atual
       existing_role_without_unity.update!(unity_id: unity.id)
     else
-      # Verifica se já existe um vínculo com o mesmo role_id e unity_id
-      unless user.user_roles.exists?(role_id: role_id, unity_id: unity.id)
-        # Cria um novo vínculo com role_id e unity_id informados
-        user.user_roles.create!(role_id: role_id, unity_id: unity.id)
-      end
+      user.user_roles.find_or_create_by!(role_id: role_id, unity_id: unity.id)
     end
+
     
     if user.changed?
         user.without_auditing do

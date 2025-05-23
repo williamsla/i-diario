@@ -20,7 +20,6 @@ class TeachersSynchronizer < BaseSynchronizer
   def update_teachers(teachers)
     
     teachers.each do |teacher_record|
-      Rails.logger.info "teacher_record: #{teacher_record.inspect}"
       next if teacher_record.nome.blank?
 
       Teacher.with_discarded.find_or_initialize_by(api_code: teacher_record.servidor_id).tap do |teacher|
