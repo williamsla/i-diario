@@ -34,7 +34,7 @@
   <% end %>
 
   <script>
-    var error = <%= @time %>;
+    var error = <%= (@time || 0).to_i %>;
 
     if (error !== 0) {
       document.getElementById('btn-login').disabled = true;

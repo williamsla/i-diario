@@ -47,7 +47,7 @@ class Role < ActiveRecord::Base
   end
 
   def to_s
-    "#{name} - Nível: #{access_level_humanize}"
+    "#{name}"
   end
 
   protected

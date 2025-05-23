@@ -31,9 +31,9 @@ class UserRole < ApplicationRecord
 
   def to_s
     if require_unity?
-      "#{role_name} (Nível: #{role_access_level_humanize}) - #{unity_name}"
+      "#{role_name} - #{unity_name}"
     else
-      "#{role_name} (Nível: #{role_access_level_humanize})"
+      "#{role_name}"
     end
   end
 
