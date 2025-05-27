@@ -22,11 +22,15 @@ class TeachersSynchronizer < BaseSynchronizer
     teachers.each do |teacher_record|
       next if teacher_record.nome.blank?
 
+      teacher_record.cpf = teacher_record.cpf.strip if teacher_record.cpf
+
       Teacher.with_discarded.find_or_initialize_by(api_code: teacher_record.servidor_id).tap do |teacher|
         
         teacher.name = teacher_record.nome
         teacher.active = teacher_record.ativo.to_s == IeducarBooleanState::ACTIVE
         teacher.save! if teacher.changed?
+
+
 
         if CPF.valid?(teacher_record.cpf)
           
