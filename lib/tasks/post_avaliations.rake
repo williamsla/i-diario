@@ -33,12 +33,6 @@ task post_avaliations: :environment do
     end
   end
 
-  def validate_today_is_weekend()
-    today = Date.today
-
-    return today.saturday? || today.sunday?      
-  end
-
   def sync(entity, step, post_type, author, teacher)
     
     new_permitted_attributes = {}
@@ -129,7 +123,7 @@ task post_avaliations: :environment do
                                                     and df.frequency_date between '#{step.start_at}' and '#{step.end_at}'
                                                     and c.year=#{calendar.year}"
                                             )
-                elsif validate_today_is_weekend && postType.last == 'conceptual_exam'
+                elsif postType.last == 'conceptual_exam'
                     last_change = connection.select_value("SELECT max(cev.updated_at)
                                               FROM public.conceptual_exams ce
                                               inner join public.conceptual_exam_values cev on cev.conceptual_exam_id = ce.id 
