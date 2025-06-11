@@ -15,7 +15,7 @@ else
     expire_after: 12.hours,
     key: "_#{Rails.application.class.parent_name.downcase}_session",
     threadsafe: true,
-    secure: true
+    secure: Rails.env.production?
   }
 end
 
