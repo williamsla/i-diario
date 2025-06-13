@@ -20,7 +20,7 @@
 
   <%= simple_form_for @daily_frequency, url: create_or_update_multiple_daily_frequencies_path, method: :put,
     html: { class: 'smart-form daily_frequency' } do |f| %>
-
+    
     <div class="frequency-legend">
       <strong>Legenda:</strong>
 
@@ -82,14 +82,16 @@
               <%= render 'student_fields', exempted_from_discipline: student[:exempted_from_discipline],
                 student: student[:student], sequence: student[:sequence], dependence: student[:dependence],
                 active: student[:active], in_active_search: student[:in_active_search],
-                absence_justification: student[:absence_justification]
+                absence_justification: student[:absence_justification],
+                classroom_name: @daily_frequencies.first.classroom
               %>
             <% else %>
               <% sequence += 1 %>
               <%= render 'student_fields', exempted_from_discipline: student[:exempted_from_discipline],
                 student: student[:student], sequence: sequence, dependence: student[:dependence],
                 active: student[:active], in_active_search: student[:in_active_search],
-                absence_justification: student[:absence_justification]
+                absence_justification: student[:absence_justification],
+                classroom_name: @daily_frequencies.first.classroom
               %>
             <% end %>
           <% end %>

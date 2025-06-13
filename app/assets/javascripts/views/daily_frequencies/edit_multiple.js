@@ -87,34 +87,91 @@ $(function () {
   $('.alert-success, .alert-danger').fadeTo(700, 0.1).fadeTo(700, 1.0);
 });
 
+// $(document).ready(function () {
+//   $("label.checkbox-frequency:not(.checkbox-batch) input[type=checkbox]").click(function() {
+//     let el = $(this);
+
+//     el.closest('div').find('.hidden-justified').prop('disabled', true).val(null);
+
+//     switch (el.data('status')) {
+//       case 'present':
+//         el.data('status', 'absent');
+//         el.prop('indeterminate', false);
+//         el.prop('checked', true);
+//         el.closest('label').removeClass('justified');
+//         break;
+
+//       case 'justified':
+//         el.data('status', 'present');
+//         el.prop('indeterminate', true);
+//         el.prop('checked', false);
+//         el.closest('label').addClass('justified');
+//         el.closest('div').find('.hidden-justified').prop('disabled', false).val(-1);
+//         break;
+
+//       case 'absent':
+//       default:
+//         el.data('status', 'justified');
+//         el.prop('indeterminate', false);
+//         el.prop('checked', false);
+//         el.closest('label').removeClass('justified');
+//     }
+//   });
+// });
+
+
 $(document).ready(function () {
-  $("label.checkbox-frequency:not(.checkbox-batch) input[type=checkbox]").click(function() {
+  // Aplica indeterminate para checkboxes com status = 'blank'
+  $('input[type=checkbox][data-status="blank"]').each(function () {
+    this.indeterminate = true;
+    this.checked = false;
+  });
+
+  $("label.checkbox-frequency:not(.checkbox-batch) input[type=checkbox]").click(function () {
     let el = $(this);
 
     el.closest('div').find('.hidden-justified').prop('disabled', true).val(null);
 
     switch (el.data('status')) {
-      case 'present':
-        el.data('status', 'absent');
+      case 'blank':
+        // vai para PRESENTE
+        el.data('status', 'present');
         el.prop('indeterminate', false);
         el.prop('checked', true);
-        el.closest('label').removeClass('justified');
+        el.closest('label').removeClass('justified').removeClass('blank');
         break;
 
-      case 'justified':
-        el.data('status', 'present');
-        el.prop('indeterminate', true);
+      case 'present':
+        // vai para AUSENTE
+        el.data('status', 'absent');
+        el.prop('indeterminate', false);
         el.prop('checked', false);
-        el.closest('label').addClass('justified');
-        el.closest('div').find('.hidden-justified').prop('disabled', false).val(-1);
+        el.closest('label').removeClass('justified').removeClass('blank');
+
         break;
 
       case 'absent':
-      default:
+        // vai para FJ
         el.data('status', 'justified');
         el.prop('indeterminate', false);
         el.prop('checked', false);
-        el.closest('label').removeClass('justified');
+        el.closest('label').addClass('justified').removeClass('blank');
+        el.closest('div').find('.hidden-justified').prop('disabled', false).val(-1);
+        break;
+        
+      case 'justified':
+      default:
+        // volta para EM BRANCO
+        el.data('status', 'blank');
+        el.prop('indeterminate', true);
+        el.prop('checked', false);
+        el.closest('label').removeClass('justified').addClass('blank');
+        break;
+                  
+          
+
     }
   });
+
 });
+
