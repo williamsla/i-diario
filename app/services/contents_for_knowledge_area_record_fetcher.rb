@@ -21,5 +21,6 @@ class ContentsForKnowledgeAreaRecordFetcher < ContentsRecordFetcher
                                                  .by_grade(@classroom.grade_ids)
                                                  .by_knowledge_area(@knowledge_areas.map(&:id))
                                                  .by_year(school_calendar_year)
+                                                 .by_teacher_id(@teacher.id)
   end
 end

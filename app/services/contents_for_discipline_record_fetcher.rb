@@ -28,5 +28,6 @@ class ContentsForDisciplineRecordFetcher < ContentsRecordFetcher
                                               .by_grade(@classroom.grade_ids)
                                               .by_discipline(@discipline.id)
                                               .by_year(school_calendar_year)
+                                              .by_teacher_id(@teacher.id)
   end
 end
