@@ -28,7 +28,7 @@ class UserForTeacherUpdater
     
     split_name = teacher.name.strip.split
     first_name = split_name.first
-    surname = split_name[1..].join(' ')
+    surname = split_name.drop(1).join(' ')
     
     user.first_name = first_name
     user.last_name = surname
