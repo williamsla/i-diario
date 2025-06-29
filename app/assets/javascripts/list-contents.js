@@ -111,3 +111,65 @@ $(function () {
       }
   }
 });
+
+// carregando modal de estilo tabela
+document.addEventListener('DOMContentLoaded', () => {
+  const addRowBtn = document.getElementById('add-new-row');
+  const confirmBtn = document.getElementById('confirm-add-contents');
+  const tableBody = document.querySelector('#modal-table tbody');
+
+  if (addRowBtn) {
+    addRowBtn.addEventListener('click', () => {
+      const newRow = tableBody.rows[0].cloneNode(true);
+      Array.from(newRow.querySelectorAll('input')).forEach(input => input.value = '');
+      tableBody.appendChild(newRow);
+    });
+  }
+
+  if (tableBody) {
+    tableBody.addEventListener('click', e => {
+      if (e.target.classList.contains('remove-row')) {
+        if (tableBody.rows.length > 1) {
+          e.target.closest('tr').remove();
+        }
+      }
+    });
+  }
+
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', () => {
+      const rows = tableBody.querySelectorAll('tr');
+    
+      rows.forEach(row => {
+        const content = row.querySelector('input[name="content[]"]').value.trim();
+        const objective = row.querySelector('input[name="objective[]"]').value.trim();
+        const methodology = row.querySelector('input[name="methodology[]"]').value.trim();
+        const evaluation = row.querySelector('input[name="evaluation[]"]').value.trim();
+        const references = row.querySelector('input[name="references[]"]').value.trim();
+    
+        if (!content) return;
+    
+        const addItem = (ulId, fieldName, value) => {
+          const id = `new-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+          const listItem = document.createElement('li');
+          listItem.className = 'list-group-item manual';
+          listItem.id = `${ulId}_${id}`;
+          listItem.innerHTML = `
+            <input type="hidden" name="knowledge_area_teaching_plan[teaching_plan_attributes][${fieldName}_tags][]" value="${value}">
+            ${value}
+          `;
+          document.getElementById(`${ulId}-list`).appendChild(listItem);
+        };
+    
+        addItem('contents', 'contents', content);
+        if (objective) addItem('objectives', 'objectives', objective);
+        if (methodology) addItem('methodologies', 'methodologies', methodology);
+        if (evaluation) addItem('evaluations', 'evaluations', evaluation);
+        if (references) addItem('references', 'references', references);
+      });
+    
+      $('#addContentsByTableModal').modal('hide');
+    });
+    
+  }
+});

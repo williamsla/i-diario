@@ -2,7 +2,7 @@
   <div>
     <a id="user-info-selector" href="#">
       <span>
-        Alterar perfil
+        Trocar Disciplina
         <i class="fa fa-angle-right" aria-hidden="true"></i>
       </span>
     </a>
@@ -40,7 +40,7 @@
 
         <div class="role-selector">
           <button v-show="this.submitAble()" :disabled="!validForm" class="btn btn-sm bg-color-blueDark txt-color-white" data-disable-with='Alterando...'>
-            Alterar perfil
+            CARREGAR DISCIPLINA
           </button>
           <a class="btn btn-sm bg-color-white txt-color-blueDark role-cancel">Cancelar</a>
         </div>
