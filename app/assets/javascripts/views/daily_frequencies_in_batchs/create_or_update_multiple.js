@@ -43,7 +43,7 @@ $(function () {
       'ao fim do lançamento de frequência em lote para que seja lançado com sucesso.',
     buttons: {
       confirm: { label: 'Salvar', className: 'btn new-save-style' },
-      cancel: { label: 'Continuar sem salvar', className: 'btn new-delete-style' }
+      cancel: { label: 'Sair sem salvar', className: 'btn new-delete-style' }
     }
   };
 

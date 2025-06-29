@@ -47,7 +47,7 @@ $(function () {
              'ao fim do lançamento de frequência para que seja lançado com sucesso.',
     buttons: {
       confirm: { label: 'Salvar', className: 'btn new-save-style' },
-      cancel: { label: 'Continuar sem salvar', className: 'btn new-delete-style' }
+      cancel: { label: 'Sair sem salvar', className: 'btn new-delete-style' }
     }
   };
 
@@ -87,44 +87,12 @@ $(function () {
   $('.alert-success, .alert-danger').fadeTo(700, 0.1).fadeTo(700, 1.0);
 });
 
-// $(document).ready(function () {
-//   $("label.checkbox-frequency:not(.checkbox-batch) input[type=checkbox]").click(function() {
-//     let el = $(this);
-
-//     el.closest('div').find('.hidden-justified').prop('disabled', true).val(null);
-
-//     switch (el.data('status')) {
-//       case 'present':
-//         el.data('status', 'absent');
-//         el.prop('indeterminate', false);
-//         el.prop('checked', true);
-//         el.closest('label').removeClass('justified');
-//         break;
-
-//       case 'justified':
-//         el.data('status', 'present');
-//         el.prop('indeterminate', true);
-//         el.prop('checked', false);
-//         el.closest('label').addClass('justified');
-//         el.closest('div').find('.hidden-justified').prop('disabled', false).val(-1);
-//         break;
-
-//       case 'absent':
-//       default:
-//         el.data('status', 'justified');
-//         el.prop('indeterminate', false);
-//         el.prop('checked', false);
-//         el.closest('label').removeClass('justified');
-//     }
-//   });
-// });
-
-
 $(document).ready(function () {
   // Aplica indeterminate para checkboxes com status = 'blank'
   $('input[type=checkbox][data-status="blank"]').each(function () {
     this.indeterminate = true;
     this.checked = false;
+    $(this).closest('div').find('.hidden-justified').prop('disabled', false).val(-2);
   });
 
   $("label.checkbox-frequency:not(.checkbox-batch) input[type=checkbox]").click(function () {
@@ -136,6 +104,7 @@ $(document).ready(function () {
       case 'blank':
         // vai para PRESENTE
         el.data('status', 'present');
+        el.attr('data-status', 'present'); // atualiza no DOM visível
         el.prop('indeterminate', false);
         el.prop('checked', true);
         el.closest('label').removeClass('justified').removeClass('blank');
@@ -144,6 +113,7 @@ $(document).ready(function () {
       case 'present':
         // vai para AUSENTE
         el.data('status', 'absent');
+        el.attr('data-status', 'absent'); // atualiza no DOM visível
         el.prop('indeterminate', false);
         el.prop('checked', false);
         el.closest('label').removeClass('justified').removeClass('blank');
@@ -152,9 +122,9 @@ $(document).ready(function () {
 
       case 'absent':
         // vai para FJ
-        el.data('status', 'justified');
         el.prop('indeterminate', false);
-        el.prop('checked', false);
+        el.data('status', 'justified'); //atualiza somente no jquery
+        el.attr('data-status', 'justified'); // atualiza no DOM visível
         el.closest('label').addClass('justified').removeClass('blank');
         el.closest('div').find('.hidden-justified').prop('disabled', false).val(-1);
         break;
@@ -163,13 +133,12 @@ $(document).ready(function () {
       default:
         // volta para EM BRANCO
         el.data('status', 'blank');
+        el.attr('data-status', 'blank'); // atualiza no DOM visível
         el.prop('indeterminate', true);
         el.prop('checked', false);
         el.closest('label').removeClass('justified').addClass('blank');
+        el.closest('div').find('.hidden-justified').prop('disabled', false).val(-2);
         break;
-                  
-          
-
     }
   });
 

@@ -164,7 +164,7 @@ class DailyFrequenciesController < ApplicationController
       daily_frequencies_attributes = daily_frequencies_params
       receive_email_confirmation = ActiveRecord::Type::Boolean.new.cast(
         params[:daily_frequency][:receive_email_confirmation]
-      )
+      )      
 
       edit_multiple_daily_frequencies_path = edit_multiple_daily_frequencies_path(
         daily_frequency: daily_frequency_attributes.slice(
@@ -179,6 +179,11 @@ class DailyFrequenciesController < ApplicationController
 
       ActiveRecord::Base.transaction do
         daily_frequencies_attributes.each_value do |daily_frequency_students_params|
+
+          daily_frequency_students_params[:students_attributes].delete_if do |_, daily_frequency_student|
+            daily_frequency_student[:absence_justification_student_id].to_i.eql?(-2)
+          end
+          
           daily_frequency_attribute_normalizer = DailyFrequencyAttributesNormalizer.new(
             daily_frequency_students_params,
             daily_frequency_attributes

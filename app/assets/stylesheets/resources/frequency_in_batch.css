@@ -32,7 +32,6 @@ label.checkbox-frequency.partial-absence input[type=checkbox] + i::after {
 label.checkbox-frequency.justified input[type="checkbox"] + i {
   border: 2px solid #0779fb !important;
   background-color: #fff !important;
-  position: relative;
 }
 
 label.checkbox-frequency.justified input[type="checkbox"] + i::after {
@@ -62,7 +61,7 @@ label.checkbox-frequency.justified input[type="checkbox"] + i::after {
 }
 
 .checkbox-frequency.blank input[type="checkbox"] + i {
-  border: 2px solid #ff0d00; /* borda azul destacada */
+  border: 1px solid black; /* borda preta */
   background-color: #fff;    /* fundo branco */
 }
 
@@ -77,7 +76,7 @@ label.checkbox-frequency.justified input[type="checkbox"] + i::after {
 
 .frequency-legend {
   display: flex;
-  padding: 20px;
+  padding: 20px 0;
   flex-wrap: wrap;
   justify-content: right;
   align-items: center;
