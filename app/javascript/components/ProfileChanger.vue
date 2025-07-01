@@ -40,7 +40,7 @@
 
         <div class="role-selector">
           <button v-show="this.submitAble()" :disabled="!validForm" class="btn btn-sm bg-color-blueDark txt-color-white" data-disable-with='Alterando...'>
-            CARREGAR DISCIPLINA
+            CONFIRMAR DISCIPLINA
           </button>
           <a class="btn btn-sm bg-color-white txt-color-blueDark role-cancel">Cancelar</a>
         </div>
