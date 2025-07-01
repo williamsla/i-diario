@@ -5,10 +5,6 @@
   <td>
     <% name_class = frequency_student_name_class(dependence, active, exempted_from_discipline, in_active_search) %>
     <% is_aee_classroom = classroom_name.to_s.include?('AEE') %>
-    <% Rails.logger.info "\n---1" %>
-    <% Rails.logger.info classroom_name %>
-    <% Rails.logger.info is_aee_classroom %>
-    <% Rails.logger.info "---2\n" %>
     <% student_name = frequency_student_name(student, dependence, active, exempted_from_discipline, in_active_search) %>
     <span class="<%= name_class %>"><%= student_name %></span>
   </td>
@@ -50,11 +46,11 @@
             </label>
 
           <% else %>
-            <label class="checkbox checkbox-frequency <%= ignore_student ? "state-disabled" : "" %> <%= is_aee_classroom ? "blank" : "" %>">
+            <label class="checkbox checkbox-frequency <%= ignore_student ? 'state-disabled' : '' %> <%= is_aee_classroom && !f.object.id ? 'blank' : '' %>">
               <%= f.check_box :present,
                   disabled: ignore_student,
-                  data: { id: 'checkbox-id', status: is_aee_classroom ? 'blank' : (f.object.present ? 'present' : 'absent') },
-                  checked: is_aee_classroom ? 'blank' : f.object.present %>
+                  data: { id: 'checkbox-id', status: is_aee_classroom && !f.object.id ? 'blank' : (f.object.present == true ? 'present' : 'absent') },
+                  checked: is_aee_classroom && !f.object.id ? 'blank' : f.object.present %>
               <i></i>
             </label>
           <% end %>
