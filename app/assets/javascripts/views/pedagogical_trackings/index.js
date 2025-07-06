@@ -169,10 +169,13 @@ var step_end_date = $('#step_end_date').val();
 
 if (unity_id) {
   $('#search_unity_id').val(unity_id);
-} 
+  $('#section-frequency').hide();
+  $('#section-content').hide();
+} else {
+  $('#section-frequency').hide();
+  $('#section-content').hide();
+}
 
-$('#section-frequency').hide();
-$('#section-content').hide();
 
 if (start_date) {
   $('#search_start_date').val(start_date);

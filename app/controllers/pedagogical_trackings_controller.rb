@@ -17,8 +17,8 @@ class PedagogicalTrackingsController < ApplicationController
       @updated_at_hour = last_refresh.hour
     end
 
-    # employee_unity = employee_unities.first.id if employee_unities.presence&.one?
-    unity_id = params.dig(:search, :unity_id).presence || params[:unity_id]
+    employee_unity = employee_unities.first.id if employee_unities.presence&.one?
+    unity_id = params.dig(:search, :unity_id).presence || params[:unity_id] || employee_unity
 
     @start_date = params.dig(:search, :start_date).presence
     start_date = (@start_date || params[:start_date]).try(:to_date)
@@ -26,15 +26,21 @@ class PedagogicalTrackingsController < ApplicationController
     @end_date = params.dig(:search, :end_date).presence
     end_date = (@end_date || params[:end_date]).try(:to_date)
     
-    fetch_school_days_by_unity(unity_id, start_date, end_date)
+    if unity_id
+      fetch_school_days_by_unity(unity_id, start_date, end_date)
 
-    @school_days = 200 #@school_days_by_unity.values
-                     #                   .max_by { |school_days_by_unity|
-                     #                     school_days_by_unity[:school_days]
-                     #                   }[:school_days]
-    @school_frequency_done_percentage = 100 #school_frequency_done_percentage
-    @school_content_record_done_percentage = 100 #school_content_record_done_percentage
-    @unknown_teachers = 100 #school_unknown_teacher_frequency_done_percentage
+      @school_days = @school_days_by_unity.values.max_by { |school_days_by_unity|
+                                            school_days_by_unity[:school_days]
+                                          }[:school_days]
+      @school_frequency_done_percentage = school_frequency_done_percentage
+      @school_content_record_done_percentage = school_content_record_done_percentage
+      @unknown_teachers = school_unknown_teacher_frequency_done_percentage
+    else
+      @school_days = 1
+      @school_frequency_done_percentage = 1
+      @school_content_record_done_percentage = 1
+      @unknown_teachers = 1
+    end
     @partial = :schools
     
     @percents = if unity_id
@@ -152,14 +158,34 @@ class PedagogicalTrackingsController < ApplicationController
     format_left.set_align('vcenter')
     format_left.set_text_wrap(1)
     format_header.set_size(10)
-    
+
+    bg_color1 = workbook.add_format(bg_color: '#FFFFFF', pattern: 1)
+    bg_color2 = workbook.add_format(bg_color: '#aaaaaa', pattern: 1)
+
+    # Congelar a primeira linha
+    worksheet.freeze_panes(1, 0)
+
+    worksheet.set_paper(9)             # 9 = A4
+    worksheet.fit_to_pages(1, 0)       # Ajusta para caber em 1 página de largura, altura automática
 
     worksheet.write(0, 0, ['TURMA','PROFESSOR(A)','DISCIPLINA', 'FREQUÊNCIA', 'PLANOS DE AULA', 'AULAS REGISTRADAS', 'ETAPAS COM PARECER CRIADO','ALUNOS SEM PARECER'], format_header)
     worksheet.set_row(0, 30)
 
+    list_classrooms = []
+
     index_row = 1
     rows.each do |row|
-      worksheet.set_row(index_row, 32)
+      list_classrooms << row[0]
+      list_classrooms = list_classrooms.uniq # Remove duplicatas
+
+      cor = if (list_classrooms.size % 2) == 0
+              bg_color1
+            else
+              bg_color2 
+            end
+
+      worksheet.set_row(index_row, 32, cor)
+      
       index_col = 0
       row.each do |value|
         if index_col == 0 # turma
@@ -178,6 +204,8 @@ class PedagogicalTrackingsController < ApplicationController
           worksheet.set_column(index_col, index_col, 11, format_center)
         elsif index_col == 7 # alunos sem parecer
           worksheet.set_column(index_col, index_col, 11, format_center)
+        else
+          next
         end
         worksheet.write(index_row, index_col, value)
         index_col = index_col+1
@@ -259,7 +287,9 @@ class PedagogicalTrackingsController < ApplicationController
 
   def fetch_school_days_by_unity(unity_id, start_date, end_date)
     return unless unity_id
-    unities = [Unity.find(unity_id)]
+
+    unity = Unity.find(unity_id)
+    unities = unity || employee_unities || all_unities
 
     @school_days_by_unity = SchoolDaysCounterService.new(
       unities: unities,
@@ -274,12 +304,12 @@ class PedagogicalTrackingsController < ApplicationController
     percentage_sum = 0
 
     # @school_days_by_unity.each do |unity_id, school_days|
-    #   percentage_sum += frequency_done_percentage(
-    #     unity_id,
-    #     school_days[:start_date],
-    #     school_days[:end_date],
-    #     school_days[:school_days]
-    #   )
+      # percentage_sum += frequency_done_percentage(
+      #   unity_id,
+      #   school_days[:start_date],
+      #   school_days[:end_date],
+      #   school_days[:school_days]
+      # )
     # end
 
     return 0 if unities_total.zero?
@@ -367,11 +397,12 @@ class PedagogicalTrackingsController < ApplicationController
 
   def percents(classrooms_ids = nil, teacher_id = nil)
     percents = []
-    
+
     if @school_days_by_unity.blank?
-      all_unities.each do |unity|
-        Rails.logger.info('\nclassrooms_ids')
-        Rails.logger.info(classrooms_ids.inspect)
+
+      unities = employee_unities || all_unities
+
+      unities.each do |unity|
         if classrooms_ids.present?
           classrooms_ids.each do |classroom_id|
             percents << build_percent_table(

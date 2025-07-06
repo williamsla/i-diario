@@ -10,7 +10,8 @@ class SchoolDaysCounterService
   end
 
   def school_days
-    return if @unities.size == @all_unities_size && @start_date.blank? && @end_date.blank?
+    return all_school_days if @unities.size == @all_unities_size && @start_date.blank? && @end_date.blank?
+    # return if @unities.size == @all_unities_size && @start_date.blank? && @end_date.blank?
 
     fetch_school_days(@unities, @start_date, @end_date)
   end
