@@ -21,7 +21,7 @@
           <fieldset style="background-color: #F8F8F8">
             <div class="row">
               <div class="col col-sm-12">
-                <%= f.association :students, as: :select2, elements: @students_list, multiple: true, required: true,
+                <%= f.association :students, as: :select2, elements: @students_as_justified, multiple: true, required: true,
                                   input_html: {
                                     data: { without_json_parser: true }
                                   } %>

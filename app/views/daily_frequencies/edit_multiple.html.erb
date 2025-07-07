@@ -47,10 +47,12 @@
         </label>
         Falta justificada
       </div>
-
-      <a href="#" class="btn btn-primary frequency-legend-button no-confirm" data-toggle="modal" data-target="#absence-justification-modal">
-        Inserir falta justificada por período
-      </a>
+      
+      <% if @daily_frequency.id %>
+        <a href="#" class="btn btn-primary frequency-legend-button no-confirm" data-toggle="modal" data-target="#absence-justification-modal">
+          Inserir falta justificada por período
+        </a>
+      <% end %>
     </div>
 
     <table class="table table-bordered table-only-inner-bordered table-striped table-hover">

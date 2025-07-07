@@ -109,6 +109,8 @@ class DailyFrequenciesController < ApplicationController
       period: @period
     )
 
+    @students_as_justified = []
+
     fetch_enrollment_classrooms.each do |enrollment_classroom|
       student = enrollment_classroom[:student]
 
@@ -119,7 +121,14 @@ class DailyFrequenciesController < ApplicationController
       activated_student = active.include?(enrollment_classroom[:student_enrollment_classroom_id])
       has_dependence = dependencies[student_enrollment_id] ? true : false
       has_exempted = exempt[student_enrollment_id] ? true : false
-      absence_justification = absence_justifications[student.id] || {}
+      
+      if absence_justifications[student.id]
+        absence_justification = absence_justifications[student.id]
+        @students_as_justified << student        
+      else
+        absence_justification = {}
+      end
+      
       in_active_search = active_search[@daily_frequency.frequency_date]&.include?(student_enrollment_id)
       sequence = enrollment_classroom[:sequence] if show_inactive_enrollments
 
@@ -139,6 +148,7 @@ class DailyFrequenciesController < ApplicationController
         absence_justification: absence_justification,
         sequence: sequence
       }
+
     end
 
     all_inactive = @students.all? { |element| element[:active] == false }
