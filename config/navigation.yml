@@ -105,13 +105,16 @@ navigation:
   - menu:
       type: "teaching_plans_menu"
       icon: "fa-book"
+      shortcut: true
       submenus:
         - menu:
             type: "discipline_teaching_plans"
             path: "discipline_teaching_plans_path"
+            shortcut: true
         - menu:
             type: "knowledge_area_teaching_plans"
             path: "knowledge_area_teaching_plans_path"
+            shortcut: true
   - menu:
       type: "lesson_plans_menu"
       icon: "fa-pencil"
@@ -154,10 +157,10 @@ navigation:
         - menu:
             type: "avaliations"
             path: "avaliations_path"
+            shortcut: true
         - menu:
             type: "daily_notes"
             path: "daily_notes_path"
-            shortcut: true
         - menu:
             type: "avaliation_exemptions"
             path: "avaliation_exemptions_path"
