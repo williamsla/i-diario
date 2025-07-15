@@ -387,8 +387,12 @@ class DisciplineLessonPlansController < ApplicationController
     @student_enrollments ||= student_enrollments()
     
     @student_ids = @student_enrollments.collect(&:student_id)
-  
-    @students = Student.where(id: @student_ids).where(uses_differentiated_exam_rule: true).ordered
+
+    if current_user_classroom.description.include?('AEE')    
+      @students = Student.where(id: @student_ids).ordered      
+    else
+      @students = Student.where(id: @student_ids).where(uses_differentiated_exam_rule: true).ordered      
+    end
     
   end
   
