@@ -3,10 +3,6 @@ module SchoolCalendarFilterable
 
   included do
     def self.current_year_school_term_types(year, unity_id, grade_id, add_yearly)
-      school_calendar = SchoolCalendar.includes(:steps).where(year: year)
-      school_calendar = school_calendar.where(unity_id: unity_id) if unity_id
-      school_calendar = school_calendar.map { |calendar| step_type_description_formatter(calendar) }.uniq
-
       school_calendar_classroom = SchoolCalendarClassroom.joins(:school_calendar)
                                                          .includes(:classroom_steps)
                                                          .where(
@@ -25,6 +21,15 @@ module SchoolCalendarFilterable
         step_type_description_formatter(calendar)
       }.uniq
 
+
+      school_calendar = []
+      # If there are no school calendars for the classroom, we fetch the school calendar for the year and unity
+      if school_calendar_classroom.empty?
+        school_calendar = SchoolCalendar.includes(:steps).where(year: year)
+        school_calendar = school_calendar.where(unity_id: unity_id) if unity_id
+        school_calendar = school_calendar.map { |calendar| step_type_description_formatter(calendar) }.uniq
+      end
+      
       school_term_types = SchoolTermType.where(description: school_calendar + school_calendar_classroom).to_a
       school_term_types << SchoolTermType.find_by(description: 'Anual') if add_yearly
 
