@@ -21,7 +21,7 @@ class DisciplineTeachingPlansController < ApplicationController
     @discipline_teaching_plans = fetch_discipline_teaching_plans
 
     # unless current_user.current_role_is_admin_or_employee?
-      # @discipline_teaching_plans = filter_by_grade_discipline(@discipline_teaching_plans)
+      @discipline_teaching_plans = filter_by_grade_discipline(@discipline_teaching_plans)
     # end
     @discipline_teaching_plans = filter_by_author(@discipline_teaching_plans, author_type) if author_type.present?
 
