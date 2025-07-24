@@ -101,16 +101,20 @@ class SchoolCalendarsSynchronizer < BaseSynchronizer
 
         new_record = school_calendar_step.new_record?
 
-        if new_record || school_calendar_step.start_date_for_posting < start_at
+        if new_record
+          school_calendar_step.start_date_for_posting = start_at
+          school_calendar_step.end_date_for_posting = end_at + 15
+        end
+
+        if school_calendar_step.start_date_for_posting < start_at
           school_calendar_step.start_date_for_posting = start_at
         end
 
         start_date_for_posting = school_calendar_step.start_date_for_posting
         end_date_for_posting = school_calendar_step.end_date_for_posting
 
-        if new_record || end_date_for_posting < start_at || end_date_for_posting < start_date_for_posting ||
-          end_date_for_posting > end_at
-          school_calendar_step.end_date_for_posting = end_at
+        if end_date_for_posting < start_at || end_date_for_posting < end_at || end_date_for_posting <= start_date_for_posting
+          school_calendar_step.end_date_for_posting = end_at + 15
         end
 
         if school_calendar_step.changed?
