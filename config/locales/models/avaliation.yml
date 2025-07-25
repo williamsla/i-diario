@@ -15,7 +15,7 @@ pt-BR:
         classroom_id: "Turma"
         discipline: "Disciplina"
         discipline_id: "Disciplina"
-        test_setting: "Configuração de avaliação"
+        test_setting: "Período letivo / Configuração de avaliação"
         test_setting_id: "Configuração de avaliação"
         test_date: "Data"
         classes: "Aulas"

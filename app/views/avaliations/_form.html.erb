@@ -9,7 +9,12 @@
         <div class="col col-sm-4">
           <%= f.association :test_setting, as: :select2, elements: @test_settings, hide_empty_element: true,
               input_html: {
-                data: { hide_empty_element: true }, value: f.object.test_setting_id
+                data: { hide_empty_element: true }, 
+                value: if f.object.test_setting_id.present?
+                          f.object.test_setting_id
+                        elsif @test_settings.one?
+                          @test_settings.first.id
+                        end
               }
           %>
         </div>

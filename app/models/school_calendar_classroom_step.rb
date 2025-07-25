@@ -98,5 +98,6 @@ class SchoolCalendarClassroomStep < ApplicationRecord
     return if end_date_for_posting >= start_date_for_posting
 
     errors.add(:end_date_for_posting, :must_be_greater_than_start_date_for_posting)
+    errors.add("", "school_calendar_classroom_id: #{school_calendar_classroom.id} DATA INICIAL: #{end_date_for_posting} DATA FINAL: #{start_date_for_posting}")
   end
 end
