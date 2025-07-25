@@ -10,6 +10,9 @@ class KnowledgeAreaContentRecordsController < ApplicationController
   def index
     params[:filter] ||= {}
     # author_type = PlansAuthors::MY_PLANS if params[:filter].empty?
+    if current_user_classroom.period.present? && current_user_classroom.period == '4'
+      author_type = PlansAuthors::MY_PLANS
+    end
     author_type ||= (params[:filter] || []).delete(:by_author)
 
     set_options_by_user
