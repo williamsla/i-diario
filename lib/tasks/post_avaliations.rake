@@ -20,13 +20,40 @@ task post_avaliations: :environment do
                               WHERE iaep.status = '#{ApiSynchronizationStatus::STARTED}'")
   end
 
+  def cancel_started_postings(connection)
+    connection.execute("UPDATE public.ieducar_api_exam_postings 
+                          SET status = '#{ApiSynchronizationStatus::ERROR}' 
+                          WHERE status = '#{ApiSynchronizationStatus::STARTED}'")
+    puts "\t\t\t cancelando envios que estão em andamento"
+  end
+
+  def is_the_weekend?
+    today = Date.current
+    today.saturday? || today.sunday?
+  end
+
+  def is_dawn?
+    current_time = Time.current
+    current_time.hour < 6
+  end
+
   def validate_started_postings(connection)
+    time_waiting_finish_postings = 5.minutes
+    maximum_waiting_time = 2 * time_waiting_finish_postings
+    time_awaited = 0
+
     loop do
       qtd_postings = counting_started_postings(connection)
       if qtd_postings > 5
-        time_waiting_finish_postings = 5.minutes
-        puts "      aguardando #{time_waiting_finish_postings} segundos para diminuir quantidade de envios"
+        
+        puts "\t\t\t aguardando #{time_waiting_finish_postings} segundos para diminuir quantidade de envios"
         sleep(time_waiting_finish_postings)
+        time_awaited += time_waiting_finish_postings
+
+        if time_awaited > maximum_waiting_time
+          cancel_started_postings(connection)
+          break
+        end
       else
         break
       end
@@ -114,7 +141,7 @@ task post_avaliations: :environment do
 
               ApiPostingTypes.to_a.each_with_index do |postType, index|
                 
-                if postType.last == 'absence'
+                if postType.last == 'absence' && is_dawn?
                     last_change = connection.select_value("SELECT max(dfs.updated_at) 
                                               FROM public.daily_frequencies df
                                               inner join public.daily_frequency_students dfs on dfs.daily_frequency_id = df.id 
@@ -226,8 +253,11 @@ task post_avaliations: :environment do
     return has_change
   end
 
+
+
   # init script
   loop do
+    # cancel any ongoing synchronizations
     Rake::Task["ieducar_api:cancel"].invoke
 
     was_changed = start()
