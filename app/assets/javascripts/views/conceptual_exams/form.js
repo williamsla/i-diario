@@ -6,7 +6,7 @@ $(function () {
   var $student = $('#conceptual_exam_student_id');
   var $recorded_at = $('#conceptual_exam_recorded_at');
   var year = $('#current-school-year-container input').first().val();
-  var only_one_conceptual_avaliation = $('#only_one_conceptual_avaliation');
+  var only_one_conceptual_avaliation = $('#only_one_conceptual_avaliation').val() === 'true';
 
   var old_values = {};
   var flashMessages = new FlashMessages();
