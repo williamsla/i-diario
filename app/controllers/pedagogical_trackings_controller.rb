@@ -92,7 +92,10 @@ class PedagogicalTrackingsController < ApplicationController
 					where lp.classroom_id = c.id and (case when dlp.id is not null then dlp.discipline_id = d.id else true end)
 			) as PLANOS_DE_AULA,
 			(
-					select coalesce(sum(dcr.class_number), 0) as qtd -- count(cr.id)
+          select (CASE WHEN (select gc.allow_class_number_on_content_records from public.general_configurations gc) = true 
+                      THEN coalesce(sum(dcr.class_number), 0)
+                      ELSE count(cr.id) 
+                      END) as qtd
 					from public.content_records cr
 					left join public.discipline_content_records dcr on dcr.content_record_id = cr.id
 					left join public.knowledge_area_content_records kacr on kacr.content_record_id = cr.id
