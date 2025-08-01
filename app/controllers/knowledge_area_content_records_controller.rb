@@ -12,6 +12,8 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     # author_type = PlansAuthors::MY_PLANS if params[:filter].empty?
     if current_user_classroom.period.present? && current_user_classroom.period == '4'
       author_type = PlansAuthors::MY_PLANS
+    elsif params[:filter].empty?
+      author_type = PlansAuthors::ALL
     end
     author_type ||= (params[:filter] || []).delete(:by_author)
 

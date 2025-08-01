@@ -2,11 +2,14 @@
 
 if ! test -f ".setup-backup-db"; then
   echo 'criando banco de dados'
+  psql -U postgres -c "DROP ROLE IF EXISTS idiario;"
   psql -U postgres -c "CREATE ROLE idiario WITH LOGIN PASSWORD 'idiario';"
   psql -U postgres -c "CREATE DATABASE idiario OWNER idiario;" 
+  psql -U postgres -c "CREATE DATABASE idiario_development OWNER idiario;"
   
   echo 'restaurando banco de dados'
   psql -U postgres --dbname idiario --file /backup/idiario.sql
+  psql -U postgres --dbname idiario_development --file /backup/idiario_production.sql
 
   touch .setup-backup-db
 fi

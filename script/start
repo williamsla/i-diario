@@ -10,7 +10,7 @@ if ! test -f ".setup"; then
     secret_key_base: `bundle exec rake secret`
     redis_url: <%= ENV['REDIS_URL'] %>
     shortcuts_enabled: true
-    only_one_conceptual_avaliation: true
+    only_one_conceptual_avaliation: false
     " > config/secrets.yml
 
   cp config/database.sample.yml config/database.yml
