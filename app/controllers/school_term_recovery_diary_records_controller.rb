@@ -58,11 +58,9 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
     if @school_term_recovery_diary_record.save
       respond_with @school_term_recovery_diary_record, location: school_term_recovery_diary_records_path
     else
-      if @admin_or_teacher
-        @number_of_decimal_places = current_test_setting.blank? ? decimal_places : current_test_setting.number_of_decimal_places
-      else
-        fetch_linked_by_teacher
-      end
+      @number_of_decimal_places = current_test_setting.blank? ? decimal_places : current_test_setting.number_of_decimal_places
+      
+      fetch_linked_by_teacher
       fetch_disciplines_by_classroom
 
       render :new
@@ -109,11 +107,9 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
     if @school_term_recovery_diary_record.save
       respond_with @school_term_recovery_diary_record, location: school_term_recovery_diary_records_path
     else
-      if @admin_or_teacher
-        @number_of_decimal_places = current_test_setting.blank? ? decimal_places : current_test_setting.number_of_decimal_places
-      else
-        fetch_linked_by_teacher
-      end
+      @number_of_decimal_places = current_test_setting.blank? ? decimal_places : current_test_setting.number_of_decimal_places
+
+      fetch_linked_by_teacher
       reload_students_list
       fetch_disciplines_by_classroom
 
@@ -141,7 +137,7 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
     return if params[:classroom_id].blank?
 
     classroom = Classroom.find(params[:classroom_id])
-    step_numbers = StepsFetcher.new(classroom)&.steps
+    step_numbers = StepsFetcher.new(classroom)&.steps    
     steps = step_numbers.map { |step| { id: step.id, description: step.to_s } }
 
     render json: steps.to_json

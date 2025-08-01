@@ -44,8 +44,13 @@
 
       <div class="row">
         <div class="col col-sm-4">
-          <%= f.input :step_id, as: :select2_step, classroom: current_user_classroom,
-            readonly: @school_term_recovery_diary_record.persisted?, required: true %>
+          <% if current_user_classroom.first_exam_rule_with_recovery.recovery_exam_rules.any? %>
+            <%= f.input :step_id, as: :select2_step_specific_recovery, classroom: current_user_classroom,
+              readonly: @school_term_recovery_diary_record.persisted?, required: true %>
+          <% else %>
+            <%= f.input :step_id, as: :select2_step, classroom: current_user_classroom,
+              readonly: @school_term_recovery_diary_record.persisted?, required: true %>
+          <% end %>
         </div>
 
         <div class="col col-sm-4">
