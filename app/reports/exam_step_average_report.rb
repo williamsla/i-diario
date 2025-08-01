@@ -87,8 +87,12 @@ class ExamStepAverageReport < BaseReport
   def data_table
     avaliations = []
     students = {}
-    
+
+    recovery_exam_rule = classroom.first_exam_rule_with_recovery.recovery_exam_rules.first
+    recovery_average = recovery_exam_rule&.average || 0
+
     @steps.each do |school_calendar_step| 
+        
         avaliations << make_cell(content: "#{school_calendar_step.step_number}ª Etapa", font_style: :bold, background_color: 'FFFFFF', align: :center, width: 55)
 
         averages = {}
@@ -117,7 +121,14 @@ class ExamStepAverageReport < BaseReport
                 school_calendar_step
             )
             (students[student_enrollment.id][:scores_number] ||= []) << score
-            (students[student_enrollment.id][:scores] ||= []) << make_cell(content: localize_score(score), align: :center)
+
+            if score.nil? && school_calendar_step.end_at < Date.today
+              (students[student_enrollment.id][:scores] ||= []) << make_cell(content: '', align: :center, background_color: 'FF0000')
+            elsif score.is_a?(Numeric) && score < recovery_average
+              (students[student_enrollment.id][:scores] ||= []) << make_cell(content: localize_score(score), align: :center, text_color: 'FF0000')
+            else
+              (students[student_enrollment.id][:scores] ||= []) << make_cell(content: localize_score(score), align: :center)
+            end
         end
     end
 
