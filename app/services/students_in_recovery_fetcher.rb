@@ -129,20 +129,15 @@ class StudentsInRecoveryFetcher
     if recovery_exam_rule.present?
       students = filter_students_in_recovery.select { |student|
         sum_averages = 0
-        has_low_average = false
-
+        
         recovery_steps.each do |step|
           average = student.average(classroom, discipline, step)
-          if average.nil? || average < recovery_exam_rule.average
-            has_low_average = true
-            break
-          end
-          sum_averages += average
+          sum_averages += average.to_f
         end
 
         average = sum_averages / recovery_steps.count
 
-        average < recovery_exam_rule.average || has_low_average == true
+        average < recovery_exam_rule.average
       }
     end
 
