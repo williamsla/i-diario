@@ -88,10 +88,74 @@
       <% end %>
     </script>
 
+    <script>
+      <% Rails.logger.info(current_user.inspect) %>
+      <% unless current_user&.current_discipline_id.presence %>
+          # alert('---1');
+      <% end %>
+    </script>
+
+    # esconde botões baseado na turma do professor
+    <script type="text/javascript">
+      document.addEventListener('DOMContentLoaded', function() { 
+        
+        <% if current_classroom_grades.description.match?(/creche|pré-escola|aee/i) %>
+          
+          // TODO: essa verificação é útil somente no ano 2025 em canindé.
+          <% if started_as_discipline == true %>
+            const hrefs = [
+              '/planos-de-ensino-por-areas-de-conhecimento',
+              '/planos-de-aula-por-areas-de-conhecimento',
+              '/registros-de-conteudos-por-areas-de-conhecimento'
+            ];
+          <% else %>
+              const hrefs = [
+                  '/planos-de-ensino-por-disciplina',
+                  '/planos-de-aulas-por-disciplina',
+                  '/registros-de-conteudos-por-disciplina',
+                  '/avaliacoes',
+                  '/diario-de-avaliacoes',
+                  '/diario-de-recuperacoes-de-etapas',
+                  '/diario-de-recuperacoes-finais',
+                  '/diario-de-recuperacoes-de-avaliacoes',
+                  '/diario-de-recuperacoes-de-avaliacoes-da-menor-nota',
+                  '/relatorios/registro-de-avaliacoes',
+                  '/relatorios/planos-de-aula-por-disciplina',
+                ];
+            <% end %>
+
+        <% else %>
+          const hrefs = [
+            '/planos-de-ensino-por-areas-de-conhecimento',
+            '/planos-de-aula-por-areas-de-conhecimento',
+            '/registros-de-conteudos-por-areas-de-conhecimento'
+          ];
+
+        <% end %>
+
+          hrefs.forEach(href => {
+            const links = document.querySelectorAll(`a[href="${href}"]`);
+            links.forEach(link => {
+              const divAncestor = link.closest('div,li');
+              if (divAncestor) divAncestor.style.display = 'none';
+            });
+          });
+      });
+    </script>
+    
     <%= javascript_include_tag "application" %>
     <%= javascript_pack_tag 'app' %>
     <%= stylesheet_pack_tag 'app' %>
 
     <%= yield :js %>
+
+    <!--
+      <div class="whatsapp-button">
+        <a href="https://wa.me/5582999346297" target="_blank">
+          <img src="https://cdn-icons-png.flaticon.com/512/124/124034.png" alt="WhatsApp">
+        </a>
+      </div>
+    -->
+
   </body>
 </html>

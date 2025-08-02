@@ -194,6 +194,30 @@ class ApplicationController < ActionController::Base
     TestSettingFetcher.current(current_user.try(:current_classroom), step)
   end
 
+  def current_classroom_grades
+    return [] if current_user_classroom.blank?
+    ClassroomsGrade.by_classroom_id(current_user_classroom.id).first.grade
+  end
+  helper_method :current_classroom_grades
+
+  # Deprecated: Remover no próximo ano. 
+  # Essa verificação só é necessária em Canindé do São Francisco porque eles iniciaram o preenchimento por disicpline e area de conhecimento.
+  def started_as_discipline
+    DisciplineContentRecord.by_teacher_id(current_teacher.id)
+      .by_classroom_id(current_user_classroom.id)
+      .any?      
+  end
+  helper_method :started_as_discipline
+
+  # Deprecated: Remover no próximo ano. 
+  # Essa verificação só é necessária em Canindé do São Francisco porque eles iniciaram o preenchimento por disicpline e area de conhecimento.
+  def started_as_knowledge_area
+    knowledge_area_content_records = KnowledgeAreaContentRecord.by_teacher_id(current_teacher.id)
+      .by_classroom_id(current_user_classroom.id)
+      .any?     
+  end
+  helper_method :started_as_knowledge_area
+
   def steps_fetcher
     @steps_fetcher ||= StepsFetcher.new(current_user_classroom)
   end
@@ -257,6 +281,7 @@ class ApplicationController < ActionController::Base
   def current_user_is_employee_or_administrator?
     current_user.assumed_teacher_id.blank? && current_user.current_role_is_admin_or_employee?
   end
+  # helper_method :current_user_is_employee_or_administrator
 
   def teacher_differentiated_discipline_score_types(classroom = nil, discipline = nil)
     classroom ||= current_user_classroom
