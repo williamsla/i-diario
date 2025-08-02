@@ -453,3 +453,23 @@ span.multiline {
   margin-right: 10px;
   line-height: 34px;
 }
+
+.whatsapp-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+.whatsapp-button img {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease-in-out;
+}
+
+.whatsapp-button img:hover {
+  transform: scale(1.1);
+}
+
