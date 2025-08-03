@@ -187,20 +187,72 @@
       </div>
       
       <div class="clearfix"></div>
-      <div id="register-content-app" style="padding-top: 20px; display: grid; justify-content: flex-end;"
-        data-disciplines="<%= @disciplines.map { |d| { id: d.id, name: d.description } }.to_json %>">
-        <button type="button" class="btn btn-register-content" @click="showModal = true">
-          Lançar conteúdo do dia
-        </button>
+        <div id="register-content-frame-modal" style="display: grid; justify-content: flex-end; padding-top: 20px;">
+          <button type="button" class="btn btn-register-content" data-toggle="modal" data-target="#contentModal">
+            Lançar conteúdo do dia
+          </button>
 
-        <register-content-modal
-          v-if="showModal"
-          :classroom-id="<%= @daily_frequencies.first.classroom.id %>"
-          :record-date="'<%= (@daily_frequencies.first.frequency_date || Date.current).strftime('%Y-%m-%d') %>'"
-          :disciplines="disciplines"
-          @close="showModal = false"
-        ></register-content-modal>
-      </div>
+          <!-- Modal -->
+          <div class="modal fade" id="contentModal" tabindex="-1" role="dialog" aria-labelledby="contentModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl" role="document" style="max-width: 95vw;">
+              <div class="modal-content" style="height: 90vh;">
+                <div class="modal-header bg-primary text-white">
+                  <h5 class="modal-title" id="contentModalLabel">Registrar conteúdo</h5>
+                  <button type="button" class="close text-white" data-dismiss="modal" aria-label="Fechar">
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </div>
+                <div class="modal-body p-0" style="height: 100%;">
+                  <iframe id="contentFrame"
+                          src=""
+                          style="border: none; width: 100%; height: 100%;"
+                          allowfullscreen>
+                  </iframe>
+                </div>
+              </div>
+            </div>
+          </div>
+          <script>
+            document.addEventListener('DOMContentLoaded', function () {
+              const button = document.querySelector('.btn-register-content');
+              const iframe = document.getElementById('contentFrame');
+
+              if (button && iframe) {
+                button.addEventListener('click', function () {
+                  const classroomId = document.querySelector('[name="daily_frequency[classroom_id]"]')?.value ||
+                                      document.querySelector('[name="filter[by_classroom_id]"]')?.value;
+                  const recordedAt = document.querySelector('[name="daily_frequency[frequency_date]"]')?.value ||
+                                    document.querySelector('[name="filter[by_date]"]')?.value ||
+                                    new Date().toISOString().slice(0, 10);
+
+                  const url = `/registros-de-conteudos-por-disciplina/novo?classroom_id=${classroomId}&recorded_at=${recordedAt}&modal=true`;
+                  iframe.src = url;
+                });
+              }
+            });
+
+            // window.parent.postMessage({ action: 'closeContentModalAndReload' }, '*');
+
+             window.addEventListener('message', function (event) {
+               if (event.data.action === 'closeContentModalAndReload') {
+                 $('#contentModal').modal('hide');
+                 location.reload();
+               }
+             });
+          </script>
+        </div>
+
+        <style>
+          .btn-register-content {
+            background-color: #8e44ad;
+            color: white;
+          }
+          .btn-register-content:hover {
+            background-color: #732d91;
+          }
+        </style>
+
+
     </footer>
   <% end %>
 

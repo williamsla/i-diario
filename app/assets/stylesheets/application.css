@@ -473,3 +473,18 @@ span.multiline {
   transform: scale(1.1);
 }
 
+/**
+* esconde cabeçalho, navegação, ribbon e footer
+* quando a página é aberta em modo modal
+*/
+body.modal-mode #header,
+body.modal-mode #ribbon,
+body.modal-mode .page-footer,
+body.modal-mode #navigation,
+body.modal-mode header {
+  display: none !important;
+}
+
+body.modal-mode #content-page {
+  margin-top: 0 !important;
+}

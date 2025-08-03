@@ -11,11 +11,8 @@
 
     <fieldset>
       <div class="row">
-        <div class="col col-sm-4">
-          <%= content_record.input :unity_id, as: :select2_unity, user: current_user %>
-        </div>
-
-
+        <%= content_record.input :unity_id, as: :hidden, input_html: { value: current_user.current_unity_id } %>
+        
         <div class="col col-sm-4">
           <% if current_user.current_role_is_admin_or_employee? %>
             <%= content_record.association :classroom, as: :select2_classroom, user: current_user,
