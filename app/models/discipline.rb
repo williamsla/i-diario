@@ -61,7 +61,7 @@ class Discipline < ApplicationRecord
 
   scope :by_grade, lambda { |grade| by_grade(grade) }
   scope :by_classroom, lambda { |classroom| by_classroom(classroom) }
-  scope :by_teacher_and_classroom, lambda { |teacher_id, classroom_id| joins(:teacher_discipline_classrooms).where(teacher_discipline_classrooms: { teacher_id: teacher_id, classroom_id: classroom_id }).distinct }
+  scope :by_teacher_and_classroom, lambda { |teacher_id, classroom_id| joins(:teacher_discipline_classrooms).where(teacher_discipline_classrooms: { teacher_id: teacher_id, classroom_id: classroom_id, active: true }).distinct }
   scope :ordered, -> { order(arel_table[:description].asc) }
   scope :order_by_sequence, -> { order(arel_table[:sequence].asc) }
   scope :not_grouper, -> { where(grouper: false) }

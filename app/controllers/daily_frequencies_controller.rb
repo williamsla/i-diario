@@ -526,20 +526,19 @@ class DailyFrequenciesController < ApplicationController
   end
 
   def set_options_by_user
-    @admin_or_teacher = current_user.current_role_is_admin_or_employee?
-
-    if @admin_or_teacher
-      @classrooms ||= [current_user_classroom]
-      @disciplines ||= [current_user_discipline]
-      @period = current_teacher_period
-    else
-      fetch_linked_by_teacher
-    end
+    @classrooms ||= [current_user_classroom]
+    @period = current_teacher_period
+    fetch_linked_by_teacher
   end
 
   def fetch_linked_by_teacher
-    @fetch_linked_by_teacher ||= TeacherClassroomAndDisciplineFetcher.fetch!(current_teacher.id, current_unity, current_school_year)
+    @fetch_linked_by_teacher ||= TeacherClassroomAndDisciplineFetcher.fetch!(current_teacher.id, current_unity, current_school_year, current_user_classroom)
     @classrooms ||= @fetch_linked_by_teacher[:classrooms]
-    @disciplines ||= @fetch_linked_by_teacher[:disciplines]
+
+    if params[:class_numbers].nil? || params[:class_numbers].empty?
+      @disciplines ||= @fetch_linked_by_teacher[:disciplines]
+    else
+      @disciplines ||= [current_user_discipline]
+    end
   end
 end

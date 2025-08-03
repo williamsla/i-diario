@@ -41,9 +41,25 @@ class DisciplineContentRecordsController < ApplicationController
     set_options_by_user
 
     @discipline_content_record = DisciplineContentRecord.new.localized
-    @discipline_content_record.discipline_id = current_user_discipline.id
+    # verifica se o usuário passou o parametro da disciplina na URL. Normalmente usado em modal
+    if params[:discipline_id].present?
+      current_user_discipline = Discipline.find(params[:discipline_id])
+      current_user.current_discipline_id = params[:discipline_id]
+      @discipline_content_record.discipline_id = params[:discipline_id]
+    else
+      @discipline_content_record.discipline_id = current_user.current_discipline_id
+    end
+
+    @discipline_content_record.content_record ||= ContentRecord.new
+
+    if params[:recorded_at].present?
+      record_date = Date.parse(params[:recorded_at])
+    else
+      record_date = Time.zone.now
+    end
+    
     @discipline_content_record.build_content_record(
-      record_date: Time.zone.now,
+      record_date: record_date,
       unity_id: current_unity.id,
       classroom_id: current_user_classroom.id
     )

@@ -1,12 +1,13 @@
 class TeacherClassroomAndDisciplineFetcher
-  def initialize(teacher_id, unity, current_school_year)
+  def initialize(teacher_id, unity, current_school_year, classroom = nil)
     self.teacher_id = teacher_id
     self.unity = unity
     self.current_school_year = current_school_year
+    self.classroom = classroom
   end
 
-  def self.fetch!(teacher_id, unity, current_school_year)
-    new(teacher_id, unity, current_school_year).fetch!
+  def self.fetch!(teacher_id, unity, current_school_year, classroom = nil)
+    new(teacher_id, unity, current_school_year, classroom).fetch!
   end
 
   def fetch!
@@ -28,7 +29,11 @@ class TeacherClassroomAndDisciplineFetcher
   def classrooms_fetch
     return [] if unity.nil?
 
-    Classroom.by_unity_and_teacher(unity.id, teacher_id).by_year(current_school_year).ordered.distinct
+    if classroom.nil?
+      Classroom.by_unity_and_teacher(unity.id, teacher_id).by_year(current_school_year).ordered.distinct
+    else
+      [classroom]
+    end    
   end
 
   def disciplines_fetch
@@ -45,5 +50,5 @@ class TeacherClassroomAndDisciplineFetcher
 
   protected
 
-  attr_accessor :teacher_id, :unity, :current_school_year
+  attr_accessor :teacher_id, :unity, :current_school_year, :classroom
 end
