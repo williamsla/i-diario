@@ -97,3 +97,21 @@ label.checkbox-frequency.justified input[type="checkbox"] + i::after {
 .frequency-legend-button {
   margin-left: 15px;
 }
+
+.btn-register-content {
+  background-color: #460aae;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+  display: inline-block;
+  font-size: 14px;
+}
+
+.btn-register-content:hover {
+  background-color: #6746a3;  /* tom mais escuro no hover */
+}
+

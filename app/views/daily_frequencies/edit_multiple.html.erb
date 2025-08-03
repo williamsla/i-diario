@@ -143,19 +143,27 @@
         <%= bootstrap_flash %>
       </div>
 
+      <div class="pull-right" style="margin-right: 10px;">
+        <%= f.input :receive_email_confirmation, as: :boolean, label: false, inline_label: true %>
+      </div>
+      <div class="clearfix"></div>
+
       <div class="pull-left">
         <%= link_to t('.back'), new_daily_frequency_path, class: 'btn btn-default pull-left' %>
         <% daily_frequency_ids = @daily_frequencies.map(&:id).compact %>
+        
+      </div>
+      <div class="pull-right">
         <% if daily_frequency_ids.present? %>
           <%= link_to t('.destroy'), destroy_multiple_daily_frequencies_path(
             daily_frequencies_ids: daily_frequency_ids), method: :delete,
             data: { confirm: t('.confirm') }, class: 'btn new-delete-style pull-left'
           %>
-          <%= link_to t('views.form.history'), history_multiple_daily_frequency_path(
-            daily_frequencies_ids: daily_frequency_ids), class: 'btn btn-primary pull-left'
+          <%=# link_to t('views.form.history'), history_multiple_daily_frequency_path(
+            #daily_frequencies_ids: daily_frequency_ids), class: 'btn btn-primary pull-left'
           %>
-          <div class="btn-group pull-left dropup" style="margin-left: 5px;">
-            <button class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-expanded="true">
+          <div class="btn-group dropup" style="margin-left: 5px;">
+            <button class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-expanded="true">
               <%= t('.print') %> <span class="caret"></span>
             </button>
             <ul class="dropdown-menu">
@@ -173,29 +181,25 @@
               </li>
             </ul>
           </div>
-
-          <div id="register-content-app"
-            data-disciplines="<%= @disciplines.map { |d| { id: d.id, name: d.description } }.to_json %>">
-          <button type="button" class="btn btn-outline-secondary" @click="showModal = true">
-            Registrar conteúdo do dia
-          </button>
-
-          <register-content-modal
-            v-if="showModal"
-            :classroom-id="<%= @daily_frequencies.first.classroom.id %>"
-            :record-date="'<%= (@daily_frequencies.first.frequency_date || Date.current).strftime('%Y-%m-%d') %>'"
-            :disciplines="disciplines"
-            @close="showModal = false"
-          ></register-content-modal>
-        </div>
-
         <% end %>
-      </div>
-      <div class="pull-right">
+
         <%= f.submit t('.save'), class: 'btn new-save-style', data: { disable_with: 'Salvando...' } %>
       </div>
-      <div class="pull-right" style="margin-right: 10px;">
-        <%= f.input :receive_email_confirmation, as: :boolean, label: false, inline_label: true %>
+      
+      <div class="clearfix"></div>
+      <div id="register-content-app" style="padding-top: 20px; display: grid; justify-content: flex-end;"
+        data-disciplines="<%= @disciplines.map { |d| { id: d.id, name: d.description } }.to_json %>">
+        <button type="button" class="btn btn-register-content" @click="showModal = true">
+          Lançar conteúdo do dia
+        </button>
+
+        <register-content-modal
+          v-if="showModal"
+          :classroom-id="<%= @daily_frequencies.first.classroom.id %>"
+          :record-date="'<%= (@daily_frequencies.first.frequency_date || Date.current).strftime('%Y-%m-%d') %>'"
+          :disciplines="disciplines"
+          @close="showModal = false"
+        ></register-content-modal>
       </div>
     </footer>
   <% end %>
