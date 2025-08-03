@@ -203,12 +203,19 @@
             <div class="modal fade" id="contentModal" tabindex="-1" role="dialog" aria-labelledby="contentModalLabel" aria-hidden="true">
               <div class="modal-dialog modal-xl" role="document" style="max-width: 95vw;">
                 <div class="modal-content" style="height: 90vh;">
-                  <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="contentModalLabel">Registrar conteúdo</h5>
-                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Fechar">
-                      <span aria-hidden="true">&times;</span>
-                    </button>
+                  <div class="modal-header bg-primary text-white" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h5 class="modal-title mb-0" id="contentModalLabel">Registrar conteúdo</h5>
+                    <div>
+                      <button type="button"
+                              class="btn btn-outline-light btn-sm"
+                              data-dismiss="modal"
+                              aria-label="Fechar"
+                              style="color: black;">
+                        X Fechar
+                      </button>
+                    </div>
                   </div>
+
                   <div class="modal-body p-0" style="height: 100%;">
                     <iframe id="contentFrame"
                             src=""
@@ -222,6 +229,8 @@
           </div>
           <script>
           document.addEventListener('DOMContentLoaded', function () {
+            $('#contentModal').modal({show: false, keyboard: true, backdrop: 'static'});
+
             const buttons = document.querySelectorAll('.btn-register-content');
             const iframe = document.getElementById('contentFrame');
 

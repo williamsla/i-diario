@@ -14,22 +14,25 @@
         <%= content_record.input :unity_id, as: :hidden, input_html: { value: current_user.current_unity_id } %>
         <%= content_record.input :classroom_id, as: :hidden, input_html: { value: current_user.current_classroom_id } %>
         
-        <div class="col col-sm-4">
-          <% if current_user.current_role_is_admin_or_employee? %>
-            <%= f.association :discipline, as: :select2_discipline, user: current_user, record: f.object,
-                classroom_id: @discipline_content_record.content_record.classroom_id %>
-          <% else %>
+        <% if params[:modal] == 'true' %>
+          <%= content_record.input :discipline_id, as: :hidden, input_html: { value: current_user.current_discipline_id } %>
+        <% else %>
+          <div class="col col-sm-4">
             <%= f.association :discipline, as: :select2, elements: @disciplines, user: current_user,
-                  record: f.object, classroom_id: @discipline_content_record.content_record.classroom_id,
-                  readonly: ['show', 'edit'].include?(action_name)  %>
-          <% end %>
-        </div>
+                record: f.object, classroom_id: @discipline_content_record.content_record.classroom_id,
+                readonly: ['show', 'edit', 'new', 'create'].include?(action_name)  %>
+          </div>
+        <% end %>
       </div>
 
       <div class="row">
-        <div class="col col-sm-4">
-          <%= content_record.input :record_date, as: :date %>
-        </div>
+        <% if params[:modal] == 'true' %>
+          <%= content_record.input :record_date, as: :hidden, input_html: {value: @discipline_content_record.content_record.record_date} %>
+        <% else %>
+          <div class="col col-sm-4">
+            <%= content_record.input :record_date, as: :date %>
+          </div>
+        <% end %>
 
         <% if @allow_class_number %>
           <div class="col col-sm-4">
@@ -159,7 +162,10 @@
   <% end %>
 
   <footer>
-    <%= link_to t('views.form.back'), discipline_content_records_path, class: 'btn btn-default' %>
+    <% unless params[:modal] == 'true' %>
+      <%= link_to t('views.form.back'), discipline_content_records_path, class: 'btn btn-default' %>
+    <% end %>
+
 
     <% if @discipline_content_record.persisted? %>
       <%= link_to t('views.form.history'),
