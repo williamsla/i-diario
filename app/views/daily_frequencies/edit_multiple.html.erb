@@ -173,6 +173,22 @@
               </li>
             </ul>
           </div>
+
+          <div id="register-content-app"
+            data-disciplines="<%= @disciplines.map { |d| { id: d.id, name: d.description } }.to_json %>">
+          <button type="button" class="btn btn-outline-secondary" @click="showModal = true">
+            Registrar conteúdo do dia
+          </button>
+
+          <register-content-modal
+            v-if="showModal"
+            :classroom-id="<%= @daily_frequencies.first.classroom.id %>"
+            :record-date="'<%= (@daily_frequencies.first.frequency_date || Date.current).strftime('%Y-%m-%d') %>'"
+            :disciplines="disciplines"
+            @close="showModal = false"
+          ></register-content-modal>
+        </div>
+
         <% end %>
       </div>
       <div class="pull-right">

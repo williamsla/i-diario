@@ -95,7 +95,8 @@
       <% end %>
     </script>
 
-    # esconde botões baseado na turma do professor
+    
+    <%# esconde botões baseado na turma do professor %>
     <script type="text/javascript">
       document.addEventListener('DOMContentLoaded', function() { 
         
@@ -144,7 +145,7 @@
     </script>
     
     <%= javascript_include_tag "application" %>
-    <%= javascript_pack_tag 'app' %>
+    <%= javascript_pack_tag 'app', defer: true %>
     <%= stylesheet_pack_tag 'app' %>
 
     <%= yield :js %>
