@@ -186,7 +186,7 @@
         <%= f.submit t('.save'), class: 'btn new-save-style', data: { disable_with: 'Salvando...' } %>
       </div>
       
-      <% if daily_frequency_ids.present? %>
+      <% if daily_frequency_ids.present? && is_infantil == false %>
           <div class="clearfix"></div>
           <div id="register-content-frame-modal" style="display: grid; gap: 8px; justify-content: flex-end; padding-top: 20px;">
             <% @disciplines.each do |discipline| %>
@@ -228,24 +228,25 @@
             </div>
           </div>
           <script>
-          document.addEventListener('DOMContentLoaded', function () {
-            $('#contentModal').modal({show: false, keyboard: true, backdrop: 'static'});
+            document.addEventListener('DOMContentLoaded', function () {
+              $('#contentModal').modal({show: false, keyboard: true, backdrop: 'static'});
 
-            const buttons = document.querySelectorAll('.btn-register-content');
-            const iframe = document.getElementById('contentFrame');
+              const buttons = document.querySelectorAll('.btn-register-content');
+              const iframe = document.getElementById('contentFrame');
 
-            buttons.forEach(button => {
-              button.addEventListener('click', function () {
-                const disciplineId = this.getAttribute('data-discipline-id');
-                        
-                const classroomId = document.querySelector('[name="daily_frequency[classroom_id]"]')?.value ||
-                                    document.querySelector('[name="filter[by_classroom_id]"]')?.value;
-                const recordedAt = document.querySelector('[name="daily_frequency[frequency_date]"]')?.value ||
-                                  document.querySelector('[name="filter[by_date]"]')?.value ||
-                                  new Date().toISOString().slice(0, 10);
+              buttons.forEach(button => {
+                button.addEventListener('click', function () {
+                  const disciplineId = this.getAttribute('data-discipline-id');
+                          
+                  const classroomId = document.querySelector('[name="daily_frequency[classroom_id]"]')?.value ||
+                                      document.querySelector('[name="filter[by_classroom_id]"]')?.value;
+                  const recordedAt = document.querySelector('[name="daily_frequency[frequency_date]"]')?.value ||
+                                    document.querySelector('[name="filter[by_date]"]')?.value ||
+                                    new Date().toISOString().slice(0, 10);
 
-                const url = `/registros-de-conteudos-por-disciplina/novo?classroom_id=${classroomId}&discipline_id=${disciplineId}&recorded_at=${recordedAt}&modal=true`;
-                iframe.src = url;
+                  const url = `/registros-de-conteudos-por-disciplina/novo?classroom_id=${classroomId}&discipline_id=${disciplineId}&recorded_at=${recordedAt}&modal=true`;
+                  iframe.src = url;
+                });
               });
             });
 
@@ -255,7 +256,6 @@
                 location.reload();
               }
             });
-          });
         </script>
       <% end %>
     </footer>

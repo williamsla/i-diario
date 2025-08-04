@@ -200,6 +200,11 @@ class ApplicationController < ActionController::Base
   end
   helper_method :current_classroom_grades
 
+  def is_infantil
+    current_classroom_grades.description.match?(/creche|pré-escola|aee/i)
+  end
+  helper_method :is_infantil
+
   # Deprecated: Remover no próximo ano. 
   # Essa verificação só é necessária em Canindé do São Francisco porque eles iniciaram o preenchimento por disicpline e area de conhecimento.
   def started_as_discipline
