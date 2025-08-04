@@ -89,9 +89,8 @@
     </script>
 
     <script>
-      <% Rails.logger.info(current_user.inspect) %>
       <% unless current_user&.current_discipline_id.presence %>
-          # alert('---1');
+          # alert('TODO: Selecione uma disciplina para continuar.');
       <% end %>
     </script>
 
@@ -110,20 +109,22 @@
               '/registros-de-conteudos-por-areas-de-conhecimento'
             ];
           <% else %>
-              const hrefs = [
-                  '/planos-de-ensino-por-disciplina',
-                  '/planos-de-aulas-por-disciplina',
-                  '/registros-de-conteudos-por-disciplina',
-                  '/avaliacoes',
-                  '/diario-de-avaliacoes',
-                  '/diario-de-recuperacoes-de-etapas',
-                  '/diario-de-recuperacoes-finais',
-                  '/diario-de-recuperacoes-de-avaliacoes',
-                  '/diario-de-recuperacoes-de-avaliacoes-da-menor-nota',
-                  '/relatorios/registro-de-avaliacoes',
-                  '/relatorios/planos-de-aula-por-disciplina',
-                ];
-            <% end %>
+            const hrefs = [
+                '/planos-de-ensino-por-disciplina',
+                '/planos-de-aulas-por-disciplina',
+                '/registros-de-conteudos-por-disciplina',
+                '/relatorios/planos-de-aula-por-disciplina',
+              ];
+          <% end %>
+
+          hrefs.push('/avaliacoes',
+            '/diario-de-avaliacoes',
+            '/diario-de-recuperacoes-de-etapas',
+            '/diario-de-recuperacoes-finais',
+            '/diario-de-recuperacoes-de-avaliacoes',
+            '/diario-de-recuperacoes-de-avaliacoes-da-menor-nota',
+            '/relatorios/registro-de-avaliacoes'
+          );
 
         <% else %>
           const hrefs = [
