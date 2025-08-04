@@ -132,7 +132,7 @@ class Discipline < ApplicationRecord
 
   def self.by_classroom(classroom)
     joins(:teacher_discipline_classrooms).where(
-        teacher_discipline_classrooms: { classroom_id: classroom }
+        teacher_discipline_classrooms: { classroom_id: classroom.id, active: true }
       )
       .distinct
   end

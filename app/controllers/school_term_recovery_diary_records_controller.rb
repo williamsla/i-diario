@@ -287,8 +287,6 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
   def set_options_by_user
     @admin_or_teacher = current_user.current_role_is_admin_or_employee?
 
-    # return fetch_linked_by_teacher if @admin_or_teacher
-
     @classrooms ||= [current_user_classroom]
     @disciplines ||= [current_user_discipline]
   end
@@ -323,9 +321,7 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
   end
 
   def fetch_disciplines_by_classroom
-    return if current_user.current_role_is_admin_or_employee?
-
     classroom = @school_term_recovery_diary_record.recovery_diary_record.classroom
-    @disciplines = @disciplines.by_classroom(classroom).not_descriptor
+    @disciplines = Discipline.by_classroom(classroom).by_teacher_id(current_teacher.id).not_descriptor
   end
 end
