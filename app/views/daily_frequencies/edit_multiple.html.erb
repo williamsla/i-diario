@@ -143,19 +143,27 @@
         <%= bootstrap_flash %>
       </div>
 
+      <div class="pull-right" style="margin-right: 10px;">
+        <%= f.input :receive_email_confirmation, as: :boolean, label: false, inline_label: true %>
+      </div>
+      <div class="clearfix"></div>
+
       <div class="pull-left">
         <%= link_to t('.back'), new_daily_frequency_path, class: 'btn btn-default pull-left' %>
         <% daily_frequency_ids = @daily_frequencies.map(&:id).compact %>
+        
+      </div>
+      <div class="pull-right">
         <% if daily_frequency_ids.present? %>
           <%= link_to t('.destroy'), destroy_multiple_daily_frequencies_path(
             daily_frequencies_ids: daily_frequency_ids), method: :delete,
             data: { confirm: t('.confirm') }, class: 'btn new-delete-style pull-left'
           %>
-          <%= link_to t('views.form.history'), history_multiple_daily_frequency_path(
-            daily_frequencies_ids: daily_frequency_ids), class: 'btn btn-primary pull-left'
+          <%=# link_to t('views.form.history'), history_multiple_daily_frequency_path(
+            #daily_frequencies_ids: daily_frequency_ids), class: 'btn btn-primary pull-left'
           %>
-          <div class="btn-group pull-left dropup" style="margin-left: 5px;">
-            <button class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-expanded="true">
+          <div class="btn-group dropup" style="margin-left: 5px;">
+            <button class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-expanded="true">
               <%= t('.print') %> <span class="caret"></span>
             </button>
             <ul class="dropdown-menu">
@@ -174,13 +182,82 @@
             </ul>
           </div>
         <% end %>
-      </div>
-      <div class="pull-right">
+
         <%= f.submit t('.save'), class: 'btn new-save-style', data: { disable_with: 'Salvando...' } %>
       </div>
-      <div class="pull-right" style="margin-right: 10px;">
-        <%= f.input :receive_email_confirmation, as: :boolean, label: false, inline_label: true %>
-      </div>
+      
+      <% if daily_frequency_ids.present? && is_infantil == false %>
+          <div class="clearfix"></div>
+          <div id="register-content-frame-modal" style="display: grid; gap: 8px; justify-content: flex-end; padding-top: 20px;">
+            <% @disciplines.each do |discipline| %>
+              <button type="button"
+                      class="btn btn-register-content btn-sm"
+                      data-toggle="modal"
+                      data-target="#contentModal"
+                      data-discipline-id="<%= discipline.id %>">
+                Lançar conteúdo de <%= discipline.description %>
+              </button>
+            <% end %>
+
+            <!-- Modal -->
+            <div class="modal fade" id="contentModal" tabindex="-1" role="dialog" aria-labelledby="contentModalLabel" aria-hidden="true">
+              <div class="modal-dialog modal-xl" role="document" style="max-width: 95vw;">
+                <div class="modal-content" style="height: 90vh;">
+                  <div class="modal-header bg-primary text-white" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h5 class="modal-title mb-0" id="contentModalLabel">Registrar conteúdo</h5>
+                    <div>
+                      <button type="button"
+                              class="btn btn-outline-light btn-sm"
+                              data-dismiss="modal"
+                              aria-label="Fechar"
+                              style="color: black;">
+                        X Fechar
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="modal-body p-0" style="height: 100%;">
+                    <iframe id="contentFrame"
+                            src=""
+                            style="border: none; width: 100%; height: 100%;"
+                            allowfullscreen>
+                    </iframe>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <script>
+            document.addEventListener('DOMContentLoaded', function () {
+              $('#contentModal').modal({show: false, keyboard: true, backdrop: 'static'});
+
+              const buttons = document.querySelectorAll('.btn-register-content');
+              const iframe = document.getElementById('contentFrame');
+
+              buttons.forEach(button => {
+                button.addEventListener('click', function () {
+                  const disciplineId = this.getAttribute('data-discipline-id');
+                          
+                  const classroomId = document.querySelector('[name="daily_frequency[classroom_id]"]')?.value ||
+                                      document.querySelector('[name="filter[by_classroom_id]"]')?.value;
+                  const recordedAt = document.querySelector('[name="daily_frequency[frequency_date]"]')?.value ||
+                                    document.querySelector('[name="filter[by_date]"]')?.value ||
+                                    new Date().toISOString().slice(0, 10);
+
+                  const url = `/registros-de-conteudos-por-disciplina/novo?classroom_id=${classroomId}&discipline_id=${disciplineId}&recorded_at=${recordedAt}&modal=true`;
+                  iframe.src = url;
+                });
+              });
+            });
+
+            window.addEventListener('message', function (event) {
+              if (event.data.action === 'closeContentModalAndReload') {
+                $('#contentModal').modal('hide');
+                location.reload();
+              }
+            });
+        </script>
+      <% end %>
     </footer>
   <% end %>
 

@@ -95,13 +95,14 @@
       <% end %>
     </script>
 
-    # esconde botões baseado na turma do professor
+    
+    <%# esconde botões baseado na turma do professor %>
     <script type="text/javascript">
       document.addEventListener('DOMContentLoaded', function() { 
         
         <% if current_classroom_grades.description.match?(/creche|pré-escola|aee/i) %>
           
-          // TODO: essa verificação é útil somente no ano 2025 em canindé.
+          // TODO: essa condição interna (if) é útil somente no ano 2025 em canindé.
           <% if started_as_discipline == true %>
             const hrefs = [
               '/planos-de-ensino-por-areas-de-conhecimento',
@@ -144,7 +145,7 @@
     </script>
     
     <%= javascript_include_tag "application" %>
-    <%= javascript_pack_tag 'app' %>
+    <%= javascript_pack_tag 'app', defer: true %>
     <%= stylesheet_pack_tag 'app' %>
 
     <%= yield :js %>
@@ -156,6 +157,16 @@
         </a>
       </div>
     -->
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('modal') === 'true') {
+          document.body.classList.add('modal-mode');
+        }
+      });
+    </script>
+
 
   </body>
 </html>

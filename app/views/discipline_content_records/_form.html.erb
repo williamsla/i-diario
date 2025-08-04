@@ -3,7 +3,8 @@
   <%= javascript_include_tag 'views/discipline_content_records/form' %>
 <% end %>
 
-<%= simple_form_for @discipline_content_record, html: { class: 'smart-form' } do |f| %>
+<%= simple_form_for @discipline_content_record, url: url_for(params.permit(:modal).merge(controller: :discipline_content_records, action: :create)), html: { class: 'smart-form' } do |f| %>
+
   <%= f.error_notification %>
 
   <%= f.simple_fields_for :content_record, @discipline_content_record.content_record.localized do |content_record| %>
@@ -11,37 +12,28 @@
 
     <fieldset>
       <div class="row">
-        <div class="col col-sm-4">
-          <%= content_record.input :unity_id, as: :select2_unity, user: current_user %>
-        </div>
-
-
-        <div class="col col-sm-4">
-          <% if current_user.current_role_is_admin_or_employee? %>
-            <%= content_record.association :classroom, as: :select2_classroom, user: current_user,
-                record: f.object %>
-          <% else %>
-            <%= content_record.association :classroom, as: :select2, elements: @classrooms,
-                user: current_user, record: f.object, readonly: ['show', 'edit'].include?(action_name) %>
-          <% end %>
-        </div>
-
-        <div class="col col-sm-4">
-          <% if current_user.current_role_is_admin_or_employee? %>
-            <%= f.association :discipline, as: :select2_discipline, user: current_user, record: f.object,
-                classroom_id: @discipline_content_record.content_record.classroom_id %>
-          <% else %>
+        <%= content_record.input :unity_id, as: :hidden, input_html: { value: current_user.current_unity_id } %>
+        <%= content_record.input :classroom_id, as: :hidden, input_html: { value: current_user.current_classroom_id } %>
+        
+        <% if params[:modal] == 'true' %>
+          <%= f.input :discipline_id, as: :hidden, input_html: { value: @discipline_content_record.discipline_id } %>
+        <% else %>
+          <div class="col col-sm-4">
             <%= f.association :discipline, as: :select2, elements: @disciplines, user: current_user,
-                  record: f.object, classroom_id: @discipline_content_record.content_record.classroom_id,
-                  readonly: ['show', 'edit'].include?(action_name)  %>
-          <% end %>
-        </div>
+                record: f.object, classroom_id: @discipline_content_record.content_record.classroom_id,
+                readonly: ['show', 'edit', 'new', 'create'].include?(action_name)  %>
+          </div>
+        <% end %>
       </div>
 
       <div class="row">
-        <div class="col col-sm-4">
-          <%= content_record.input :record_date, as: :date %>
-        </div>
+        <% if params[:modal] == 'true' %>
+          <%= content_record.input :record_date, as: :hidden, input_html: {value: @discipline_content_record.content_record.record_date} %>
+        <% else %>
+          <div class="col col-sm-4">
+            <%= content_record.input :record_date, as: :date %>
+          </div>
+        <% end %>
 
         <% if @allow_class_number %>
           <div class="col col-sm-4">
@@ -54,13 +46,6 @@
         <% end %>
       </div>
 
-      <div class="row">
-        <div class="col col-sm-12">
-          <%= content_record.input :daily_activities_record, as: :text,
-                 required: f.object.decorator.daily_activities_required? %>
-        </div>
-      </div>
-
     </fieldset>
     <fieldset>
       <legend><%= @discipline_content_record.class.human_attribute_name(:contents) %></legend>
@@ -70,7 +55,7 @@
           <%= content_record.object.errors[:contents].first %>
         </div>
       <% end %>
-        <div class="well" style="max-height: 300px;overflow-y: auto;">
+        <div style="max-height: 300px;overflow-y: auto;">
           <ul class="list-group checked-list-box" id="contents-list">
 
             <% contents.each do |content| %>
@@ -126,7 +111,7 @@
                 </div>
               <% end %>
 
-              <div class="well" style="max-height: 300px;overflow-y: auto; margin-top: 10px;">
+              <div style="max-height: 300px;overflow-y: auto; margin-top: 10px;">
                 <ul class="list-group checked-list-box" id="objectives-list">
                 <% objectives.each do |objective| %>
                   <li class="list-group-item manual" style="display: flex;" id="objective_<%= objective.id %>">
@@ -168,11 +153,20 @@
           </div>
         <% end %>
 
+        <div class="row">
+          <div class="col col-sm-12">
+            <%= content_record.input :daily_activities_record, as: :text,
+                  required: f.object.decorator.daily_activities_required? %>
+          </div>
+        </div>
     </fieldset>    
   <% end %>
 
   <footer>
-    <%= link_to t('views.form.back'), discipline_content_records_path, class: 'btn btn-default' %>
+    <% unless params[:modal] == 'true' %>
+      <%= link_to t('views.form.back'), discipline_content_records_path, class: 'btn btn-default' %>
+    <% end %>
+
 
     <% if @discipline_content_record.persisted? %>
       <%= link_to t('views.form.history'),

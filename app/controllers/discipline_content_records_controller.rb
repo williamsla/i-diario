@@ -41,18 +41,32 @@ class DisciplineContentRecordsController < ApplicationController
     set_options_by_user
 
     @discipline_content_record = DisciplineContentRecord.new.localized
-    @discipline_content_record.discipline_id = current_user_discipline.id
+    # verifica se o usuário passou o parametro da disciplina na URL. Normalmente usado em modal
+    if params[:discipline_id].present?
+      @discipline_content_record.discipline_id = params[:discipline_id]
+    else
+      @discipline_content_record.discipline_id = current_user.current_discipline_id
+    end
+
+    @discipline_content_record.content_record ||= ContentRecord.new
+
+    if params[:recorded_at].present?
+      record_date = Date.parse(params[:recorded_at])
+    else
+      record_date = Time.zone.now
+    end
+    
     @discipline_content_record.build_content_record(
-      record_date: Time.zone.now,
+      record_date: record_date,
       unity_id: current_unity.id,
       classroom_id: current_user_classroom.id
     )
     @class_numbers = []
 
-    unless current_user.current_role_is_admin_or_employee?
-      classroom_id = @discipline_content_record.content_record.classroom_id
-      @disciplines = Discipline.by_classroom_id(classroom_id).not_descriptor
-    end
+    # unless current_user.current_role_is_admin_or_employee?
+    #   classroom_id = @discipline_content_record.content_record.classroom_id
+    #   @disciplines = Discipline.by_classroom_id(classroom_id).not_descriptor
+    # end
 
     authorize @discipline_content_record
   end
@@ -72,7 +86,11 @@ class DisciplineContentRecordsController < ApplicationController
     return render_content_with_multiple_class_numbers if allow_class_number
 
     if @discipline_content_record.save && validate_class_numbers
-      respond_with @discipline_content_record, location: discipline_content_records_path
+      if params[:modal] == 'true'
+        render html: "<script>window.parent.postMessage({ action: 'closeContentModalAndReload' }, '*');</script>".html_safe, layout: false
+      else
+        respond_with @discipline_content_record, location: discipline_content_records_path
+      end
     else
       set_options_by_user
 
@@ -101,8 +119,13 @@ class DisciplineContentRecordsController < ApplicationController
     
     authorize @discipline_content_record
 
+
     if @discipline_content_record.save
-      respond_with @discipline_content_record, location: discipline_content_records_path
+      if params[:modal] == 'true'
+        render html: "<script>window.parent.postMessage({ action: 'closeContentModalAndReload' }, '*');</script>".html_safe, layout: false
+      else
+        respond_with @discipline_content_record, location: discipline_content_records_path
+      end
     else
       Rails.logger.error @discipline_content_record.errors.full_messages
 
@@ -153,7 +176,11 @@ class DisciplineContentRecordsController < ApplicationController
     multiple_content_creator = CreateMultipleContents.new(@class_numbers, @discipline_content_record)
 
     if multiple_content_creator.call
-      respond_with @discipline_content_record, location: discipline_content_records_path
+      if params[:modal] == 'true'
+        render html: "<script>window.parent.postMessage({ action: 'closeContentModalAndReload' }, '*');</script>".html_safe, layout: false
+      else
+        respond_with @discipline_content_record, location: discipline_content_records_path
+      end
     else
       set_options_by_user
 
