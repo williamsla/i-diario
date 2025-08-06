@@ -97,7 +97,7 @@
           </div>
         </div>
 
-        <% if !request.original_url.include? 'japaratinga' %>
+        <% if !request.original_url.include? 'japaratinga' && (params[:modal] == 'true' && !request.original_url.include? 'caninde') %>
         
           <div class="row textarea">
             <div class="col col-sm-12">
