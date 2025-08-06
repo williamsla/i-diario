@@ -4,7 +4,6 @@
 <% end %>
 
 <%= simple_form_for @discipline_content_record, url: url_for(params.permit(:modal).merge(controller: :discipline_content_records, action: :create)), html: { class: 'smart-form' } do |f| %>
-
   <%= f.error_notification %>
 
   <%= f.simple_fields_for :content_record, @discipline_content_record.content_record.localized do |content_record| %>
@@ -97,7 +96,7 @@
           </div>
         </div>
 
-        <% if !request.original_url.include? 'japaratinga' && (params[:modal] == 'true' && !request.original_url.include? 'caninde') %>
+        <% if !request.original_url.include?('japaratinga') && (params[:modal] == 'true' && !request.original_url.include?('caninde')) %>
         
           <div class="row textarea">
             <div class="col col-sm-12">
