@@ -10,9 +10,9 @@ $(function () {
   var idContentsCounter = 1;
 
   $classroom.on('change', function () {
-    var classroom_id = $classroom.select2('val');
+    var classroom_id = $classroom.val();
 
-    $discipline.select2('val', '');
+    $discipline.val(null).trigger('change');
     $discipline.select2({ data: [] });
 
     if (!_.isEmpty(classroom_id)) {
@@ -89,8 +89,8 @@ $(function () {
   }
 
   var loadContents = function () {
-    var classroom_id = $classroom.select2('val');
-    var discipline_id = $discipline.select2('val');
+    var classroom_id = $classroom.val();
+    var discipline_id = $discipline.val();
     var date = $recordDate.val();
     $('#contents-list .list-group-item:not(.manual)').remove();
     $('#objectives-list .list-group-item:not(.manual)').remove();
@@ -157,7 +157,7 @@ $(function () {
 
       $('.discipline_content_record_content_record_contents_tags .select2-input').val("");
     }
-    $(this).select2('val', '');
+    $(this).val(null).trigger('change');
   });
 
   $('#discipline_content_record_content_record_attributes_objectives_tags').on('change', function (e) {
@@ -184,6 +184,29 @@ $(function () {
 
       $('.discipline_content_record_content_record_objectives_tags .select2-input').val("");
     }
-    $(this).select2('val', '');
+    $(this).val(null).trigger('change');
   });
+
+  // Previne envio do form ao pressionar Enter no campo de tags (Select2)
+  $(document).on('keypress', function(e) {
+    const isEnter = (e.which === 13 || e.key === 'Enter');
+
+    if (isEnter) {
+      const $target = $(e.target);
+
+      // Verifica se está no campo Select2 de contents_tags
+      if ($target.closest('.discipline_content_record_content_record_contents_tags').length) {
+        e.preventDefault();  // Cancela o submit do form
+
+        // Encontra o <select> real do select2 e limpa
+        // TODO: NÃO ESTÀ FUNCIONANDO, NÂO LIMPA OS CONTEUDOS NOVOS
+        const $select = $target.closest('.discipline_content_record_content_record_contents_tags').find('select');
+        $select.val(null).trigger('change');
+
+        return false;        // Segurança extra
+      }
+    }
+  });
+
+
 });
