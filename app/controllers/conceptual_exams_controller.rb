@@ -71,10 +71,17 @@ class ConceptualExamsController < ApplicationController
       @conceptual_exam = find_or_initialize_conceptual_exam
 
       authorize @conceptual_exam
-      
-      enrollment_classroom = StudentEnrollmentClassroom.by_classroom(resource_params[:classroom_id]).by_student(resource_params[:student_id]).first
-      step = find_step_by_date(enrollment_classroom.joined_at)
-      record_at = (enrollment_classroom.joined_at.to_date < step.start_at) ? step.start_at : enrollment_classroom.joined_at.to_date
+
+      only_one_conceptual_avaliation = Rails.application.secrets.only_one_conceptual_avaliation.present? && Rails.application.secrets.only_one_conceptual_avaliation
+
+      if only_one_conceptual_avaliation
+        enrollment_classroom = StudentEnrollmentClassroom.by_classroom(resource_params[:classroom_id]).by_student(resource_params[:student_id]).first
+        step = find_step_by_date(enrollment_classroom.joined_at)
+        record_at = (enrollment_classroom.joined_at.to_date < step.start_at) ? step.start_at : enrollment_classroom.joined_at.to_date
+      else
+        step = steps_fetcher(@classroom).step_by_id(resource_params[:step_id])
+        record_at = resource_params[:recorded_at].to_date
+      end
       
       resource_params_changed = resource_params.merge!("step_id": step.id)
       resource_params_changed = resource_params_changed.merge!("step_number": step.step_number)

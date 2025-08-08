@@ -36,10 +36,10 @@
 
             <div class="row">
               <div class="col col-sm-6">
-                <%= f.input :absence_date %>
+                <%= f.input :absence_date, input_html: {value: @daily_frequencies.first.frequency_date} %>
               </div>
               <div class="col col-sm-6">
-                <%= f.input :absence_date_end %>
+                <%= f.input :absence_date_end, input_html: {value: @daily_frequencies.first.frequency_date} %>
               </div>
             </div>
 

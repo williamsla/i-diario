@@ -72,7 +72,12 @@ class AbsenceJustificationsController < ApplicationController
 
   def create
     class_numbers = class_numbers(params[:absence_justification][:class_number]&.split(','))
+    
     frequency_by_discipline?(resource_params[:classroom_id])
+
+    # Remove justificativas antigas para o mesmo aluno e professor no mesmo período
+    remove_old_justifications(resource_params, class_numbers)
+
     absence_justifications, @absence_justification = CreateAbsenceJustificationsService.call(
       class_numbers, resource_params, current_teacher, current_unity, current_school_calendar, current_user
     )
@@ -151,6 +156,17 @@ class AbsenceJustificationsController < ApplicationController
     @absence_justification.destroy
 
     respond_with @absence_justification, location: absence_justifications_path
+  end
+
+  def remove_old_justifications(params, class_numbers_list)
+    student_ids = Array(params[:student_ids]) # garante array
+
+    AbsenceJustification.by_classroom(params[:classroom_id])
+                        .by_student_id(student_ids)
+                        .by_date_range(params[:absence_date], params[:absence_date_end])
+                        .by_teacher(current_teacher.id)
+                        .where(class_number: class_numbers_list) # filtra também pelo número da aula
+                        .destroy_all
   end
 
   def history
