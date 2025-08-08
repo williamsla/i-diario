@@ -184,7 +184,8 @@ class DailyFrequenciesController < ApplicationController
           :period,
           :unity_id
         ),
-        class_numbers: class_numbers_from_params
+        class_numbers: class_numbers_from_params,
+        anchor: 'bottom'
       )
 
       ActiveRecord::Base.transaction do

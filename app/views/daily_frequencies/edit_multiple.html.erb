@@ -186,77 +186,82 @@
         <%= f.submit t('.save'), class: 'btn new-save-style', data: { disable_with: 'Salvando...' } %>
       </div>
       
-      <% if daily_frequency_ids.present? && is_infantil == false %>
-          <div class="clearfix"></div>
-          <div id="register-content-frame-modal" style="display: grid; gap: 8px; justify-content: flex-end; padding-top: 20px;">
-            <% @disciplines.each do |discipline| %>
-              <button type="button"
-                      class="btn btn-register-content btn-sm"
-                      data-toggle="modal"
-                      data-target="#contentModal"
-                      data-discipline-id="<%= discipline.id %>">
-                Lançar conteúdo de <%= discipline.description %>
-              </button>
-            <% end %>
+      <% if !request.original_url.include?('belem') %>
+        <% if daily_frequency_ids.present? && is_infantil == false %>
+            <div class="clearfix"></div>
+            <div id="register-content-frame-modal" style="display: grid; gap: 8px; justify-content: flex-end; padding-top: 20px;">
+              <% @disciplines.each do |discipline| %>
+                <button type="button"
+                        class="btn btn-register-content btn-sm"
+                        data-toggle="modal"
+                        data-target="#contentModal"
+                        data-discipline-id="<%= discipline.id %>">
+                  Lançar conteúdo de <%= discipline.description %>
+                </button>
+              <% end %>
 
-            <!-- Modal -->
-            <div class="modal fade" id="contentModal" tabindex="-1" role="dialog" aria-labelledby="contentModalLabel" aria-hidden="true">
-              <div class="modal-dialog modal-xl" role="document" style="max-width: 95vw;">
-                <div class="modal-content" style="height: 90vh;">
-                  <div class="modal-header bg-primary text-white" style="display: flex; justify-content: space-between; align-items: center;">
-                    <h5 class="modal-title mb-0" id="contentModalLabel">Registrar conteúdo</h5>
-                    <div>
-                      <button type="button"
-                              class="btn btn-outline-light btn-sm"
-                              data-dismiss="modal"
-                              aria-label="Fechar"
-                              style="color: black;">
-                        X Fechar
-                      </button>
+              <!-- Modal -->
+              <div class="modal fade" id="contentModal" tabindex="-1" role="dialog" aria-labelledby="contentModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl" role="document" style="max-width: 95vw;">
+                  <div class="modal-content" style="height: 90vh;">
+                    <div class="modal-header bg-primary text-white" style="display: flex; justify-content: space-between; align-items: center;">
+                      <h5 class="modal-title mb-0" id="contentModalLabel">Registrar conteúdo</h5>
+                      <div>
+                        <button type="button"
+                                class="btn btn-outline-light btn-sm"
+                                data-dismiss="modal"
+                                aria-label="Fechar"
+                                style="color: black;">
+                          X Fechar
+                        </button>
+                      </div>
                     </div>
-                  </div>
 
-                  <div class="modal-body p-0" style="height: 100%;">
-                    <iframe id="contentFrame"
-                            src=""
-                            style="border: none; width: 100%; height: 100%;"
-                            allowfullscreen>
-                    </iframe>
+                    <div class="modal-body p-0" style="height: 100%;">
+                      <iframe id="contentFrame"
+                              src=""
+                              style="border: none; width: 100%; height: 100%;"
+                              allowfullscreen>
+                      </iframe>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-          <script>
-            document.addEventListener('DOMContentLoaded', function () {
-              $('#contentModal').modal({show: false, keyboard: true, backdrop: 'static'});
+            <script>
+              document.addEventListener('DOMContentLoaded', function () {
+                $('#contentModal').modal({show: false, keyboard: true, backdrop: 'static'});
 
-              const buttons = document.querySelectorAll('.btn-register-content');
-              const iframe = document.getElementById('contentFrame');
+                const buttons = document.querySelectorAll('.btn-register-content');
+                const iframe = document.getElementById('contentFrame');
 
-              buttons.forEach(button => {
-                button.addEventListener('click', function () {
-                  const disciplineId = this.getAttribute('data-discipline-id');
-                          
-                  const classroomId = document.querySelector('[name="daily_frequency[classroom_id]"]')?.value ||
-                                      document.querySelector('[name="filter[by_classroom_id]"]')?.value;
-                  const recordedAt = document.querySelector('[name="daily_frequency[frequency_date]"]')?.value ||
-                                    document.querySelector('[name="filter[by_date]"]')?.value ||
-                                    new Date().toISOString().slice(0, 10);
+                buttons.forEach(button => {
+                  button.addEventListener('click', function () {
+                    const disciplineId = this.getAttribute('data-discipline-id');
+                            
+                    const classroomId = document.querySelector('[name="daily_frequency[classroom_id]"]')?.value ||
+                                        document.querySelector('[name="filter[by_classroom_id]"]')?.value;
+                    const recordedAt = document.querySelector('[name="daily_frequency[frequency_date]"]')?.value ||
+                                      document.querySelector('[name="filter[by_date]"]')?.value ||
+                                      new Date().toISOString().slice(0, 10);
 
-                  const url = `/registros-de-conteudos-por-disciplina/novo?classroom_id=${classroomId}&discipline_id=${disciplineId}&recorded_at=${recordedAt}&modal=true`;
-                  iframe.src = url;
+                    const url = `/registros-de-conteudos-por-disciplina/novo?classroom_id=${classroomId}&discipline_id=${disciplineId}&recorded_at=${recordedAt}&modal=true`;
+                    iframe.src = url;
+                  });
                 });
               });
-            });
 
-            window.addEventListener('message', function (event) {
-              if (event.data.action === 'closeContentModalAndReload') {
-                $('#contentModal').modal('hide');
-                location.reload();
-              }
-            });
-        </script>
+              window.addEventListener('message', function (event) {
+                if (event.data.action === 'closeContentModalAndReload') {
+                  $('#contentModal').modal('hide');
+                  location.reload();
+                }
+              });
+          </script>
+        <% end %>
+
+        <div id='bottom'></div>
+        
       <% end %>
     </footer>
   <% end %>
