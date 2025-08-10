@@ -62,8 +62,15 @@ class DisciplineContentRecordsController < ApplicationController
       unity_id: current_unity.id,
       classroom_id: current_user_classroom.id
     )
-    @class_numbers = []
 
+    if params[:class_number].present?
+      @class_number_qtd = params[:class_number]
+    else
+      @class_number_qtd = 0
+    end
+ 
+    @class_numbers = []
+ 
     @disciplines = Discipline.by_classroom_id(current_user_classroom.id).not_descriptor
     
     authorize @discipline_content_record

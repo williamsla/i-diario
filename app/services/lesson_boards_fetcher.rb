@@ -21,4 +21,10 @@ class LessonBoardsFetcher
       Unity.where(id: lessons_unities).ordered
     end
   end
+
+  def by_classroom(classroom_id)
+    LessonsBoard.joins(classrooms_grade: :classroom)
+      .by_classroom(classroom_id)
+      .by_year(@user.current_school_year)
+  end
 end

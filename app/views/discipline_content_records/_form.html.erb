@@ -40,8 +40,11 @@
             <%= f.input :class_number, as: :select2, multiple: false,
                                      elements: number_of_classes_elements(@number_of_classes),
                                      placeholder: 'Selecione a quantidade de aulas',
-                                     disabled: isDisabled %>
+                                     disabled: isDisabled,
+                                     input_html: { value: @class_number_qtd } %>
           </div>
+        <% else %>
+            <%= f.input :class_number, as: :hidden, multiple: false, input_html: { value: class_number_qtd } %>
         <% end %>
       </div>
 
