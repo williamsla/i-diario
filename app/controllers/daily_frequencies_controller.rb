@@ -15,12 +15,7 @@ class DailyFrequenciesController < ApplicationController
     @daily_frequency.frequency_date = Date.current
     @period = @admin_or_teacher ? current_teacher_period : set_options_by_classroom
     @class_numbers = []
-
-    unless current_user.current_role_is_admin_or_employee?
-      classroom = @daily_frequency.classroom
-      @disciplines = @disciplines.by_classroom(classroom).not_descriptor
-    end
-
+    
     authorize @daily_frequency
   end
 
@@ -73,6 +68,8 @@ class DailyFrequenciesController < ApplicationController
     @period = @period != Periods::FULL.to_i ? @period : nil
 
     @general_configuration = GeneralConfiguration.current
+
+    fetch_disciplines_by_day
 
     authorize @daily_frequency
 
@@ -535,11 +532,63 @@ class DailyFrequenciesController < ApplicationController
   def fetch_linked_by_teacher
     @fetch_linked_by_teacher ||= TeacherClassroomAndDisciplineFetcher.fetch!(current_teacher.id, current_unity, current_school_year, current_user_classroom)
     @classrooms ||= @fetch_linked_by_teacher[:classrooms]
-
-    if params[:class_numbers].nil? || params[:class_numbers].empty?
-      @disciplines ||= @fetch_linked_by_teacher[:disciplines]
-    else
+    
+    if params[:discipline_id].nil? || params[:discipline_id].empty? # geral
+      @disciplines = @fetch_linked_by_teacher[:disciplines]      
+    else # por disciplina
       @disciplines ||= [current_user_discipline]
     end
+
+    @daily_schedule_discipline ||= fetch_disciplines_by_day
+    @disciplines = @disciplines.select { |d| @daily_schedule_discipline.include?(d.id) } if @daily_schedule_discipline.present?
+
   end
+
+  def fetch_disciplines_by_day
+    return [] unless params.dig(:daily_frequency, :frequency_date)
+
+    date_str = params[:daily_frequency][:frequency_date]
+    if date_str.include?('/')
+      date = Date.strptime(params[:daily_frequency][:frequency_date], "%d/%m/%Y")
+    else
+      date = Date.strptime(params[:daily_frequency][:frequency_date], "%Y-%m-%d")
+    end
+    weekday = date.strftime("%A").downcase
+
+    disciplines = LessonsBoardLessonWeekday.by_classroom(current_user_classroom.id).by_weekday(weekday)
+                                                          .includes(teacher_discipline_classroom: :discipline)
+                                                          .map { |w| w.teacher_discipline_classroom.discipline_id }
+    
+    return disciplines
+  end
+
+  def fetch_disciplines_with_contents_by_day
+    date_str = params.dig(:daily_frequency, :frequency_date)
+    return [] unless date_str
+
+    if date_str.include?('/')
+      date = Date.strptime(date_str, "%d/%m/%Y")
+    else
+      date = Date.strptime(date_str, "%Y-%m-%d")
+    end
+    
+    disciplines_with_content = DisciplineContentRecord.by_classroom_id(current_user_classroom.id)
+                                      .by_date(date)
+  end
+
+  def count_classes_of_the_day(discipline_id)
+    return 0 unless @daily_schedule_discipline
+    
+    @daily_schedule_discipline.count { |d| d == discipline_id }
+  end
+  helper_method :count_classes_of_the_day
+
+  def get_discipline_content_record_id_by_date(discipline_id)
+    @disciplines_with_contents ||= fetch_disciplines_with_contents_by_day
+    result = @disciplines_with_contents.select { |c| c.discipline_id == discipline_id }.map(&:id)
+
+    result.count >= 1 ? result.first : 0 
+  end
+  helper_method :get_discipline_content_record_id_by_date
+
 end

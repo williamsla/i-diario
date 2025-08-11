@@ -195,7 +195,10 @@
                         class="btn btn-register-content btn-sm"
                         data-toggle="modal"
                         data-target="#contentModal"
-                        data-discipline-id="<%= discipline.id %>">
+                        data-discipline-id="<%= discipline.id %>"
+                        data-class-number="<%= count_classes_of_the_day(discipline.id) %>"
+                        data-last-content="<%= get_discipline_content_record_id_by_date(discipline.id) %>"
+                >
                   Lançar conteúdo de <%= discipline.description %>
                 </button>
               <% end %>
@@ -238,14 +241,18 @@
                 buttons.forEach(button => {
                   button.addEventListener('click', function () {
                     const disciplineId = this.getAttribute('data-discipline-id');
-                            
+                    const classNumber = [this.getAttribute('data-class-number')];
+                    const lastContent = this.getAttribute('data-last-content');
+                    
                     const classroomId = document.querySelector('[name="daily_frequency[classroom_id]"]')?.value ||
                                         document.querySelector('[name="filter[by_classroom_id]"]')?.value;
                     const recordedAt = document.querySelector('[name="daily_frequency[frequency_date]"]')?.value ||
                                       document.querySelector('[name="filter[by_date]"]')?.value ||
                                       new Date().toISOString().slice(0, 10);
-
-                    const url = `/registros-de-conteudos-por-disciplina/novo?classroom_id=${classroomId}&discipline_id=${disciplineId}&recorded_at=${recordedAt}&modal=true`;
+                                  
+                    const url = (lastContent >= 1) 
+                                  ? `/registros-de-conteudos-por-disciplina/${lastContent}/editar?modal=true`
+                                  : `/registros-de-conteudos-por-disciplina/novo?classroom_id=${classroomId}&discipline_id=${disciplineId}&recorded_at=${recordedAt}&class_number=${classNumber}&modal=true`;
                     iframe.src = url;
                   });
                 });
