@@ -539,6 +539,9 @@ class DailyFrequenciesController < ApplicationController
       @disciplines ||= [current_user_discipline]
     end
 
+    #filtrando apenas as disciplines que não são ficha individual
+    @disciplines = @disciplines.select { |d| d.grouper == false && d.descriptor == false }
+
     @daily_schedule_discipline ||= fetch_disciplines_by_day
     @disciplines = @disciplines.select { |d| @daily_schedule_discipline.include?(d.id) } if @daily_schedule_discipline.present?
 

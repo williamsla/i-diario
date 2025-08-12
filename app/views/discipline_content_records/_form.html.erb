@@ -44,7 +44,7 @@
                                      input_html: { value: @class_number_qtd } %>
           </div>
         <% else %>
-            <%= f.input :class_number, as: :hidden, multiple: false, input_html: { value: class_number_qtd } %>
+            <%= f.input :class_number, as: :hidden, input_html: { value: @class_number_qtd } %>
         <% end %>
       </div>
 
@@ -99,8 +99,12 @@
           </div>
         </div>
 
-        <% if !request.original_url.include?('japaratinga') && (params[:modal] == 'true' && !request.original_url.include?('caninde')) %>
-        
+        <%
+          has_japaratinga = request.original_url.include?('japaratinga')
+          has_caninde = request.original_url.include?('caninde')
+        %>
+
+        <% if !has_japaratinga && !has_caninde %>        
           <div class="row textarea">
             <div class="col col-sm-12">
               <legend style="margin-bottom: 10px;">
