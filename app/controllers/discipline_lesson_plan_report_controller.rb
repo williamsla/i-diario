@@ -6,7 +6,7 @@ class DisciplineLessonPlanReportController < ApplicationController
   before_action :require_current_teacher
 
   def form
-    steps = steps_fetcher.current_step.blank? ? steps_fetcher.steps : [steps_fetcher.current_step]
+    steps = steps_fetcher.steps
 
     @discipline_lesson_plan_report_form = DisciplineLessonPlanReportForm.new(
       teacher_id: current_teacher_id,

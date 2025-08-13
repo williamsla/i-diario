@@ -28,6 +28,7 @@ class DescriptiveReportController < ApplicationController
           @descriptive_report_form.fetch_exam_steps,
           @descriptive_report_form.fetch_exam_values, 
           @descriptive_report_form.fetch_students, 
+          StudentEnrollmentClassroom.by_classroom(current_user_classroom.id).active,
           current_user_classroom,
           @descriptive_report_form.is_annual
         )

@@ -6,7 +6,6 @@
   <%= simple_form_for @discipline_lesson_plan_report_form, url: discipline_lesson_plan_report_path, method: :post, html: { class: 'smart-form', target: '_blank', id: "discipline-lesson-plan-report-form" } do |f| %>
     <div class="alert alert-danger hidden" id="exam-rule-not-found-alert">
       <i class="fa fa-exclamation-circle fa-fw"></i>
-      <%= t('.exam_rule_not_found') %>
     </div>
 
     <%= f.error_notification unless @discipline_lesson_plan_report_form.errors[:discipline_lesson_plan].any? %>
@@ -44,7 +43,7 @@
 
         <div class="col col-sm-4">
           <%= f.input :author, as: :select2, elements: PlansAuthors.to_select.to_json,
-            input_html: { value: PlansAuthors::MY_PLANS } %>
+            input_html: { value: PlansAuthors::ALL } %>
         </div>
       </div>
     </fieldset>
