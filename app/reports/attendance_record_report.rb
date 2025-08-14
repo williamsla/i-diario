@@ -486,12 +486,15 @@ class AttendanceRecordReport < BaseReport
   end
 
   def teacher_allow_absence_by_discipline?
-    @teacher_allow_absence_by_discipline ||= TeacherDisciplineClassroom.by_classroom(classroom.id)
-                                                                       .by_teacher_id(@teacher.id)
-                                                                       .by_discipline_id(discipline.id)
-                                                                       .first
-                                                                       .try(:allow_absence_by_discipline)
-  end
+      @teacher_allow_absence_by_discipline ||= begin
+        value = TeacherDisciplineClassroom.by_classroom(current_user_classroom.id)
+                                          .by_teacher_id(current_teacher.id)
+                                          .by_discipline_id(current_user_discipline.id)
+                                          .first
+                                          &.allow_absence_by_discipline
+        value.to_i == 1
+      end
+    end
 
   def active_searches_by_range(daily_frequencies, student_enrollment_ids)
     dates = daily_frequencies.map(&:frequency_date).uniq

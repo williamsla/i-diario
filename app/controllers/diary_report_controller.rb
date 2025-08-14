@@ -22,6 +22,17 @@ class DiaryReportController < ApplicationController
       )
     end
 
+    def teacher_allow_absence_by_discipline?
+      @teacher_allow_absence_by_discipline ||= begin
+        value = TeacherDisciplineClassroom.by_classroom(current_user_classroom.id)
+                                          .by_teacher_id(current_teacher.id)
+                                          .by_discipline_id(current_user_discipline.id)
+                                          .first
+                                          &.allow_absence_by_discipline
+        value.to_i == 1
+      end
+    end
+
     def classroom_has_general_absence(classroom)
       classroom.first_exam_rule.frequency_type == FrequencyTypes::GENERAL
     end
@@ -55,13 +66,17 @@ class DiaryReportController < ApplicationController
       ini = Time.now
 
       active_enrollment_classrooms = StudentEnrollmentClassroom.by_classroom(current_user_classroom.id).active
+      school_calendar = SchoolCalendar.find_by(
+          unity: current_unity.id,
+          year: current_user_school_year
+        )
 
-      if classroom_has_general_absence(current_user_classroom) == true
+      if teacher_allow_absence_by_discipline? || classroom_has_general_absence(current_user_classroom) == false
+        aux_disciplines = @disciplines
+        class_numbers_array = [1..5]
+      else
         aux_disciplines = [@disciplines.first]
         class_numbers_array = []
-      else
-        aux_disciplines = @disciplines
-        class_numbers_array = [1..5] # get all class_numbers
       end
 
       aux_disciplines.each do |discipline|
@@ -70,20 +85,20 @@ class DiaryReportController < ApplicationController
           unity_id: current_unity.id,
           school_calendar_year: current_school_year,
           classroom_id: current_user_classroom.id,
-          discipline_id: current_user_discipline.id,
+          discipline_id: discipline.id,
+          school_calendar: school_calendar,
           period: Periods::FULL,
           current_teacher_id: current_teacher.id,
           start_at: @diary_report_form.start_at,
           end_at: @diary_report_form.end_at,
-          class_numbers: class_numbers_array,
-          # global_absence: true
-        )
-        
-        @attendance_record_report_form.school_calendar = SchoolCalendar.find_by(
-          unity: @attendance_record_report_form.unity_id,
-          year: current_user_school_year
+          class_numbers: class_numbers_array
         )
 
+        # if classroom_has_general_absence(current_user_classroom) == true
+        #   @attendance_record_report_form.global_absence = true
+        # else          
+        # end
+        
         if @attendance_record_report_form.valid?
           attendance_record_report = AttendanceRecordReportPortrait.build(
             current_entity_configuration,
