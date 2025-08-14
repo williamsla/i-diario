@@ -3,7 +3,7 @@ class AttendanceRecordReportController < ApplicationController
   before_action :require_current_teacher
 
   def form
-    steps = steps_fetcher.current_step.blank? ? steps_fetcher.steps : [steps_fetcher.current_step]
+    steps = steps_fetcher.steps
     
     @attendance_record_report_form = AttendanceRecordReportForm.new(
       unity_id: current_unity.id,
@@ -20,11 +20,15 @@ class AttendanceRecordReportController < ApplicationController
   end
 
   def report
+    fetch_collections
+
     @attendance_record_report_form = AttendanceRecordReportForm.new(resource_params)
     @attendance_record_report_form.school_calendar = SchoolCalendar.find_by(
       unity: @attendance_record_report_form.unity_id,
       year: current_user_school_year
     )
+
+    @attendance_record_report_form.class_numbers = (1..@number_of_classes).to_a if @attendance_record_report_form.class_numbers.blank?
 
     if @attendance_record_report_form.valid?
       attendance_record_report = AttendanceRecordReport.build(
