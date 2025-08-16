@@ -110,8 +110,11 @@ class DailyFrequenciesController < ApplicationController
 
     fetch_enrollment_classrooms.each do |enrollment_classroom|
       student = enrollment_classroom[:student]
-
-      aux = "#{student.id}_#{enrollment_classroom[:student_enrollment_classroom][:show_as_inactive_when_not_in_date]}"
+      student_enrollment = enrollment_classroom[:student_enrollment]
+      
+      # evita matrículas que estejam com situação duplicada.
+      # Ex: aluno com duas matrículas na situação STATUS CURSANDO.
+      aux = "#{student.id}_#{student_enrollment[:status]}"
       next if @students_list_marked_as_read.include?(aux)
       @students_list_marked_as_read << aux
       
