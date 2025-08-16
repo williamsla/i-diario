@@ -62,7 +62,11 @@ module DailyFrequencyHelper
     name = student.to_s.upcase
 
     if !active
-      "***#{name}\nMatrícula: #{joined_at_formatted}" + (left_at_formatted ? "\nSaída: #{left_at_formatted}" : '')
+      if left_at_formatted
+        "***#{name}\nSaiu da turma: #{left_at_formatted}"
+      else
+        "***#{name}\nChegou na turma: #{joined_at_formatted}"
+      end
     elsif dependence
       "*#{name}"
     elsif exempted_from_discipline
