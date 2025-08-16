@@ -5,7 +5,7 @@
   <td>
     <% name_class = frequency_student_name_class(dependence, active, exempted_from_discipline, in_active_search) %>
     <% is_aee_classroom = classroom_name.to_s.include?('AEE') %>
-    <% student_name = frequency_student_name(student, dependence, active, exempted_from_discipline, in_active_search) %>
+    <% student_name = frequency_student_name(student, dependence, active, exempted_from_discipline, in_active_search, joined_at, left_at) %>
     <span class="<%= name_class %>"><%= student_name %></span>
   </td>
 

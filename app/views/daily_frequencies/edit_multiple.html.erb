@@ -85,7 +85,8 @@
                 student: student[:student], sequence: student[:sequence], dependence: student[:dependence],
                 active: student[:active], in_active_search: student[:in_active_search],
                 absence_justification: student[:absence_justification],
-                classroom_name: @daily_frequencies.first.classroom
+                classroom_name: @daily_frequencies.first.classroom, 
+                joined_at: student[:joined_at], left_at: student[:left_at]
               %>
             <% else %>
               <% sequence += 1 %>
@@ -93,7 +94,8 @@
                 student: student[:student], sequence: sequence, dependence: student[:dependence],
                 active: student[:active], in_active_search: student[:in_active_search],
                 absence_justification: student[:absence_justification],
-                classroom_name: @daily_frequencies.first.classroom
+                classroom_name: @daily_frequencies.first.classroom,
+                joined_at: student[:joined_at], left_at: student[:left_at]
               %>
             <% end %>
           <% end %>

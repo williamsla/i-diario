@@ -55,17 +55,22 @@ module DailyFrequencyHelper
     name_class
   end
 
-  def frequency_student_name(student, dependence, active, exempted_from_discipline, in_active_search)
+  def frequency_student_name(student, dependence, active, exempted_from_discipline, in_active_search, joined_at, left_at)
+    joined_at_formatted = Date.parse(joined_at).strftime("%d/%m/%Y")
+    left_at_formatted = Date.parse(left_at).strftime("%d/%m/%Y") if !left_at.blank?
+
+    name = student.to_s.upcase
+
     if !active
-      "***#{student}"
+      "***#{name}\nMatrícula: #{joined_at_formatted}" + (left_at_formatted ? "\nSaída: #{left_at_formatted}" : '')
     elsif dependence
-      "*#{student}"
+      "*#{name}"
     elsif exempted_from_discipline
-      "****#{student}"
+      "****#{name}"
     elsif in_active_search
-      "*****#{student}"
+      "*****#{name}"
     else
-      student.to_s
+      name
     end
   end
 end

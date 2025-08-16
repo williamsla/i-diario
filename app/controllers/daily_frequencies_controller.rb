@@ -111,8 +111,9 @@ class DailyFrequenciesController < ApplicationController
     fetch_enrollment_classrooms.each do |enrollment_classroom|
       student = enrollment_classroom[:student]
 
-      next if @students_list_marked_as_read.include?(student.id)
-      @students_list_marked_as_read << student.id
+      aux = "#{student.id}_#{enrollment_classroom[:student_enrollment_classroom][:show_as_inactive_when_not_in_date]}"
+      next if @students_list_marked_as_read.include?(aux)
+      @students_list_marked_as_read << aux
       
       student_enrollment_id = enrollment_classroom[:student_enrollment_id]
       activated_student = active.include?(enrollment_classroom[:student_enrollment_classroom_id])
@@ -143,7 +144,9 @@ class DailyFrequenciesController < ApplicationController
         exempted_from_discipline: has_exempted,
         in_active_search: in_active_search,
         absence_justification: absence_justification,
-        sequence: sequence
+        sequence: sequence,
+        joined_at: enrollment_classroom[:joined_at],
+        left_at: enrollment_classroom[:left_at]
       }
 
     end
@@ -446,14 +449,14 @@ class DailyFrequenciesController < ApplicationController
   end
 
   def fetch_enrollment_classrooms
-    StudentEnrollmentsList.new(
-      classroom: @daily_frequency.classroom,
-      grade: discipline_classroom_grade_ids,
-      discipline: @daily_frequency.discipline,
-      date: @daily_frequency.frequency_date,
-      search_type: :by_date,
-      period: @period
-    ).student_enrollment_classrooms
+    list ||= StudentEnrollmentsList.new(
+                classroom: @daily_frequency.classroom,
+                grade: discipline_classroom_grade_ids,
+                discipline: @daily_frequency.discipline,
+                date: @daily_frequency.frequency_date,
+                search_type: :by_date,
+                period: @period
+              ).student_enrollment_classrooms    
   end
 
   def set_number_of_classes
