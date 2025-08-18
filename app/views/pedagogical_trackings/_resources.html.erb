@@ -32,8 +32,11 @@
       <% end %>
 
       <td class="actions" style="text-align: center;">
-        <%= link_to "Resumo de lançamentos", resume_pedagogical_trackings_path(:unity_id => record.unity_id, :classroom_id => record.classroom_id), id: 'resume', 
-            class:"btn bg-color-green txt-color-white" %>
+        <button onclick="openResumeModal(<%= record.unity_id %>, <%= record.classroom_id %>); return false;"
+                class="bg-green-600 text-white px-4 py-2 rounded-lg">
+          Resumo de lançamentos
+        </button>
+
         <%= render_details_link(record) %>
       </td>
     </tr>

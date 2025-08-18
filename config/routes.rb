@@ -199,7 +199,8 @@ Rails.application.routes.draw do
       collection do
         get :teachers
         get :recalculate
-        get :resume
+        get :resume_xlsx
+        get :resume_modal
       end
     end
 

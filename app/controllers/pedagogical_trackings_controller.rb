@@ -1,5 +1,5 @@
+require 'roo'
 require 'write_xlsx'
-
 
 class PedagogicalTrackingsController < ApplicationController
   before_action :require_current_year
@@ -70,7 +70,8 @@ class PedagogicalTrackingsController < ApplicationController
 
   def resume
     unity_id = params[:unity_id]
-    classroom_id = params[:classroom_id].presence || 0
+    classroom_id = params[:classroom_id]
+    classroom_id = 0 if classroom_id.blank? || classroom_id == "undefined"
     
     connection = ActiveRecord::Base.connection
     unity_name = connection.select_value("SELECT DISTINCT escola.name
@@ -265,10 +266,33 @@ class PedagogicalTrackingsController < ApplicationController
     workbook.close
 
     file_path = Rails.root.join('public/relatorios', filename)
+    
+    return file_path
+  end
+
+  def resume_xlsx
+    file_path = resume
+
     if File.exist?(file_path)
       redirect_to "/relatorios/#{filename}"
     else
-      Rails.logger.info("\n\n--Arquivo não encontrado--\n")
+      render plain: "Arquivo não encontrado", status: :not_found
+    end    
+  end
+
+  def resume_modal
+    file_path = resume
+
+    if File.exist?(file_path)
+      xlsx = Roo::Excelx.new(file_path)
+      @sheet = xlsx.sheet(0)
+
+      # Retorna apenas o HTML da tabela
+      render partial: "pedagogical_trackings/table",
+             locals: { sheet: @sheet },
+             layout: false
+    else
+      render plain: "Arquivo não encontrado", status: :not_found
     end
   end
 

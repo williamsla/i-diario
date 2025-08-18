@@ -1,0 +1,9 @@
+<table class="table-auto border-collapse border border-gray-300 w-full text-sm">
+  <% @sheet.each do |row| %>
+    <tr>
+      <% row.each do |cell| %>
+        <td class="border border-gray-300 px-2 py-1"><%= cell %></td>
+      <% end %>
+    </tr>
+  <% end %>
+</table>
