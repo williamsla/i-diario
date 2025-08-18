@@ -79,11 +79,33 @@ class PedagogicalTrackingsController < ApplicationController
     
     rows = connection.select_rows("SELECT distinct c.description as TURMA, upper(t.name) as PROFESSOR, d.description as DISCIPLINA,
 			(
-				select count(df.id) 
-				from public.daily_frequencies df 
-				where df.classroom_id = c.id and df.owner_teacher_id = t.id 
-				and (case when df.discipline_id is not null then df.discipline_id = d.id else true end)
-			) as FREQUÊNCIA,
+          select count(df.id) 
+          from public.daily_frequencies df, step_by_classroom(c.id, df.frequency_date) as step
+          where df.classroom_id = c.id and df.owner_teacher_id = t.id 
+          and (case when df.discipline_id is not null then df.discipline_id = d.id else true end)
+          and step.step_number = 1
+			) as FREQUENCIA_1,
+       (
+          select count(df.id) 
+          from public.daily_frequencies df, step_by_classroom(c.id, df.frequency_date) as step
+          where df.classroom_id = c.id and df.owner_teacher_id = t.id 
+          and (case when df.discipline_id is not null then df.discipline_id = d.id else true end)
+          and step.step_number = 2
+			) as FREQUENCIA_2,
+       (
+          select count(df.id) 
+          from public.daily_frequencies df, step_by_classroom(c.id, df.frequency_date) as step
+          where df.classroom_id = c.id and df.owner_teacher_id = t.id 
+          and (case when df.discipline_id is not null then df.discipline_id = d.id else true end)
+          and step.step_number = 3
+			) as FREQUENCIA_3,
+       (
+          select count(df.id) 
+          from public.daily_frequencies df, step_by_classroom(c.id, df.frequency_date) as step
+          where df.classroom_id = c.id and df.owner_teacher_id = t.id 
+          and (case when df.discipline_id is not null then df.discipline_id = d.id else true end)
+          and step.step_number = 4
+			) as FREQUENCIA_4,
 			(
 					select count(lp.id) as qtd
 					from public.lesson_plans lp
@@ -100,20 +122,38 @@ class PedagogicalTrackingsController < ApplicationController
 					left join public.discipline_content_records dcr on dcr.content_record_id = cr.id
 					left join public.knowledge_area_content_records kacr on kacr.content_record_id = cr.id
 					where cr.classroom_id = c.id and (case when dcr.id is not null then dcr.discipline_id = d.id else true end)
-			) as AULAS_DADAS,
+			) AS AULAS_DADAS,
+      (
+          select count(ava.id)
+          from public.avaliations ava, step_by_classroom(c.id, ava.test_date) as step
+          where ava.classroom_id = c.id and ava.discipline_id = d.id
+          and step.step_number = 1
+			) AS AVALIACOES_1,
 			(
-				select string_agg(distinct de.step_number::text,',')
-				from public.descriptive_exams de 
-				inner join public.descriptive_exam_students des on des.descriptive_exam_id = de.id
-				where de.classroom_id = c.id
-			) as ETAPAS_COM_PARECER_CRIADO,
+          select count(ava.id)
+          from public.avaliations ava, step_by_classroom(c.id, ava.test_date) as step
+          where ava.classroom_id = c.id and ava.discipline_id = d.id
+          and step.step_number = 2
+			) AS AVALIACOES_2,
 			(
-				select count(distinct se.student_id) - count(distinct des.student_id)
-				from public.student_enrollment_classrooms sec
-				inner join public.student_enrollments se on se.id = sec.student_enrollment_id and se.active = 1 and se.discarded_at is null
-				left join public.descriptive_exams de on de.classroom_id = c.id
-				left join public.descriptive_exam_students des on des.descriptive_exam_id = de.id and des.discarded_at is null
-				where sec.classroom_code = c.api_code
+          select count(ava.id)
+          from public.avaliations ava, step_by_classroom(c.id, ava.test_date) as step
+          where ava.classroom_id = c.id and ava.discipline_id = d.id
+          and step.step_number = 3
+			) AS AVALIACOES_3,
+			(
+          select count(ava.id)
+          from public.avaliations ava, step_by_classroom(c.id, ava.test_date) as step
+          where ava.classroom_id = c.id and ava.discipline_id = d.id
+          and step.step_number = 4
+			) AS AVALIACOES_4,
+			(
+          select count(distinct se.student_id) - count(distinct des.student_id)
+          from public.student_enrollment_classrooms sec
+          inner join public.student_enrollments se on se.id = sec.student_enrollment_id and se.active = 1 and se.discarded_at is null
+          left join public.descriptive_exams de on de.classroom_id = c.id
+          left join public.descriptive_exam_students des on des.descriptive_exam_id = de.id and des.discarded_at is null
+          where sec.classroom_code = c.api_code
 			) as ALUNOS_SEM_PARECER
 		FROM public.teachers t 
 		inner join public.teacher_discipline_classrooms tdc on tdc.teacher_id = t.id and tdc.discarded_at is null and tdc.active = true
@@ -163,7 +203,7 @@ class PedagogicalTrackingsController < ApplicationController
     format_header.set_size(10)
 
     bg_color1 = workbook.add_format(bg_color: '#FFFFFF', pattern: 1)
-    bg_color2 = workbook.add_format(bg_color: '#aaaaaa', pattern: 1)
+    bg_color2 = workbook.add_format(bg_color: '#eeeeee', pattern: 1)
 
     # Congelar a primeira linha
     worksheet.freeze_panes(1, 0)
@@ -171,7 +211,13 @@ class PedagogicalTrackingsController < ApplicationController
     worksheet.set_paper(9)             # 9 = A4
     worksheet.fit_to_pages(1, 0)       # Ajusta para caber em 1 página de largura, altura automática
 
-    worksheet.write(0, 0, ['TURMA','PROFESSOR(A)','DISCIPLINA', 'FREQUÊNCIA', 'PLANOS DE AULA', 'AULAS REGISTRADAS', 'ETAPAS COM PARECER CRIADO','ALUNOS SEM PARECER'], format_header)
+    header = ['TURMA','PROFESSOR(A)','DISCIPLINA', 
+              'FREQ 1ªUN','FREQ 2ªUN','FREQ 3ªUN','FREQ 4ªUN',
+              'PLANOS DE AULA', 'AULAS REGISTRADAS',
+              'AVA 1ªUN','AVA 2ªUN','AVA 3ªUN','AVA 4ªUN',
+              'ALUNOS SEM PARECER']
+
+    worksheet.write(0, 0, header, format_header)
     worksheet.set_row(0, 30)
 
     list_classrooms = []
@@ -197,15 +243,15 @@ class PedagogicalTrackingsController < ApplicationController
           worksheet.set_column(index_col, index_col, 32, format_left)
         elsif index_col == 2 # disciplina
           worksheet.set_column(index_col, index_col, 23, format_left)
-        elsif index_col == 3 # frequencia
+        elsif index_col >= 3 && index_col <= 6 # FREQUENCIAS
+          worksheet.set_column(index_col, index_col, 5, format_center)
+        elsif index_col == 7 # plano de aula
           worksheet.set_column(index_col, index_col, 11, format_center)
-        elsif index_col == 4 # plano de aula
-          worksheet.set_column(index_col, index_col, 11, format_center)
-        elsif index_col == 5 # aulas registradas
+        elsif index_col == 8 # aulas registradas
           worksheet.set_column(index_col, index_col, 12, format_center)
-        elsif index_col == 6 # etapas com parecer
-          worksheet.set_column(index_col, index_col, 11, format_center)
-        elsif index_col == 7 # alunos sem parecer
+        elsif index_col >= 9 && index_col <= 12 # AVALIACÕES
+          worksheet.set_column(index_col, index_col, 5, format_center)
+        elsif index_col == 13 # alunos sem parecer
           worksheet.set_column(index_col, index_col, 11, format_center)
         else
           next
