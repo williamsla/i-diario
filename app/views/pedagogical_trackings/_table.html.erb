@@ -1,8 +1,16 @@
-<table class="table-auto border-collapse border border-gray-300 w-full text-sm">
-  <% @sheet.each do |row| %>
+<table style="border-collapse: collapse; width: 100%;">
+  <% @sheet.each_with_index do |row, i| %>
     <tr>
       <% row.each do |cell| %>
-        <td class="border border-gray-300 px-2 py-1"><%= cell %></td>
+        <% if i == 0 %>
+          <td style="border: 1px solid #444; padding: 6px; font-weight: bold; text-align: center; background-color: #f0f0f0;">
+            <%= cell %>
+          </td>
+        <% else %>
+          <td style="border: 1px solid #444; padding: 6px;">
+            <%= cell %>
+          </td>
+        <% end %>
       <% end %>
     </tr>
   <% end %>

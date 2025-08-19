@@ -258,38 +258,19 @@ $('form.percent_filterable_search_form input, form.percent_filterable_search_for
   }
 );
 
-// function openResumeModal(unityId, classroomId) {
-//   const modal = document.getElementById("resumeModal");
-//   if (!modal) return;
-
-//   modal.classList.remove("hidden");
-
-//   fetch(`/pedagogical_trackings/resume_modal?unity_id=${unityId}&classroom_id=${classroomId || 0}`)
-//     .then(response => response.text())
-//     .then(html => {
-//       document.getElementById("resumeModalBody").innerHTML = html;
-//     })
-//     .catch(err => {
-//       console.error("Erro ao carregar modal:", err);
-//       document.getElementById("resumeModalBody").innerHTML =
-//         "<p class='text-red-600'>Erro ao carregar o resumo.</p>";
-//     });
-// }
-
-// function closeResumeModal() {
-//   const modal = document.getElementById("resumeModal");
-//   if (!modal) return;
-
-//   modal.classList.add("hidden");
-//   document.getElementById("resumeModalBody").innerHTML = "";
-// }
-
 function openResumeModal(unityId, classroomId) {
   const modal = document.getElementById("resumeModal");
   if (!modal) return;
 
   // mostra modal
   modal.style.display = "flex";
+
+  // atualiza botão de download
+  const downloadBtn = document.getElementById("downloadXlsxBtn");
+  downloadBtn.onclick = () => {
+    const url = `/pedagogical_trackings/resume_xlsx?unity_id=${unityId}&classroom_id=${classroomId || 0}`;
+    window.location.href = url; // força download
+  }
 
   // busca conteúdo via fetch
   fetch(`/pedagogical_trackings/resume_modal?unity_id=${unityId}&classroom_id=${classroomId || 0}`)

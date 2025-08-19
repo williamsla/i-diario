@@ -178,7 +178,9 @@ class PedagogicalTrackingsController < ApplicationController
     # Create a new Excel workbook
     date_str = "#{DateTime.now.strftime "%d%m"}#{DateTime.now.year % 100}"
     classroom_str_identifier = classroom_id == 0 ? '' : "T#{classroom_id}-"
+    
     filename = "lancamentos-#{date_str}-#{classroom_str_identifier}#{unity_name}.xlsx"
+    filename = filename.gsub(" ", "_")
 
     workbook = WriteXLSX.new("#{Rails.root}/public/relatorios/#{filename}")
     worksheet = workbook.add_worksheet
@@ -266,15 +268,20 @@ class PedagogicalTrackingsController < ApplicationController
     workbook.close
 
     file_path = Rails.root.join('public/relatorios', filename)
-    
+
     return file_path
   end
 
   def resume_xlsx
     file_path = resume
+    filename = File.basename(file_path)
 
     if File.exist?(file_path)
-      redirect_to "/relatorios/#{filename}"
+
+      send_file file_path,
+                filename: filename,
+                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                disposition: "attachment"
     else
       render plain: "Arquivo não encontrado", status: :not_found
     end    
