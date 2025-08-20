@@ -95,7 +95,7 @@ class PartialScoreRecordReport < BaseReport
     disciplines = {}
     subheader_cells = []
 
-    Discipline.by_classroom(@classroom.id).ordered.each do |discipline|
+    Discipline.by_classroom(@classroom).ordered.each do |discipline|
       avaliations = Avaliation.by_unity_id(@unity.id)
                               .by_classroom_id(@classroom.id)
                               .by_discipline_id(discipline.id)
