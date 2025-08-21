@@ -122,7 +122,7 @@ module ExamPoster
       enrollment_classrooms = StudentEnrollmentClassroom.includes(
         student_enrollment: :student,
         classrooms_grade: :exam_rule
-      ).by_student(students).by_classroom(classroom).by_date(Date.current)
+      ).by_student(students).by_classroom(classroom)
       classrooms_grades = classroom.classrooms_grades.where(
         id: enrollment_classrooms.map(&:classrooms_grade).uniq
       ).first
