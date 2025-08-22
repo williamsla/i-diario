@@ -108,6 +108,12 @@ class DisciplineContentRecordsController < ApplicationController
 
     @discipline_content_record = DisciplineContentRecord.find(params[:id]).localized
 
+    if @discipline_content_record[:class_number].present?
+      @class_number_qtd = @discipline_content_record[:class_number]
+    else
+      @class_number_qtd = 0
+    end
+ 
     authorize @discipline_content_record
   end
 
