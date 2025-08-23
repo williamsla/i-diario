@@ -1,9 +1,20 @@
 #!/bin/bash
 
-# carrega o ambiente do asdf
-. /root/.asdf/asdf.sh
+set -euo pipefail
 
-cd /var/www/idiario
+# Carrega o ambiente do asdf (necessário em cron/systemd)
+. /root/.asdf/asdf.sh || exit 1
+
+export PATH="/root/.asdf/shims:/root/.asdf/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+
+# Vai para a raiz do projeto, independente de onde chamar
+cd "$(dirname "$0")/.."
+
+echo "===> Iniciando sincronizações ..."
+bundle exec rails send_notification:absences RAILS_ENV=production
+bundle exec rake refresh_pedagogical_tracking_views RAILS_ENV=production
+bundle exec rake ieducar_api:synchronize RAILS_ENV=production
+
 
 echo "===> FAZENDO COPIA DE CONFIGURAÇÕES"
 cp ./config/secrets.yml ../
@@ -65,6 +76,21 @@ systemctl restart rails-server
 systemctl restart sidekiq-main
 systemctl restart sidekiq-sync
 systemctl restart sidekiq-exams
+
+echo "===> PARANDO SERVIÇO de envio automático de avaliações"
+if [ -f tmp/auto_post.pid ]; then
+  PID=$(cat tmp/auto_post.pid)
+  if ps -p $PID > /dev/null 2>&1; then
+    echo "Parando processo anterior (PID $PID)..."
+    kill -9 $PID
+  fi
+  rm -f tmp/auto_post.pid
+fi
+
+echo "===> INICIANDO SERVIÇO de envio automático de avaliações"
+nohup bundle exec rake post_avaliations RAILS_ENV=production > log/auto_post.log 2>&1 &
+echo $! > tmp/auto_post.pid
+
 
 # add to crontab to run this script daily
 # sudo crontab -e
