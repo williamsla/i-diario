@@ -2,13 +2,46 @@
 
 set -euo pipefail
 
-# Carrega o ambiente do asdf (necessário em cron/systemd)
-. /root/.asdf/asdf.sh || exit 1
+# Define a raiz do projeto
+ROOT_DIR="$(dirname "$0")/.."
+cd "$ROOT_DIR"
 
-export PATH="/root/.asdf/shims:/root/.asdf/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+# Configuração do log
+LOG_FILE="$ROOT_DIR/log/auto_update.log"
+mkdir -p "$(dirname "$LOG_FILE")"
+exec >> "$LOG_FILE" 2>&1
 
-# Vai para a raiz do projeto, independente de onde chamar
-cd "$(dirname "$0")/.."
+echo "===== INÍCIO DO AUTO UPDATE $(date) ====="
+
+# -----------------------------
+# Detecta e carrega gerenciador Ruby
+# -----------------------------
+if [ -f "/root/.asdf/asdf.sh" ]; then
+    echo "Carregando ASDF..."
+    . /root/.asdf/asdf.sh || exit 1
+    export PATH="/root/.asdf/shims:/root/.asdf/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+elif command -v rbenv >/dev/null 2>&1; then
+    echo "Carregando Rbenv..."
+    export PATH="$HOME/.rbenv/bin:$PATH"
+    eval "$(rbenv init -)"
+elif [ -s "$HOME/.rvm/scripts/rvm" ]; then
+    echo "[INFO] Carregando RVM..."
+    source "$HOME/.rvm/scripts/rvm"
+elif command -v chruby >/dev/null 2>&1; then
+    echo "[INFO] Carregando chruby..."
+    source /usr/local/share/chruby/chruby.sh
+    source /usr/local/share/chruby/auto.sh
+else
+    echo "[INFO] Nenhum gerenciador Ruby detectado, usando Ruby global"
+fi
+
+echo "[INFO] Ruby ativo: $(ruby -v)"
+echo "[INFO] Caminho do Ruby: $(which ruby)"
+
+
+# Executa backup antes de atualizar. Roda como um subshell para isolar alterações de diretorios feitas pelo backup no auto_update.
+( ./script/backup.sh )
+
 
 echo "===> Iniciando sincronizações ..."
 bundle exec rails send_notification:absences RAILS_ENV=production
