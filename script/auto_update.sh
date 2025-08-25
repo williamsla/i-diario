@@ -105,10 +105,8 @@ echo "===> COMPILANDO CSS"
 RAILS_ENV=production bundle exec rake assets:precompile
 
 echo "===> REINICIANDO O SERVIÇO rails E sidekiq"
-systemctl restart rails-server
-systemctl restart sidekiq-main
-systemctl restart sidekiq-sync
-systemctl restart sidekiq-exams
+( ../scripts/restart-idiario.sh )
+
 
 echo "===> PARANDO SERVIÇO de envio automático de avaliações"
 if [ -f tmp/auto_post.pid ]; then
@@ -120,6 +118,16 @@ if [ -f tmp/auto_post.pid ]; then
   rm -f tmp/auto_post.pid
 fi
 
+# Para processos que contenham 'post_avaliations' no comando
+echo "Verificando processos com 'post_avaliations'..."
+PIDS=$(pgrep -f post_avaliations || true)
+if [ -n "$PIDS" ]; then
+  echo "Matando processos: $PIDS"
+  kill -9 $PIDS
+else
+  echo "Nenhum processo 'post_avaliations' encontrado."
+fi
+
 echo "===> INICIANDO SERVIÇO de envio automático de avaliações"
 nohup bundle exec rake post_avaliations RAILS_ENV=production > log/auto_post.log 2>&1 &
 echo $! > tmp/auto_post.pid
@@ -127,4 +135,4 @@ echo $! > tmp/auto_post.pid
 
 # add to crontab to run this script daily
 # sudo crontab -e
-# 00 04 * * * /var/www/idiario/auto_update.sh >> /var/www/idiario/log/auto_update.log 2>&1
+# 00 04 * * * /var/www/idiario/auto_update.sh
