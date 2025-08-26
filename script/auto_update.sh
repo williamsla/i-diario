@@ -46,8 +46,15 @@ echo "[INFO] Caminho do Ruby: $(which ruby)"
 echo "===> Iniciando sincronizações ..."
 bundle exec rails send_notification:absences RAILS_ENV=production
 bundle exec rake refresh_pedagogical_tracking_views RAILS_ENV=production
-bundle exec rake ieducar_api:synchronize RAILS_ENV=production
 
+# Verifica se é domingo
+if [ "$(date +%u)" -eq 7 ]; then
+  # Domingo → full
+  RAILS_ENV=production bundle exec rake "ieducar_api:synchronize[true,true]"
+else
+  # Outros dias → simples
+  RAILS_ENV=production bundle exec rake "ieducar_api:synchronize[false,true]"
+fi
 
 echo "===> FAZENDO COPIA DE CONFIGURAÇÕES"
 cp ./config/secrets.yml ../
