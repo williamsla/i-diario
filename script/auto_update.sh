@@ -33,6 +33,7 @@ elif command -v chruby >/dev/null 2>&1; then
     source /usr/local/share/chruby/auto.sh
 else
     echo "[INFO] Nenhum gerenciador Ruby detectado, usando Ruby global"
+    export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 fi
 
 echo "[INFO] Ruby ativo: $(ruby -v)"
@@ -50,10 +51,10 @@ bundle exec rake refresh_pedagogical_tracking_views RAILS_ENV=production
 # Verifica se é domingo
 if [ "$(date +%u)" -eq 7 ]; then
   # Domingo → full
-  RAILS_ENV=production bundle exec rake "ieducar_api:synchronize[true,true]"
+  RAILS_ENV=production bundle exec rake ieducar_api:synchronize[true,true]
 else
   # Outros dias → simples
-  RAILS_ENV=production bundle exec rake "ieducar_api:synchronize[false,true]"
+  RAILS_ENV=production bundle exec rake ieducar_api:synchronize[false,true]
 fi
 
 echo "===> FAZENDO COPIA DE CONFIGURAÇÕES"
