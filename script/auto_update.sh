@@ -24,13 +24,15 @@ elif command -v rbenv >/dev/null 2>&1; then
     echo "Carregando Rbenv..."
     export PATH="$HOME/.rbenv/bin:$PATH"
     eval "$(rbenv init -)"
+elif [ -s "/etc/profile.d/rvm.sh" ]; then
+    echo "[INFO] Carregando RVM global (/etc/profile.d/rvm.sh)..."
+    source "/etc/profile.d/rvm.sh"
+elif [ -s "/usr/local/rvm/scripts/rvm" ]; then
+    echo "[INFO] Carregando RVM global (/usr/local/rvm/scripts/rvm)..."
+    source "/usr/local/rvm/scripts/rvm"
 elif [ -s "$HOME/.rvm/scripts/rvm" ]; then
-    echo "[INFO] Carregando RVM..."
+    echo "[INFO] Carregando RVM do usuário ($HOME/.rvm/scripts/rvm)..."
     source "$HOME/.rvm/scripts/rvm"
-elif command -v chruby >/dev/null 2>&1; then
-    echo "[INFO] Carregando chruby..."
-    source /usr/local/share/chruby/chruby.sh
-    source /usr/local/share/chruby/auto.sh
 else
     echo "[INFO] Nenhum gerenciador Ruby detectado, usando Ruby global"
     export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
