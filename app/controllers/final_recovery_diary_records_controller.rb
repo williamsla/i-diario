@@ -220,7 +220,8 @@ class FinalRecoveryDiaryRecordsController < ApplicationController
     test_setting = test_setting(classroom, schoool_calendar)
 
     if test_setting.nil?
-      redirect_to final_recovery_diary_records_path, alert: t('final_recovery_diary_records.new.not_exists_test_setting')
+      @number_of_decimal_places = 1
+      # redirect_to final_recovery_diary_records_path, alert: t('final_recovery_diary_records.new.not_exists_test_setting')
     else
       @number_of_decimal_places = test_setting.number_of_decimal_places
     end
