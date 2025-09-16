@@ -29,9 +29,10 @@ class KnowledgeAreaContentRecord < ActiveRecord::Base
   scope :ordered, -> { joins(:content_record).order(ContentRecord.arel_table[:record_date].desc) }
   scope :order_by_content_record_date, -> { joins(:content_record).order(ContentRecord.arel_table[:record_date]) }
   scope :by_author, lambda { |author_type, current_teacher_id|
-    if author_type == PlansAuthors::MY_PLANS
+    if author_type.to_s == PlansAuthors::MY_PLANS.to_s
       joins(:content_record).merge(ContentRecord.where(teacher_id: current_teacher_id))
-    elsif author_type == PlansAuthors::ALL
+    elsif author_type.to_s == PlansAuthors::ALL.to_s
+      joins(:content_record)
     else
       joins(:content_record).merge(ContentRecord.where.not(teacher_id: current_teacher_id))
     end
