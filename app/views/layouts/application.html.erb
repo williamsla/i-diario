@@ -163,13 +163,14 @@
 
     <%= yield :js %>
 
-    <!--
+    <% if ENV['SUPPORT_NUMBER'].present? %>
       <div class="whatsapp-button">
-        <a href="https://wa.me/5582999346297" target="_blank">
+        <a href="https://wa.me/<%= ENV['SUPPORT_NUMBER'] %>" target="_blank">
           <img src="https://cdn-icons-png.flaticon.com/512/124/124034.png" alt="WhatsApp">
         </a>
       </div>
-    -->
+    <% end %>
+
 
     <script>
       document.addEventListener('DOMContentLoaded', function () {
