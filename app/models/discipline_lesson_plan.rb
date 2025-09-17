@@ -40,6 +40,7 @@ class DisciplineLessonPlan < ApplicationRecord
     if author_type == PlansAuthors::MY_PLANS
       joins(:lesson_plan).merge(LessonPlan.where(teacher_id: current_teacher_id))
     elsif author_type == PlansAuthors::ALL
+      joins(:lesson_plan)
     else
       joins(:lesson_plan).merge(LessonPlan.where.not(teacher_id: current_teacher_id))
     end

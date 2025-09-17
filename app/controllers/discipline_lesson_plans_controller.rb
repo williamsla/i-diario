@@ -9,19 +9,13 @@ class DisciplineLessonPlansController < ApplicationController
 
   def index
     params[:filter] ||= {}
-    # author_type = PlansAuthors::MY_PLANS if params[:filter].empty?
-    if current_user_classroom.period.present? && current_user_classroom.period == '4'
-      author_type = PlansAuthors::MY_PLANS
-    else
-      author_type = PlansAuthors::ALL
-    end
+    author_type = PlansAuthors::ALL if params[:filter].empty?
     author_type ||= (params[:filter] || []).delete(:by_author)
 
     set_options_by_user
 
     if author_type.present?
-      @discipline_lesson_plans = @discipline_lesson_plans.by_author(author_type, current_teacher)
-      params[:filter][:by_author] = author_type
+      @discipline_lesson_plans = @discipline_lesson_plans.by_author(author_type, current_teacher.id)
     end
 
     authorize @discipline_lesson_plans

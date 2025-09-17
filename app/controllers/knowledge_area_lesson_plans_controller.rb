@@ -8,13 +8,7 @@ class KnowledgeAreaLessonPlansController < ApplicationController
 
   def index
     params[:filter] ||= {}
-    # author_type = PlansAuthors::MY_PLANS if params[:filter].empty?
-    if current_user_classroom.period.present? && current_user_classroom.period == '4'
-      author_type = PlansAuthors::MY_PLANS
-    elsif params[:filter].empty?
-      author_type = PlansAuthors::ALL
-    end
-    
+    author_type = PlansAuthors::ALL if params[:filter].empty?    
     author_type ||= (params[:filter] || []).delete(:by_author)
 
     fetch_classrooms
@@ -24,8 +18,7 @@ class KnowledgeAreaLessonPlansController < ApplicationController
     @knowledge_area_lesson_plans = fetch_knowledge_area_by_user
 
     if author_type.present?
-      @knowledge_area_lesson_plans = @knowledge_area_lesson_plans.by_author(author_type, current_teacher)
-      params[:filter][:by_author] = author_type
+      @knowledge_area_lesson_plans = @knowledge_area_lesson_plans.by_author(author_type, current_teacher.id)
     end
 
     authorize @knowledge_area_lesson_plans
