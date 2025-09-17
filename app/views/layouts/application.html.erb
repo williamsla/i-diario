@@ -102,7 +102,7 @@
         <% year = current_user.current_school_year || Time.current.year %>  
         <% if year >= 2025 %>  
          
-              <% if current_classroom_grades && current_classroom_grades.description.match?(/creche|pré-escola|aee/i) %>
+              <% if current_classroom_grades && current_classroom_grades.description.match?(/creche|pré-escola|infantil|aee/i) %>
                   
                   // TODO: essa condição interna (if) é útil somente no ano 2025 em canindé.
                   <% if started_as_discipline == true %>

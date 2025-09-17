@@ -1,0 +1,5 @@
+:concurrency: 10
+:queues:
+  - synchronizer
+  - synchronizer_enqueue_next_job
+:timeout: 600

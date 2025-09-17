@@ -35,6 +35,7 @@ services:
     environment:
       - DATABASE_HOST=postgres
       - REDIS_URL=redis://redis:6379/0
+      - SUPPORT_NUMBER=82981670619
     depends_on:
       - postgres
       - redis
