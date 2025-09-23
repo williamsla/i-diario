@@ -8,6 +8,7 @@ class ActiveStudentsOnDate
   def initialize(params)
     @student_enrollments = params.fetch(:student_enrollments)
     @date = params.fetch(:date)
+    @classroom_id = params.fetch(:classroom_id)
   end
 
   def call
@@ -15,6 +16,7 @@ class ActiveStudentsOnDate
 
     enrollment_classrooms = StudentEnrollmentClassroom.by_student_enrollment(@student_enrollments)
                                                       .by_date(@date)
+                                                      .by_classroom(@classroom_id)
 
     student_active_on_date(enrollment_classrooms)
   rescue NoMethodError => errors
