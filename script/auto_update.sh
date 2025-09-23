@@ -47,7 +47,8 @@ echo "[INFO] Caminho do Ruby: $(which ruby)"
 
 
 echo "===> Iniciando sincronizações ..."
-bundle exec rails send_notification:absences RAILS_ENV=production
+bundle exec rake aulas:atualizar RAILS_ENV=production
+bundle exec rake send_notification:absences RAILS_ENV=production
 bundle exec rake refresh_pedagogical_tracking_views RAILS_ENV=production
 
 # Verifica se é domingo
@@ -69,8 +70,19 @@ GIT_OUTPUT=$(git pull)
 
 # Verifica se houve alterações
 if echo "$GIT_OUTPUT" | grep -q "Already up to date\|Atualizado"; then
-  echo "Nenhuma alteração detectada. Encerrando script."
-  exit 0
+  echo "Nenhuma alteração detectada. Preparando para encerrar script."
+
+  echo "Verificando envio de avaliações..."
+  PIDS=$(pgrep -f post_avaliations || true)
+  if [ -n "$PIDS" ]; then 
+    echo "===> O envio automático de avaliações já está rodando (PIDs: $PIDS)"
+  else
+    echo "===> INICIANDO o envio automático de avaliações"
+    nohup bundle exec rake post_avaliations:init RAILS_ENV=production > log/auto_post.log 2>&1 &
+    echo $! > tmp/auto_post.pid
+  fi 
+
+  exit 0 #encerra script
 fi
 
 echo "$GIT_OUTPUT"
