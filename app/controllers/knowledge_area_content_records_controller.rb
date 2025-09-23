@@ -257,4 +257,9 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     @classrooms ||=  @fetch_linked_by_teacher[:classrooms]
     @disciplines ||= @fetch_linked_by_teacher[:disciplines]
   end
+  
+  def show_objectives
+    Rails.application.secrets.show_objectives.to_s == 'true'
+  end
+  helper_method :show_objectives
 end

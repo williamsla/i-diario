@@ -68,41 +68,36 @@
         </ul>
       </div>
 
-        <%
-          has_japaratinga = request.original_url.include?('japaratinga')
-          has_caninde = request.original_url.include?('caninde')
-        %>
-
-        <% if !has_japaratinga && !has_caninde %>        
-          <div class="row textarea">
-            <div class="col col-sm-12">
-              <legend style="margin-bottom: 10px;">
-                <span>Objetivos</span>
-              </legend>
-              <% if f.object.errors[:'content_record.objectives'].any? %>
-                <div class="alert alert-danger fade in">
-                  <i class="fa-fw fa fa-times"></i>
-                  <%= f.object.errors[:'content_record.objectives'].first %>
-                </div>
-              <% end %>
-
-              <div style="max-height: 300px;overflow-y: auto; margin-top: 10px;">
-                <ul class="list-group checked-list-box" id="objectives-list">
-                <% objectives.each do |objective| %>
-                  <% objective_id_in_plan = objective.id.in?(@discipline_content_record.objectives.collect(&:id)) %>
-                  <% classes = objective_id_in_plan ? "list-group-item-info active initialized" : "" %>
-                  <li class="list-group-item manual <%= classes %>" style="display: flex;" id="objective_<%= objective.id %>">
-                    <%= check_box_tag("discipline_content_record[content_record_attributes][objective_ids][]",
-                      objective.id, objective.id.in?(@discipline_content_record.objectives.collect(&:id)),
-                      hidden: true, 'data-objective_description': objective.to_s ) %>
-                    <span style="margin-left: 5px;display: block;width: calc(100% - 85px);"><%= objective %></span>
-                  </li>
-                <% end %>
-                </ul>
+      <% if show_objectives %>
+        <div class="row textarea">
+          <div class="col col-sm-12">
+            <legend style="margin-bottom: 10px;">
+              <span>Objetivos</span>
+            </legend>
+            <% if f.object.errors[:'content_record.objectives'].any? %>
+              <div class="alert alert-danger fade in">
+                <i class="fa-fw fa fa-times"></i>
+                <%= f.object.errors[:'content_record.objectives'].first %>
               </div>
+            <% end %>
+
+            <div style="max-height: 300px;overflow-y: auto; margin-top: 10px;">
+              <ul class="list-group checked-list-box" id="objectives-list">
+              <% objectives.each do |objective| %>
+                <% objective_id_in_plan = objective.id.in?(@discipline_content_record.objectives.collect(&:id)) %>
+                <% classes = objective_id_in_plan ? "list-group-item-info active initialized" : "" %>
+                <li class="list-group-item manual <%= classes %>" style="display: flex;" id="objective_<%= objective.id %>">
+                  <%= check_box_tag("discipline_content_record[content_record_attributes][objective_ids][]",
+                    objective.id, objective.id.in?(@discipline_content_record.objectives.collect(&:id)),
+                    hidden: true, 'data-objective_description': objective.to_s ) %>
+                  <span style="margin-left: 5px;display: block;width: calc(100% - 85px);"><%= objective %></span>
+                </li>
+              <% end %>
+              </ul>
             </div>
           </div>
-        <% end %>
+        </div>
+      <% end %>
     </fieldset>
 
   <% end %>

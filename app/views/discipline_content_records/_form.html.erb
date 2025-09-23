@@ -99,12 +99,7 @@
           </div>
         </div>
 
-        <%
-          has_japaratinga = request.original_url.include?('japaratinga')
-          has_caninde = request.original_url.include?('caninde')
-        %>
-
-        <% if !has_japaratinga && !has_caninde %>        
+        <% if show_objectives %>
           <div class="row textarea">
             <div class="col col-sm-12">
               <legend style="margin-bottom: 10px;">
