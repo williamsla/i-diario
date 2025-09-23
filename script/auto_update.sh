@@ -139,7 +139,7 @@ else
 fi
 
 echo "===> INICIANDO SERVIÇO de envio automático de avaliações"
-nohup bundle exec rake post_avaliations RAILS_ENV=production > log/auto_post.log 2>&1 &
+nohup bundle exec rake post_avaliations:init RAILS_ENV=production > log/auto_post.log 2>&1 &
 echo $! > tmp/auto_post.pid
 
 

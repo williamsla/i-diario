@@ -1,5 +1,6 @@
-:concurrency: 10
+:concurrency: 3
 :queues:
   - synchronizer
   - synchronizer_enqueue_next_job
 :timeout: 600
+:logfile: log/sidekiq-sync.log

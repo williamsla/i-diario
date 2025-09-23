@@ -1,4 +1,4 @@
-:concurrency: 3
+:concurrency: 4
 :queues:
   - exam_posting
   - exam_posting_1
