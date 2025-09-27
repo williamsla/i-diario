@@ -100,27 +100,36 @@
       document.addEventListener('DOMContentLoaded', function() { 
 
         <% year = current_user.current_school_year || Time.current.year %>  
-        <% if year >= 2025 %>  
+        <% if year == 2025 %>  
          
-              <% if current_classroom_grades && current_classroom_grades.description.match?(/creche|pré-escola|pre|maternal|infantil|aee/i) %>
+              // Se for série educação infantil ou AEE
+              <% if current_classroom_grades && current_classroom_grades.description.match?(/creche|pré-escola|pré|pre|maternal|infantil|aee/i) %>
                   
+                  // Se começou como disciplina ou área de conhecimento                  
                   // TODO: essa condição interna (if) é útil somente no ano 2025 em canindé.
-                  <% if started_as_discipline == true %>
-                    const hrefs = [
+                  <% if started_as_discipline == true && started_as_knowledge_area == true %>
+                    
+                    const hrefs_to_hide = [];
+
+                  <% elsif started_as_discipline == true %>
+                    
+                    const hrefs_to_hide = [
                       '/planos-de-ensino-por-areas-de-conhecimento',
                       '/planos-de-aula-por-areas-de-conhecimento',
                       '/registros-de-conteudos-por-areas-de-conhecimento'
                     ];
+
                   <% else %>
-                    const hrefs = [
+                    
+                    const hrefs_to_hide = [
                         '/planos-de-ensino-por-disciplina',
                         '/planos-de-aulas-por-disciplina',
                         '/registros-de-conteudos-por-disciplina',
                         '/relatorios/planos-de-aula-por-disciplina',
-                      ];
+                    ];
                   <% end %>
 
-                  hrefs.push('/avaliacoes',
+                  hrefs_to_hide.push('/avaliacoes',
                     '/diario-de-avaliacoes',
                     '/diario-de-recuperacoes-de-etapas',
                     '/diario-de-recuperacoes-finais',
@@ -133,9 +142,9 @@
 
                   // TODO: essa condição interna (if) é útil somente no ano 2025 em canindé.
                   <% if current_classroom_grades && started_as_knowledge_area == true %>
-                    const hrefs = []
+                    const hrefs_to_hide = []
                   <% else %>
-                    const hrefs = [
+                    const hrefs_to_hide = [
                       '/planos-de-ensino-por-areas-de-conhecimento',
                       '/planos-de-aula-por-areas-de-conhecimento',
                       '/registros-de-conteudos-por-areas-de-conhecimento'
@@ -144,7 +153,7 @@
 
               <% end %>
 
-              hrefs.forEach(href => {
+              hrefs_to_hide.forEach(href => {
                 const links = document.querySelectorAll(`a[href="${href}"]`);
                 links.forEach(link => {
                   const divAncestor = link.closest('div,li');
