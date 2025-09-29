@@ -63,9 +63,9 @@ module DailyFrequencyHelper
 
     if !active
       if left_at_formatted
-        "***#{name}\nSaiu da turma: #{left_at_formatted}"
+        "***#{name}\nSaiu da turma em #{left_at_formatted}"
       else
-        "***#{name}\nChegou na turma: #{joined_at_formatted}"
+        "***#{name}\nChegou na turma em #{joined_at_formatted}"
       end
     elsif dependence
       "*#{name}"

@@ -111,10 +111,11 @@ class DailyFrequenciesController < ApplicationController
     fetch_enrollment_classrooms.each do |enrollment_classroom|
       student = enrollment_classroom[:student]
       student_enrollment = enrollment_classroom[:student_enrollment]
+      left_at = enrollment_classroom[:left_at]
       
       # evita matrículas que estejam com situação duplicada.
-      # Ex: aluno com duas matrículas na situação STATUS CURSANDO.
-      aux = "#{student.id}_#{student_enrollment[:status]}"
+      # Ex: aluno com duas matrículas na situação STATUS e SAIDA.
+      aux = "#{student.id}_#{student_enrollment[:status]}_#{left_at}"
       next if @students_list_marked_as_read.include?(aux)
       @students_list_marked_as_read << aux
       
@@ -149,7 +150,7 @@ class DailyFrequenciesController < ApplicationController
         absence_justification: absence_justification,
         sequence: sequence,
         joined_at: enrollment_classroom[:joined_at],
-        left_at: enrollment_classroom[:left_at]
+        left_at: left_at
       }
 
     end
