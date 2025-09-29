@@ -1,17 +1,35 @@
-<table style="border-collapse: collapse; width: 100%;">
-  <% @sheet.each_with_index do |row, i| %>
-    <tr>
-      <% row.each do |cell| %>
-        <% if i == 0 %>
-          <td style="border: 1px solid #444; padding: 6px; font-weight: bold; text-align: center; background-color: #f0f0f0;">
-            <%= cell %>
-          </td>
-        <% else %>
-          <td style="border: 1px solid #444; padding: 6px;">
-            <%= cell %>
-          </td>
+<div style="max-height: 500px; overflow-y: auto; border: 1px solid #ccc;">
+  <table style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 13px;">
+    <% previous_class = nil
+       current_bg = '#ffffff' # cor inicial do grupo %>
+
+    <% @sheet.each_with_index do |row, i| %>
+      <% if i == 0 %>
+        <tr>
+          <% row.each_with_index do |cell, j| %>
+            <% strong_border = [6, 8, 12].include?(j) ? 'border-right: 3px solid #000;' : '' %>
+            <th style="border: 1px solid #000; padding: 8px; font-weight: bold; text-align: center; background-color: #FFD966;
+                       position: sticky; top: 0; z-index: 2; <%= strong_border %>">
+              <%= cell %>
+            </th>
+          <% end %>
+        </tr>
+      <% else %>
+        <% # Alterna a cor do grupo quando a primeira coluna muda %>
+        <% if row[0] != previous_class %>
+          <% current_bg = current_bg == '#ffffff' ? '#e6f7ff' : '#ffffff' %>
+          <% previous_class = row[0] %>
         <% end %>
+
+        <tr style="background-color: <%= current_bg %>;">
+          <% row.each_with_index do |cell, j| %>
+            <% strong_border = [6, 8, 12].include?(j) ? 'border-right: 3px solid #000;' : '' %>
+            <td style="border: 1px solid #444; padding: 6px; text-align: left; <%= strong_border %>">
+              <%= cell %>
+            </td>
+          <% end %>
+        </tr>
       <% end %>
-    </tr>
-  <% end %>
-</table>
+    <% end %>
+  </table>
+</div>
