@@ -9,7 +9,8 @@ class LessonBoardsService
                                             .where(grade_id: grade_id)
                                             .order('teachers.name')
 
-    allocations.where(period: period) if classroom_period == Periods::FULL && period
+    # TODO: Não estava mostrando disciplinas em um dos turnos do tempo integral
+    # allocations.where(period: period) if classroom_period == Periods::FULL && period
 
     allocations.each do |teacher_discipline_classroom|
       teachers_to_select2 << OpenStruct.new(
