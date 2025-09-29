@@ -28,6 +28,8 @@ class LessonBoardsService
   def linked_teacher(teacher_discipline_classroom_id, lesson_number, weekday, classroom, period)
     teacher_discipline_classroom = TeacherDisciplineClassroom.includes(:teacher, classroom: :unity)
                                                              .find(teacher_discipline_classroom_id)
+                                                             .by_period(period)
+    return false if teacher_discipline_classroom.blank?
     teacher_id = teacher_discipline_classroom.teacher.id
     year = teacher_discipline_classroom.classroom.year
 

@@ -27,6 +27,7 @@ class TeacherDisciplineClassroom < ApplicationRecord
   scope :by_discipline_id, ->(discipline_id) { where(discipline_id: discipline_id) }
   scope :by_grade_id, ->(grade_id) { where(grade_id: grade_id) }
   scope :by_year, ->(year) { where(year: year) }
+  scope :by_period, ->(period) { where(period: period) }
   scope :by_knowledge_area_id, ->(knowledge_area_id) {
     joins(:discipline).where(disciplines: { knowledge_area_id: knowledge_area_id })
   }
