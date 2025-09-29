@@ -1,4 +1,4 @@
-<div style="max-height: 500px; overflow-y: auto; border: 1px solid #ccc;">
+<div style="overflow-y: auto; border: 1px solid #ccc;">
   <table style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 13px;">
     <% previous_class = nil
        current_bg = '#ffffff' # cor inicial do grupo %>
@@ -7,7 +7,7 @@
       <% if i == 0 %>
         <tr>
           <% row.each_with_index do |cell, j| %>
-            <% strong_border = [6, 8, 12].include?(j) ? 'border-right: 3px solid #000;' : '' %>
+            <% strong_border = [2, 6, 8, 12].include?(j) ? 'border-right: 4px solid #000;' : '' %>
             <th style="border: 1px solid #000; padding: 8px; font-weight: bold; text-align: center; background-color: #FFD966;
                        position: sticky; top: 0; z-index: 2; <%= strong_border %>">
               <%= cell %>
@@ -23,8 +23,8 @@
 
         <tr style="background-color: <%= current_bg %>;">
           <% row.each_with_index do |cell, j| %>
-            <% strong_border = [6, 8, 12].include?(j) ? 'border-right: 3px solid #000;' : '' %>
-            <td style="border: 1px solid #444; padding: 6px; text-align: left; <%= strong_border %>">
+            <% strong_border = [2, 6, 8, 12].include?(j) ? 'border-right: 4px solid #000;' : '' %>
+            <td style="border: 1px solid #444; padding: 6px; text-align: center; <%= strong_border %>">
               <%= cell %>
             </td>
           <% end %>
