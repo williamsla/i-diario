@@ -17,8 +17,7 @@ class PedagogicalTrackingsController < ApplicationController
       @updated_at_hour = last_refresh.hour
     end
 
-    employee_unity = employee_unities.first.id if employee_unities.presence&.one?
-    unity_id = params.dig(:search, :unity_id).presence || params[:unity_id] || employee_unity
+    unity_id = params.dig(:search, :unity_id).presence || params[:unity_id]
 
     @start_date = params.dig(:search, :start_date).presence
     start_date = (@start_date || params[:start_date]).try(:to_date)
@@ -41,6 +40,7 @@ class PedagogicalTrackingsController < ApplicationController
       @school_content_record_done_percentage = 1
       @unknown_teachers = 1
     end
+
     @partial = :schools
     
     @percents = if unity_id
