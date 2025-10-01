@@ -43,3 +43,21 @@
   <% end %>
 <% end %>
 </tbody>
+
+<div id="resumeModal" style="display:none; position:fixed; inset:0; background-color:rgba(0,0,0,0.7);
+                             justify-content:center; align-items:center; z-index:9999;">
+  <div style="background:white; padding:20px; border-radius:15px; height:95vh; overflow:auto; width:90%; box-shadow:0 5px 15px rgba(0,0,0,0.3);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+      <h2 style="margin:0; font-size:1.5em;">Resumo de Lançamentos</h2>
+      <!-- Botão de baixar planilha -->
+      
+      <button id="downloadXlsxBtn" style="background-color:#1D72B8; color:white; padding:10px 15px; border-radius:8px; border:none; cursor:pointer;">Baixar planilha</button>
+      <button onclick="closeResumeModal(event)" style="background:none; border:none; font-size:3.5em; cursor:pointer;">&times;</button>      
+    </div>
+
+    <div id="resumeModalBody" style="margin-bottom:15px;">
+      <!-- Conteúdo da planilha será injetado aqui -->
+    </div>
+
+  </div>
+</div>

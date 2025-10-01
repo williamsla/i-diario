@@ -285,7 +285,9 @@ function openResumeModal(unityId, classroomId) {
     });
 }
 
-function closeResumeModal() {
+function closeResumeModal(event) {
+  if (event) event.preventDefault();
+
   const modal = document.getElementById("resumeModal");
   if (!modal) return;
   modal.style.display = "none";

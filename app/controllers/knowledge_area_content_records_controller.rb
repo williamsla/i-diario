@@ -241,8 +241,6 @@ class KnowledgeAreaContentRecordsController < ApplicationController
   helper_method :unities
 
   def set_options_by_user
-    return fetch_linked_by_teacher unless current_user.current_role_is_admin_or_employee?
-
     @classrooms = [current_user_classroom]
   end
 
