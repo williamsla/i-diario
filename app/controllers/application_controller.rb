@@ -502,12 +502,14 @@ class ApplicationController < ActionController::Base
   def weak_password?(password)
     return false if password.blank?
 
-    if (password =~ /[A-Z]/).nil? || (password =~ /[a-z]/).nil? || (password =~ /[0-9]/).nil? ||
-       (password =~ /[!@#\$%^&*?_~-]/).nil?
-      true
-    else
-      false
-    end
+    # if (password =~ /[A-Z]/).nil? || (password =~ /[a-z]/).nil? || (password =~ /[0-9]/).nil? ||
+    #    (password =~ /[!@#\$%^&*?_~-]/).nil?
+    #   true
+    # else
+    #   false
+    # end
+
+    false
   end
 
   def error_generic(expection)
@@ -538,4 +540,10 @@ class ApplicationController < ActionController::Base
     parts = date.to_s.split('-')
     "#{parts[2]}/#{parts[1]}/#{parts[0]}"
   end
+
+  def get_domain_url
+    @domain_url ||= request.host
+  end
+  helper_method :get_domain_url
+  
 end

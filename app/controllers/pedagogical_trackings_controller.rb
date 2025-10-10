@@ -211,12 +211,17 @@ class PedagogicalTrackingsController < ApplicationController
     worksheet.set_paper(9)             # 9 = A4
     worksheet.fit_to_pages(1, 0)       # Ajusta para caber em 1 página de largura, altura automática
 
+    header_plano_aula = ''
+    if get_domain_url.include?("belem") || get_domain_url.include?("japaratinga")
+      header_plano_aula = 'PLANOS DE AULA'
+    end
+
     header = ['TURMA','PROFESSOR(A)','DISCIPLINA', 
               'FREQ 1ªUN','FREQ 2ªUN','FREQ 3ªUN','FREQ 4ªUN',
-              'PLANOS DE AULA', 'AULAS REGISTRADAS',
+              header_plano_aula, 'CONTEÚDO',
               'AVA 1ªUN','AVA 2ªUN','AVA 3ªUN','AVA 4ªUN',
               'ALUNOS SEM PARECER']
-
+    
     worksheet.write(0, 0, header, format_header)
     worksheet.set_row(0, 30)
 
@@ -237,6 +242,11 @@ class PedagogicalTrackingsController < ApplicationController
       
       index_col = 0
       row.each do |value|
+        if value.nil? || value == 0 || value == '0'
+          text = '-'
+        else
+          text = value
+        end
         if index_col == 0 # turma
           worksheet.set_column(index_col, index_col, 25, format_center)
         elsif index_col == 1 # professor
@@ -246,8 +256,13 @@ class PedagogicalTrackingsController < ApplicationController
         elsif index_col >= 3 && index_col <= 6 # FREQUENCIAS
           worksheet.set_column(index_col, index_col, 5, format_center)
         elsif index_col == 7 # plano de aula
-          worksheet.set_column(index_col, index_col, 11, format_center)
-        elsif index_col == 8 # aulas registradas
+          if get_domain_url.include?("belem") || get_domain_url.include?("japaratinga") || get_domain_url.include?("delmiro")
+            worksheet.set_column(index_col, index_col, 11, format_center)
+          else
+            worksheet.set_column(index_col, index_col, 1, format_center)
+            text = ''
+          end          
+        elsif index_col == 8 # conteúdo
           worksheet.set_column(index_col, index_col, 12, format_center)
         elsif index_col >= 9 && index_col <= 12 # AVALIACÕES
           worksheet.set_column(index_col, index_col, 5, format_center)
@@ -256,7 +271,7 @@ class PedagogicalTrackingsController < ApplicationController
         else
           next
         end
-        worksheet.write(index_row, index_col, value)
+        worksheet.write(index_row, index_col, text)
         index_col = index_col+1
       end
       index_row = index_row +1
