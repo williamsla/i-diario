@@ -218,7 +218,7 @@ class PedagogicalTrackingsController < ApplicationController
 
     header = ['TURMA','PROFESSOR(A)','DISCIPLINA', 
               'FREQ 1ªUN','FREQ 2ªUN','FREQ 3ªUN','FREQ 4ªUN',
-              header_plano_aula, 'CONTEÚDO',
+              header_plano_aula, 'CONTEÚDO (horas)',
               'AVA 1ªUN','AVA 2ªUN','AVA 3ªUN','AVA 4ªUN',
               'ALUNOS SEM PARECER']
     
