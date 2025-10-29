@@ -39,9 +39,21 @@ class TeacherReportCardsController < ApplicationController
         discipline_id: discipline.api_code,
         ano: year,
         professor: current_teacher.to_s,
-        situacao: @teacher_report_card_form.status
+        situacao: @teacher_report_card_form.status,
+        registration_status: @teacher_report_card_form.registration_status
       })
       send_pdf(t("routes.teacher_report_cards"), report)
+
+      # partial_score_record_report = PartialScoreRecordReport.build(current_configuration,
+      #                                             year,
+      #                                             @partial_score_record_rep/ort_form.step,
+      #                                             @partial_score_record_report_form.students,
+      #                                             unity,
+      #                                             classroom,
+      #                                             current_test_setting_step)
+
+      # send_pdf(t("routes.partial_score_record"), partial_score_record_report.render)
+      
     else
       set_options_by_user
       render :form
@@ -111,7 +123,7 @@ class TeacherReportCardsController < ApplicationController
 
   def resource_params
     params.require(:teacher_report_card_form).permit(
-      :unity_id, :classroom_id, :grade_id, :discipline_id, :status
+      :unity_id, :classroom_id, :grade_id, :discipline_id, :status, :registration_status
     )
   end
 
