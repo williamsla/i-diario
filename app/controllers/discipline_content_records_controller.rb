@@ -60,7 +60,12 @@ class DisciplineContentRecordsController < ApplicationController
     if params[:class_number].present?
       @class_number_qtd = params[:class_number]
     else
-      @class_number_qtd = 0
+      qtd = LessonBoardsFetcher.new(current_user).count_lessons(
+        current_user_classroom.id,
+        @discipline_content_record.discipline_id,
+        @discipline_content_record.content_record.record_date)
+
+      @class_number_qtd = qtd || 0
     end
  
     @class_numbers = []

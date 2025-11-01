@@ -390,6 +390,7 @@ Rails.application.routes.draw do
         get :teacher_in_other_classroom
         get :classroom_grade
         get :classroom_multi_grade
+        get :count_lessons
       end
     end
 

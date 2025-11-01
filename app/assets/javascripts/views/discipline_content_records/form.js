@@ -7,6 +7,7 @@ $(function () {
   var $classroom = $('#discipline_content_record_content_record_attributes_classroom_id');
   var $discipline = $('#discipline_content_record_discipline_id');
   var $recordDate = $('#discipline_content_record_content_record_attributes_record_date');
+  var $class_number = $('#discipline_content_record_class_number');
   var idContentsCounter = 1;
 
   $classroom.on('change', function () {
@@ -109,6 +110,7 @@ $(function () {
 
   $recordDate.on('change', function () {
     loadContents();
+    countLessons();
   });
   if (!$("#contents-list li").length) {
     loadContents();
@@ -133,6 +135,37 @@ $(function () {
   function handleFetchDisciplinesError() {
     flashMessages.error('Ocorreu um erro ao buscar as disciplinas da turma selecionada.');
   };
+
+  function countLessons() {
+    var classroom_id = $classroom.val();
+    var discipline_id = $discipline.val();
+    var date = $recordDate.val();
+    
+    if (!_.isEmpty(classroom_id) && !_.isEmpty(discipline_id)) {
+      $.ajax({
+        url: Routes.count_lessons_lessons_boards_pt_br_path({
+          classroom_id: classroom_id,
+          discipline_id: discipline_id,
+          date: date,
+          format: 'json'
+        }),
+        success: handleCountLessonsSuccess,
+        error: handleCountLessonsError
+      });
+    }
+  }
+
+  function handleCountLessonsSuccess(data) {
+    if (data) {
+      $class_number.val(data).trigger('change');
+    } else {
+      $class_number.val('').trigger('change');
+    }
+  }
+
+  function handleCountLessonsError() {
+    flashMessages.error('Ocorreu um erro ao contar aulas da disciplina na data selecionada.');
+  }
 
   $('#discipline_content_record_content_record_attributes_contents_tags').on('change', function (e) {
     if (e.val.length) {

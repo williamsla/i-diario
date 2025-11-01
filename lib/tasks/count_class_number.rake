@@ -43,7 +43,7 @@ namespace :aulas do
                 AND tdc.discipline_id = #{disciplina_id}
             SQL
 
-            if total_aulas > 0 && total_aulas <= 3              
+            if total_aulas > 0 && total_aulas <= 4            
               dcr.update_column(:class_number, total_aulas)
               count += 1
             end
