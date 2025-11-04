@@ -23,7 +23,7 @@ namespace :aulas do
 
             next unless data.present?
 
-            total_aulas = LessonBoardsFetcher.new(current_user).count_lessons(turma_id, disciplina_id, data)
+            total_aulas = LessonBoardsFetcher.new(nil).count_lessons(turma_id, disciplina_id, data)
 
             if total_aulas > 0 && total_aulas <= 4
               dcr.update_column(:class_number, total_aulas)
