@@ -260,26 +260,8 @@ class LessonsBoardsController < ApplicationController
     discipline_id = params[:discipline_id]
     date = Date.strptime(params[:date], "%d/%m/%Y")
 
-    # Ruby wday: domingo=0..sábado=6 → banco: segunda=1..domingo=7
-    # dia_semana = data.wday # numero do dia da semana
-    dia_semana_nome = date.strftime("%A").downcase # nome do dia da semana
-    
-    total_aulas = ActiveRecord::Base.connection.exec_query(<<-SQL).first&.dig("total_aulas") || 0
-      SELECT COUNT(lbl.id) AS total_aulas
-      FROM lessons_boards lb
-      INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id and cg.discarded_at IS NULL
-      INNER JOIN lessons_board_lessons lbl
-        ON lbl.lessons_board_id = lb.id
-      INNER JOIN lessons_board_lesson_weekdays lblw
-        ON lblw.lessons_board_lesson_id = lbl.id
-      INNER JOIN teacher_discipline_classrooms tdc ON tdc.classroom_id = cg.classroom_id
-        AND tdc.id = lblw.teacher_discipline_classroom_id
-        AND tdc.discarded_at IS NULL
-      WHERE cg.classroom_id = #{classroom_id}
-        AND lblw.weekday = '#{dia_semana_nome}'
-        AND tdc.discipline_id = #{discipline_id}
-    SQL
-
+    total_aulas = LessonBoardsFetcher.new(current_user).count_lessons(classroom_id, discipline_id, date)
+     
     render json: total_aulas
   end
 

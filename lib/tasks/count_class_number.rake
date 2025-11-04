@@ -23,32 +23,13 @@ namespace :aulas do
 
             next unless data.present?
 
-            # Ruby wday: domingo=0..sábado=6 → banco: segunda=1..domingo=7
-            # dia_semana = data.wday # numero do dia da semana
-            dia_semana_nome = data.strftime("%A").downcase # nome do dia da semana
+            total_aulas = LessonBoardsFetcher.new(current_user).count_lessons(turma_id, disciplina_id, data)
 
-            total_aulas = ActiveRecord::Base.connection.exec_query(<<-SQL).first&.dig("total_aulas") || 0
-              SELECT COUNT(lbl.id) AS total_aulas
-              FROM lessons_boards lb
-              INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id and cg.discarded_at IS NULL
-              INNER JOIN lessons_board_lessons lbl
-                ON lbl.lessons_board_id = lb.id
-              INNER JOIN lessons_board_lesson_weekdays lblw
-                ON lblw.lessons_board_lesson_id = lbl.id
-              INNER JOIN teacher_discipline_classrooms tdc ON tdc.classroom_id = cg.classroom_id
-                AND tdc.id = lblw.teacher_discipline_classroom_id
-                AND tdc.discarded_at IS NULL
-              WHERE cg.classroom_id = #{turma_id}
-                AND lblw.weekday = '#{dia_semana_nome}'
-                AND tdc.discipline_id = #{disciplina_id}
-            SQL
-
-            if total_aulas > 0 && total_aulas <= 4            
+            if total_aulas > 0 && total_aulas <= 4
               dcr.update_column(:class_number, total_aulas)
               count += 1
             end
-
-      end
+        end
 
       puts "Total de registros atualizados: #{count}"
     end
