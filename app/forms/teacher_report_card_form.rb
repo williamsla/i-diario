@@ -5,8 +5,7 @@ class TeacherReportCardForm
                 :classroom_id,
                 :grade_id,
                 :discipline_id,
-                :status,
-                :registration_status
+                :status
 
   validates :unity_id, :classroom_id, :grade_id, :discipline_id, :status, presence: true
 end

@@ -39,8 +39,7 @@ class TeacherReportCardsController < ApplicationController
         discipline_id: discipline.api_code,
         ano: year,
         professor: current_teacher.to_s,
-        situacao: @teacher_report_card_form.status,
-        registration_status: @teacher_report_card_form.registration_status
+        situacao: @teacher_report_card_form.status
       })
       send_pdf(t("routes.teacher_report_cards"), report)
 
@@ -123,7 +122,7 @@ class TeacherReportCardsController < ApplicationController
 
   def resource_params
     params.require(:teacher_report_card_form).permit(
-      :unity_id, :classroom_id, :grade_id, :discipline_id, :status, :registration_status
+      :unity_id, :classroom_id, :grade_id, :discipline_id, :status
     )
   end
 
