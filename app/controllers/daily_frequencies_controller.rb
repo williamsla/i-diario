@@ -168,7 +168,7 @@ class DailyFrequenciesController < ApplicationController
     build_daily_frequency_students
     mark_for_destruction_not_existing_students
 
-    @students = @students.sort_by { |student| student[:sequence] } if show_inactive_enrollments
+    @students = @students.sort_by { |student| student[:sequence].to_i } if show_inactive_enrollments
   end
 
   def create_or_update_multiple
