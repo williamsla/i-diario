@@ -34,7 +34,7 @@ module ExamPoster
 
       teacher_discipline_classrooms = teacher.teacher_discipline_classrooms
                                              .where.not(grade_id: nil)
-                                             .by_score_type([ScoreTypes::NUMERIC, nil])
+                                             .by_score_type([ScoreTypes::NUMERIC, ScoreTypes::CONCEPT, ScoreTypes::NUMERIC_AND_CONCEPT, nil])
                                              .by_year(@post_data.step.school_calendar.year)
                                              .includes(:classroom, :discipline)
                                              .distinct
