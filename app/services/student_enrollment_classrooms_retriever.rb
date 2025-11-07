@@ -97,7 +97,6 @@ class StudentEnrollmentClassroomsRetriever
   end
 
   def reject_duplicated_students(enrollment_classrooms)
-    return enrollment_classrooms if show_inactive_enrollments
 
     enrollment_classrooms_unique = []
 
@@ -110,8 +109,8 @@ class StudentEnrollmentClassroomsRetriever
 
       if enrollment_classrooms_for_student.count > 1
         add_enrollment_classrooms(enrollment_classrooms_unique, enrollment_classrooms_for_student)
-      else
-        enrollment_classrooms_unique << enrollment_classrooms_for_student
+      elsif enrollment_classrooms_for_student.count == 1
+        enrollment_classrooms_unique << enrollment_classrooms_for_student.first
       end
     end
 

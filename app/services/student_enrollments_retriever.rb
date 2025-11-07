@@ -49,8 +49,9 @@ class StudentEnrollmentsRetriever
     # Nao filtra as matriculas caso municipio tenha DATABASE
     if student_enrollments.show_as_inactive.blank?
       student_enrollments = search_by_search_type(student_enrollments)
-      student_enrollments = reject_duplicated_students(student_enrollments)
     end
+
+    student_enrollments = reject_duplicated_students(student_enrollments)
 
     student_enrollments
   end
@@ -94,8 +95,6 @@ class StudentEnrollmentsRetriever
   end
 
   def reject_duplicated_students(student_enrollments)
-    return student_enrollments if show_inactive_enrollments
-
     unique_student_enrollments = {}
 
     student_enrollments.each do |student_enrollment|
