@@ -43,6 +43,7 @@ class LessonBoardsFetcher
         INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id and cg.discarded_at IS NULL
         INNER JOIN lessons_board_lessons lbl
           ON lbl.lessons_board_id = lb.id
+          AND lbl.discarded_at IS NULL
         INNER JOIN lessons_board_lesson_weekdays lblw
           ON lblw.lessons_board_lesson_id = lbl.id
         INNER JOIN teacher_discipline_classrooms tdc ON tdc.classroom_id = cg.classroom_id
@@ -79,7 +80,7 @@ class LessonBoardsFetcher
       SELECT COUNT(lbl.id) AS total_aulas
       FROM lessons_boards lb
       INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id AND cg.discarded_at IS NULL
-      INNER JOIN lessons_board_lessons lbl ON lbl.lessons_board_id = lb.id
+      INNER JOIN lessons_board_lessons lbl ON lbl.lessons_board_id = lb.id AND lbl.discarded_at IS NULL
       INNER JOIN lessons_board_lesson_weekdays lblw ON lblw.lessons_board_lesson_id = lbl.id
       INNER JOIN teacher_discipline_classrooms tdc
         ON tdc.classroom_id = cg.classroom_id

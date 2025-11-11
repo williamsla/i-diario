@@ -25,13 +25,37 @@ namespace :aulas do
 
             total_aulas = LessonBoardsFetcher.new(nil).count_lessons(turma_id, disciplina_id, data)
 
-            if total_aulas > 0 && total_aulas <= 4
+            if total_aulas > 0 && total_aulas < 4
               dcr.update_column(:class_number, total_aulas)
               count += 1
             end
-        end
+      end
+      puts "Total de registros atualizados que antes estavam 0 ou NULL: #{count}"
+      
+      count =0
+      DisciplineContentRecord.joins(:content_record)
+        .where("class_number IS NULL OR class_number = 4")
+        .where("EXTRACT(YEAR FROM content_records.record_date) = ?", 2025)
+        .find_each do |dcr|
+            cr = dcr.content_record
+            
+            turma_id = cr.classroom_id
+            disciplina_id = dcr.discipline_id
+            data = cr.record_date
 
-      puts "Total de registros atualizados: #{count}"
+            next unless data.present?
+
+            total_aulas = LessonBoardsFetcher.new(nil).count_lessons(turma_id, disciplina_id, data)
+
+            if total_aulas < 4
+              dcr.update_column(:class_number, total_aulas)
+              count += 1
+            end
+      end
+
+      
+      
+      puts "Total de registros atualizados que antes estavam 4: #{count}"
     end
     
     puts "=== Fim da atualização ==="
