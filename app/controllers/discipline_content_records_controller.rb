@@ -93,6 +93,8 @@ class DisciplineContentRecordsController < ApplicationController
       if params[:modal] == 'true'
         render html: "<script>window.parent.postMessage({ action: 'closeContentModalAndReload' }, '*');</script>".html_safe, layout: false
       else
+        set_current_discipline_id(resource_params[:discipline_id])
+        
         respond_with @discipline_content_record, location: discipline_content_records_path
       end
     else
@@ -373,7 +375,6 @@ class DisciplineContentRecordsController < ApplicationController
     # return fetch_linked_by_teacher unless current_user.current_role_is_admin_or_employee?
 
     @classrooms ||= [current_user_classroom]
-    # @disciplines ||= [current_user_discipline]
     fetch_linked_by_teacher
     
   end

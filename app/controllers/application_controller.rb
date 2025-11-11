@@ -283,6 +283,12 @@ class ApplicationController < ActionController::Base
     score_types
   end
 
+  def set_current_discipline_id(discipline_id)
+    if discipline_id.present? && discipline_id != current_user.current_discipline_id
+      current_user.update!(current_discipline_id: discipline_id)
+    end
+  end
+
   def current_user_is_employee_or_administrator?
     current_user.assumed_teacher_id.blank? && current_user.current_role_is_admin_or_employee?
   end
