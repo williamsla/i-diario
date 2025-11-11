@@ -8,7 +8,7 @@ if ! test -f ".setup"; then
   echo -e "
   development:
     secret_key_base: `bundle exec rake secret`
-    redis_url: <%= ENV['REDIS_URL'] %>
+    REDIS_URL: redis://redis:6379/0
     shortcuts_enabled: true
     only_one_conceptual_avaliation: false
     " > config/secrets.yml

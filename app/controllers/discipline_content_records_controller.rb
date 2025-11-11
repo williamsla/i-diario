@@ -14,8 +14,9 @@ class DisciplineContentRecordsController < ApplicationController
     author_type = PlansAuthors::ALL.to_s if params[:filter].empty?
     author_type ||= (params[:filter] || []).delete(:by_author)
     
-    set_options_by_user
-
+    @classrooms ||= [current_user_classroom]
+    @disciplines ||= [current_user_discipline]
+    
     fetch_discipline_content_records_by_user
 
     if author_type.present?
@@ -63,15 +64,14 @@ class DisciplineContentRecordsController < ApplicationController
       qtd = LessonBoardsFetcher.new(current_user).count_lessons(
         current_user_classroom.id,
         @discipline_content_record.discipline_id,
-        @discipline_content_record.content_record.record_date)
+        @discipline_content_record.content_record.record_date
+      )
 
       @class_number_qtd = qtd || 0
     end
  
     @class_numbers = []
- 
-    @disciplines = Discipline.by_classroom_id(current_user_classroom.id).not_descriptor
-    
+     
     authorize @discipline_content_record
   end
 
@@ -373,12 +373,14 @@ class DisciplineContentRecordsController < ApplicationController
     # return fetch_linked_by_teacher unless current_user.current_role_is_admin_or_employee?
 
     @classrooms ||= [current_user_classroom]
-    @disciplines ||= [current_user_discipline]
+    # @disciplines ||= [current_user_discipline]
+    fetch_linked_by_teacher
+    
   end
 
   def fetch_linked_by_teacher
-    @fetch_linked_by_teacher ||= TeacherClassroomAndDisciplineFetcher.fetch!(current_teacher.id, current_unity, current_school_year)
-    @classrooms ||=  @fetch_linked_by_teacher[:classrooms]
+    @fetch_linked_by_teacher ||= TeacherClassroomAndDisciplineFetcher.fetch!(current_teacher.id, current_unity, current_school_year, current_user_classroom)
+    # @classrooms ||=  @fetch_linked_by_teacher[:classrooms]
     @disciplines ||= @fetch_linked_by_teacher[:disciplines]
   end
 

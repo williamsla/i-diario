@@ -20,7 +20,7 @@
           <div class="col col-sm-4">
             <%= f.association :discipline, as: :select2, elements: @disciplines, user: current_user,
                 record: f.object, classroom_id: @discipline_content_record.content_record.classroom_id,
-                readonly: ['show', 'edit', 'new', 'create'].include?(action_name)  %>
+                readonly: ['show', 'edit'].include?(action_name) %>
           </div>
         <% end %>
       </div>
