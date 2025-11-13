@@ -96,7 +96,6 @@ namespace :post_avaliations do
       return ieducar_api_exam_posting.id
     end
 
-
     def start(order)
       has_change = false
 
@@ -111,15 +110,15 @@ namespace :post_avaliations do
 
         # get schools
         if order == 'asc'
-          schools = Unity.to_select.ordered
+          schools = Unity.to_select
         else
-          schools = Unity.to_select_desc.ordered_desc
+          schools = Unity.to_select_desc
         end
         qtd_schools = schools.count
 
         schools.each_with_index do |school, index|
           puts "","[#{index+1}/#{qtd_schools}] #{school.id} - #{school.name}"
-          puts "","#{Time.current.strftime('%d/%m/%Y %H:%M:%S')}"
+          puts "#{Time.current.strftime('%d/%m/%Y %H:%M:%S')}"
 
           calendars = SchoolCalendar.by_unity_id(school.id).only_opened_years.ordered
           calendars.each do |calendar|
