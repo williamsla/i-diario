@@ -3,8 +3,6 @@ namespace :post_avaliations do
   desc "Posting changed avaliations"
   task init: :environment do
 
-    order = ENV['ORDER'] || 'asc'
-
     def get_last_post_date(connection, post_type, teacher_id, step_number)
       connection.select_value("SELECT max(iaep.created_at)
                                 FROM public.ieducar_api_exam_postings iaep
@@ -99,7 +97,7 @@ namespace :post_avaliations do
     end
 
 
-    def start()
+    def start(order)
       has_change = false
 
       entity = Entity.active.last
@@ -278,8 +276,9 @@ namespace :post_avaliations do
     loop do
       # cancel any ongoing synchronizations
       Rake::Task["ieducar_api:cancel"].invoke
+      order = ENV['ORDER'] || 'asc'
 
-      was_changed = start()
+      was_changed = start(order)
 
       if was_changed == false
         puts "\n\t não houve mudanças desde a última sincronização.\n\t Aguardando 10 minutos antes de fazer uma nova sincronização.\n"

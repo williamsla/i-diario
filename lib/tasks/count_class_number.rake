@@ -19,7 +19,7 @@ namespace :aulas do
 
             total = LessonBoardsFetcher.new(nil).count_lessons(turma_id, disciplina_id, data)
 
-            if total != old_value
+            if total > 0 && total != old_value
               dcr.update_column(:class_number, total)
               count += 1
             end
@@ -39,14 +39,14 @@ namespace :aulas do
       puts "Total de registros atualizados que antes estavam 0 ou NULL: #{count}"
       
       # temporary - updating specific values
-      count = update_class_by_qtd(1, 2025)
-      puts "Total de registros atualizados que antes estavam 1: #{count}"
-      count = update_class_by_qtd(2, 2025)
-      puts "Total de registros atualizados que antes estavam 2: #{count}"
-      count = update_class_by_qtd(3, 2025)
-      puts "Total de registros atualizados que antes estavam 3: #{count}"
-      count = update_class_by_qtd(4, 2025)
-      puts "Total de registros atualizados que antes estavam 4: #{count}"
+      # count = update_class_by_qtd(1, 2025)
+      # puts "Total de registros atualizados que antes estavam 1: #{count}"
+      # count = update_class_by_qtd(2, 2025)
+      # puts "Total de registros atualizados que antes estavam 2: #{count}"
+      # count = update_class_by_qtd(3, 2025)
+      # puts "Total de registros atualizados que antes estavam 3: #{count}"
+      # count = update_class_by_qtd(4, 2025)
+      # puts "Total de registros atualizados que antes estavam 4: #{count}"
     end
     
     puts "=== Fim da atualização ==="
