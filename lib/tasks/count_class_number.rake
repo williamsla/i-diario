@@ -37,6 +37,8 @@ namespace :aulas do
 
       count = update_class_by_qtd(0, 2025)
       puts "Total de registros atualizados que antes estavam 0 ou NULL: #{count}"
+      
+      # temporary - updating specific values
       count = update_class_by_qtd(1, 2025)
       puts "Total de registros atualizados que antes estavam 1: #{count}"
       count = update_class_by_qtd(2, 2025)
