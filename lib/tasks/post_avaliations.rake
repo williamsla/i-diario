@@ -274,7 +274,9 @@ namespace :post_avaliations do
     # init script
     loop do
       # cancel any ongoing synchronizations
+      Rake::Task["ieducar_api:cancel"].reenable
       Rake::Task["ieducar_api:cancel"].invoke
+      
       order = ENV['ORDER'] || 'asc'
 
       was_changed = start(order)
