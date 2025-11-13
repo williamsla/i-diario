@@ -36,6 +36,7 @@ class Unity < ActiveRecord::Base
 
   scope :by_id, ->(id) { where(id: id) }
   scope :ordered, -> { order(arel_table[:name].asc) }
+  scope :ordered_desc, -> { order(arel_table[:name].desc) }
   scope :by_api_codes, -> (codes) { where(arel_table[:api_code].in(codes)) }
   scope :with_api_code, -> { where(arel_table[:api_code].not_eq("")) }
   scope :by_teacher, -> (teacher_id) { joins(:teacher_discipline_classrooms).where(teacher_discipline_classrooms: { teacher_id: teacher_id }).distinct }
@@ -102,6 +103,16 @@ class Unity < ActiveRecord::Base
 
   def self.to_select
     ordered.map do |unity|
+      OpenStruct.new(
+        id: unity.id,
+        name: unity.name,
+        text: unity.name
+      )
+    end
+  end
+
+  def self.to_select_desc
+    ordered_desc.map do |unity|
       OpenStruct.new(
         id: unity.id,
         name: unity.name,

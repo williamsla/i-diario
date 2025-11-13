@@ -127,7 +127,11 @@ echo "===> COMPILANDO CSS"
 RAILS_ENV=production bundle exec rake assets:precompile
 
 echo "===> REINICIANDO O SERVIÇO rails E sidekiq"
-( ../scripts/restart-idiario.sh )
+if [ -f ../scripts/restart-idiario.sh ]; then
+  ../scripts/restart-idiario.sh
+else
+  ./script/restart.sh
+fi
 
 
 echo "===> PARANDO SERVIÇO de envio automático de avaliações"

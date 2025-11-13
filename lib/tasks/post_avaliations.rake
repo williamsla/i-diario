@@ -3,6 +3,8 @@ namespace :post_avaliations do
   desc "Posting changed avaliations"
   task init: :environment do
 
+    order = ENV['ORDER'] || 'asc'
+
     def get_last_post_date(connection, post_type, teacher_id, step_number)
       connection.select_value("SELECT max(iaep.created_at)
                                 FROM public.ieducar_api_exam_postings iaep
@@ -46,9 +48,9 @@ namespace :post_avaliations do
 
       loop do
         qtd_postings = counting_started_postings(connection)
-        if qtd_postings > 5
+        if qtd_postings > 10
           
-          puts "\t\t\t aguardando #{time_waiting_finish_postings} segundos para diminuir quantidade de envios"
+          puts "\t\t\t aguardando #{time_waiting_finish_postings} minutos para diminuir quantidade de envios"
           sleep(time_waiting_finish_postings)
           time_awaited += time_waiting_finish_postings
 
@@ -110,8 +112,16 @@ namespace :post_avaliations do
         count_posting_active = 0
 
         # get schools
-        Unity.to_select.each do |school|
-          puts "","#{school.id} - #{school.name}"
+        if order == 'asc'
+          schools = Unity.to_select.ordered
+        else
+          schools = Unity.to_select_desc.ordered_desc
+        end
+        qtd_schools = schools.count
+
+        schools.each_with_index do |school, index|
+          puts "","[#{index+1}/#{qtd_schools}] #{school.id} - #{school.name}"
+          puts "","#{Time.current.strftime('%d/%m/%Y %H:%M:%S')}"
 
           calendars = SchoolCalendar.by_unity_id(school.id).only_opened_years.ordered
           calendars.each do |calendar|
@@ -237,6 +247,13 @@ namespace :post_avaliations do
                             break 
                           elsif count == 10 # tempo equivalente a 5 minutos
                             do_break_teacher_loop = true # deve abandonar o loop do professor
+
+                            posting.add_error!(
+                              I18n.t('ieducar_api.error.messages.post_error'),
+                              'Processo parado pelo sistema pois demorou mais que o esperado.'
+                            )
+                            posting.finish!
+
                             break
                           end
                           
@@ -265,10 +282,10 @@ namespace :post_avaliations do
       was_changed = start()
 
       if was_changed == false
-        puts "\n\t não houve mudanças desde a última sincronização.\n\t Aguardando 1h antes de fazer uma nova sincronização.\n"
-        sleep(60.minutes)
-      else
+        puts "\n\t não houve mudanças desde a última sincronização.\n\t Aguardando 10 minutos antes de fazer uma nova sincronização.\n"
         sleep(10.minutes)
+      else
+        sleep(1.minutes)
       end
     end
   end
