@@ -1,6 +1,18 @@
 #!/bin/bash
 
+TZ="America/Sao_Paulo"
+export TZ
+
 set -euo pipefail
+
+is_dawn() {
+  hour=$(date +%H)
+  if [ "$hour" -lt 6 ]; then
+    return 0   # true in bash
+  else
+    return 1   # false in bash
+  fi
+}
 
 # Define a raiz do projeto
 ROOT_DIR="$(dirname "$0")/.."
@@ -43,22 +55,36 @@ echo "[INFO] Caminho do Ruby: $(which ruby)"
 
 
 # Executa backup antes de atualizar. Roda como um subshell para isolar alterações de diretorios feitas pelo backup no auto_update.
-( ./script/backup.sh )
-
+if is_dawn; then
+  ( ./script/backup.sh )
+fi
 
 echo "===> Iniciando sincronizações ..."
 bundle exec rake aulas:atualizar RAILS_ENV=production
 bundle exec rake send_notification:absences RAILS_ENV=production
 bundle exec rake refresh_pedagogical_tracking_views RAILS_ENV=production
 
-# Verifica se é domingo
-if [ "$(date +%u)" -eq 7 ]; then
-  # Domingo → full
-  RAILS_ENV=production bundle exec rake ieducar_api:synchronize[true,true]
+# Verifica se é madrugada ou dia para definir o tipo de sincronização
+if is_dawn; then
+  # Madrugada → full
+  
+  if [[ "${CIDADE_COD:-}" == *delmiro* ]]; then
+    echo "Sincronizando Delmiro..."
+    
+    sudo systemctl stop rails-server.service
+    RAILS_ENV=production bundle exec rake ieducar_api:synchronize[true,true]
+  
+    sleep 30m
+    sudo systemctl restart rails-server.service
+  
+  else
+    RAILS_ENV=production bundle exec rake ieducar_api:synchronize[true,true]
+  fi
 else
-  # Outros dias → simples
+  # Durante o dia → simples
   RAILS_ENV=production bundle exec rake ieducar_api:synchronize[false,true]
 fi
+
 
 echo "===> FAZENDO COPIA DE CONFIGURAÇÕES"
 cp ./config/secrets.yml ../
@@ -78,8 +104,11 @@ if echo "$GIT_OUTPUT" | grep -q "Already up to date\|Atualizado"; then
     echo "===> O envio automático de avaliações já está rodando (PIDs: $PIDS)"
   else
     echo "===> INICIANDO o envio automático de avaliações"
-    nohup bundle exec rake post_avaliations:init RAILS_ENV=production > log/auto_post.log 2>&1 &
+    nohup bundle exec rake post_avaliations:init ORDER=asc RAILS_ENV=production > log/auto_post.log 2>&1 &
     echo $! > tmp/auto_post.pid
+
+    nohup bundle exec rake post_avaliations:init ORDER=desc RAILS_ENV=production > log/auto_post_desc.log 2>&1 &
+    echo $! > tmp/auto_post_desc.pid
   fi 
 
   exit 0 #encerra script
@@ -155,8 +184,11 @@ else
 fi
 
 echo "===> INICIANDO SERVIÇO de envio automático de avaliações"
-nohup bundle exec rake post_avaliations:init RAILS_ENV=production > log/auto_post.log 2>&1 &
+nohup bundle exec rake post_avaliations:init ORDER=asc RAILS_ENV=production > log/auto_post.log 2>&1 &
 echo $! > tmp/auto_post.pid
+
+nohup bundle exec rake post_avaliations:init ORDER=desc RAILS_ENV=production > log/auto_post_desc.log 2>&1 &
+echo $! > tmp/auto_post_desc.pid
 
 
 # add to crontab to run this script daily
