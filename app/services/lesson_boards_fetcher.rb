@@ -37,29 +37,56 @@ class LessonBoardsFetcher
       # dia_semana = data.wday # numero do dia da semana
       dia_semana_nome = data.strftime("%A").downcase # nome do dia da semana
 
-      total_aulas = ActiveRecord::Base.connection.exec_query(<<-SQL).first&.dig("total_aulas") || 0
-        SELECT COUNT(lbl.id) AS total_aulas
-        FROM lessons_boards lb
-        INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id and cg.discarded_at IS NULL
-        INNER JOIN lessons_board_lessons lbl
-          ON lbl.lessons_board_id = lb.id
-          AND lbl.discarded_at IS NULL
-        INNER JOIN lessons_board_lesson_weekdays lblw
-          ON lblw.lessons_board_lesson_id = lbl.id
-        INNER JOIN teacher_discipline_classrooms tdc ON tdc.classroom_id = cg.classroom_id
-          AND tdc.id = lblw.teacher_discipline_classroom_id
-          AND tdc.discarded_at IS NULL
-        WHERE cg.classroom_id = #{turma_id}
-          AND lblw.weekday = '#{dia_semana_nome}'
-          AND tdc.discipline_id = #{disciplina_id}
-      SQL
+      total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_semana_nome, true, agrupar: false)
+      if total_aulas == 0
+        total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_semana_nome, false, agrupar: false)
+      end
     end
 
     total_aulas
   end
 
   private
-  
+
+  def count_lessons_from_boards(turma_id, disciplina_id, dia_semana_nome, ativo, agrupar: false)
+    # Define filtro de ativo/inativo
+    ativo_condicao = if ativo
+      <<~SQL
+        AND lb.discarded_at IS NULL
+      SQL
+    else
+      <<~SQL
+        AND lb.discarded_at IS NOT NULL
+      SQL
+    end
+
+    # Define agrupamento e ordenação, se for solicitado
+    group_and_order = <<~SQL if agrupar
+      GROUP BY lblw.weekday
+      ORDER BY COUNT(lbl.id) DESC
+      LIMIT 1
+    SQL
+
+    sql = <<-SQL
+      SELECT COUNT(lbl.id) AS total_aulas
+      FROM lessons_boards lb
+      INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id
+      INNER JOIN lessons_board_lessons lbl ON lbl.lessons_board_id = lb.id
+      INNER JOIN lessons_board_lesson_weekdays lblw ON lblw.lessons_board_lesson_id = lbl.id
+      INNER JOIN teacher_discipline_classrooms tdc ON tdc.classroom_id = cg.classroom_id
+        AND tdc.id = lblw.teacher_discipline_classroom_id
+        AND tdc.discarded_at IS NULL
+      WHERE cg.classroom_id = #{turma_id}
+        AND lblw.weekday = '#{dia_semana_nome}'
+        AND tdc.discipline_id = #{disciplina_id}
+        #{ativo_condicao}
+      #{group_and_order}
+    SQL
+
+    total_aulas = ActiveRecord::Base.connection.exec_query(sql).first&.dig("total_aulas") || 0
+    total_aulas
+  end
+
   def count_lessons_by_saturday(turma_id, disciplina_id, data)
     # Conta quantos sábados letivos já ocorreram até o sábado informado
     sabados_letivos_anteriores = SchoolCalendarEvent
@@ -71,44 +98,25 @@ class LessonBoardsFetcher
                                     .uniq
                                     .count
 
+    return 0 if sabados_letivos_anteriores.zero? # evita cálculo quando não há sábados letivos
 
     # Define qual dia da semana o sábado letivo "representa"
     dias_semana = %w[monday tuesday wednesday thursday friday]
     dia_equivalente = dias_semana[(sabados_letivos_anteriores - 1) % dias_semana.size]
 
-    total_aulas = ActiveRecord::Base.connection.exec_query(<<-SQL).first&.dig("total_aulas") || 0
-      SELECT COUNT(lbl.id) AS total_aulas
-      FROM lessons_boards lb
-      INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id AND cg.discarded_at IS NULL
-      INNER JOIN lessons_board_lessons lbl ON lbl.lessons_board_id = lb.id AND lbl.discarded_at IS NULL
-      INNER JOIN lessons_board_lesson_weekdays lblw ON lblw.lessons_board_lesson_id = lbl.id
-      INNER JOIN teacher_discipline_classrooms tdc
-        ON tdc.classroom_id = cg.classroom_id
-        AND tdc.id = lblw.teacher_discipline_classroom_id
-        AND tdc.discarded_at IS NULL
-      WHERE cg.classroom_id = #{turma_id}
-        AND lblw.weekday = '#{dia_equivalente}'
-        AND tdc.discipline_id = #{disciplina_id}
-    SQL
+    # Tenta quadros ativos
+    total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_equivalente, true, agrupar: false)
+    if total_aulas == 0
+      # Se não houver, tenta inativos
+      total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_equivalente, false, agrupar: false)
+    end
 
     if total_aulas == 0
       # Se não houver aulas no dia equivalente, usa o dia que tiver mais aulas da referida disciplina
-      total_aulas = ActiveRecord::Base.connection.exec_query(<<-SQL).first&.dig("total_aulas") || 0
-        SELECT COUNT(lbl.id) AS total_aulas
-        FROM lessons_boards lb
-        INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id AND cg.discarded_at IS NULL
-        INNER JOIN lessons_board_lessons lbl ON lbl.lessons_board_id = lb.id
-        INNER JOIN lessons_board_lesson_weekdays lblw ON lblw.lessons_board_lesson_id = lbl.id
-        INNER JOIN teacher_discipline_classrooms tdc
-          ON tdc.classroom_id = cg.classroom_id
-          AND tdc.id = lblw.teacher_discipline_classroom_id
-          AND tdc.discarded_at IS NULL
-        WHERE cg.classroom_id = #{turma_id}
-          AND tdc.discipline_id = #{disciplina_id}
-        GROUP BY lblw.weekday
-        ORDER BY COUNT(lbl.id) DESC
-        LIMIT 1
-      SQL
+      total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_equivalente, true, agrupar: true)
+      if total_aulas == 0
+        total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_equivalente, false, agrupar: true)
+      end
     end
     
     total_aulas
