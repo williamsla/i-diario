@@ -74,9 +74,43 @@ class PedagogicalTrackingsController < ApplicationController
     classroom_id = 0 if classroom_id.blank? || classroom_id == "undefined"
     
     connection = ActiveRecord::Base.connection
-    unity_name = connection.select_value("SELECT DISTINCT escola.name
+    result_school = connection.select_one("SELECT DISTINCT escola.name, 
+            CASE 
+                WHEN MIN(er.opinion_type)::int > 0 THEN true
+                ELSE false
+            END AS has_opinion 
         FROM public.unities escola
-        WHERE escola.id = #{unity_id}")
+        INNER JOIN public.classrooms c on c.unity_id = escola.id
+		    INNER JOIN public.classrooms_grades cg on cg.classroom_id = c.id
+        INNER JOIN public.exam_rules er ON er.id = cg.exam_rule_id
+        WHERE escola.id = #{unity_id}
+        AND (CASE WHEN #{classroom_id} > 0 THEN c.id = #{classroom_id} ELSE TRUE END)
+        GROUP BY escola.name")
+
+    unity_name = result_school['name']
+    has_opinion = result_school['has_opinion']
+    has_lesson_plan = get_domain_url.include?("belem") || get_domain_url.include?("japaratinga") || get_domain_url.include?("delmiro")
+    
+    if has_opinion
+      subquery_sem_parecer = "select count(distinct se.student_id) - count(distinct des.student_id)
+          from public.student_enrollment_classrooms sec
+          inner join public.student_enrollments se on se.id = sec.student_enrollment_id and se.active = 1 and se.discarded_at is null
+          left join public.descriptive_exams de on de.classroom_id = c.id
+          left join public.descriptive_exam_students des on des.descriptive_exam_id = de.id and des.discarded_at is null
+          where sec.classroom_code = c.api_code"
+    else
+      subquery_sem_parecer = "SELECT ''"
+    end
+
+    if has_lesson_plan
+      subquery_lesson_plan = "select count(lp.id) as qtd
+					from public.lesson_plans lp
+					left join public.discipline_lesson_plans dlp on dlp.lesson_plan_id = lp.id 	
+					left join public.knowledge_area_lesson_plans kalp on kalp.lesson_plan_id = lp.id 	
+					where lp.classroom_id = c.id and (case when dlp.id is not null then dlp.discipline_id = d.id else true end)"
+    else
+      subquery_lesson_plan = "SELECT ''"
+    end
     
     rows = connection.select_rows("SELECT distinct c.description as TURMA, upper(t.name) as PROFESSOR, d.description as DISCIPLINA,
 			(
@@ -108,11 +142,7 @@ class PedagogicalTrackingsController < ApplicationController
           and step.step_number = 4
 			) as FREQUENCIA_4,
 			(
-					select count(lp.id) as qtd
-					from public.lesson_plans lp
-					left join public.discipline_lesson_plans dlp on dlp.lesson_plan_id = lp.id 	
-					left join public.knowledge_area_lesson_plans kalp on kalp.lesson_plan_id = lp.id 	
-					where lp.classroom_id = c.id and (case when dlp.id is not null then dlp.discipline_id = d.id else true end)
+					#{subquery_lesson_plan}
 			) as PLANOS_DE_AULA,
 			(
           select coalesce(sum(dcr.class_number), count(cr.id)) as qtd
@@ -146,12 +176,7 @@ class PedagogicalTrackingsController < ApplicationController
           and step.step_number = 4
 			) AS AVALIACOES_4,
 			(
-          select count(distinct se.student_id) - count(distinct des.student_id)
-          from public.student_enrollment_classrooms sec
-          inner join public.student_enrollments se on se.id = sec.student_enrollment_id and se.active = 1 and se.discarded_at is null
-          left join public.descriptive_exams de on de.classroom_id = c.id
-          left join public.descriptive_exam_students des on des.descriptive_exam_id = de.id and des.discarded_at is null
-          where sec.classroom_code = c.api_code
+        #{subquery_sem_parecer}
 			) as ALUNOS_SEM_PARECER
 		FROM public.teachers t 
 		inner join public.teacher_discipline_classrooms tdc on tdc.teacher_id = t.id and tdc.discarded_at is null and tdc.active = true
@@ -212,15 +237,22 @@ class PedagogicalTrackingsController < ApplicationController
     worksheet.fit_to_pages(1, 0)       # Ajusta para caber em 1 página de largura, altura automática
 
     header_plano_aula = ''
-    if get_domain_url.include?("belem") || get_domain_url.include?("japaratinga")
+    if has_lesson_plan
       header_plano_aula = 'PLANOS DE AULA'
     end
+
+    header_aluno_sem_parecer = ''
+    if has_opinion
+      header_aluno_sem_parecer = 'ALUNOS SEM PARECER'
+    end
+    
 
     header = ['TURMA','PROFESSOR(A)','DISCIPLINA', 
               'FREQ 1ªUN','FREQ 2ªUN','FREQ 3ªUN','FREQ 4ªUN',
               header_plano_aula, 'CONTEÚDO (horas)',
               'AVA 1ªUN','AVA 2ªUN','AVA 3ªUN','AVA 4ªUN',
-              'ALUNOS SEM PARECER']
+               header_aluno_sem_parecer]
+
     
     worksheet.write(0, 0, header, format_header)
     worksheet.set_row(0, 30)
@@ -256,18 +288,15 @@ class PedagogicalTrackingsController < ApplicationController
         elsif index_col >= 3 && index_col <= 6 # FREQUENCIAS
           worksheet.set_column(index_col, index_col, 5, format_center)
         elsif index_col == 7 # plano de aula
-          if get_domain_url.include?("belem") || get_domain_url.include?("japaratinga") || get_domain_url.include?("delmiro")
-            worksheet.set_column(index_col, index_col, 11, format_center)
-          else
-            worksheet.set_column(index_col, index_col, 1, format_center)
-            text = ''
-          end          
+          largura = has_lesson_plan ? 11 : 1
+          worksheet.set_column(index_col, index_col, largura, format_center)          
         elsif index_col == 8 # conteúdo
           worksheet.set_column(index_col, index_col, 12, format_center)
         elsif index_col >= 9 && index_col <= 12 # AVALIACÕES
           worksheet.set_column(index_col, index_col, 5, format_center)
         elsif index_col == 13 # alunos sem parecer
-          worksheet.set_column(index_col, index_col, 11, format_center)
+          largura = has_opinion ? 11 : 1
+          worksheet.set_column(index_col, index_col, largura, format_center)
         else
           next
         end
