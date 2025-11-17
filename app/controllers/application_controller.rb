@@ -200,10 +200,63 @@ class ApplicationController < ActionController::Base
   end
   helper_method :current_classroom_grades
 
+  def classroom_grades
+    return [] if current_user_classroom.blank?
+    current_user_classroom.classrooms_grades
+  end
+
   def is_infantil
-    current_classroom_grades.description.match?(/creche|pré-escola|aee/i)
+    classroom_grades.each do |classroom_grade|
+      return true if classroom_grade.grade.description.match?(/creche|pre|pre-escola|pré|pré-escola|maternal|bercario|berçario|infantil|aee/i)
+    end
+    return false
   end
   helper_method :is_infantil
+
+  def has_opinion
+    classroom_grades.each do |classroom_grade|
+      exam_rule = classroom_grade.exam_rule
+
+      next if exam_rule.blank?
+
+      Rails.logger.debug "Exam rule opinion type: #{exam_rule.inspect}"
+      return true if exam_rule.opinion_type != OpinionTypes::DONT_USE
+
+      differentiated_exam_rule = exam_rule.differentiated_exam_rule
+
+      next if differentiated_exam_rule.blank? 
+      return true if differentiated_exam_rule.opinion_type != OpinionTypes::DONT_USE
+
+    end
+    return false
+  end
+  helper_method :has_opinion
+
+  def has_numeric_avaliation
+    classroom_grades.each do |classroom_grade|
+      exam_rule = classroom_grade.exam_rule
+
+      next if exam_rule.blank?
+
+      return true if [ScoreTypes::NUMERIC, ScoreTypes::NUMERIC_AND_CONCEPT].include?(exam_rule.score_type)
+    end
+
+    return false
+  end
+  helper_method :has_numeric_avaliation
+
+  def has_concept_avaliation
+    classroom_grades.each do |classroom_grade|
+      exam_rule = classroom_grade.exam_rule
+
+      next if exam_rule.blank?
+
+      return true if [ScoreTypes::CONCEPT, ScoreTypes::NUMERIC_AND_CONCEPT].include?(exam_rule.score_type)
+    end
+    
+    return false
+  end
+  helper_method :has_concept_avaliation
 
   # Deprecated: Remover no próximo ano. 
   # Essa verificação só é necessária em Canindé do São Francisco porque eles iniciaram o preenchimento por disicpline e area de conhecimento.

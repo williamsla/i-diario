@@ -100,10 +100,10 @@
       document.addEventListener('DOMContentLoaded', function() { 
 
         <% year = current_user.current_school_year || Time.current.year %>  
-        <% if year == 2025 %>  
+        <% if year >= 2025 %>  
          
               // Se for série educação infantil ou AEE
-              <% if current_classroom_grades && current_classroom_grades.description.match?(/creche|pré-escola|pré|pre|maternal|infantil|aee/i) %>
+              <% if is_infantil == true %>
                   
                   // Se começou como disciplina ou área de conhecimento                  
                   // TODO: essa condição interna (if) é útil somente no ano 2025 em canindé.
@@ -129,14 +129,25 @@
                     ];
                   <% end %>
 
-                  hrefs_to_hide.push('/avaliacoes',
-                    '/diario-de-avaliacoes',
-                    '/diario-de-recuperacoes-de-etapas',
-                    '/diario-de-recuperacoes-finais',
-                    '/diario-de-recuperacoes-de-avaliacoes',
-                    '/diario-de-recuperacoes-de-avaliacoes-da-menor-nota',
-                    '/relatorios/registro-de-avaliacoes'
-                  );
+                  <% if has_opinion == false %>
+                    hrefs_to_hide.push('/avaliacoes-descritivas');
+                  <% end %>
+
+                  <% if has_numeric_avaliation == false %>
+                    hrefs_to_hide.push('/avaliacoes',
+                                        '/diario-de-avaliacoes',
+                                        '/diario-de-recuperacoes-de-etapas',
+                                        '/diario-de-recuperacoes-finais',
+                                        '/diario-de-recuperacoes-de-avaliacoes',
+                                        '/diario-de-recuperacoes-de-avaliacoes-da-menor-nota',
+                                        '/relatorios/registro-de-avaliacoes',
+                                        '/relatorios/boletim-do-professor',
+                                        '/relatorios/registro-de-notas-parciais');
+                  <% end %>
+
+                  <% if has_concept_avaliation == false %>
+                    hrefs_to_hide.push('/diario-de-avaliacoes-conceituais');
+                  <% end %>
 
               <% else %>
 
@@ -149,6 +160,26 @@
                       '/planos-de-aula-por-areas-de-conhecimento',
                       '/registros-de-conteudos-por-areas-de-conhecimento'
                     ];
+                  <% end %>
+
+                  <% if has_opinion == false %>
+                    hrefs_to_hide.push('/avaliacoes-descritivas');
+                  <% end %>
+
+                  <% if has_numeric_avaliation == false %>
+                    hrefs_to_hide.push('/avaliacoes',
+                                        '/diario-de-avaliacoes',
+                                        '/diario-de-recuperacoes-de-etapas',
+                                        '/diario-de-recuperacoes-finais',
+                                        '/diario-de-recuperacoes-de-avaliacoes',
+                                        '/diario-de-recuperacoes-de-avaliacoes-da-menor-nota',
+                                        '/relatorios/registro-de-avaliacoes',
+                                        '/relatorios/boletim-do-professor',
+                                        '/relatorios/registro-de-notas-parciais');
+                  <% end %>
+
+                  <% if has_concept_avaliation == false %>
+                    hrefs_to_hide.push('/diario-de-avaliacoes-conceituais');
                   <% end %>
 
               <% end %>
