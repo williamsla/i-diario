@@ -219,7 +219,6 @@ class ApplicationController < ActionController::Base
 
       next if exam_rule.blank?
 
-      Rails.logger.debug "Exam rule opinion type: #{exam_rule.inspect}"
       return true if exam_rule.opinion_type != OpinionTypes::DONT_USE
 
       differentiated_exam_rule = exam_rule.differentiated_exam_rule
@@ -573,8 +572,8 @@ class ApplicationController < ActionController::Base
 
   def error_generic(expection)
     Rails.logger.error "#{expection.backtrace.join("\n")}"
-    binding.pry
-    set_honeybadger_error(expection)
+    # binding.pry
+    # set_honeybadger_error(expection)
     
     unless Rails.env.development?
       redirect_to :root
