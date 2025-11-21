@@ -201,6 +201,8 @@ Rails.application.routes.draw do
         get :recalculate
         get :resume_xlsx
         get :resume_modal
+        get :frequency_report
+        get :frequency_report_modal
       end
     end
 

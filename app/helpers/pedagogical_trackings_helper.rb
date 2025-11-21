@@ -4,14 +4,16 @@ module PedagogicalTrackingsHelper
       link_to(
         'Ver professores',
         '#',
-        class: 'btn btn-info open_classroom_detail_modal',
+        class: 'btn btn-outline-secondary open_classroom_detail_modal',
+        style: 'opacity: 0.7; font-weight: normal;',
         data: { classroom_id: classroom_id }
       )
     else
       link_to(
         'Ver turmas',
         link_params(record),
-        class: 'btn btn-info'
+        class: 'btn btn-outline-secondary',
+        style: 'opacity: 0.7; font-weight: normal;'
       )
     end
   end

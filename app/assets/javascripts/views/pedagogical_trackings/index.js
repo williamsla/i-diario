@@ -293,3 +293,44 @@ function closeResumeModal(event) {
   modal.style.display = "none";
   document.getElementById("resumeModalBody").innerHTML = "";
 }
+
+function openFrequencyReportModal(unityId, classroomId) {
+  const modal = document.getElementById("frequencyReportModal");
+  if (!modal) return;
+
+  // mostra modal
+  modal.style.display = "flex";
+
+  // mostra loading
+  document.getElementById("frequencyReportModalBody").innerHTML = "<p>Carregando...</p>";
+
+  // busca conteúdo via fetch
+  const url = `/pedagogical_trackings/frequency_report_modal?unity_id=${unityId}${classroomId && classroomId != 0 ? `&classroom_id=${classroomId}` : ''}`;
+  
+  fetch(url)
+    .then(response => {
+      if (!response.ok) {
+        return response.text().then(text => {
+          throw new Error(text || 'Erro ao carregar relatório');
+        });
+      }
+      return response.text();
+    })
+    .then(html => {
+      document.getElementById("frequencyReportModalBody").innerHTML = html;
+    })
+    .catch(err => {
+      console.error("Erro ao carregar modal:", err);
+      document.getElementById("frequencyReportModalBody").innerHTML =
+        `<p style='color:red;'>Erro ao carregar o relatório de Alunos Faltosos: ${err.message}</p>`;
+    });
+}
+
+function closeFrequencyReportModal(event) {
+  if (event) event.preventDefault();
+
+  const modal = document.getElementById("frequencyReportModal");
+  if (!modal) return;
+  modal.style.display = "none";
+  document.getElementById("frequencyReportModalBody").innerHTML = "";
+}

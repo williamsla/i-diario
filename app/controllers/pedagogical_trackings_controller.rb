@@ -344,6 +344,146 @@ class PedagogicalTrackingsController < ApplicationController
     end
   end
 
+  def frequency_report_modal
+    begin
+      unity_id = params[:unity_id]
+      classroom_id = params[:classroom_id].to_i
+      
+      return render plain: "Parâmetros inválidos", status: :bad_request if unity_id.blank?
+
+      # Data atual e últimos 15 dias
+      end_date = Date.current
+      start_date_15_days = 15.days.ago.to_date
+
+      # Buscar turmas da unidade
+      if classroom_id > 0
+        classrooms = Classroom.where(id: classroom_id, unity_id: unity_id, year: current_user_school_year)
+      else
+        classrooms = Classroom.where(unity_id: unity_id, year: current_user_school_year).ordered
+      end
+
+      return render plain: "Nenhuma turma encontrada", status: :not_found if classrooms.empty?
+
+      @classrooms_data = []
+
+      classrooms.each do |classroom|
+        # Data de início do ano letivo para esta turma
+        steps_fetcher = StepsFetcher.new(classroom)
+        school_calendar = steps_fetcher.school_calendar
+        year_start_date = if school_calendar&.steps&.any?
+                            school_calendar.first_day
+                          else
+                            Date.new(current_user_school_year, 1, 1)
+                          end
+
+        # Buscar alunos ativos da turma na data atual
+        student_enrollment_classrooms = StudentEnrollmentClassroom
+          .joins(student_enrollment: :student)
+          .includes(student_enrollment: :student)
+          .by_classroom(classroom.id)
+          .by_date(end_date)
+          .active
+          .order('student_enrollment_classrooms.sequence ASC, students.name ASC')
+
+        students_data = []
+
+        student_enrollment_classrooms.each do |enrollment_classroom|
+          student = enrollment_classroom.student_enrollment.student
+          next unless student.present?
+
+          # Faltas dos últimos 15 dias
+          frequencies_15_days = DailyFrequencyQuery.call(
+            classroom_id: classroom.id,
+            frequency_date: start_date_15_days..end_date,
+            all_students_frequencies: true
+          )
+
+          student_frequencies_15_days = frequencies_15_days.flat_map(&:students)
+                                                           .select { |dfs| dfs.student_id == student.id && dfs.active }
+          
+          # Contar faltas (quando present = false)
+          absences_15_days = student_frequencies_15_days.count { |dfs| !dfs.present }
+
+          # Pular alunos sem faltas nos últimos 15 dias
+          next if absences_15_days == 0
+
+          # Faltas acumuladas desde o início do ano
+          frequencies_year = DailyFrequencyQuery.call(
+            classroom_id: classroom.id,
+            frequency_date: year_start_date..end_date,
+            all_students_frequencies: true
+          )
+
+          student_frequencies_year = frequencies_year.flat_map(&:students)
+                                                   .select { |dfs| dfs.student_id == student.id && dfs.active }
+          
+          # Contar faltas acumuladas (quando present = false)
+          absences_year = student_frequencies_year.count { |dfs| !dfs.present }
+          
+          # Contar presenças acumuladas (quando present = true)
+          presences_year = student_frequencies_year.count { |dfs| dfs.present }
+          
+          # Calcular total de dias letivos no período
+          total_school_days = UnitySchoolDay.by_unity_id(classroom.unity_id)
+                                            .by_date_between(year_start_date, end_date)
+                                            .count
+          
+          # Calcular percentual de frequência no ano
+          # Usar total de registros (presenças + faltas) como base
+          total_records = presences_year + absences_year
+          frequency_percentage = if total_records > 0
+                                   (presences_year.to_f / total_records * 100).round(1)
+                                 elsif total_school_days > 0
+                                   # Se não há registros, usar dias letivos como base
+                                   (presences_year.to_f / total_school_days * 100).round(1)
+                                 else
+                                   0.0
+                                 end
+          
+          # Data da última presença
+          last_presence_date = student_frequencies_year.select { |dfs| dfs.present }
+                                                       .map { |dfs| dfs.frequency_date }
+                                                       .max
+          
+          # Classificação de risco baseada no percentual de frequência
+          risk_classification = if frequency_percentage >= 75
+                                  'Adequado'
+                                elsif frequency_percentage >= 50
+                                  'Atenção'
+                                else
+                                  'Crítico'
+                                end
+
+          students_data << {
+            student_id: student.id,
+            student_name: student.name,
+            sequence: enrollment_classroom.sequence || 0,
+            absences_15_days: absences_15_days,
+            absences_year: absences_year,
+            frequency_percentage: frequency_percentage,
+            last_presence_date: last_presence_date,
+            risk_classification: risk_classification
+          }
+        end
+
+        # Ordenar por sequência
+        students_data.sort_by! { |s| s[:sequence].to_i }
+
+        @classrooms_data << {
+          classroom_id: classroom.id,
+          classroom_name: classroom.description,
+          students: students_data
+        }
+      end
+
+      render partial: "pedagogical_trackings/frequency_report_table", layout: false
+    rescue => e
+      Rails.logger.error "Erro no frequency_report_modal: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n")
+      render plain: "Erro ao carregar relatório: #{e.message}", status: :internal_server_error
+    end
+  end
+
   def teachers
     unity_id = params[:unity_id]
     classroom_id = params[:classroom_id]
