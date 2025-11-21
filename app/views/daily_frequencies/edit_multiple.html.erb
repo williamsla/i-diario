@@ -188,21 +188,36 @@
         <%= f.submit t('.save'), class: 'btn new-save-style', data: { disable_with: 'Salvando...' } %>
       </div>
       
-      <% if !request.original_url.include?('belem') %>
-        <% if daily_frequency_ids.present? && is_infantil == false %>
+      <% if daily_frequency_ids.present? && !request.original_url.include?('belem') %>
             <div class="clearfix"></div>
             <div id="register-content-frame-modal" style="display: grid; gap: 8px; justify-content: flex-end; padding-top: 20px;">
-              <% @disciplines.each do |discipline| %>
-                <button type="button"
-                        class="btn btn-register-content btn-sm"
-                        data-toggle="modal"
-                        data-target="#contentModal"
-                        data-discipline-id="<%= discipline.id %>"
-                        data-class-number="<%= count_classes_of_the_day(discipline.id) %>"
-                        data-last-content="<%= get_discipline_content_record_id_by_date(discipline.id) %>"
-                >
-                  Lançar conteúdo de <%= discipline.description %>
-                </button>
+              <% if is_infantil == false %>
+                <% @disciplines.each do |discipline| %>
+                  <button type="button"
+                          class="btn btn-register-content btn-sm"
+                          data-toggle="modal"
+                          data-target="#contentModal"
+                          data-discipline-id="<%= discipline.id %>"
+                          data-class-number="<%= count_classes_of_the_day(discipline.id) %>"
+                          data-last-content="<%= get_discipline_content_record_id_by_date(discipline.id) %>"
+                          data-is-infantil="0"
+                  >
+                    Lançar conteúdo de <%= discipline.description %>
+                  </button>
+                <% end %>
+              <% else %>
+                  <% @knowledge_areas.each do |knowledge_area| %>
+                    <button type="button"
+                            class="btn btn-register-content btn-sm"
+                            data-toggle="modal"
+                            data-target="#contentModal"
+                            data-knowledge-area-id="<%= knowledge_area.id %>"
+                            data-last-content="<%= get_knowledge_area_content_record_id_by_date(knowledge_area.id) %>"
+                            data-is-infantil="1"
+                    >
+                      Lançar conteúdo de <%= knowledge_area.description %>
+                    </button>
+                  <% end %>
               <% end %>
 
               <!-- Modal -->
@@ -242,20 +257,33 @@
 
                 buttons.forEach(button => {
                   button.addEventListener('click', function () {
-                    const disciplineId = this.getAttribute('data-discipline-id');
-                    const classNumber = [this.getAttribute('data-class-number')];
+                    
                     const lastContent = this.getAttribute('data-last-content');
+                    const is_infantil = this.getAttribute('data-is-infantil') === '0' ? false : true;
                     
                     const classroomId = document.querySelector('[name="daily_frequency[classroom_id]"]')?.value ||
                                         document.querySelector('[name="filter[by_classroom_id]"]')?.value;
                     const recordedAt = document.querySelector('[name="daily_frequency[frequency_date]"]')?.value ||
                                       document.querySelector('[name="filter[by_date]"]')?.value ||
                                       new Date().toISOString().slice(0, 10);
-                                  
-                    const url = (lastContent >= 1) 
+                    
+                    let url;
+                    if (is_infantil === true) {
+                        const knowledgeAreaId = this.getAttribute('data-knowledge-area-id');
+                        url = (lastContent >= 1) 
+                                  ? `/registros-de-conteudos-por-areas-de-conhecimento/${lastContent}/editar?modal=true`
+                                  : `/registros-de-conteudos-por-areas-de-conhecimento/novo?classroom_id=${classroomId}&knowledge_area_id=${knowledgeAreaId}&recorded_at=${recordedAt}&modal=true`;
+                    } else {
+                        const classNumber = [this.getAttribute('data-class-number')];
+                        const disciplineId = this.getAttribute('data-discipline-id');
+                        url = (lastContent >= 1) 
                                   ? `/registros-de-conteudos-por-disciplina/${lastContent}/editar?modal=true`
                                   : `/registros-de-conteudos-por-disciplina/novo?classroom_id=${classroomId}&discipline_id=${disciplineId}&recorded_at=${recordedAt}&class_number=${classNumber}&modal=true`;
-                    iframe.src = url;
+                    }
+                    
+                    if (url) {
+                        iframe.src = url;
+                    }
                   });
                 });
               });
@@ -267,7 +295,6 @@
                 }
               });
           </script>
-        <% end %>
 
         <div id='bottom'></div>
         

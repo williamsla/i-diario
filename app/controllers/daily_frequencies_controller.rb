@@ -552,6 +552,8 @@ class DailyFrequenciesController < ApplicationController
     @daily_schedule_discipline ||= fetch_disciplines_by_day
     @disciplines = @disciplines.select { |d| @daily_schedule_discipline.include?(d.id) } if @daily_schedule_discipline.present?
 
+    @knowledge_areas = []
+    @knowledge_areas = [@disciplines.first&.knowledge_area] if @disciplines.first&.knowledge_area.present?
   end
 
   def fetch_disciplines_by_day
@@ -586,6 +588,23 @@ class DailyFrequenciesController < ApplicationController
                                       .by_date(date)
   end
 
+  def fetch_knowledge_areas_with_contents_by_day
+    date_str = params.dig(:daily_frequency, :frequency_date)
+    return [] unless date_str
+
+    if date_str.include?('/')
+      date = Date.strptime(date_str, "%d/%m/%Y")
+    else
+      date = Date.strptime(date_str, "%Y-%m-%d")
+    end
+    
+    knowledge_areas_with_content = KnowledgeAreaContentRecord.by_classroom_id(current_user_classroom.id)
+                                      .by_date(date)
+                                      .includes(:knowledge_areas)
+
+    knowledge_areas_with_content
+  end
+
   def count_classes_of_the_day(discipline_id)
     return 0 unless @daily_schedule_discipline
     
@@ -600,5 +619,14 @@ class DailyFrequenciesController < ApplicationController
     result.count >= 1 ? result.first : 0 
   end
   helper_method :get_discipline_content_record_id_by_date
+
+  def get_knowledge_area_content_record_id_by_date(knowledge_area_id)
+    @knowledge_areas_with_contents ||= fetch_knowledge_areas_with_contents_by_day
+    Rails.logger.info("Knowledge areas with contents: #{@knowledge_areas_with_contents.inspect}")
+    result = @knowledge_areas_with_contents.select { |c| c.knowledge_areas.map(&:id).include?(knowledge_area_id.to_i) }.map(&:id)
+
+    result.count >= 1 ? result.first : 0 
+  end
+  helper_method :get_knowledge_area_content_record_id_by_date
 
 end

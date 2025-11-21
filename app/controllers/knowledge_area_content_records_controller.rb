@@ -34,14 +34,29 @@ class KnowledgeAreaContentRecordsController < ApplicationController
   end
 
   def new
+    set_options_by_user
+
     @knowledge_area_content_record = KnowledgeAreaContentRecord.new.localized
+
+    # verifica se o usuário passou o parametro da área de conhecimento na URL. Normalmente usado em modal
+    if params[:knowledge_area_id].present?
+      @knowledge_area_content_record.knowledge_area_ids = [params[:knowledge_area_id]]
+    end
+
+    @knowledge_area_content_record.content_record ||= ContentRecord.new
+
+    if params[:recorded_at].present?
+      record_date = Date.parse(params[:recorded_at])
+    else
+      record_date = Time.zone.now
+    end
+
     @knowledge_area_content_record.build_content_record(
-      record_date: Time.zone.now,
+      record_date: record_date,
       unity_id: current_unity.id,
       classroom_id: current_user_classroom.id
     )
 
-    set_options_by_user
     set_knowledge_area_by_classroom(current_user_classroom.id)
     authorize @knowledge_area_content_record
   end
@@ -60,7 +75,11 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     authorize @knowledge_area_content_record
 
     if @knowledge_area_content_record.save
-      respond_with @knowledge_area_content_record, location: knowledge_area_content_records_path
+      if params[:modal] == 'true'
+        render html: "<script type='text/javascript'>window.parent.postMessage({ action: 'closeContentModalAndReload' }, '*');</script>".html_safe, layout: false
+      else
+        respond_with @knowledge_area_content_record, location: knowledge_area_content_records_path
+      end
     else
       set_options_by_user
       set_knowledge_area_by_classroom(@knowledge_area_content_record.classroom_id)
@@ -89,7 +108,11 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     authorize @knowledge_area_content_record
 
     if @knowledge_area_content_record.save
-      respond_with @knowledge_area_content_record, location: knowledge_area_content_records_path
+      if params[:modal] == 'true'
+        render html: "<script type='text/javascript'>window.parent.postMessage({ action: 'closeContentModalAndReload' }, '*');</script>".html_safe, layout: false
+      else
+        respond_with @knowledge_area_content_record, location: knowledge_area_content_records_path
+      end
     else
       set_options_by_user
       set_knowledge_area_by_classroom(@knowledge_area_content_record.classroom_id)
