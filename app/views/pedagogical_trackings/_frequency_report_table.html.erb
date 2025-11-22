@@ -58,9 +58,92 @@
       font-size: 10px;
     }
   }
+  
+  .risk-filter {
+    background-color: #f8f9fa;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+  }
+  
+  .risk-filter label {
+    margin-right: 20px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .risk-filter input[type="checkbox"] {
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+  }
+  
+  .risk-filter-title {
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #495057;
+  }
 </style>
 
 <div class="frequency-report-table">
+  <!-- Filtro de Classificação de Risco -->
+  <div class="risk-filter">
+    <div class="risk-filter-title">Filtrar por Classificação de Risco:</div>
+    <form id="riskClassificationFilter">
+      <label>
+        <input type="checkbox" name="risk_classifications[]" value="Adequado" <%= 'checked' if @selected_classifications.include?('Adequado') %>>
+        <span style="background-color: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600;">Adequado</span>
+      </label>
+      <label>
+        <input type="checkbox" name="risk_classifications[]" value="Atenção" <%= 'checked' if @selected_classifications.include?('Atenção') %>>
+        <span style="background-color: #ffc107; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600;">Atenção</span>
+      </label>
+      <label>
+        <input type="checkbox" name="risk_classifications[]" value="Crítico" <%= 'checked' if @selected_classifications.include?('Crítico') %>>
+        <span style="background-color: #dc3545; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600;">Crítico</span>
+      </label>
+    </form>
+  </div>
+
+  <script>
+    (function() {
+      const form = document.getElementById("riskClassificationFilter");
+      if (!form) return;
+
+      // Salvar estado inicial dos checkboxes
+      form.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.dataset.previousState = cb.checked;
+        
+        // Adicionar listener para salvar estado antes de mudar
+        cb.addEventListener('click', function(e) {
+          // Salvar estado atual ANTES da mudança
+          const currentChecked = this.checked;
+          setTimeout(() => {
+            // Se após a mudança nenhum checkbox estiver selecionado, reverter
+            const checkedCount = form.querySelectorAll('input[type="checkbox"]:checked').length;
+            if (checkedCount === 0) {
+              this.checked = !currentChecked; // Reverter
+              alert('Selecione pelo menos uma classificação de risco.');
+              return;
+            }
+            
+            // Salvar novo estado como anterior
+            form.querySelectorAll('input[type="checkbox"]').forEach(c => {
+              c.dataset.previousState = c.checked;
+            });
+            
+            // Aplicar filtro
+            applyRiskFilter();
+          }, 0);
+        });
+      });
+    })();
+  </script>
+
   <% if @classrooms_data.empty? %>
     <p style="text-align: center; padding: 20px;">Nenhuma turma encontrada</p>
   <% else %>

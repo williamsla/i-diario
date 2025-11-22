@@ -351,6 +351,11 @@ class PedagogicalTrackingsController < ApplicationController
       
       return render plain: "Parâmetros inválidos", status: :bad_request if unity_id.blank?
 
+      # Filtro de classificação de risco (por padrão: Atenção e Crítico)
+      selected_classifications = params[:risk_classifications] || ['Atenção', 'Crítico']
+      selected_classifications = [selected_classifications] unless selected_classifications.is_a?(Array)
+      @selected_classifications = selected_classifications
+
       # Data atual e últimos 15 dias
       end_date = Date.current
       start_date_15_days = 15.days.ago.to_date
@@ -492,10 +497,13 @@ class PedagogicalTrackingsController < ApplicationController
         # Ordenar por sequência
         students_data.sort_by! { |s| s[:sequence].to_i }
 
+        # Filtrar alunos por classificação de risco selecionada
+        filtered_students = students_data.select { |s| @selected_classifications.include?(s[:risk_classification]) }
+
         @classrooms_data << {
           classroom_id: classroom.id,
           classroom_name: classroom.description,
-          students: students_data
+          students: filtered_students
         }
       end
 

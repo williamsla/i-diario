@@ -294,9 +294,19 @@ function closeResumeModal(event) {
   document.getElementById("resumeModalBody").innerHTML = "";
 }
 
+// Variáveis globais para armazenar os parâmetros do modal
+let currentFrequencyModalParams = {
+  unityId: null,
+  classroomId: null
+};
+
 function openFrequencyReportModal(unityId, classroomId) {
   const modal = document.getElementById("frequencyReportModal");
   if (!modal) return;
+
+  // Armazenar parâmetros para uso no filtro
+  currentFrequencyModalParams.unityId = unityId;
+  currentFrequencyModalParams.classroomId = classroomId;
 
   // mostra modal
   modal.style.display = "flex";
@@ -304,8 +314,15 @@ function openFrequencyReportModal(unityId, classroomId) {
   // mostra loading
   document.getElementById("frequencyReportModalBody").innerHTML = "<p>Carregando...</p>";
 
-  // busca conteúdo via fetch
-  const url = `/pedagogical_trackings/frequency_report_modal?unity_id=${unityId}${classroomId && classroomId != 0 ? `&classroom_id=${classroomId}` : ''}`;
+  // busca conteúdo via fetch (por padrão: Atenção e Crítico)
+  const defaultClassifications = ['Atenção', 'Crítico'];
+  const params = new URLSearchParams({
+    unity_id: unityId,
+    ...(classroomId && classroomId != 0 ? { classroom_id: classroomId } : {})
+  });
+  defaultClassifications.forEach(c => params.append('risk_classifications[]', c));
+  
+  const url = `/pedagogical_trackings/frequency_report_modal?${params.toString()}`;
   
   fetch(url)
     .then(response => {
@@ -323,6 +340,63 @@ function openFrequencyReportModal(unityId, classroomId) {
       console.error("Erro ao carregar modal:", err);
       document.getElementById("frequencyReportModalBody").innerHTML =
         `<p style='color:red;'>Erro ao carregar o relatório de Alunos Faltosos: ${err.message}</p>`;
+    });
+}
+
+function applyRiskFilter() {
+  const modal = document.getElementById("frequencyReportModal");
+  if (!modal || modal.style.display === 'none') return;
+
+  const modalBody = document.getElementById("frequencyReportModalBody");
+  const form = document.getElementById("riskClassificationFilter");
+  if (!form) return;
+
+  // Obter valores dos checkboxes selecionados
+  const selectedClassifications = Array.from(form.querySelectorAll('input[type="checkbox"]:checked'))
+    .map(cb => cb.value);
+
+  // Se nenhum checkbox estiver selecionado, não fazer nada (já tratado no evento click)
+  if (selectedClassifications.length === 0) {
+    return;
+  }
+
+  // Mostrar loading
+  modalBody.innerHTML = "<p>Carregando...</p>";
+
+  // Usar parâmetros armazenados
+  const unityId = currentFrequencyModalParams.unityId;
+  const classroomId = currentFrequencyModalParams.classroomId;
+
+  if (!unityId) {
+    console.error('Unity ID não encontrado');
+    return;
+  }
+
+  // Construir URL com filtros
+  const params = new URLSearchParams({
+    unity_id: unityId,
+    ...(classroomId && classroomId != 0 ? { classroom_id: classroomId } : {})
+  });
+  selectedClassifications.forEach(c => params.append('risk_classifications[]', c));
+
+  const url = `/pedagogical_trackings/frequency_report_modal?${params.toString()}`;
+
+  fetch(url)
+    .then(response => {
+      if (!response.ok) {
+        return response.text().then(text => {
+          throw new Error(text || 'Erro ao carregar relatório');
+        });
+      }
+      return response.text();
+    })
+    .then(html => {
+      modalBody.innerHTML = html;
+    })
+    .catch(err => {
+      console.error("Erro ao aplicar filtro:", err);
+      modalBody.innerHTML =
+        `<p style='color:red;'>Erro ao aplicar filtro: ${err.message}</p>`;
     });
 }
 
