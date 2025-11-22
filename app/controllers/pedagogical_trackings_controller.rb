@@ -385,48 +385,65 @@ class PedagogicalTrackingsController < ApplicationController
           .active
           .order('student_enrollment_classrooms.sequence ASC, students.name ASC')
 
+        # OTIMIZAÇÃO: Usar consultas SQL agregadas para calcular faltas diretamente no banco
+        # Buscar faltas dos últimos 15 dias agrupadas por aluno
+        absences_15_days_by_student = DailyFrequencyStudent
+          .joins(:daily_frequency)
+          .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: start_date_15_days..end_date })
+          .where(active: true)
+          .where("COALESCE(daily_frequency_students.present, 'f') = 'f'")
+          .group(:student_id)
+          .count
+
+        # Buscar faltas do ano inteiro agrupadas por aluno
+        absences_year_by_student = DailyFrequencyStudent
+          .joins(:daily_frequency)
+          .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: year_start_date..end_date })
+          .where(active: true)
+          .where("COALESCE(daily_frequency_students.present, 'f') = 'f'")
+          .group(:student_id)
+          .count
+
+        # Buscar presenças do ano inteiro agrupadas por aluno
+        presences_year_by_student = DailyFrequencyStudent
+          .joins(:daily_frequency)
+          .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: year_start_date..end_date })
+          .where(active: true)
+          .where("daily_frequency_students.present = 't'")
+          .group(:student_id)
+          .count
+
+        # Buscar última data de presença por aluno
+        last_presence_by_student = DailyFrequencyStudent
+          .joins(:daily_frequency)
+          .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: year_start_date..end_date })
+          .where(active: true)
+          .where("daily_frequency_students.present = 't'")
+          .group(:student_id)
+          .maximum('daily_frequencies.frequency_date')
+
+        # Calcular total de dias letivos no período (uma única vez por turma)
+        total_school_days = UnitySchoolDay.by_unity_id(classroom.unity_id)
+                                          .by_date_between(year_start_date, end_date)
+                                          .count
+
         students_data = []
 
         student_enrollment_classrooms.each do |enrollment_classroom|
           student = enrollment_classroom.student_enrollment.student
           next unless student.present?
 
-          # Faltas dos últimos 15 dias
-          frequencies_15_days = DailyFrequencyQuery.call(
-            classroom_id: classroom.id,
-            frequency_date: start_date_15_days..end_date,
-            all_students_frequencies: true
-          )
+          student_id = student.id
 
-          student_frequencies_15_days = frequencies_15_days.flat_map(&:students)
-                                                           .select { |dfs| dfs.student_id == student.id && dfs.active }
-          
-          # Contar faltas (quando present = false)
-          absences_15_days = student_frequencies_15_days.count { |dfs| !dfs.present }
+          # Buscar faltas dos últimos 15 dias (já calculadas no banco)
+          absences_15_days = absences_15_days_by_student[student_id] || 0
 
           # Pular alunos sem faltas nos últimos 15 dias
           next if absences_15_days == 0
 
-          # Faltas acumuladas desde o início do ano
-          frequencies_year = DailyFrequencyQuery.call(
-            classroom_id: classroom.id,
-            frequency_date: year_start_date..end_date,
-            all_students_frequencies: true
-          )
-
-          student_frequencies_year = frequencies_year.flat_map(&:students)
-                                                   .select { |dfs| dfs.student_id == student.id && dfs.active }
-          
-          # Contar faltas acumuladas (quando present = false)
-          absences_year = student_frequencies_year.count { |dfs| !dfs.present }
-          
-          # Contar presenças acumuladas (quando present = true)
-          presences_year = student_frequencies_year.count { |dfs| dfs.present }
-          
-          # Calcular total de dias letivos no período
-          total_school_days = UnitySchoolDay.by_unity_id(classroom.unity_id)
-                                            .by_date_between(year_start_date, end_date)
-                                            .count
+          # Buscar faltas e presenças do ano (já calculadas no banco)
+          absences_year = absences_year_by_student[student_id] || 0
+          presences_year = presences_year_by_student[student_id] || 0
           
           # Calcular percentual de frequência no ano
           # Usar total de registros (presenças + faltas) como base
@@ -440,13 +457,16 @@ class PedagogicalTrackingsController < ApplicationController
                                    0.0
                                  end
           
-          # Data da última presença
-          last_presence_date = student_frequencies_year.select { |dfs| dfs.present }
-                                                       .map { |dfs| dfs.frequency_date }
-                                                       .max
+          # Data da última presença (já calculada no banco)
+          last_presence_date = last_presence_by_student[student_id]
           
           # Classificação de risco baseada no percentual de frequência
-          risk_classification = if frequency_percentage >= 75
+          # Considerando que o mínimo é 75%, alunos entre 75% e 80% estão no limite e precisam de atenção
+          # >= 80%: Adequado (margem de segurança acima do mínimo)
+          # >= 75% e < 80%: Atenção (no limite mínimo, precisa de monitoramento)
+          # >= 50% e < 75%: Atenção (abaixo do mínimo, mas não crítico)
+          # < 50%: Crítico
+          risk_classification = if frequency_percentage >= 80
                                   'Adequado'
                                 elsif frequency_percentage >= 50
                                   'Atenção'
