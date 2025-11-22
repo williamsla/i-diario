@@ -65,79 +65,75 @@
     <p style="text-align: center; padding: 20px;">Nenhuma turma encontrada</p>
   <% else %>
     <% @classrooms_data.each do |classroom_data| %>
+      <% next if classroom_data[:students].empty? %>
+      
       <h3 style="margin-bottom: 15px; margin-top: 20px; color: #1D72B8;">
         Turma: <%= classroom_data[:classroom_name] %>
       </h3>
       
       <table>
-        <% unless classroom_data[:students].empty? %>
-          <thead>
-            <tr>
-              <th style="text-align: left;">Sequencial</th>
-              <th style="text-align: left;">Nome<br>do aluno</th>
-              <th style="text-align: center;">Faltas<br>(últimos 15 dias)</th>
-              <th style="text-align: center;">Faltas Acumuladas<br>no Ano</th>
-              <th style="text-align: center;">Percentual de<br>Frequência no Ano (%)</th>
-              <th style="text-align: center;">Última<br>Presença</th>
-              <th style="text-align: center;">Classificação<br>de Risco</th>
-            </tr>
-          </thead>
-        <% end %>
+        <thead>
+          <tr>
+            <th style="text-align: left;">Sequencial</th>
+            <th style="text-align: left;">Nome<br>do aluno</th>
+            <th style="text-align: center;">Faltas<br>(últimos 15 dias)</th>
+            <th style="text-align: center;">Faltas Acumuladas<br>no Ano</th>
+            <th style="text-align: center;">Percentual de<br>Frequência no Ano (%)</th>
+            <th style="text-align: center;">Última<br>Presença</th>
+            <th style="text-align: center;">Classificação<br>de Risco</th>
+          </tr>
+        </thead>
         <tbody>
-          <% if classroom_data[:students].empty? %>
+          <% classroom_data[:students].each_with_index do |student, index| %>
             <tr>
-              <td colspan="7" style="text-align: center;">
-                Nenhum aluno faltoso encontrado
+              <td><%= index + 1 %></td>
+              <td><%= student[:student_name] %></td>
+              <td style="text-align: center;">
+                <%= student[:absences_15_days] %>
+              </td>
+              <td style="text-align: center;">
+                <%= student[:absences_year] %>
+              </td>
+              <td style="text-align: center;">
+                <% 
+                  percentage_value = student[:frequency_percentage] || 0
+                  # Se o valor for menor que 1, significa que está em formato decimal (0.52 = 52%)
+                  # Multiplicar por 100 para exibir corretamente
+                  if percentage_value < 1 && percentage_value > 0
+                    percentage_value = percentage_value * 100
+                  end
+                  formatted_value = number_with_precision(percentage_value, precision: 1)
+                %>
+                <%= formatted_value %>%
+              </td>
+              <td style="text-align: center;">
+                <%= student[:last_presence_date] ? student[:last_presence_date].strftime('%d/%m/%Y') : '-' %>
+              </td>
+              <td style="text-align: center;">
+                <% 
+                  risk_color = case student[:risk_classification]
+                                when 'Adequado'
+                                  '#28a745' # Verde
+                                when 'Atenção'
+                                  '#ffc107' # Amarelo
+                                when 'Crítico'
+                                  '#dc3545' # Vermelho
+                                else
+                                  '#6c757d' # Cinza
+                                end
+                %>
+                <span style="background-color: <%= risk_color %>; color: white; padding: 4px 8px; border-radius: 4px; font-weight: 600; display: inline-block; white-space: nowrap;">
+                  <%= student[:risk_classification] %>
+                </span>
               </td>
             </tr>
-          <% else %>
-            <% classroom_data[:students].each_with_index do |student, index| %>
-              <tr>
-                <td><%= index + 1 %></td>
-                <td><%= student[:student_name] %></td>
-                <td style="text-align: center;">
-                  <%= student[:absences_15_days] %>
-                </td>
-                <td style="text-align: center;">
-                  <%= student[:absences_year] %>
-                </td>
-                <td style="text-align: center;">
-                  <% 
-                    percentage_value = student[:frequency_percentage] || 0
-                    # Se o valor for menor que 1, significa que está em formato decimal (0.52 = 52%)
-                    # Multiplicar por 100 para exibir corretamente
-                    if percentage_value < 1 && percentage_value > 0
-                      percentage_value = percentage_value * 100
-                    end
-                    formatted_value = number_with_precision(percentage_value, precision: 1)
-                  %>
-                  <%= formatted_value %>%
-                </td>
-                <td style="text-align: center;">
-                  <%= student[:last_presence_date] ? student[:last_presence_date].strftime('%d/%m/%Y') : '-' %>
-                </td>
-                <td style="text-align: center;">
-                  <% 
-                    risk_color = case student[:risk_classification]
-                                  when 'Adequado'
-                                    '#28a745' # Verde
-                                  when 'Atenção'
-                                    '#ffc107' # Amarelo
-                                  when 'Crítico'
-                                    '#dc3545' # Vermelho
-                                  else
-                                    '#6c757d' # Cinza
-                                  end
-                  %>
-                  <span style="background-color: <%= risk_color %>; color: white; padding: 4px 8px; border-radius: 4px; font-weight: 600; display: inline-block; white-space: nowrap;">
-                    <%= student[:risk_classification] %>
-                  </span>
-                </td>
-              </tr>
-            <% end %>
           <% end %>
         </tbody>
       </table>
+    <% end %>
+    
+    <% if @classrooms_data.all? { |c| c[:students].empty? } %>
+      <p style="text-align: center; padding: 20px;">Nenhum aluno faltoso encontrado</p>
     <% end %>
   <% end %>
 </div>

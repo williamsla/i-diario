@@ -386,34 +386,37 @@ class PedagogicalTrackingsController < ApplicationController
           .order('student_enrollment_classrooms.sequence ASC, students.name ASC')
 
         # OTIMIZAÇÃO: Usar consultas SQL agregadas para calcular faltas diretamente no banco
-        # Buscar faltas dos últimos 15 dias agrupadas por aluno
+        # IMPORTANTE: Contar apenas uma falta por dia (mesmo que o aluno tenha faltado em múltiplas disciplinas)
+        # Usar COUNT(DISTINCT frequency_date) para contar dias únicos de falta
+        
+        # Buscar faltas dos últimos 15 dias agrupadas por aluno (contando dias únicos)
         absences_15_days_by_student = DailyFrequencyStudent
           .joins(:daily_frequency)
           .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: start_date_15_days..end_date })
           .where(active: true)
           .where("COALESCE(daily_frequency_students.present, 'f') = 'f'")
           .group(:student_id)
-          .count
+          .count("DISTINCT daily_frequencies.frequency_date")
 
-        # Buscar faltas do ano inteiro agrupadas por aluno
+        # Buscar faltas do ano inteiro agrupadas por aluno (contando dias únicos)
         absences_year_by_student = DailyFrequencyStudent
           .joins(:daily_frequency)
           .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: year_start_date..end_date })
           .where(active: true)
           .where("COALESCE(daily_frequency_students.present, 'f') = 'f'")
           .group(:student_id)
-          .count
+          .count("DISTINCT daily_frequencies.frequency_date")
 
-        # Buscar presenças do ano inteiro agrupadas por aluno
+        # Buscar presenças do ano inteiro agrupadas por aluno (contando dias únicos)
         presences_year_by_student = DailyFrequencyStudent
           .joins(:daily_frequency)
           .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: year_start_date..end_date })
           .where(active: true)
           .where("daily_frequency_students.present = 't'")
           .group(:student_id)
-          .count
+          .count("DISTINCT daily_frequencies.frequency_date")
 
-        # Buscar última data de presença por aluno
+        # Buscar última data de presença por aluno (do ano inteiro)
         last_presence_by_student = DailyFrequencyStudent
           .joins(:daily_frequency)
           .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: year_start_date..end_date })
@@ -435,11 +438,11 @@ class PedagogicalTrackingsController < ApplicationController
 
           student_id = student.id
 
-          # Buscar faltas dos últimos 15 dias (já calculadas no banco)
+          # Buscar faltas dos últimos 15 dias (já calculadas no banco, contando apenas dias únicos)
           absences_15_days = absences_15_days_by_student[student_id] || 0
 
-          # Pular alunos sem faltas nos últimos 15 dias
-          next if absences_15_days == 0
+          # Filtrar alunos: apenas os que tiveram pelo menos 3 faltas nos últimos 15 dias
+          next unless absences_15_days >= 3
 
           # Buscar faltas e presenças do ano (já calculadas no banco)
           absences_year = absences_year_by_student[student_id] || 0
