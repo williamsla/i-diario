@@ -323,9 +323,11 @@ function openFrequencyReportModal(unityId, classroomId) {
   const defaultClassifications = ['Abaixo do Mínimo', 'Crítico'];
   const params = new URLSearchParams({
     unity_id: unityId,
-    main_filter: 'absences_only',
-    ...(classroomId && classroomId != 0 ? { classroom_id: classroomId } : {})
+    main_filter: 'absences_only'
   });
+  if (classroomId && classroomId != 0) {
+    params.append('classroom_id', classroomId);
+  }
   defaultClassifications.forEach(c => params.append('risk_classifications[]', c));
   
   const url = `/pedagogical_trackings/frequency_report_modal?${params.toString()}`;
@@ -427,17 +429,21 @@ function attachFilterListeners() {
         // Se não encontrar checkboxes marcados, calcular baseado no estado atual
         if (selectedClassifications.length === 0) {
           // Usar valores globais e atualizar com base no checkbox que foi clicado
-          selectedClassifications = [...(currentFrequencyModalParams.selectedClassifications || ['Abaixo do Mínimo', 'Crítico'])];
+          var globalClassifications = currentFrequencyModalParams.selectedClassifications || ['Abaixo do Mínimo', 'Crítico'];
+          selectedClassifications = globalClassifications.slice(); // Criar cópia do array
           
           // Atualizar baseado no checkbox que foi clicado
           if (isNowChecked) {
             // Adicionar se não estiver na lista
-            if (!selectedClassifications.includes(checkboxValue)) {
+            if (selectedClassifications.indexOf(checkboxValue) === -1) {
               selectedClassifications.push(checkboxValue);
             }
           } else {
             // Remover se estiver na lista
-            selectedClassifications = selectedClassifications.filter(v => v !== checkboxValue);
+            var index = selectedClassifications.indexOf(checkboxValue);
+            if (index !== -1) {
+              selectedClassifications.splice(index, 1);
+            }
           }
         }
         
@@ -518,9 +524,11 @@ function applyRiskFilterWithValues(mainFilter, selectedClassifications) {
   // Construir URL com filtros
   const params = new URLSearchParams({
     unity_id: unityId,
-    main_filter: mainFilter,
-    ...(classroomId && classroomId != 0 ? { classroom_id: classroomId } : {})
+    main_filter: mainFilter
   });
+  if (classroomId && classroomId != 0) {
+    params.append('classroom_id', classroomId);
+  }
   selectedClassifications.forEach(c => params.append('risk_classifications[]', c));
 
   const url = `/pedagogical_trackings/frequency_report_modal?${params.toString()}`;
