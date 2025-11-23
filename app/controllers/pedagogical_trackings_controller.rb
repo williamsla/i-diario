@@ -351,10 +351,16 @@ class PedagogicalTrackingsController < ApplicationController
       
       return render plain: "Parâmetros inválidos", status: :bad_request if unity_id.blank?
 
-      # Filtro de classificação de risco (por padrão: Atenção e Crítico)
-      selected_classifications = params[:risk_classifications] || ['Atenção', 'Crítico']
+      # Filtro de classificação de risco (por padrão: Abaixo do Mínimo e Crítico)
+      selected_classifications = params[:risk_classifications] || ['Abaixo do Mínimo', 'Crítico']
       selected_classifications = [selected_classifications] unless selected_classifications.is_a?(Array)
       @selected_classifications = selected_classifications
+
+      # Filtro principal: escolher qual critério usar
+      # 'absences_only' (padrão): apenas alunos com 3+ faltas nos últimos 15 dias
+      # 'low_frequency_only': apenas alunos com < 80% de frequência no ano
+      # 'both': ambos os critérios (3+ faltas OU < 80%)
+      @main_filter = params[:main_filter] || 'absences_only'
 
       # Data atual e últimos 15 dias
       end_date = Date.current
@@ -446,9 +452,6 @@ class PedagogicalTrackingsController < ApplicationController
           # Buscar faltas dos últimos 15 dias (já calculadas no banco, contando apenas dias únicos)
           absences_15_days = absences_15_days_by_student[student_id] || 0
 
-          # Filtrar alunos: apenas os que tiveram pelo menos 3 faltas nos últimos 15 dias
-          next unless absences_15_days >= 3
-
           # Buscar faltas e presenças do ano (já calculadas no banco)
           absences_year = absences_year_by_student[student_id] || 0
           presences_year = presences_year_by_student[student_id] || 0
@@ -464,6 +467,25 @@ class PedagogicalTrackingsController < ApplicationController
                                  else
                                    0.0
                                  end
+
+          # Filtrar alunos baseado no filtro principal selecionado
+          has_3_or_more_absences = absences_15_days >= 3
+          has_low_frequency = frequency_percentage < 80
+          
+          case @main_filter
+          when 'absences_only'
+            # Apenas alunos com 3+ faltas nos últimos 15 dias
+            next unless has_3_or_more_absences
+          when 'low_frequency_only'
+            # Apenas alunos com menos de 80% de frequência no ano
+            next unless has_low_frequency
+          when 'both'
+            # Ambos: 3+ faltas OU menos de 80% de frequência
+            next unless has_3_or_more_absences || has_low_frequency
+          else
+            # Padrão: apenas 3+ faltas
+            next unless has_3_or_more_absences
+          end
           
           # Data da última presença (já calculada no banco)
           last_presence_date = last_presence_by_student[student_id]
@@ -471,13 +493,15 @@ class PedagogicalTrackingsController < ApplicationController
           # Classificação de risco baseada no percentual de frequência
           # Considerando que o mínimo é 75%, alunos entre 75% e 80% estão no limite e precisam de atenção
           # >= 80%: Adequado (margem de segurança acima do mínimo)
-          # >= 75% e < 80%: Atenção (no limite mínimo, precisa de monitoramento)
+          # >= 75% e < 80%: Atenção Limite (no limite mínimo, precisa de monitoramento)
           # >= 50% e < 75%: Atenção (abaixo do mínimo, mas não crítico)
           # < 50%: Crítico
           risk_classification = if frequency_percentage >= 80
                                   'Adequado'
-                                elsif frequency_percentage >= 50
+                                elsif frequency_percentage >= 75
                                   'Atenção'
+                                elsif frequency_percentage >= 50
+                                  'Abaixo do Mínimo'
                                 else
                                   'Crítico'
                                 end

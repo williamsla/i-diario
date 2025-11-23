@@ -297,7 +297,9 @@ function closeResumeModal(event) {
 // Variáveis globais para armazenar os parâmetros do modal
 let currentFrequencyModalParams = {
   unityId: null,
-  classroomId: null
+  classroomId: null,
+  mainFilter: 'absences_only',
+  selectedClassifications: ['Abaixo do Mínimo', 'Crítico']
 };
 
 function openFrequencyReportModal(unityId, classroomId) {
@@ -307,6 +309,9 @@ function openFrequencyReportModal(unityId, classroomId) {
   // Armazenar parâmetros para uso no filtro
   currentFrequencyModalParams.unityId = unityId;
   currentFrequencyModalParams.classroomId = classroomId;
+  // Inicializar valores dos filtros
+  currentFrequencyModalParams.mainFilter = 'absences_only';
+  currentFrequencyModalParams.selectedClassifications = ['Abaixo do Mínimo', 'Crítico'];
 
   // mostra modal
   modal.style.display = "flex";
@@ -314,10 +319,11 @@ function openFrequencyReportModal(unityId, classroomId) {
   // mostra loading
   document.getElementById("frequencyReportModalBody").innerHTML = "<p>Carregando...</p>";
 
-  // busca conteúdo via fetch (por padrão: Atenção e Crítico)
-  const defaultClassifications = ['Atenção', 'Crítico'];
+  // busca conteúdo via fetch (por padrão: Abaixo do Mínimo e Crítico, filtro principal: absences_only)
+  const defaultClassifications = ['Abaixo do Mínimo', 'Crítico'];
   const params = new URLSearchParams({
     unity_id: unityId,
+    main_filter: 'absences_only',
     ...(classroomId && classroomId != 0 ? { classroom_id: classroomId } : {})
   });
   defaultClassifications.forEach(c => params.append('risk_classifications[]', c));
@@ -335,6 +341,10 @@ function openFrequencyReportModal(unityId, classroomId) {
     })
     .then(html => {
       document.getElementById("frequencyReportModalBody").innerHTML = html;
+      // Anexar event listeners após o HTML ser carregado (com pequeno delay para garantir que o DOM está pronto)
+      setTimeout(function() {
+        attachFilterListeners();
+      }, 50);
     })
     .catch(err => {
       console.error("Erro ao carregar modal:", err);
@@ -343,22 +353,155 @@ function openFrequencyReportModal(unityId, classroomId) {
     });
 }
 
-function applyRiskFilter() {
-  const modal = document.getElementById("frequencyReportModal");
-  if (!modal || modal.style.display === 'none') return;
-
+// Função para anexar event listeners aos filtros
+function attachFilterListeners() {
+  // Usar event delegation no modal body para capturar eventos mesmo após recarregar
   const modalBody = document.getElementById("frequencyReportModalBody");
-  const form = document.getElementById("riskClassificationFilter");
-  if (!form) return;
-
-  // Obter valores dos checkboxes selecionados
-  const selectedClassifications = Array.from(form.querySelectorAll('input[type="checkbox"]:checked'))
-    .map(cb => cb.value);
-
-  // Se nenhum checkbox estiver selecionado, não fazer nada (já tratado no evento click)
-  if (selectedClassifications.length === 0) {
+  if (!modalBody) {
+    console.log('Modal body não encontrado');
     return;
   }
+
+  // Remover listener anterior se existir
+  if (modalBody._filterChangeHandler) {
+    modalBody.removeEventListener('change', modalBody._filterChangeHandler);
+    modalBody._filterChangeHandler = null;
+  }
+
+  // Criar handler para eventos de change
+  modalBody._filterChangeHandler = function(e) {
+    const target = e.target;
+    
+    // Verificar se o target é um elemento de filtro
+    if (!target || (!target.matches('input[type="radio"][name="main_filter"]') && 
+                    !target.matches('input[type="checkbox"][name="risk_classifications[]"]'))) {
+      return;
+    }
+    
+    // Se for um radio button do filtro principal
+    if (target.type === 'radio' && target.name === 'main_filter') {
+      e.stopPropagation();
+      // Capturar valores do formulário antes de recarregar
+      const form = document.getElementById("riskClassificationFilter");
+      let selectedClassifications = currentFrequencyModalParams.selectedClassifications;
+      
+      if (form) {
+        selectedClassifications = Array.from(form.querySelectorAll('input[name="risk_classifications[]"]:checked'))
+          .map(cb => cb.value);
+        if (selectedClassifications.length === 0) {
+          selectedClassifications = ['Abaixo do Mínimo', 'Crítico'];
+        }
+      }
+      
+      // Atualizar valores globais
+      currentFrequencyModalParams.mainFilter = target.value;
+      currentFrequencyModalParams.selectedClassifications = selectedClassifications;
+      
+      // Chamar applyRiskFilter com os valores capturados
+      applyRiskFilterWithValues(target.value, selectedClassifications);
+      return;
+    }
+    
+    // Se for um checkbox de classificação de risco
+    if (target.type === 'checkbox' && target.name === 'risk_classifications[]') {
+      e.stopPropagation();
+      
+      // Capturar o estado atual do checkbox
+      const checkboxValue = target.value;
+      const isNowChecked = target.checked;
+            
+      // Usar o filtro principal atual armazenado globalmente
+      let mainFilter = currentFrequencyModalParams.mainFilter || 'absences_only';
+      
+      // Processar a mudança imediatamente, buscando checkboxes do modalBody
+      const processCheckboxChange = function() {
+        const modalBody = document.getElementById("frequencyReportModalBody");
+        let selectedClassifications = [];
+        
+        // Buscar checkboxes diretamente do modalBody
+        if (modalBody) {
+          selectedClassifications = Array.from(modalBody.querySelectorAll('input[name="risk_classifications[]"]:checked'))
+            .map(cb => cb.value);
+        }
+        
+        // Se não encontrar checkboxes marcados, calcular baseado no estado atual
+        if (selectedClassifications.length === 0) {
+          // Usar valores globais e atualizar com base no checkbox que foi clicado
+          selectedClassifications = [...(currentFrequencyModalParams.selectedClassifications || ['Abaixo do Mínimo', 'Crítico'])];
+          
+          // Atualizar baseado no checkbox que foi clicado
+          if (isNowChecked) {
+            // Adicionar se não estiver na lista
+            if (!selectedClassifications.includes(checkboxValue)) {
+              selectedClassifications.push(checkboxValue);
+            }
+          } else {
+            // Remover se estiver na lista
+            selectedClassifications = selectedClassifications.filter(v => v !== checkboxValue);
+          }
+        }
+        
+        // Tentar buscar o formulário para obter o filtro principal
+        let form = document.getElementById("riskClassificationFilter");
+        if (!form && modalBody) {
+          form = modalBody.querySelector("#riskClassificationFilter");
+        }
+        
+        if (form) {
+          // Obter valor do radio button do filtro principal
+          const formMainFilter = form.querySelector('input[name="main_filter"]:checked')?.value;
+          if (formMainFilter) {
+            mainFilter = formMainFilter;
+            currentFrequencyModalParams.mainFilter = mainFilter;
+          }
+        }
+                
+        if (selectedClassifications.length === 0) {
+          // Reverter mudança
+          target.checked = !isNowChecked;
+          alert('Selecione pelo menos uma classificação de risco.');
+          return;
+        }
+        
+        // Atualizar valores globais
+        currentFrequencyModalParams.selectedClassifications = selectedClassifications;
+        
+        // Aplicar filtro com valores capturados
+        applyRiskFilterWithValues(mainFilter, selectedClassifications);
+      };
+      
+      // Aguardar um pouco para garantir que o estado do checkbox foi atualizado no DOM
+      setTimeout(processCheckboxChange, 100);
+    }
+  };
+
+  // Adicionar listener usando event delegation no modal body
+  modalBody.addEventListener('change', modalBody._filterChangeHandler);
+  
+}
+
+// Função auxiliar para aplicar filtro com valores específicos
+function applyRiskFilterWithValues(mainFilter, selectedClassifications) {
+  
+  const modal = document.getElementById("frequencyReportModal");
+  if (!modal || modal.style.display === 'none') {
+    console.log('Modal não está visível');
+    return;
+  }
+
+  const modalBody = document.getElementById("frequencyReportModalBody");
+  
+  // Garantir valores padrão
+  mainFilter = mainFilter || currentFrequencyModalParams.mainFilter || 'absences_only';
+  selectedClassifications = selectedClassifications || currentFrequencyModalParams.selectedClassifications || ['Abaixo do Mínimo', 'Crítico'];
+  
+  if (selectedClassifications.length === 0) {
+    selectedClassifications = ['Abaixo do Mínimo', 'Crítico'];
+  }
+  
+  // Atualizar valores globais
+  currentFrequencyModalParams.mainFilter = mainFilter;
+  currentFrequencyModalParams.selectedClassifications = selectedClassifications;
 
   // Mostrar loading
   modalBody.innerHTML = "<p>Carregando...</p>";
@@ -375,6 +518,7 @@ function applyRiskFilter() {
   // Construir URL com filtros
   const params = new URLSearchParams({
     unity_id: unityId,
+    main_filter: mainFilter,
     ...(classroomId && classroomId != 0 ? { classroom_id: classroomId } : {})
   });
   selectedClassifications.forEach(c => params.append('risk_classifications[]', c));
@@ -392,6 +536,10 @@ function applyRiskFilter() {
     })
     .then(html => {
       modalBody.innerHTML = html;
+      // Anexar event listeners após o HTML ser carregado (com pequeno delay para garantir que o DOM está pronto)
+      setTimeout(function() {
+        attachFilterListeners();
+      }, 50);
     })
     .catch(err => {
       console.error("Erro ao aplicar filtro:", err);
@@ -400,11 +548,57 @@ function applyRiskFilter() {
     });
 }
 
+// Tornar a função global para ser acessível de qualquer lugar
+window.applyRiskFilter = function() {
+  console.log('applyRiskFilter chamada');
+  const modal = document.getElementById("frequencyReportModal");
+  if (!modal || modal.style.display === 'none') {
+    console.log('Modal não está visível');
+    return;
+  }
+
+  const modalBody = document.getElementById("frequencyReportModalBody");
+  
+  // Tentar buscar o formulário, se não encontrar, usar valores padrão
+  let form = document.getElementById("riskClassificationFilter");
+  let selectedClassifications = [];
+  let mainFilter = 'absences_only';
+  
+  if (form) {
+    // Obter valores dos checkboxes de classificação selecionados
+    selectedClassifications = Array.from(form.querySelectorAll('input[name="risk_classifications[]"]:checked'))
+      .map(cb => cb.value);
+
+    // Obter valor do radio button do filtro principal
+    mainFilter = form.querySelector('input[name="main_filter"]:checked')?.value || 'absences_only';
+  } else {
+    console.warn('Formulário não encontrado, usando valores padrão');
+    // Usar valores padrão se o formulário não estiver disponível
+    selectedClassifications = ['Abaixo do Mínimo', 'Crítico'];
+    mainFilter = 'absences_only';
+  }
+
+  // Se nenhum checkbox de classificação estiver selecionado, usar padrão
+  if (selectedClassifications.length === 0) {
+    selectedClassifications = ['Abaixo do Mínimo', 'Crítico'];
+  }
+  
+  // Chamar função auxiliar com os valores
+  applyRiskFilterWithValues(mainFilter, selectedClassifications);
+};
+
 function closeFrequencyReportModal(event) {
   if (event) event.preventDefault();
 
   const modal = document.getElementById("frequencyReportModal");
   if (!modal) return;
+  
+  const modalBody = document.getElementById("frequencyReportModalBody");
+  if (modalBody && modalBody._filterChangeHandler) {
+    modalBody.removeEventListener('change', modalBody._filterChangeHandler);
+    modalBody._filterChangeHandler = null;
+  }
+  
   modal.style.display = "none";
-  document.getElementById("frequencyReportModalBody").innerHTML = "";
+  modalBody.innerHTML = "";
 }
