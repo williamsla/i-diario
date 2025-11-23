@@ -142,7 +142,7 @@ function build_pie_chart(ctx, done_percentage, unknown_teachers = null){
 $(document).ready( function() {
   let beta_title = 'Este recurso ainda está em processo de desenvolvimento e pode apresentar problemas'
   let img_src = $('#image-beta').attr('src');
-  $('.fa-pie-chart').closest('h2').after(`<img src="${img_src}" class="beta-badge" style="margin-bottom: 9px; margin-left: 5px" title="${beta_title}">`);
+  $('.fa-pie-chart').closest('h2').after('<img src="' + img_src + '" class="beta-badge" style="margin-bottom: 9px; margin-left: 5px" title="' + beta_title + '">');
 })
 
 build_pie_chart(frequency_chart_ctx, done_frequencies_percentage, unknown_teachers);
@@ -267,13 +267,13 @@ function openResumeModal(unityId, classroomId) {
 
   // atualiza botão de download
   const downloadBtn = document.getElementById("downloadXlsxBtn");
-  downloadBtn.onclick = () => {
-    const url = `/pedagogical_trackings/resume_xlsx?unity_id=${unityId}&classroom_id=${classroomId || 0}`;
+  downloadBtn.onclick = function() {
+    const url = '/pedagogical_trackings/resume_xlsx?unity_id=' + unityId + '&classroom_id=' + (classroomId || 0);
     window.location.href = url; // força download
   }
 
   // busca conteúdo via fetch
-  fetch(`/pedagogical_trackings/resume_modal?unity_id=${unityId}&classroom_id=${classroomId || 0}`)
+  fetch('/pedagogical_trackings/resume_modal?unity_id=' + unityId + '&classroom_id=' + (classroomId || 0))
     .then(response => response.text())
     .then(html => {
       document.getElementById("resumeModalBody").innerHTML = html;
@@ -330,7 +330,7 @@ function openFrequencyReportModal(unityId, classroomId) {
   }
   defaultClassifications.forEach(c => params.append('risk_classifications[]', c));
   
-  const url = `/pedagogical_trackings/frequency_report_modal?${params.toString()}`;
+  const url = '/pedagogical_trackings/frequency_report_modal?' + params.toString();
   
   fetch(url)
     .then(response => {
@@ -351,7 +351,7 @@ function openFrequencyReportModal(unityId, classroomId) {
     .catch(err => {
       console.error("Erro ao carregar modal:", err);
       document.getElementById("frequencyReportModalBody").innerHTML =
-        `<p style='color:red;'>Erro ao carregar o relatório de Alunos Faltosos: ${err.message}</p>`;
+        '<p style="color:red;">Erro ao carregar o relatório de Alunos Faltosos: ' + err.message + '</p>';
     });
 }
 
@@ -455,9 +455,9 @@ function attachFilterListeners() {
         
         if (form) {
           // Obter valor do radio button do filtro principal
-          const formMainFilter = form.querySelector('input[name="main_filter"]:checked')?.value;
-          if (formMainFilter) {
-            mainFilter = formMainFilter;
+          const checkedRadio = form.querySelector('input[name="main_filter"]:checked');
+          if (checkedRadio && checkedRadio.value) {
+            mainFilter = checkedRadio.value;
             currentFrequencyModalParams.mainFilter = mainFilter;
           }
         }
@@ -531,7 +531,7 @@ function applyRiskFilterWithValues(mainFilter, selectedClassifications) {
   }
   selectedClassifications.forEach(c => params.append('risk_classifications[]', c));
 
-  const url = `/pedagogical_trackings/frequency_report_modal?${params.toString()}`;
+  const url = '/pedagogical_trackings/frequency_report_modal?' + params.toString();
 
   fetch(url)
     .then(response => {
@@ -552,7 +552,7 @@ function applyRiskFilterWithValues(mainFilter, selectedClassifications) {
     .catch(err => {
       console.error("Erro ao aplicar filtro:", err);
       modalBody.innerHTML =
-        `<p style='color:red;'>Erro ao aplicar filtro: ${err.message}</p>`;
+        '<p style="color:red;">Erro ao aplicar filtro: ' + err.message + '</p>';
     });
 }
 
@@ -578,7 +578,8 @@ window.applyRiskFilter = function() {
       .map(cb => cb.value);
 
     // Obter valor do radio button do filtro principal
-    mainFilter = form.querySelector('input[name="main_filter"]:checked')?.value || 'absences_only';
+    const checkedRadio = form.querySelector('input[name="main_filter"]:checked');
+    mainFilter = (checkedRadio && checkedRadio.value) ? checkedRadio.value : 'absences_only';
   } else {
     console.warn('Formulário não encontrado, usando valores padrão');
     // Usar valores padrão se o formulário não estiver disponível
