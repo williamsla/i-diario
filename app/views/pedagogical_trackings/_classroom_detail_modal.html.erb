@@ -7,6 +7,9 @@
       </div>
       <%= simple_form_for :search_teacher, url: pedagogical_trackings_teachers_path, remote: true, html: { class: 'smart-form teacher_percent_filterable_search_form' } do |f| %>
       <%= hidden_field_tag 'modal_classroom_id' %>
+      <%= hidden_field_tag 'search_unity_id' %>
+      <%= hidden_field_tag 'search_start_date' %>
+      <%= hidden_field_tag 'search_end_date' %>
       <div class="modal-body">
         <div class="table-responsive">
           <table class="table table-bordered table-only-inner-bordered table-striped table-condensed table-hover" id="resources">

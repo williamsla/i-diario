@@ -1,5 +1,17 @@
 $(document).on('click', 'a.open_classroom_detail_modal', function(){
-  $('#modal_classroom_id').val($(this).data('classroom-id'));
+  var $button = $(this);
+  $('#modal_classroom_id').val($button.data('classroom-id'));
+  
+  // Obter valores dos data attributes ou dos campos hidden existentes
+  var unity_id = $button.data('unity-id') || $('#search_unity_id').val() || $('#unity_id').val();
+  var start_date = $button.data('start-date') || $('#search_start_date').val() || $('#start_date').val();
+  var end_date = $button.data('end-date') || $('#search_end_date').val() || $('#end_date').val();
+  
+  // Preencher campos hidden do modal se não existirem valores
+  if (unity_id) $('#search_unity_id').val(unity_id);
+  if (start_date) $('#search_start_date').val(start_date);
+  if (end_date) $('#search_end_date').val(end_date);
+  
   $('#search_teacher_frequency_operator').select2('val', '');
   $('#search_teacher_content_record_operator').select2('val', '');
   $('#search_teacher_frequency_percentage').attr('readonly', true).val('');

@@ -6,7 +6,12 @@ module PedagogicalTrackingsHelper
         '#',
         class: 'btn btn-outline-secondary open_classroom_detail_modal',
         style: 'opacity: 0.7; font-weight: normal;',
-        data: { classroom_id: classroom_id }
+        data: { 
+          classroom_id: classroom_id,
+          unity_id: record.unity_id,
+          start_date: record.start_date.present? ? format(record.start_date) : '',
+          end_date: record.end_date.present? ? format(record.end_date) : ''
+        }
       )
     else
       link_to(
@@ -27,7 +32,7 @@ module PedagogicalTrackingsHelper
   end
 
   def format(date)
-    return '' if date.empty?
+    return '' if date.blank? || (date.respond_to?(:empty?) && date.empty?)
     date.strftime('%d/%m/%Y')
   end
 end
