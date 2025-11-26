@@ -85,6 +85,9 @@ class DisciplineContentRecordsController < ApplicationController
     @discipline_content_record.content_record.teacher = current_teacher
     @discipline_content_record.teacher_id = current_teacher_id
 
+    Rails.logger.info "=== Content IDs sendo salvos: #{@discipline_content_record.content_record.content_ids.inspect} ==="
+    Rails.logger.info "=== Objective IDs sendo salvos: #{@discipline_content_record.content_record.objective_ids.inspect} ==="
+    
     authorize @discipline_content_record
 
     return render_content_with_multiple_class_numbers if allow_class_number
@@ -242,6 +245,7 @@ class DisciplineContentRecordsController < ApplicationController
     param_content_ids = param_content_ids.reject(&:blank?).map(&:to_i).reject(&:zero?)
     
     content_descriptions = params[:discipline_content_record][:content_record_attributes][:content_descriptions] || []
+    Rails.logger.info "=== Content descriptions: #{content_descriptions.inspect} ==="
     new_contents_ids = content_descriptions.reject(&:blank?).map{|v| Content.find_or_create_by!(description: v).id }
     
     result = (param_content_ids + new_contents_ids).compact.uniq
