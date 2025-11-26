@@ -238,16 +238,18 @@ class DisciplineContentRecordsController < ApplicationController
     param_content_ids = params[:discipline_content_record][:content_record_attributes][:content_ids] || []
     # Garantir que seja um array mesmo se vier como string vazia
     param_content_ids = [] if param_content_ids.blank?
-    param_content_ids = param_content_ids.reject(&:blank?).map(&:to_i)
+    # Rejeitar valores vazios, converter para inteiro e rejeitar zeros (IDs inválidos)
+    param_content_ids = param_content_ids.reject(&:blank?).map(&:to_i).reject(&:zero?)
     
     content_descriptions = params[:discipline_content_record][:content_record_attributes][:content_descriptions] || []
     new_contents_ids = content_descriptions.reject(&:blank?).map{|v| Content.find_or_create_by!(description: v).id }
     
     result = (param_content_ids + new_contents_ids).compact.uniq
     
-    # Log para debug (pode remover depois)
+    # Log para debug
     Rails.logger.info "=== Content IDs sendo salvos: #{result.inspect} ==="
-    Rails.logger.info "=== Param content_ids: #{param_content_ids.inspect} ==="
+    Rails.logger.info "=== Param content_ids original: #{params[:discipline_content_record][:content_record_attributes][:content_ids].inspect} ==="
+    Rails.logger.info "=== Param content_ids processado: #{param_content_ids.inspect} ==="
     Rails.logger.info "=== New content descriptions: #{content_descriptions.inspect} ==="
     
     result
@@ -257,7 +259,7 @@ class DisciplineContentRecordsController < ApplicationController
     param_objective_ids = params[:discipline_content_record][:content_record_attributes][:objective_ids] || []
     # Garantir que seja um array mesmo se vier como string vazia
     param_objective_ids = [] if param_objective_ids.blank?
-    param_objective_ids = param_objective_ids.reject(&:blank?)
+    param_objective_ids = param_objective_ids.reject(&:blank?).map(&:to_i).reject(&:zero?)
     
     objective_descriptions =
       params[:discipline_content_record][:content_record_attributes][:objective_descriptions] || []
@@ -276,7 +278,13 @@ class DisciplineContentRecordsController < ApplicationController
       objective.id
     }
 
-    @ordered_objective_ids = (param_objective_ids + new_objectives_ids).compact
+    @ordered_objective_ids = (param_objective_ids + new_objectives_ids).compact.uniq
+    
+    # Log para debug
+    Rails.logger.info "=== Objective IDs sendo salvos: #{@ordered_objective_ids.inspect} ==="
+    Rails.logger.info "=== Param objective_ids: #{param_objective_ids.inspect} ==="
+    Rails.logger.info "=== New objective descriptions: #{objective_descriptions.inspect} ==="
+    
     @ordered_objective_ids
   end
 
@@ -291,9 +299,9 @@ class DisciplineContentRecordsController < ApplicationController
         :record_date,
         :daily_activities_record,
         :content,
-        :content_ids,
-        :objective,
-        :objective_ids
+        :objective
+        # NÃO permitir content_ids e objective_ids aqui - são processados pelos métodos content_ids() e objective_ids()
+        # para evitar que o Rails processe automaticamente antes de nós sobrescrevermos
       ]
     )
   end
@@ -324,8 +332,11 @@ class DisciplineContentRecordsController < ApplicationController
     end
     
     # Busca conteúdos realmente salvos neste registro específico
+    # IMPORTANTE: Só busca conteúdos salvos se o DisciplineContentRecord também estiver persistido
     saved_contents = []
-    if @discipline_content_record.content_record.persisted? && @discipline_content_record.content_record.contents.present?
+    if @discipline_content_record.persisted? && 
+       @discipline_content_record.content_record.persisted? && 
+       @discipline_content_record.content_record.contents.present?
       saved_contents = @discipline_content_record.content_record.contents_ordered
       saved_contents.each { |content| content.is_editable = true }
     end
@@ -367,8 +378,11 @@ class DisciplineContentRecordsController < ApplicationController
     end
 
     # Busca objetivos realmente salvos neste registro específico
+    # IMPORTANTE: Só busca objetivos salvos se o DisciplineContentRecord também estiver persistido
     saved_objectives = []
-    if @discipline_content_record.content_record.persisted? && @discipline_content_record.content_record.objectives.present?
+    if @discipline_content_record.persisted? && 
+       @discipline_content_record.content_record.persisted? && 
+       @discipline_content_record.content_record.objectives.present?
       begin
         saved_objectives = @discipline_content_record.content_record.objectives_ordered
         saved_objectives.each { |objective| objective.is_editable = true }
