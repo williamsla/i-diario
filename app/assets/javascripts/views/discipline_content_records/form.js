@@ -24,8 +24,9 @@ $(function () {
 
 
   var handleFetchContentsSuccess = function (data) {
-    // Limpar o campo
-    $('#contents-list').empty();
+    // Não limpar conteúdos marcados manualmente (que têm classe 'manual')
+    // Apenas remover conteúdos que não são manuais
+    $('#contents-list .list-group-item:not(.manual)').remove();
 
     if (!_.isEmpty(data.contents)) {
       _.each(data.contents, function (content) {
@@ -59,8 +60,9 @@ $(function () {
   }
 
   var handleFetchObjectivesSuccess = function (data) {
-    // Limpar o campo
-    $('#objectives-list').empty();
+    // Não limpar objetivos marcados manualmente (que têm classe 'manual')
+    // Apenas remover objetivos que não são manuais
+    $('#objectives-list .list-group-item:not(.manual)').remove();
 
     if (!_.isEmpty(data.objectives)) {
       _.each(data.objectives, function (objective) {

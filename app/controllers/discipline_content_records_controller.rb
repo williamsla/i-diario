@@ -298,19 +298,33 @@ class DisciplineContentRecordsController < ApplicationController
     discipline = @discipline_content_record.discipline
     date = @discipline_content_record.content_record.record_date
     
+    # Busca conteúdos dos planos de aula/ensino da disciplina
+    plan_contents = []
     if teacher && classroom && discipline && date
-      @contents = ContentsForDisciplineRecordFetcher.new(teacher, classroom, discipline, date).fetch
-      @contents.each { |content| content.is_editable = false }
+      plan_contents = ContentsForDisciplineRecordFetcher.new(teacher, classroom, discipline, date).fetch
+      plan_contents.each { |content| content.is_editable = false }
     end
     
-    # se tiver sido adicionado algum conteúdo novo manualmente
-    if @discipline_content_record.content_record.contents
-      contents = @discipline_content_record.content_record.contents_ordered
-      contents.each { |content| content.is_editable = true }
-      @contents << contents
-    end    
-
-    @contents.flatten.uniq
+    # Busca conteúdos salvos manualmente neste registro
+    saved_contents = []
+    if @discipline_content_record.content_record.contents.present?
+      saved_contents = @discipline_content_record.content_record.contents_ordered
+      saved_contents.each { |content| content.is_editable = true }
+    end
+    
+    # Combina os conteúdos, priorizando os salvos (marcando como editáveis)
+    saved_content_ids = saved_contents.map(&:id)
+    @contents = plan_contents.map do |content|
+      if saved_content_ids.include?(content.id)
+        content.is_editable = true
+      end
+      content
+    end
+    
+    # Adiciona conteúdos salvos que não estão nos planos
+    @contents += saved_contents.reject { |content| plan_contents.map(&:id).include?(content.id) }
+    
+    @contents.uniq
   end
   helper_method :contents
 
