@@ -66,7 +66,7 @@ function initializeListEvents() {
 }
 
 function hideContent(content) {
-  content.find("input[type=checkbox]").prop('checked', true);
+  content.find("input[type=checkbox]").prop('checked', false);
   content.remove();
 }
 

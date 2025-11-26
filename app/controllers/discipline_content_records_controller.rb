@@ -121,6 +121,8 @@ class DisciplineContentRecordsController < ApplicationController
   def update
     @discipline_content_record = DisciplineContentRecord.find(params[:id])
     @discipline_content_record.assign_attributes(resource_params)
+    
+    # Garantir que apenas os conteúdos e objetivos enviados sejam salvos
     @discipline_content_record.content_record.content_ids = content_ids
     @discipline_content_record.content_record.objective_ids = objective_ids
     @discipline_content_record.content_record.teacher = current_teacher
@@ -130,7 +132,6 @@ class DisciplineContentRecordsController < ApplicationController
     @discipline_content_record.content_record.creator_type = 'discipline_content_record'
     
     authorize @discipline_content_record
-
 
     if @discipline_content_record.save
       if params[:modal] == 'true'
@@ -235,13 +236,29 @@ class DisciplineContentRecordsController < ApplicationController
 
   def content_ids
     param_content_ids = params[:discipline_content_record][:content_record_attributes][:content_ids] || []
+    # Garantir que seja um array mesmo se vier como string vazia
+    param_content_ids = [] if param_content_ids.blank?
+    param_content_ids = param_content_ids.reject(&:blank?).map(&:to_i)
+    
     content_descriptions = params[:discipline_content_record][:content_record_attributes][:content_descriptions] || []
-    new_contents_ids = content_descriptions.map{|v| Content.find_or_create_by!(description: v).id }
-    param_content_ids + new_contents_ids
+    new_contents_ids = content_descriptions.reject(&:blank?).map{|v| Content.find_or_create_by!(description: v).id }
+    
+    result = (param_content_ids + new_contents_ids).compact.uniq
+    
+    # Log para debug (pode remover depois)
+    Rails.logger.info "=== Content IDs sendo salvos: #{result.inspect} ==="
+    Rails.logger.info "=== Param content_ids: #{param_content_ids.inspect} ==="
+    Rails.logger.info "=== New content descriptions: #{content_descriptions.inspect} ==="
+    
+    result
   end
 
   def objective_ids
     param_objective_ids = params[:discipline_content_record][:content_record_attributes][:objective_ids] || []
+    # Garantir que seja um array mesmo se vier como string vazia
+    param_objective_ids = [] if param_objective_ids.blank?
+    param_objective_ids = param_objective_ids.reject(&:blank?)
+    
     objective_descriptions =
       params[:discipline_content_record][:content_record_attributes][:objective_descriptions] || []
 
@@ -251,7 +268,7 @@ class DisciplineContentRecordsController < ApplicationController
       @discipline_content_record.content_record.objectives_created_at_position[objective_id.to_i] = index
     end
 
-    new_objectives_ids = objective_descriptions.each_with_index.map { |description, index|
+    new_objectives_ids = objective_descriptions.reject(&:blank?).each_with_index.map { |description, index|
       objective = Objective.find_or_create_by!(description: description)
       @discipline_content_record.content_record.objectives_created_at_position[objective.id] =
         param_objective_ids.size + index
@@ -259,7 +276,8 @@ class DisciplineContentRecordsController < ApplicationController
       objective.id
     }
 
-    @ordered_objective_ids = param_objective_ids + new_objectives_ids
+    @ordered_objective_ids = (param_objective_ids + new_objectives_ids).compact
+    @ordered_objective_ids
   end
 
   def resource_params
@@ -305,9 +323,9 @@ class DisciplineContentRecordsController < ApplicationController
       plan_contents.each { |content| content.is_editable = false }
     end
     
-    # Busca conteúdos salvos manualmente neste registro
+    # Busca conteúdos realmente salvos neste registro específico
     saved_contents = []
-    if @discipline_content_record.content_record.contents.present?
+    if @discipline_content_record.content_record.persisted? && @discipline_content_record.content_record.contents.present?
       saved_contents = @discipline_content_record.content_record.contents_ordered
       saved_contents.each { |content| content.is_editable = true }
     end
@@ -321,7 +339,7 @@ class DisciplineContentRecordsController < ApplicationController
       content
     end
     
-    # Adiciona conteúdos salvos que não estão nos planos
+    # Adiciona apenas conteúdos salvos que não estão nos planos
     @contents += saved_contents.reject { |content| plan_contents.map(&:id).include?(content.id) }
     
     @contents.uniq
@@ -341,23 +359,37 @@ class DisciplineContentRecordsController < ApplicationController
     discipline = @discipline_content_record.discipline
     date = @discipline_content_record.content_record.record_date
     
+    # Busca objetivos dos planos de aula/ensino da disciplina
+    plan_objectives = []
     if teacher && classroom && discipline && date
-      @objectives = ContentsForDisciplineRecordFetcher.new(teacher, classroom, discipline, date).fetch_objectives
-      @objectives.each { |objective| objective.is_editable = false }
+      plan_objectives = ContentsForDisciplineRecordFetcher.new(teacher, classroom, discipline, date).fetch_objectives
+      plan_objectives.each { |objective| objective.is_editable = false }
     end
 
-    # se tiver sido adicionado algum objetivo novo manualmente
-    if @discipline_content_record.content_record.objectives
+    # Busca objetivos realmente salvos neste registro específico
+    saved_objectives = []
+    if @discipline_content_record.content_record.persisted? && @discipline_content_record.content_record.objectives.present?
       begin
-        objectives = @discipline_content_record.content_record.objectives_ordered
-        objectives.each { |objective| objective.is_editable = true }
+        saved_objectives = @discipline_content_record.content_record.objectives_ordered
+        saved_objectives.each { |objective| objective.is_editable = true }
       rescue 
-        objectives = []
+        saved_objectives = []
       end
-      @objectives << objectives
     end
 
-    @objectives.flatten.uniq
+    # Combina os objetivos, priorizando os salvos (marcando como editáveis)
+    saved_objective_ids = saved_objectives.map(&:id)
+    @objectives = plan_objectives.map do |objective|
+      if saved_objective_ids.include?(objective.id)
+        objective.is_editable = true
+      end
+      objective
+    end
+    
+    # Adiciona objetivos salvos que não estão nos planos
+    @objectives += saved_objectives.reject { |objective| plan_objectives.map(&:id).include?(objective.id) }
+    
+    @objectives.uniq
   end
   helper_method :objectives
 
