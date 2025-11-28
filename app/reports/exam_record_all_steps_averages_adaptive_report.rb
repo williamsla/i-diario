@@ -10,8 +10,8 @@ class ExamRecordAllStepsAveragesAdaptiveReport < BaseReport
   STEP_BG_COLOR = 'FFFFFF'            # Branco para etapas
   FIRST_SEMESTER_BG_COLOR = 'F5F5F5'  # Cinza claro para 1º semestre (MP e Rec)
   SECOND_SEMESTER_BG_COLOR = 'F5F5F5'  # Cinza claro para 2º semestre (MP e Rec)
-  SEMESTER_AVG_BG_COLOR = 'D3D3D3'    # Cinza levemente escuro para Média 1º Sem, Média 2º Sem e Rec Final
-  FINAL_AVG_BG_COLOR = 'B0B0B0'       # Cinza um pouco mais escuro para Média Final
+  SEMESTER_AVG_BG_COLOR = 'E8E8E8'    # Cinza médio para Média 1º Sem, Média 2º Sem e Rec Final
+  FINAL_AVG_BG_COLOR = 'D0D0D0'       # Cinza mais escuro para Média Final
 
   def self.build(entity_configuration, teacher, year, classroom, discipline, steps, students_enrollments)
     new(:portrait).build(entity_configuration, teacher, year, classroom, discipline, steps, students_enrollments)
@@ -28,6 +28,7 @@ class ExamRecordAllStepsAveragesAdaptiveReport < BaseReport
     @active_search = false
 
     header
+    move_down 10
     content
     footer
 
@@ -68,7 +69,8 @@ class ExamRecordAllStepsAveragesAdaptiveReport < BaseReport
                         [teacher_cell],
                         [discipline_header, discipline_cell]]
 
-    repeat(:first) do
+    # Renderizar cabeçalho apenas na primeira página usando repeat
+    repeat(lambda { |pg| pg == 1 }) do
       table(first_table_data, width: bounds.width, header: true) do
         cells.border_width = 0.25
         row(0).border_top_width = 0.25
