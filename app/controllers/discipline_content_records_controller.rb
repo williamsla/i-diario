@@ -92,7 +92,45 @@ class DisciplineContentRecordsController < ApplicationController
 
     return render_content_with_multiple_class_numbers if allow_class_number
 
-    if @discipline_content_record.save && validate_class_numbers
+    # Usa transação para garantir atomicidade e evitar condições de corrida
+    saved = false
+    begin
+      ActiveRecord::Base.transaction do
+        # Valida antes de salvar para capturar erros
+        unless @discipline_content_record.valid?
+          Rails.logger.error "=== Erros de validação antes do save: #{@discipline_content_record.errors.full_messages.inspect} ==="
+          Rails.logger.error "=== Content Record errors: #{@discipline_content_record.content_record.errors.full_messages.inspect} ==="
+          raise ActiveRecord::RecordInvalid.new(@discipline_content_record) unless @discipline_content_record.errors.empty?
+        end
+
+        saved = @discipline_content_record.save
+        
+        # Verifica se realmente foi salvo
+        unless saved && @discipline_content_record.persisted?
+          Rails.logger.error "=== Save falhou ou registro não foi persistido ==="
+          Rails.logger.error "=== Erros: #{@discipline_content_record.errors.full_messages.inspect} ==="
+          Rails.logger.error "=== Content Record errors: #{@discipline_content_record.content_record.errors.full_messages.inspect} ==="
+          raise ActiveRecord::RecordInvalid.new(@discipline_content_record)
+        end
+
+        # Valida class_numbers dentro da transação
+        unless validate_class_numbers
+          Rails.logger.error "=== validate_class_numbers falhou ==="
+          raise ActiveRecord::RecordInvalid.new(@discipline_content_record)
+        end
+
+        Rails.logger.info "=== Registro salvo com sucesso. ID: #{@discipline_content_record.id} ==="
+      end
+    rescue ActiveRecord::RecordInvalid => e
+      Rails.logger.error "=== Exceção ao salvar: #{e.message} ==="
+      saved = false
+    rescue => e
+      Rails.logger.error "=== Erro inesperado ao salvar: #{e.class} - #{e.message} ==="
+      Rails.logger.error e.backtrace.join("\n")
+      saved = false
+    end
+
+    if saved
       if params[:modal] == 'true'
         render html: "<script>window.parent.postMessage({ action: 'closeContentModalAndReload' }, '*');</script>".html_safe, layout: false
       else
@@ -101,6 +139,21 @@ class DisciplineContentRecordsController < ApplicationController
         respond_with @discipline_content_record, location: discipline_content_records_path
       end
     else
+      error_messages = @discipline_content_record.errors.full_messages
+      content_record_errors = @discipline_content_record.content_record.errors.full_messages
+      
+      Rails.logger.error "=== Falha ao salvar registro ==="
+      Rails.logger.error "=== DisciplineContentRecord errors: #{error_messages.inspect} ==="
+      Rails.logger.error "=== ContentRecord errors: #{content_record_errors.inspect} ==="
+      
+      # Adiciona mensagem de erro ao flash se houver erros
+      all_errors = (error_messages + content_record_errors).compact
+      if all_errors.any?
+        flash.now[:alert] = all_errors.join(', ')
+      else
+        flash.now[:alert] = 'Não foi possível salvar o registro. Por favor, tente novamente.'
+      end
+      
       set_options_by_user
 
       render :new

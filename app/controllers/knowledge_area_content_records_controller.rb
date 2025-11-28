@@ -72,15 +72,66 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     @knowledge_area_content_record.content_record.teacher = current_teacher
     @knowledge_area_content_record.teacher_id = current_teacher_id
 
+    Rails.logger.info "=== Knowledge Area Content Record - Content IDs: #{@knowledge_area_content_record.content_record.content_ids.inspect} ==="
+    Rails.logger.info "=== Knowledge Area Content Record - Objective IDs: #{@knowledge_area_content_record.content_record.objective_ids.inspect} ==="
+    Rails.logger.info "=== Knowledge Area IDs: #{@knowledge_area_content_record.knowledge_area_ids.inspect} ==="
+
     authorize @knowledge_area_content_record
 
-    if @knowledge_area_content_record.save
+    # Usa transação para garantir atomicidade e evitar condições de corrida
+    saved = false
+    begin
+      ActiveRecord::Base.transaction do
+        # Valida antes de salvar para capturar erros
+        unless @knowledge_area_content_record.valid?
+          Rails.logger.error "=== Erros de validação antes do save: #{@knowledge_area_content_record.errors.full_messages.inspect} ==="
+          Rails.logger.error "=== Content Record errors: #{@knowledge_area_content_record.content_record.errors.full_messages.inspect} ==="
+          raise ActiveRecord::RecordInvalid.new(@knowledge_area_content_record) unless @knowledge_area_content_record.errors.empty?
+        end
+
+        saved = @knowledge_area_content_record.save
+        
+        # Verifica se realmente foi salvo
+        unless saved && @knowledge_area_content_record.persisted?
+          Rails.logger.error "=== Save falhou ou registro não foi persistido ==="
+          Rails.logger.error "=== Erros: #{@knowledge_area_content_record.errors.full_messages.inspect} ==="
+          Rails.logger.error "=== Content Record errors: #{@knowledge_area_content_record.content_record.errors.full_messages.inspect} ==="
+          raise ActiveRecord::RecordInvalid.new(@knowledge_area_content_record)
+        end
+
+        Rails.logger.info "=== Registro salvo com sucesso. ID: #{@knowledge_area_content_record.id} ==="
+      end
+    rescue ActiveRecord::RecordInvalid => e
+      Rails.logger.error "=== Exceção ao salvar: #{e.message} ==="
+      saved = false
+    rescue => e
+      Rails.logger.error "=== Erro inesperado ao salvar: #{e.class} - #{e.message} ==="
+      Rails.logger.error e.backtrace.join("\n")
+      saved = false
+    end
+
+    if saved
       if params[:modal] == 'true'
         render html: "<script type='text/javascript'>window.parent.postMessage({ action: 'closeContentModalAndReload' }, '*');</script>".html_safe, layout: false
       else
         respond_with @knowledge_area_content_record, location: knowledge_area_content_records_path
       end
     else
+      error_messages = @knowledge_area_content_record.errors.full_messages
+      content_record_errors = @knowledge_area_content_record.content_record.errors.full_messages
+      
+      Rails.logger.error "=== Falha ao salvar registro ==="
+      Rails.logger.error "=== KnowledgeAreaContentRecord errors: #{error_messages.inspect} ==="
+      Rails.logger.error "=== ContentRecord errors: #{content_record_errors.inspect} ==="
+      
+      # Adiciona mensagem de erro ao flash se houver erros
+      all_errors = (error_messages + content_record_errors).compact
+      if all_errors.any?
+        flash.now[:alert] = all_errors.join(', ')
+      else
+        flash.now[:alert] = 'Não foi possível salvar o registro. Por favor, tente novamente.'
+      end
+      
       set_options_by_user
       set_knowledge_area_by_classroom(@knowledge_area_content_record.classroom_id)
       render :new
@@ -105,15 +156,66 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     @knowledge_area_content_record.teacher_id = current_teacher_id
     @knowledge_area_content_record.content_record.current_user = current_user
 
+    Rails.logger.info "=== Knowledge Area Content Record Update - Content IDs: #{@knowledge_area_content_record.content_record.content_ids.inspect} ==="
+    Rails.logger.info "=== Knowledge Area Content Record Update - Objective IDs: #{@knowledge_area_content_record.content_record.objective_ids.inspect} ==="
+    Rails.logger.info "=== Knowledge Area IDs: #{@knowledge_area_content_record.knowledge_area_ids.inspect} ==="
+
     authorize @knowledge_area_content_record
 
-    if @knowledge_area_content_record.save
+    # Usa transação para garantir atomicidade e evitar condições de corrida
+    saved = false
+    begin
+      ActiveRecord::Base.transaction do
+        # Valida antes de salvar para capturar erros
+        unless @knowledge_area_content_record.valid?
+          Rails.logger.error "=== Erros de validação antes do save (update): #{@knowledge_area_content_record.errors.full_messages.inspect} ==="
+          Rails.logger.error "=== Content Record errors: #{@knowledge_area_content_record.content_record.errors.full_messages.inspect} ==="
+          raise ActiveRecord::RecordInvalid.new(@knowledge_area_content_record) unless @knowledge_area_content_record.errors.empty?
+        end
+
+        saved = @knowledge_area_content_record.save
+        
+        # Verifica se realmente foi salvo
+        unless saved && @knowledge_area_content_record.persisted?
+          Rails.logger.error "=== Save falhou ou registro não foi persistido (update) ==="
+          Rails.logger.error "=== Erros: #{@knowledge_area_content_record.errors.full_messages.inspect} ==="
+          Rails.logger.error "=== Content Record errors: #{@knowledge_area_content_record.content_record.errors.full_messages.inspect} ==="
+          raise ActiveRecord::RecordInvalid.new(@knowledge_area_content_record)
+        end
+
+        Rails.logger.info "=== Registro atualizado com sucesso. ID: #{@knowledge_area_content_record.id} ==="
+      end
+    rescue ActiveRecord::RecordInvalid => e
+      Rails.logger.error "=== Exceção ao atualizar: #{e.message} ==="
+      saved = false
+    rescue => e
+      Rails.logger.error "=== Erro inesperado ao atualizar: #{e.class} - #{e.message} ==="
+      Rails.logger.error e.backtrace.join("\n")
+      saved = false
+    end
+
+    if saved
       if params[:modal] == 'true'
         render html: "<script type='text/javascript'>window.parent.postMessage({ action: 'closeContentModalAndReload' }, '*');</script>".html_safe, layout: false
       else
         respond_with @knowledge_area_content_record, location: knowledge_area_content_records_path
       end
     else
+      error_messages = @knowledge_area_content_record.errors.full_messages
+      content_record_errors = @knowledge_area_content_record.content_record.errors.full_messages
+      
+      Rails.logger.error "=== Falha ao atualizar registro ==="
+      Rails.logger.error "=== KnowledgeAreaContentRecord errors: #{error_messages.inspect} ==="
+      Rails.logger.error "=== ContentRecord errors: #{content_record_errors.inspect} ==="
+      
+      # Adiciona mensagem de erro ao flash se houver erros
+      all_errors = (error_messages + content_record_errors).compact
+      if all_errors.any?
+        flash.now[:alert] = all_errors.join(', ')
+      else
+        flash.now[:alert] = 'Não foi possível atualizar o registro. Por favor, tente novamente.'
+      end
+      
       set_options_by_user
       set_knowledge_area_by_classroom(@knowledge_area_content_record.classroom_id)
 

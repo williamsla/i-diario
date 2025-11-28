@@ -105,15 +105,18 @@ class DisciplineContentRecord < ActiveRecord::Base
     return if allow_class_number?
     return unless content_record.present? && content_record.classroom.present? && content_record.record_date.present?
 
-    discipline_content_records = DisciplineContentRecord.by_teacher_id(content_record.teacher_id)
+    # Usa exists? que é mais eficiente e thread-safe
+    # Não usa lock aqui para evitar deadlocks, a validação de unicidade no banco vai garantir
+    query = DisciplineContentRecord.by_teacher_id(content_record.teacher_id)
       .by_classroom_id(content_record.classroom_id)
       .by_discipline_id(discipline_id)
       .by_date(content_record.record_date)
 
-    discipline_content_records = discipline_content_records.where.not(id: id) if persisted?
+    query = query.where.not(id: id) if persisted?
 
-    if discipline_content_records.any?
+    if query.exists?
       errors.add(:discipline_id, :discipline_in_use)
+      Rails.logger.error "=== Validação de unicidade falhou para teacher_id: #{content_record.teacher_id}, classroom_id: #{content_record.classroom_id}, discipline_id: #{discipline_id}, date: #{content_record.record_date} ==="
     end
   end
 

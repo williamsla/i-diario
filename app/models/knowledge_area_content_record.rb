@@ -73,16 +73,36 @@ class KnowledgeAreaContentRecord < ActiveRecord::Base
 
   def uniqueness_of_knowledge_area_content_record
     return unless content_record.present? && content_record.classroom.present? && content_record.record_date.present?
+    return unless knowledge_areas.present?
 
-    knowledge_area_content_records = KnowledgeAreaContentRecord.by_teacher_id(content_record.teacher_id)
+    # Obtém os IDs das áreas de conhecimento como array ordenado
+    current_knowledge_area_ids = knowledge_areas.map(&:id).sort
+    return if current_knowledge_area_ids.empty?
+
+    # Busca registros existentes com mesma turma, professor e data
+    base_query = KnowledgeAreaContentRecord.by_teacher_id(content_record.teacher_id)
       .by_classroom_id(content_record.classroom_id)
-      .by_knowledge_area_id(knowledge_area_ids)
       .by_date(content_record.record_date)
 
-    knowledge_area_content_records = knowledge_area_content_records.where.not(id: id) if persisted?
+    base_query = base_query.where.not(id: id) if persisted?
 
-    if knowledge_area_content_records.any?
-      errors.add(:knowledge_area_ids, :knowledge_area_in_use)
+    # Para cada área de conhecimento, verifica se há registros que a contêm
+    # Depois verifica se algum desses registros tem exatamente as mesmas áreas
+    matching_records = base_query.joins(:knowledge_areas)
+      .where(knowledge_areas: { id: current_knowledge_area_ids })
+      .group('knowledge_area_content_records.id')
+      .having('COUNT(DISTINCT knowledge_areas.id) = ?', current_knowledge_area_ids.size)
+      .includes(:knowledge_areas)
+
+    # Verifica se algum registro tem exatamente as mesmas áreas de conhecimento
+    matching_records.each do |record|
+      existing_knowledge_area_ids = record.knowledge_areas.map(&:id).sort
+      
+      if existing_knowledge_area_ids == current_knowledge_area_ids
+        errors.add(:knowledge_area_ids, :knowledge_area_in_use)
+        Rails.logger.error "=== Validação de unicidade falhou para teacher_id: #{content_record.teacher_id}, classroom_id: #{content_record.classroom_id}, knowledge_area_ids: #{current_knowledge_area_ids}, date: #{content_record.record_date} ==="
+        return
+      end
     end
   end
 
