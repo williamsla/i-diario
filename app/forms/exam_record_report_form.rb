@@ -17,7 +17,7 @@ class ExamRecordReportForm
   validate :must_have_daily_notes, unless: -> { report_type == 'all_steps_averages' }
   
   def report_type
-    @report_type ||= 'step_evaluations'
+    @report_type ||= 'all_steps_averages'
   end
 
   def daily_notes

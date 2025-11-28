@@ -31,16 +31,23 @@
 
       <div class="row">
         <div class="col col-sm-4">
-          <%= f.input :report_type, as: :select, 
-                collection: [
-                  ['Avaliações da etapa', 'step_evaluations'],
-                  ['Médias de todas as etapas', 'all_steps_averages']
-                ],
-                selected: @exam_record_report_form.report_type || 'step_evaluations',
-                input_html: { id: 'report_type_select', class: 'form-control' },
-                label: 'Tipo de Relatório' %>
+          <label class="label">Tipo de Relatório</label>
+          <div>
+            <label class="radio" style="display: block; margin-bottom: 10px;">
+              <%= radio_button_tag 'exam_record_report_form[report_type]', 'step_evaluations', 
+                  @exam_record_report_form.report_type == 'step_evaluations',
+                  id: 'report_type_step_evaluations', class: 'report_type_radio' %>
+              <i></i>Avaliações da etapa
+            </label>
+            <label class="radio" style="display: block;">
+              <%= radio_button_tag 'exam_record_report_form[report_type]', 'all_steps_averages', 
+                  (@exam_record_report_form.report_type || 'all_steps_averages') == 'all_steps_averages',
+                  id: 'report_type_all_steps_averages', class: 'report_type_radio' %>
+              <i></i>Médias de todas as etapas
+            </label>
+          </div>
         </div>
-        <div class="col col-sm-4" id="step_selection">
+        <div class="col col-sm-4" id="step_selection" style="<%= 'display: none;' if (@exam_record_report_form.report_type || 'all_steps_averages') == 'all_steps_averages' %>">
           <% if @school_calendar_classroom_steps.any? %>
             <%= f.input :school_calendar_classroom_step_id, as: :select2, elements: @school_calendar_classroom_steps,
                   input_html: { value: @exam_record_report_form.school_calendar_classroom_step_id }, required: true %>

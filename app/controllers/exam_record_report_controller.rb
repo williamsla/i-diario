@@ -140,14 +140,33 @@ class ExamRecordReportController < ApplicationController
       show_inactive: false
     ).student_enrollments
 
-    ExamRecordAllStepsAveragesReport.build(
-      current_entity_configuration,
-      current_teacher,
-      current_school_year,
-      classroom,
-      Discipline.find(@exam_record_report_form.discipline_id),
-      steps,
-      students_enrollments
-    )
+    # Ler configuração de recuperação semestral
+    # Se não estiver definido, considerar como false
+    semestral_recovery = Rails.application.secrets.try(:semestral_recovery) || 
+                         Rails.application.secrets.try(:SEMESTRAL_RECOVERY) || 
+                         false
+
+    # Decidir qual relatório usar baseado na configuração
+    if semestral_recovery
+      ExamRecordAllStepsAveragesReport.build(
+        current_entity_configuration,
+        current_teacher,
+        current_school_year,
+        classroom,
+        Discipline.find(@exam_record_report_form.discipline_id),
+        steps,
+        students_enrollments
+      )
+    else
+      ExamRecordAllStepsAveragesAdaptiveReport.build(
+        current_entity_configuration,
+        current_teacher,
+        current_school_year,
+        classroom,
+        Discipline.find(@exam_record_report_form.discipline_id),
+        steps,
+        students_enrollments
+      )
+    end
   end
 end

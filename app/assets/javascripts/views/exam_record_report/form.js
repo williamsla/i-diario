@@ -126,7 +126,7 @@ $(document).ready(function () {
   };
 
   // Controla a exibição do campo de etapa baseado no tipo de relatório
-  $('#report_type_select').on('change', function() {
+  $('.report_type_radio').on('change', function() {
     var reportType = $(this).val();
     if (reportType === 'all_steps_averages') {
       $('#step_selection').hide();
@@ -138,7 +138,11 @@ $(document).ready(function () {
   });
 
   // Executa na carga da página
-  $('#report_type_select').trigger('change');
+  // Se nenhum estiver selecionado, seleciona "Médias de todas as etapas" por padrão
+  if (!$('.report_type_radio:checked').length) {
+    $('#report_type_all_steps_averages').prop('checked', true);
+  }
+  $('.report_type_radio:checked').trigger('change');
 
   $('form').submit(function (event) {
     var tempoEspera = 2000;

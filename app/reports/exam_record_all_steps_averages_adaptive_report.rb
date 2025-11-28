@@ -1,6 +1,6 @@
 require 'action_view'
 
-class ExamRecordAllStepsAveragesReport < BaseReport
+class ExamRecordAllStepsAveragesAdaptiveReport < BaseReport
   include ActionView::Helpers::NumberHelper
 
   STUDENT_BY_PAGE_COUNT = 40
@@ -86,16 +86,11 @@ class ExamRecordAllStepsAveragesReport < BaseReport
   def data_table
     students = {}
     step_averages = {}
-    first_semester_averages = {}
-    second_semester_averages = {}
-    first_semester_recoveries = {}
-    second_semester_recoveries = {}
-    first_semester_final_averages = {}
-    second_semester_final_averages = {}
+    step_recoveries = {}
     final_recoveries = {}
     final_averages = {}
 
-    # Dividir etapas em semestres (geralmente metade das etapas por semestre)
+    # Dividir etapas em semestres (para definir cores)
     total_steps = @steps.size
     first_semester_steps = @steps.first((total_steps.to_f / 2).ceil)
     second_semester_steps = @steps.last(total_steps - first_semester_steps.size)
@@ -112,62 +107,28 @@ class ExamRecordAllStepsAveragesReport < BaseReport
 
       # Calcular médias de cada etapa
       step_averages[student_enrollment.id] = []
+      step_recoveries[student_enrollment.id] = []
+      
       @steps.each do |step|
         average = StudentAverageCalculator.new(student).calculate(@classroom, @discipline, step)
         step_averages[student_enrollment.id] << average
+        
+        # Buscar recuperação por etapa
+        step_recovery = AvaliationRecoveryDiaryRecord
+          .joins(recovery_diary_record: :students)
+          .where(recovery_diary_records: { classroom_id: @classroom.id, discipline_id: @discipline.id })
+          .where(recovery_diary_record_students: { student_id: student_id })
+          .by_test_date_between(step.start_at, step.end_at)
+          .order('recovery_diary_records.recorded_at DESC')
+          .first
+        
+        step_recovery_score = nil
+        if step_recovery
+          recovery_student = step_recovery.recovery_diary_record.students.find_by(student_id: student_id)
+          step_recovery_score = recovery_student&.score
+        end
+        step_recoveries[student_enrollment.id] << step_recovery_score
       end
-
-      # Calcular médias parciais dos semestres
-      first_semester_avgs = step_averages[student_enrollment.id].first(first_semester_steps.size).compact
-      second_semester_avgs = step_averages[student_enrollment.id].last(second_semester_steps.size).compact
-
-      first_semester_averages[student_enrollment.id] = first_semester_avgs.any? ? (first_semester_avgs.sum.to_f / first_semester_avgs.size) : nil
-      second_semester_averages[student_enrollment.id] = second_semester_avgs.any? ? (second_semester_avgs.sum.to_f / second_semester_avgs.size) : nil
-
-      # Buscar recuperação do 1º semestre
-      first_sem_recovery = SchoolTermRecoveryDiaryRecord
-        .joins(recovery_diary_record: :students)
-        .where(recovery_diary_records: { classroom_id: @classroom.id, discipline_id: @discipline.id })
-        .where(recovery_diary_record_students: { student_id: student_id })
-        .where('recovery_diary_records.recorded_at BETWEEN ? AND ?', first_semester_steps.first.start_at, first_semester_steps.last.end_at)
-        .order('recovery_diary_records.recorded_at DESC')
-        .first
-      
-      first_sem_recovery_score = nil
-      if first_sem_recovery
-        recovery_student = first_sem_recovery.recovery_diary_record.students.find_by(student_id: student_id)
-        first_sem_recovery_score = recovery_student&.score
-      end
-      first_semester_recoveries[student_enrollment.id] = first_sem_recovery_score
-
-      # Buscar recuperação do 2º semestre
-      second_sem_recovery = SchoolTermRecoveryDiaryRecord
-        .joins(recovery_diary_record: :students)
-        .where(recovery_diary_records: { classroom_id: @classroom.id, discipline_id: @discipline.id })
-        .where(recovery_diary_record_students: { student_id: student_id })
-        .where('recovery_diary_records.recorded_at BETWEEN ? AND ?', second_semester_steps.first.start_at, second_semester_steps.last.end_at)
-        .order('recovery_diary_records.recorded_at DESC')
-        .first
-      
-      second_sem_recovery_score = nil
-      if second_sem_recovery
-        recovery_student = second_sem_recovery.recovery_diary_record.students.find_by(student_id: student_id)
-        second_sem_recovery_score = recovery_student&.score
-      end
-      second_semester_recoveries[student_enrollment.id] = second_sem_recovery_score
-
-      # Calcular médias finais dos semestres (aplicando recuperação se houver)
-      first_sem_final = first_semester_averages[student_enrollment.id]
-      if first_sem_recovery_score.present? && first_sem_recovery_score.to_f > (first_sem_final || 0).to_f
-        first_sem_final = first_sem_recovery_score.to_f
-      end
-      first_semester_final_averages[student_enrollment.id] = first_sem_final ? ScoreRounder.new(@classroom, RoundedAvaliations::NUMERICAL_EXAM, first_semester_steps.last).round(first_sem_final) : nil
-
-      second_sem_final = second_semester_averages[student_enrollment.id]
-      if second_sem_recovery_score.present? && second_sem_recovery_score.to_f > (second_sem_final || 0).to_f
-        second_sem_final = second_sem_recovery_score.to_f
-      end
-      second_semester_final_averages[student_enrollment.id] = second_sem_final ? ScoreRounder.new(@classroom, RoundedAvaliations::NUMERICAL_EXAM, second_semester_steps.last).round(second_sem_final) : nil
 
       # Buscar recuperação final
       final_recovery_record = FinalRecoveryDiaryRecord
@@ -184,9 +145,9 @@ class ExamRecordAllStepsAveragesReport < BaseReport
       end
       final_recoveries[student_enrollment.id] = final_recovery_score
 
-      # Calcular média final (média das médias finais dos semestres, aplicando recuperação final se houver)
-      semester_finals = [first_semester_final_averages[student_enrollment.id], second_semester_final_averages[student_enrollment.id]].compact
-      final_average = semester_finals.any? ? (semester_finals.sum.to_f / semester_finals.size) : nil
+      # Calcular média final (média de todas as etapas, aplicando recuperação final se houver)
+      all_step_averages = step_averages[student_enrollment.id].compact
+      final_average = all_step_averages.any? ? (all_step_averages.sum.to_f / all_step_averages.size) : nil
       
       if final_recovery_score.present? && final_recovery_score.to_f > (final_average || 0).to_f
         final_average = final_recovery_score.to_f
@@ -195,71 +156,40 @@ class ExamRecordAllStepsAveragesReport < BaseReport
       final_averages[student_enrollment.id] = final_average ? ScoreRounder.new(@classroom, RoundedAvaliations::NUMERICAL_EXAM, @steps.last).round(final_average) : nil
     end
 
-    # Construir tabela conforme a imagem
+    # Construir tabela com recuperação por etapa
     sequential_number_header = make_cell(content: 'Nº', size: 7, font_style: :bold, background_color: 'FFFFFF', align: :center)
     student_name_header = make_cell(content: 'Nome do aluno', size: 7, font_style: :bold, background_color: 'FFFFFF', align: :center)
 
-    # Headers das etapas individuais - Branco
-    first_semester_step_headers = first_semester_steps.map do |step|
-      make_cell(content: "#{step.step_number}ª Etapa", size: 7, font_style: :bold, background_color: STEP_BG_COLOR, align: :center)
+    # Headers com recuperação por etapa (sem MP semestral)
+    step_headers = []
+    @steps.each_with_index do |step, index|
+      step_headers << make_cell(content: "#{step.step_number}ª Etapa", size: 7, font_style: :bold, background_color: STEP_BG_COLOR, align: :center)
+      rec_bg_color = index < first_semester_steps.size ? FIRST_SEMESTER_BG_COLOR : SECOND_SEMESTER_BG_COLOR
+      step_headers << make_cell(content: "Rec\n#{step.step_number}ª", size: 7, font_style: :bold, background_color: rec_bg_color, align: :center, valign: :center)
     end
-
-    # Headers das etapas individuais - Branco
-    second_semester_step_headers = second_semester_steps.map do |step|
-      make_cell(content: "#{step.step_number}ª Etapa", size: 7, font_style: :bold, background_color: STEP_BG_COLOR, align: :center)
-    end
-
-    # Headers do 1º semestre
-    mp_first_sem_header = make_cell(content: "MP\n1º Sem", size: 7, font_style: :bold, background_color: FIRST_SEMESTER_BG_COLOR, align: :center, valign: :center)
-    rec_first_sem_header = make_cell(content: "Rec.\n1º Sem", size: 7, font_style: :bold, background_color: FIRST_SEMESTER_BG_COLOR, align: :center, valign: :center)
-    final_first_sem_header = make_cell(content: "Média\n1º Sem", size: 7, font_style: :bold, background_color: SEMESTER_AVG_BG_COLOR, align: :center, valign: :center)
-
-    # Headers do 2º semestre
-    mp_second_sem_header = make_cell(content: "MP\n2º Sem", size: 7, font_style: :bold, background_color: SECOND_SEMESTER_BG_COLOR, align: :center, valign: :center)
-    rec_second_sem_header = make_cell(content: "Rec\n2º Sem", size: 7, font_style: :bold, background_color: SECOND_SEMESTER_BG_COLOR, align: :center, valign: :center)
-    final_second_sem_header = make_cell(content: "Média\n2º Sem", size: 7, font_style: :bold, background_color: SEMESTER_AVG_BG_COLOR, align: :center, valign: :center)
 
     # Headers finais
     rec_final_header = make_cell(content: "Rec\nFinal", size: 7, font_style: :bold, background_color: SEMESTER_AVG_BG_COLOR, align: :center, valign: :center)
     final_average_header = make_cell(content: "Média\nFinal", size: 7, font_style: :bold, background_color: FINAL_AVG_BG_COLOR, align: :center, valign: :center)
 
-    # Nova ordem: Nº, Nome, 1ª Etapa, 2ª Etapa, MP 1º Sem, Rec. 1º Sem, Média 1º Sem, 3ª Etapa, 4ª Etapa, MP 2º Sem, Rec 2º Sem, Média 2º Sem, Rec Final, Média Final
     headers = [sequential_number_header, student_name_header] + 
-              first_semester_step_headers +
-              [mp_first_sem_header, rec_first_sem_header, final_first_sem_header] +
-              second_semester_step_headers +
-              [mp_second_sem_header, rec_second_sem_header, final_second_sem_header] +
+              step_headers +
               [rec_final_header, final_average_header]
 
     students_data = []
     @students_enrollments.each_with_index do |student_enrollment, index|
-      # Dividir médias das etapas por semestre
-      first_semester_step_averages = step_averages[student_enrollment.id].first(first_semester_steps.size)
-      second_semester_step_averages = step_averages[student_enrollment.id].last(second_semester_steps.size)
-
-      # Nova ordem: Nº, Nome, 1ª Etapa, 2ª Etapa, MP 1º Sem, Rec. 1º Sem, Média 1º Sem, 3ª Etapa, 4ª Etapa, MP 2º Sem, Rec 2º Sem, Média 2º Sem, Rec Final, Média Final
       row = [make_cell(content: (index + 1).to_s, size: 7, align: :center),
              make_cell(content: students[student_enrollment.id][:name], size: 7, align: :left)]
 
-      # Notas das etapas do 1º semestre - Branco
-      first_semester_step_averages.each do |average|
+      # Dados com recuperação por etapa (sem MP semestral)
+      @steps.each_with_index do |step, step_index|
+        average = step_averages[student_enrollment.id][step_index]
+        recovery = step_recoveries[student_enrollment.id][step_index]
+        rec_bg_color = step_index < first_semester_steps.size ? FIRST_SEMESTER_BG_COLOR : SECOND_SEMESTER_BG_COLOR
+        
         row << make_cell(content: localize_score(average), size: 7, align: :center, background_color: STEP_BG_COLOR)
+        row << make_cell(content: localize_score(recovery), size: 7, align: :center, background_color: rec_bg_color)
       end
-
-      # Dados do 1º semestre
-      row << make_cell(content: localize_score(first_semester_averages[student_enrollment.id]), size: 7, align: :center, background_color: FIRST_SEMESTER_BG_COLOR)
-      row << make_cell(content: localize_score(first_semester_recoveries[student_enrollment.id]), size: 7, align: :center, background_color: FIRST_SEMESTER_BG_COLOR)
-      row << make_cell(content: localize_score(first_semester_final_averages[student_enrollment.id]), size: 7, align: :center, background_color: SEMESTER_AVG_BG_COLOR)
-
-      # Notas das etapas do 2º semestre - Branco
-      second_semester_step_averages.each do |average|
-        row << make_cell(content: localize_score(average), size: 7, align: :center, background_color: STEP_BG_COLOR)
-      end
-
-      # Dados do 2º semestre
-      row << make_cell(content: localize_score(second_semester_averages[student_enrollment.id]), size: 7, align: :center, background_color: SECOND_SEMESTER_BG_COLOR)
-      row << make_cell(content: localize_score(second_semester_recoveries[student_enrollment.id]), size: 7, align: :center, background_color: SECOND_SEMESTER_BG_COLOR)
-      row << make_cell(content: localize_score(second_semester_final_averages[student_enrollment.id]), size: 7, align: :center, background_color: SEMESTER_AVG_BG_COLOR)
 
       # Dados finais
       row << make_cell(content: localize_score(final_recoveries[student_enrollment.id]), size: 7, align: :center, background_color: SEMESTER_AVG_BG_COLOR)
