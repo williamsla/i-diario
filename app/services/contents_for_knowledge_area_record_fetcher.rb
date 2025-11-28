@@ -15,6 +15,13 @@ class ContentsForKnowledgeAreaRecordFetcher < ContentsRecordFetcher
                                              .by_date(@date)
   end
 
+  def lesson_plans_objectives
+    @lesson_plans_objectives ||= KnowledgeAreaLessonPlan.includes(lesson_plan: :objectives)
+                                                          .by_classroom_id(@classroom.id)
+                                                          .by_knowledge_area_id(@knowledge_areas.map(&:id))
+                                                          .by_date(@date)
+  end
+
   def teaching_plans
     @teaching_plans ||= KnowledgeAreaTeachingPlan.includes(teaching_plan: :contents)
                                                  .by_unity(@classroom.unity_id)

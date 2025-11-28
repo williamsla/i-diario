@@ -219,19 +219,37 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     classroom = @knowledge_area_content_record.content_record.classroom
     knowledge_areas = @knowledge_area_content_record.knowledge_areas
     date = @knowledge_area_content_record.content_record.record_date
-
+    
+    # Busca conteúdos dos planos de aula/ensino da área de conhecimento
+    plan_contents = []
     if teacher && classroom && knowledge_areas && date
-      @contents = ContentsForKnowledgeAreaRecordFetcher.new(teacher, classroom, knowledge_areas, date).fetch
-      @contents.each { |content| content.is_editable = false }
+      plan_contents = ContentsForKnowledgeAreaRecordFetcher.new(teacher, classroom, knowledge_areas, date).fetch
+      plan_contents.each { |content| content.is_editable = false }
     end
-
-    if @knowledge_area_content_record.content_record.contents
-      contents = @knowledge_area_content_record.content_record.contents_ordered
-      contents.each { |content| content.is_editable = true }
-      @contents << contents
+    
+    # Busca conteúdos realmente salvos neste registro específico
+    # IMPORTANTE: Só busca conteúdos salvos se o KnowledgeAreaContentRecord também estiver persistido
+    saved_contents = []
+    if @knowledge_area_content_record.persisted? && 
+       @knowledge_area_content_record.content_record.persisted? && 
+       @knowledge_area_content_record.content_record.contents.present?
+      saved_contents = @knowledge_area_content_record.content_record.contents_ordered
+      saved_contents.each { |content| content.is_editable = true }
     end
-
-    @contents.flatten.uniq
+    
+    # Combina os conteúdos, priorizando os salvos (marcando como editáveis)
+    saved_content_ids = saved_contents.map(&:id)
+    @contents = plan_contents.map do |content|
+      if saved_content_ids.include?(content.id)
+        content.is_editable = true
+      end
+      content
+    end
+    
+    # Adiciona apenas conteúdos salvos que não estão nos planos
+    @contents += saved_contents.reject { |content| plan_contents.map(&:id).include?(content.id) }
+    
+    @contents.uniq
   end
   helper_method :contents
 
@@ -245,16 +263,43 @@ class KnowledgeAreaContentRecordsController < ApplicationController
 
     teacher = current_teacher
     classroom = @knowledge_area_content_record.content_record.classroom
-    # knowledge_areas = @knowledge_area_content_record.knowledge_areas
+    knowledge_areas = @knowledge_area_content_record.knowledge_areas
     date = @knowledge_area_content_record.content_record.record_date
-
-    if @knowledge_area_content_record.content_record.objectives
-      objectives = @knowledge_area_content_record.content_record.objectives_ordered
-      objectives.each { |objective| objective.is_editable = true }
-      @objectives << objectives
+    
+    # Busca objetivos dos planos de aula/ensino da área de conhecimento
+    plan_objectives = []
+    if teacher && classroom && knowledge_areas && date
+      plan_objectives = ContentsForKnowledgeAreaRecordFetcher.new(teacher, classroom, knowledge_areas, date).fetch_objectives
+      plan_objectives.each { |objective| objective.is_editable = false }
     end
 
-    @objectives.flatten.uniq
+    # Busca objetivos realmente salvos neste registro específico
+    # IMPORTANTE: Só busca objetivos salvos se o KnowledgeAreaContentRecord também estiver persistido
+    saved_objectives = []
+    if @knowledge_area_content_record.persisted? && 
+       @knowledge_area_content_record.content_record.persisted? && 
+       @knowledge_area_content_record.content_record.objectives.present?
+      begin
+        saved_objectives = @knowledge_area_content_record.content_record.objectives_ordered
+        saved_objectives.each { |objective| objective.is_editable = true }
+      rescue 
+        saved_objectives = []
+      end
+    end
+
+    # Combina os objetivos, priorizando os salvos (marcando como editáveis)
+    saved_objective_ids = saved_objectives.map(&:id)
+    @objectives = plan_objectives.map do |objective|
+      if saved_objective_ids.include?(objective.id)
+        objective.is_editable = true
+      end
+      objective
+    end
+    
+    # Adiciona objetivos salvos que não estão nos planos
+    @objectives += saved_objectives.reject { |objective| plan_objectives.map(&:id).include?(objective.id) }
+    
+    @objectives.uniq
   end
   helper_method :objectives
 
