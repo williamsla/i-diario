@@ -5,15 +5,20 @@ class ExamRecordReportForm
                 :classroom_id,
                 :discipline_id,
                 :school_calendar_step_id,
-                :school_calendar_classroom_step_id
+                :school_calendar_classroom_step_id,
+                :report_type
 
   validates :unity_id,      presence: true
   validates :classroom_id,  presence: true
   validates :discipline_id, presence: true
-  validates :school_calendar_step_id, presence: true, unless: :school_calendar_classroom_step_id
-  validates :school_calendar_classroom_step_id, presence: true, unless: :school_calendar_step_id
+  validates :school_calendar_step_id, presence: true, unless: -> { school_calendar_classroom_step_id.present? || report_type == 'all_steps_averages' }
+  validates :school_calendar_classroom_step_id, presence: true, unless: -> { school_calendar_step_id.present? || report_type == 'all_steps_averages' }
 
-  validate :must_have_daily_notes
+  validate :must_have_daily_notes, unless: -> { report_type == 'all_steps_averages' }
+  
+  def report_type
+    @report_type ||= 'step_evaluations'
+  end
 
   def daily_notes
     return unless step

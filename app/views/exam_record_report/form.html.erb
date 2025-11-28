@@ -31,6 +31,16 @@
 
       <div class="row">
         <div class="col col-sm-4">
+          <%= f.input :report_type, as: :select, 
+                collection: [
+                  ['Avaliações da etapa', 'step_evaluations'],
+                  ['Médias de todas as etapas', 'all_steps_averages']
+                ],
+                selected: @exam_record_report_form.report_type || 'step_evaluations',
+                input_html: { id: 'report_type_select', class: 'form-control' },
+                label: 'Tipo de Relatório' %>
+        </div>
+        <div class="col col-sm-4" id="step_selection">
           <% if @school_calendar_classroom_steps.any? %>
             <%= f.input :school_calendar_classroom_step_id, as: :select2, elements: @school_calendar_classroom_steps,
                   input_html: { value: @exam_record_report_form.school_calendar_classroom_step_id }, required: true %>

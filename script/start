@@ -11,6 +11,7 @@ if ! test -f ".setup"; then
     REDIS_URL: redis://redis:6379/0
     shortcuts_enabled: true
     only_one_conceptual_avaliation: false
+    show_objectives: true
     " > config/secrets.yml
 
   cp config/database.sample.yml config/database.yml

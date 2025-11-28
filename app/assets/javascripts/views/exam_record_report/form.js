@@ -125,6 +125,21 @@ $(document).ready(function () {
     flashMessages.error('Ocorreu um erro ao buscar as disciplinas da turma selecionada.');
   };
 
+  // Controla a exibição do campo de etapa baseado no tipo de relatório
+  $('#report_type_select').on('change', function() {
+    var reportType = $(this).val();
+    if (reportType === 'all_steps_averages') {
+      $('#step_selection').hide();
+      $('#step_selection input, #step_selection select').prop('required', false);
+    } else {
+      $('#step_selection').show();
+      $('#step_selection input, #step_selection select').prop('required', true);
+    }
+  });
+
+  // Executa na carga da página
+  $('#report_type_select').trigger('change');
+
   $('form').submit(function (event) {
     var tempoEspera = 2000;
 
