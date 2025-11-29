@@ -12,7 +12,7 @@ module Navigation
       content_tag :div, class: "col-sm-4 col-md-2 col-lg-2 col-xs-6 text-center shortcut" do
         link_to(path_method(menu[:path])) do
           text = content_tag(:i, '', class: "shortcut-icon fa fa-lg fa-fw #{menu[:icon]}")
-          text + content_tag(:span, Translator.t("navigation.#{menu[:type]}"), class: '')
+          text + content_tag(:span, menu_text(menu[:type]), class: '')
         end
       end
     end

@@ -53,6 +53,22 @@ module Navigation
           result
         end
       end
+
+      def menu_text(menu_type)
+        if menu_type == 'school_term_recovery_diary_records'
+          semestral_recovery = Rails.application.secrets.try(:semestral_recovery) || 
+                              Rails.application.secrets.try(:SEMESTRAL_RECOVERY) || 
+                              false
+          
+          if semestral_recovery
+            'Recuperação Semestral'
+          else
+            Translator.t("navigation.#{menu_type}")
+          end
+        else
+          Translator.t("navigation.#{menu_type}")
+        end
+      end
     end
   end
 end

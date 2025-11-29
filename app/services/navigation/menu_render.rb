@@ -32,7 +32,7 @@ module Navigation
 
           li << link_to(menu_path) do
             link = []
-            link_content = Translator.t("navigation.#{menu[:type]}")
+            link_content = menu_text(menu[:type])
 
             link << content_tag(:i, '', class: "fa fa-lg fa-fw #{menu[:icon]}") if menu[:icon]
 
@@ -61,5 +61,6 @@ module Navigation
         can_show?(node[:type])
       end
     end
+
   end
 end
