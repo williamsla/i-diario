@@ -41,6 +41,13 @@ class AttendanceRecordReportByStudentsController < ApplicationController
 
     set_options_by_user
     render :form
+  rescue StandardError => e
+    flash.now[:alert] = "Erro ao gerar relatório: #{e.message}"
+
+    @attendance_record_report_by_student_form.school_calendar_year = current_school_year
+
+    set_options_by_user
+    render :form
   end
 
   def fetch_period_by_classroom
