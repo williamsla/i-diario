@@ -120,11 +120,25 @@ class ExamRecordAllStepsAveragesReport < BaseReport
       end
 
       # Calcular médias parciais dos semestres
-      first_semester_avgs = step_averages[student_enrollment.id].first(first_semester_steps.size).compact
-      second_semester_avgs = step_averages[student_enrollment.id].last(second_semester_steps.size).compact
+      # Notas em branco (nil) devem ser consideradas como 0 na média
+      first_semester_values  = step_averages[student_enrollment.id].first(first_semester_steps.size)
+      second_semester_values = step_averages[student_enrollment.id].last(second_semester_steps.size)
 
-      first_semester_averages[student_enrollment.id] = first_semester_avgs.any? ? (first_semester_avgs.sum.to_f / first_semester_avgs.size) : nil
-      second_semester_averages[student_enrollment.id] = second_semester_avgs.any? ? (second_semester_avgs.sum.to_f / second_semester_avgs.size) : nil
+      if first_semester_values.any?
+        first_semester_sum   = first_semester_values.map { |v| v.to_f }.sum
+        first_semester_count = first_semester_values.size
+        first_semester_averages[student_enrollment.id] = first_semester_sum / first_semester_count
+      else
+        first_semester_averages[student_enrollment.id] = nil
+      end
+
+      if second_semester_values.any?
+        second_semester_sum   = second_semester_values.map { |v| v.to_f }.sum
+        second_semester_count = second_semester_values.size
+        second_semester_averages[student_enrollment.id] = second_semester_sum / second_semester_count
+      else
+        second_semester_averages[student_enrollment.id] = nil
+      end
 
       # Buscar recuperação do 1º semestre
       first_sem_recovery = SchoolTermRecoveryDiaryRecord
