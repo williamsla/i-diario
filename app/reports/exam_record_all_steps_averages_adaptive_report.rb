@@ -6,12 +6,12 @@ class ExamRecordAllStepsAveragesAdaptiveReport < BaseReport
   STUDENT_BY_PAGE_COUNT = 40
   SOCIAL_NAME_REDUCTION_FACTOR = 3
   
-  # Cores neutras para distinguir os grupos de colunas
+  # Cores neutras para distinguir os grupos de colunas (melhor contraste para legibilidade)
   STEP_BG_COLOR = 'FFFFFF'            # Branco para etapas
-  FIRST_SEMESTER_BG_COLOR = 'F5F5F5'  # Cinza claro para 1º semestre (MP e Rec)
-  SECOND_SEMESTER_BG_COLOR = 'F5F5F5'  # Cinza claro para 2º semestre (MP e Rec)
-  SEMESTER_AVG_BG_COLOR = 'E8E8E8'    # Cinza médio para Média 1º Sem, Média 2º Sem e Rec Final
-  FINAL_AVG_BG_COLOR = 'D0D0D0'       # Cinza mais escuro para Média Final
+  FIRST_SEMESTER_BG_COLOR = 'F0F0F0'  # Cinza muito claro para 1º semestre (MP e Rec)
+  SECOND_SEMESTER_BG_COLOR = 'F0F0F0'  # Cinza muito claro para 2º semestre (MP e Rec)
+  SEMESTER_AVG_BG_COLOR = 'D0D0D0'    # Cinza médio para Média 1º Sem, Média 2º Sem e Rec Final (melhor contraste)
+  FINAL_AVG_BG_COLOR = 'B0B0B0'       # Cinza mais escuro para Média Final (melhor contraste)
 
   def self.build(entity_configuration, teacher, year, classroom, discipline, steps, students_enrollments)
     new(:portrait).build(entity_configuration, teacher, year, classroom, discipline, steps, students_enrollments)

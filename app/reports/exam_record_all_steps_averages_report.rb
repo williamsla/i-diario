@@ -6,12 +6,12 @@ class ExamRecordAllStepsAveragesReport < BaseReport
   STUDENT_BY_PAGE_COUNT = 40
   SOCIAL_NAME_REDUCTION_FACTOR = 3
   
-  # Cores neutras para distinguir os grupos de colunas
+  # Cores neutras para distinguir os grupos de colunas (melhor contraste para legibilidade)
   STEP_BG_COLOR = 'FFFFFF'            # Branco para etapas
-  FIRST_SEMESTER_BG_COLOR = 'F5F5F5'  # Cinza claro para 1º semestre (MP e Rec)
-  SECOND_SEMESTER_BG_COLOR = 'F5F5F5'  # Cinza claro para 2º semestre (MP e Rec)
-  SEMESTER_AVG_BG_COLOR = 'E8E8E8'    # Cinza médio para Média 1º Sem, Média 2º Sem e Rec Final
-  FINAL_AVG_BG_COLOR = 'D0D0D0'       # Cinza mais escuro para Média Final
+  FIRST_SEMESTER_BG_COLOR = 'F0F0F0'  # Cinza muito claro para 1º semestre (MP e Rec)
+  SECOND_SEMESTER_BG_COLOR = 'F0F0F0'  # Cinza muito claro para 2º semestre (MP e Rec)
+  SEMESTER_AVG_BG_COLOR = 'D0D0D0'    # Cinza médio para Média 1º Sem, Média 2º Sem e Rec Final (melhor contraste)
+  FINAL_AVG_BG_COLOR = 'B0B0B0'       # Cinza mais escuro para Média Final (melhor contraste)
 
   def self.build(entity_configuration, teacher, year, classroom, discipline, steps, students_enrollments)
     new(:portrait).build(entity_configuration, teacher, year, classroom, discipline, steps, students_enrollments)
@@ -124,10 +124,15 @@ class ExamRecordAllStepsAveragesReport < BaseReport
       first_semester_values  = step_averages[student_enrollment.id].first(first_semester_steps.size)
       second_semester_values = step_averages[student_enrollment.id].last(second_semester_steps.size)
 
+      # Armazenar valores não arredondados para cálculos posteriores
+      first_semester_avg_raw = nil
+      second_semester_avg_raw = nil
+
       if first_semester_values.any?
         first_semester_sum   = first_semester_values.map { |v| v.to_f }.sum
         first_semester_count = first_semester_values.size
-        first_semester_averages[student_enrollment.id] = first_semester_sum / first_semester_count
+        first_semester_avg_raw = first_semester_sum / first_semester_count
+        first_semester_averages[student_enrollment.id] = ScoreRounder.new(@classroom, RoundedAvaliations::NUMERICAL_EXAM, first_semester_steps.last).round(first_semester_avg_raw)
       else
         first_semester_averages[student_enrollment.id] = nil
       end
@@ -135,7 +140,8 @@ class ExamRecordAllStepsAveragesReport < BaseReport
       if second_semester_values.any?
         second_semester_sum   = second_semester_values.map { |v| v.to_f }.sum
         second_semester_count = second_semester_values.size
-        second_semester_averages[student_enrollment.id] = second_semester_sum / second_semester_count
+        second_semester_avg_raw = second_semester_sum / second_semester_count
+        second_semester_averages[student_enrollment.id] = ScoreRounder.new(@classroom, RoundedAvaliations::NUMERICAL_EXAM, second_semester_steps.last).round(second_semester_avg_raw)
       else
         second_semester_averages[student_enrollment.id] = nil
       end
@@ -173,13 +179,14 @@ class ExamRecordAllStepsAveragesReport < BaseReport
       second_semester_recoveries[student_enrollment.id] = second_sem_recovery_score
 
       # Calcular médias finais dos semestres (aplicando recuperação se houver)
-      first_sem_final = first_semester_averages[student_enrollment.id]
+      # Usar valor não arredondado para comparação e cálculo
+      first_sem_final = first_semester_avg_raw
       if first_sem_recovery_score.present? && first_sem_recovery_score.to_f > (first_sem_final || 0).to_f
         first_sem_final = first_sem_recovery_score.to_f
       end
       first_semester_final_averages[student_enrollment.id] = first_sem_final ? ScoreRounder.new(@classroom, RoundedAvaliations::NUMERICAL_EXAM, first_semester_steps.last).round(first_sem_final) : nil
 
-      second_sem_final = second_semester_averages[student_enrollment.id]
+      second_sem_final = second_semester_avg_raw
       if second_sem_recovery_score.present? && second_sem_recovery_score.to_f > (second_sem_final || 0).to_f
         second_sem_final = second_sem_recovery_score.to_f
       end
@@ -201,8 +208,10 @@ class ExamRecordAllStepsAveragesReport < BaseReport
       final_recoveries[student_enrollment.id] = final_recovery_score
 
       # Calcular média final (média das médias finais dos semestres, aplicando recuperação final se houver)
-      semester_finals = [first_semester_final_averages[student_enrollment.id], second_semester_final_averages[student_enrollment.id]].compact
-      final_average = semester_finals.any? ? (semester_finals.sum.to_f / semester_finals.size) : nil
+      # Considera MP1 e MP2 como zero quando vazios
+      mp1 = first_semester_final_averages[student_enrollment.id] || 0
+      mp2 = second_semester_final_averages[student_enrollment.id] || 0
+      final_average = (mp1.to_f + mp2.to_f) / 2.0
       
       if final_recovery_score.present? && final_recovery_score.to_f > (final_average || 0).to_f
         final_average = final_recovery_score.to_f
