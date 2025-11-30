@@ -21,7 +21,7 @@ module Navigation
             html << content_tag(:i, "", :class => "fa #{params[:icon]} fa-fw")
           end
 
-          html << Translator.t("navigation.#{params[:type]}")
+          html << menu_text(params[:type])
 
           raw html.join(" ")
         end

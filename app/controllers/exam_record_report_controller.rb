@@ -19,7 +19,11 @@ class ExamRecordReportController < ApplicationController
     set_school_calendars
 
     if @exam_record_report_form.valid?
-      exam_record_report = @school_calendar_classroom_steps.any? ? build_by_classroom_steps : build_by_school_steps
+      if @exam_record_report_form.report_type == 'all_steps_averages'
+        exam_record_report = build_all_steps_averages_report
+      else
+        exam_record_report = @school_calendar_classroom_steps.any? ? build_by_classroom_steps : build_by_school_steps
+      end
       send_pdf(t("routes.exam_record_report"), exam_record_report.render)
     else
       set_options_by_user
@@ -47,7 +51,8 @@ class ExamRecordReportController < ApplicationController
                                                     :classroom_id,
                                                     :discipline_id,
                                                     :school_calendar_step_id,
-                                                    :school_calendar_classroom_step_id)
+                                                    :school_calendar_classroom_step_id,
+                                                    :report_type)
   end
 
   def build_by_school_steps
@@ -118,5 +123,50 @@ class ExamRecordReportController < ApplicationController
 
     classroom_id = @exam_record_report_form.classroom_id
     @disciplines = @disciplines.by_classroom_id(classroom_id).not_descriptor
+  end
+
+  def build_all_steps_averages_report
+    classroom = Classroom.find(@exam_record_report_form.classroom_id)
+    steps_fetcher = StepsFetcher.new(classroom)
+    steps = steps_fetcher.steps
+    
+    students_enrollments = StudentEnrollmentsList.new(
+      classroom: @exam_record_report_form.classroom_id,
+      discipline: @exam_record_report_form.discipline_id,
+      start_at: steps.first&.start_at,
+      end_at: steps.last&.end_at,
+      score_type: StudentEnrollmentScoreTypeFilters::NUMERIC,
+      search_type: :by_date_range,
+      show_inactive: false
+    ).student_enrollments
+
+    # Ler configuração de recuperação semestral
+    # Se não estiver definido, considerar como false
+    semestral_recovery = Rails.application.secrets.try(:semestral_recovery) || 
+                         Rails.application.secrets.try(:SEMESTRAL_RECOVERY) || 
+                         false
+
+    # Decidir qual relatório usar baseado na configuração
+    if semestral_recovery
+      ExamRecordAllStepsAveragesReport.build(
+        current_entity_configuration,
+        current_teacher,
+        current_school_year,
+        classroom,
+        Discipline.find(@exam_record_report_form.discipline_id),
+        steps,
+        students_enrollments
+      )
+    else
+      ExamRecordAllStepsAveragesAdaptiveReport.build(
+        current_entity_configuration,
+        current_teacher,
+        current_school_year,
+        classroom,
+        Discipline.find(@exam_record_report_form.discipline_id),
+        steps,
+        students_enrollments
+      )
+    end
   end
 end

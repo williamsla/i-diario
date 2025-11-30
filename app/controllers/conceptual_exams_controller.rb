@@ -15,6 +15,7 @@ class ConceptualExamsController < ApplicationController
     set_options_by_user
 
     @conceptual_exams = fetch_conceptual_exams
+    @only_one_conceptual_avaliation = Rails.application.secrets.only_one_conceptual_avaliation.present? && Rails.application.secrets.only_one_conceptual_avaliation
 
     check_status_and_step(step_id, status)
 

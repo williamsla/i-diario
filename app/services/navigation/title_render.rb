@@ -17,7 +17,7 @@ module Navigation
     end
 
     def render_title(params)
-      Translator.t("navigation.#{params[:type]}")
+      menu_text(params[:type])
     end
   end
 end

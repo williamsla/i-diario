@@ -86,22 +86,28 @@ class KnowledgeAreaContentRecord < ActiveRecord::Base
 
     base_query = base_query.where.not(id: id) if persisted?
 
-    # Para cada área de conhecimento, verifica se há registros que a contêm
-    # Depois verifica se algum desses registros tem exatamente as mesmas áreas
-    matching_records = base_query.joins(:knowledge_areas)
+    # Busca registros que contêm todas as áreas de conhecimento especificadas
+    # Usa uma subquery mais segura para evitar problemas com GROUP BY
+    matching_records = base_query
+      .joins(:knowledge_areas)
       .where(knowledge_areas: { id: current_knowledge_area_ids })
       .group('knowledge_area_content_records.id')
       .having('COUNT(DISTINCT knowledge_areas.id) = ?', current_knowledge_area_ids.size)
-      .includes(:knowledge_areas)
+      .select('knowledge_area_content_records.id')
 
-    # Verifica se algum registro tem exatamente as mesmas áreas de conhecimento
-    matching_records.each do |record|
-      existing_knowledge_area_ids = record.knowledge_areas.map(&:id).sort
+    # Se encontrou registros com o mesmo número de áreas, verifica se são exatamente as mesmas
+    if matching_records.any?
+      # Carrega os registros completos com suas áreas de conhecimento
+      candidate_ids = matching_records.pluck(:id)
+      candidates = KnowledgeAreaContentRecord.where(id: candidate_ids).includes(:knowledge_areas)
       
-      if existing_knowledge_area_ids == current_knowledge_area_ids
-        errors.add(:knowledge_area_ids, :knowledge_area_in_use)
-        Rails.logger.error "=== Validação de unicidade falhou para teacher_id: #{content_record.teacher_id}, classroom_id: #{content_record.classroom_id}, knowledge_area_ids: #{current_knowledge_area_ids}, date: #{content_record.record_date} ==="
-        return
+      candidates.each do |record|
+        existing_knowledge_area_ids = record.knowledge_areas.map(&:id).sort
+        
+        if existing_knowledge_area_ids == current_knowledge_area_ids
+          errors.add(:knowledge_area_ids, :knowledge_area_in_use)
+          return
+        end
       end
     end
   end

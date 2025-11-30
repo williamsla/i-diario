@@ -220,7 +220,7 @@ navigation:
             path: "absence_justification_report_path"
         - menu:
             type: "teacher_report_cards"
-            path: "teacher_report_cards_path"
+            path: "exam_record_report_path"
         - menu:
             type: "partial_score_record_report"
             path: "partial_score_record_report_path"
