@@ -25,7 +25,7 @@ class WorkerState < ActiveRecord::Base
   def add_error!(message)
     update(status: ApiSynchronizationStatus::ERROR) unless error?
 
-    update(error_list: error_list << message)
+    update(error_list: (error_list || []) << message)
   end
 
   def mark_as_completed!

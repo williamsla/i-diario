@@ -49,7 +49,7 @@
               <% if worker_batch.present? %>
                 <% worker_states = worker_batch.worker_states.by_status(ApiSynchronizationStatus::ERROR) %>
                 <% worker_states.each do |worker_state| %>
-                  <% worker_state.error_list.each do |error| %>
+                  <% (worker_state.error_list || []).compact.each do |error| %>
                     <p><%= error %></p>
                   <% end %>
                 <% end %>
