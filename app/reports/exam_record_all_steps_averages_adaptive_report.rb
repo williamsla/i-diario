@@ -147,9 +147,10 @@ class ExamRecordAllStepsAveragesAdaptiveReport < BaseReport
       end
       final_recoveries[student_enrollment.id] = final_recovery_score
 
-      # Calcular média final (média de todas as etapas, aplicando recuperação final se houver)
-      all_step_averages = step_averages[student_enrollment.id].compact
-      final_average = all_step_averages.any? ? (all_step_averages.sum.to_f / all_step_averages.size) : nil
+      # Calcular média final (média de todas as etapas dividida pela quantidade de etapas, aplicando recuperação final se houver)
+      # Notas vazias são consideradas como 0
+      all_step_averages = step_averages[student_enrollment.id].map { |v| v.to_f }
+      final_average = all_step_averages.any? ? (all_step_averages.sum.to_f / @steps.size.to_f) : nil
       
       if final_recovery_score.present? && final_recovery_score.to_f > (final_average || 0).to_f
         final_average = final_recovery_score.to_f
