@@ -87,7 +87,7 @@ $(function () {
         var objectiveExists = $('input[type=checkbox][data-objective_description="' + objective.description + '"]').length > 0;
         
         if (!objectiveExists) {
-          var html = JST['templates/discipline_content_records/contents_list_item'](objective);
+          var html = JST['templates/discipline_content_records/objectives_list_item'](objective);
           $('#objectives-list').append(html);
         }
       });

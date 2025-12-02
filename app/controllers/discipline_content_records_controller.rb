@@ -78,15 +78,17 @@ class DisciplineContentRecordsController < ApplicationController
   def create
     @discipline_content_record = DisciplineContentRecord.new(resource_params)
     @discipline_content_record.content_record.teacher = current_teacher
+    # Remove qualquer conteúdo que possa ter sido processado automaticamente pelo accepts_nested_attributes_for
+    # Para objetos não persistidos, precisamos remover da memória
+    @discipline_content_record.content_record.content_records_contents.each(&:mark_for_destruction) if @discipline_content_record.content_record.content_records_contents.loaded?
+    @discipline_content_record.content_record.objectives_content_records.each(&:mark_for_destruction) if @discipline_content_record.content_record.objectives_content_records.loaded?
+    # Define os IDs manualmente (isso substitui qualquer conteúdo existente)
     @discipline_content_record.content_record.content_ids = content_ids
     @discipline_content_record.content_record.objective_ids = objective_ids
     @discipline_content_record.content_record.origin = OriginTypes::WEB
     @discipline_content_record.content_record.creator_type = 'discipline_content_record'
     @discipline_content_record.content_record.teacher = current_teacher
     @discipline_content_record.teacher_id = current_teacher_id
-
-    Rails.logger.info "=== Content IDs sendo salvos: #{@discipline_content_record.content_record.content_ids.inspect} ==="
-    Rails.logger.info "=== Objective IDs sendo salvos: #{@discipline_content_record.content_record.objective_ids.inspect} ==="
     
     authorize @discipline_content_record
 
@@ -119,7 +121,6 @@ class DisciplineContentRecordsController < ApplicationController
           raise ActiveRecord::RecordInvalid.new(@discipline_content_record)
         end
 
-        Rails.logger.info "=== Registro salvo com sucesso. ID: #{@discipline_content_record.id} ==="
       end
     rescue ActiveRecord::RecordInvalid => e
       Rails.logger.error "=== Exceção ao salvar: #{e.message} ==="
@@ -178,6 +179,9 @@ class DisciplineContentRecordsController < ApplicationController
     @discipline_content_record = DisciplineContentRecord.find(params[:id])
     @discipline_content_record.assign_attributes(resource_params)
     
+    # Limpa qualquer conteúdo que possa ter sido processado automaticamente pelo accepts_nested_attributes_for
+    @discipline_content_record.content_record.content_records_contents.clear
+    @discipline_content_record.content_record.objectives_content_records.clear
     # Garantir que apenas os conteúdos e objetivos enviados sejam salvos
     @discipline_content_record.content_record.content_ids = content_ids
     @discipline_content_record.content_record.objective_ids = objective_ids
@@ -297,18 +301,19 @@ class DisciplineContentRecordsController < ApplicationController
     # Rejeitar valores vazios, converter para inteiro e rejeitar zeros (IDs inválidos)
     param_content_ids = param_content_ids.reject(&:blank?).map(&:to_i).reject(&:zero?)
     
+    # IMPORTANTE: Validar que os IDs são realmente de Content, não de Objective
+    # Se um ID de objetivo for enviado por engano, ele será filtrado
+    valid_content_ids = param_content_ids.select { |id| Content.exists?(id) }
+    if param_content_ids != valid_content_ids
+      Rails.logger.warn "=== IDs inválidos filtrados de content_ids: #{(param_content_ids - valid_content_ids).inspect} ==="
+      Rails.logger.warn "=== Esses IDs podem ser de Objective ou não existir ==="
+    end
+    param_content_ids = valid_content_ids
+    
     content_descriptions = params[:discipline_content_record][:content_record_attributes][:content_descriptions] || []
-    Rails.logger.info "=== Content descriptions: #{content_descriptions.inspect} ==="
     new_contents_ids = content_descriptions.reject(&:blank?).map{|v| Content.find_or_create_by!(description: v).id }
     
     result = (param_content_ids + new_contents_ids).compact.uniq
-    
-    # Log para debug
-    Rails.logger.info "=== Content IDs sendo salvos: #{result.inspect} ==="
-    Rails.logger.info "=== Param content_ids original: #{params[:discipline_content_record][:content_record_attributes][:content_ids].inspect} ==="
-    Rails.logger.info "=== Param content_ids processado: #{param_content_ids.inspect} ==="
-    Rails.logger.info "=== New content descriptions: #{content_descriptions.inspect} ==="
-    
     result
   end
 
@@ -317,6 +322,15 @@ class DisciplineContentRecordsController < ApplicationController
     # Garantir que seja um array mesmo se vier como string vazia
     param_objective_ids = [] if param_objective_ids.blank?
     param_objective_ids = param_objective_ids.reject(&:blank?).map(&:to_i).reject(&:zero?)
+    
+    # IMPORTANTE: Validar que os IDs são realmente de Objective, não de Content
+    # Se um ID de conteúdo for enviado por engano, ele será filtrado
+    valid_objective_ids = param_objective_ids.select { |id| Objective.exists?(id) }
+    if param_objective_ids != valid_objective_ids
+      Rails.logger.warn "=== IDs inválidos filtrados de objective_ids: #{(param_objective_ids - valid_objective_ids).inspect} ==="
+      Rails.logger.warn "=== Esses IDs podem ser de Content ou não existir ==="
+    end
+    param_objective_ids = valid_objective_ids
     
     objective_descriptions =
       params[:discipline_content_record][:content_record_attributes][:objective_descriptions] || []
@@ -336,12 +350,7 @@ class DisciplineContentRecordsController < ApplicationController
     }
 
     @ordered_objective_ids = (param_objective_ids + new_objectives_ids).compact.uniq
-    
-    # Log para debug
-    Rails.logger.info "=== Objective IDs sendo salvos: #{@ordered_objective_ids.inspect} ==="
-    Rails.logger.info "=== Param objective_ids: #{param_objective_ids.inspect} ==="
-    Rails.logger.info "=== New objective descriptions: #{objective_descriptions.inspect} ==="
-    
+        
     @ordered_objective_ids
   end
 
