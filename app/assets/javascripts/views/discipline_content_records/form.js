@@ -24,19 +24,33 @@ $(function () {
 
 
   var handleFetchContentsSuccess = function (data) {
-    // Não limpar conteúdos marcados manualmente (que têm classe 'manual')
-    // Apenas remover conteúdos que não são manuais
-    $('#contents-list .list-group-item:not(.manual)').remove();
+    
+    // Remove TODOS os conteúdos não manuais antes de adicionar os novos
+    // Isso garante que quando a data muda, os conteúdos antigos sejam removidos
+    // IMPORTANTE: Remove novamente aqui para garantir que não há itens residuais
+    var itemsBefore = $('#contents-list .list-group-item').length;
+    
+    $('#contents-list .list-group-item').each(function() {
+      $(this).remove();
+    });
+    
+    var itemsAfter = $('#contents-list .list-group-item').length;
 
+    // Adiciona os novos conteúdos retornados pelo servidor
     if (!_.isEmpty(data.contents)) {
       _.each(data.contents, function (content) {
-        if (!$('input[type=checkbox][data-content_description="' + content.description + '"]').length) {
+        // Verifica se o conteúdo já existe (incluindo os manuais)
+        // Se já existe, não adiciona novamente para evitar duplicatas
+        var contentExists = $('input[type=checkbox][data-content_description="' + content.description + '"]').length > 0;
+        
+        if (!contentExists) {
           var html = JST['templates/discipline_content_records/contents_list_item'](content);
           $('#contents-list').append(html);
         }
       });
       $('.list-group.checked-list-box .list-group-item:not(.initialized)').each(initializeListEvents);
     }
+    // Se data.contents estiver vazio, a lista já foi limpa acima, então não há nada a fazer
   }
 
   var handleFetchContentsError = function () {
@@ -60,19 +74,26 @@ $(function () {
   }
 
   var handleFetchObjectivesSuccess = function (data) {
-    // Não limpar objetivos marcados manualmente (que têm classe 'manual')
-    // Apenas remover objetivos que não são manuais
-    $('#objectives-list .list-group-item:not(.manual)').remove();
+    // Remove TODOS os objetivos não manuais antes de adicionar os novos
+    // Isso garante que quando a data muda, os objetivos antigos sejam removidos
+    // IMPORTANTE: Remove novamente aqui para garantir que não há itens residuais
+    $('#objectives-list .list-group-item').remove();
 
+    // Adiciona os novos objetivos retornados pelo servidor
     if (!_.isEmpty(data.objectives)) {
       _.each(data.objectives, function (objective) {
-        if (!$('input[type=checkbox][data-objective_description="' + objective.description + '"]').length) {
+        // Verifica se o objetivo já existe (incluindo os manuais)
+        // Se já existe, não adiciona novamente para evitar duplicatas
+        var objectiveExists = $('input[type=checkbox][data-objective_description="' + objective.description + '"]').length > 0;
+        
+        if (!objectiveExists) {
           var html = JST['templates/discipline_content_records/contents_list_item'](objective);
           $('#objectives-list').append(html);
         }
       });
       $('.list-group.checked-list-box .list-group-item:not(.initialized)').each(initializeListEvents);
     }
+    // Se data.objectives estiver vazio, a lista já foi limpa acima, então não há nada a fazer
   }
 
   var fetchObjectives = function (classroom_id, discipline_id, date) {
@@ -95,14 +116,36 @@ $(function () {
     var classroom_id = $classroom.val();
     var discipline_id = $discipline.val();
     var date = $recordDate.val();
-    $('#contents-list .list-group-item:not(.manual)').remove();
-    $('#objectives-list .list-group-item:not(.manual)').remove();
-
+    
+    // Remove TODOS os conteúdos e objetivos não manuais ANTES de fazer a requisição
+    // Isso garante que quando a data muda, os itens antigos sejam removidos imediatamente
+    var contentsBefore = $('#contents-list .list-group-item').length;
+    var objectivesBefore = $('#objectives-list .list-group-item').length;
+        
+    // Remove os elementos do DOM de forma mais agressiva
+    $('#contents-list .list-group-item').each(function() {
+      $(this).remove();
+    });
+    $('#objectives-list .list-group-item').each(function() {
+      $(this).remove();
+    });
+    
+    // Verifica se realmente foram removidos
+    var contentsAfter = $('#contents-list .list-group-item').length;
+    var objectivesAfter = $('#objectives-list .list-group-item').length;
+    
     if (!_.isEmpty(classroom_id) &&
       !_.isEmpty(discipline_id) &&
       !_.isEmpty(date.match(dateRegex))) {
+
+      // Faz as requisições para buscar novos conteúdos e objetivos baseados na nova data
+      // As funções de sucesso também removem itens não manuais como segurança extra
       fetchContents(classroom_id, discipline_id, date);
       fetchObjectives(classroom_id, discipline_id, date);
+    } else {
+      // Se os campos não estão preenchidos, limpa a lista completamente
+      $('#contents-list .list-group-item').remove();
+      $('#objectives-list .list-group-item').remove();
     }
   }
 
@@ -110,6 +153,7 @@ $(function () {
     loadContents();
   });
 
+  // Sempre recarrega conteúdos e objetivos quando a data mudar
   $recordDate.on('change', function () {
     loadContents();
     countLessons();

@@ -1,22 +1,41 @@
 class ContentsRecordFetcher
   def fetch
-    plans = same_teacher_lesson_plans.presence ||
-            same_teacher_teaching_plans.presence ||
-            same_teacher_yearly_teaching_plans.presence ||
-            other_teacher_lesson_plans.presence ||
-            other_teacher_teaching_plans.presence ||
-            []
+    # Verifica se existe algum plano de aula (do mesmo professor ou de outro)
+    same_teacher_plans_exist = same_teacher_lesson_plans.exists?
+    other_teacher_plans_exist = other_teacher_lesson_plans.exists?
+    has_lesson_plan = same_teacher_plans_exist || other_teacher_plans_exist    
+    
+    if has_lesson_plan
+      # Se existe plano de aula, retorna apenas conteúdos dos planos de aula
+      # Não inclui conteúdos do plano de ensino
+      plans = same_teacher_lesson_plans.presence || other_teacher_lesson_plans.presence || []
+    else
+      # Se não existe plano de aula, busca planos de ensino
+      plans = same_teacher_teaching_plans.presence ||
+              same_teacher_yearly_teaching_plans.presence ||
+              other_teacher_teaching_plans.presence ||
+              []
+    end
 
-    plans.map(&:contents).uniq.flatten
+    contents = plans.map(&:contents).uniq.flatten
+    contents
   end
 
   def fetch_objectives
-    plans = same_teacher_lesson_plans_objectives.presence ||
-            same_teacher_teaching_plans.presence ||
-            same_teacher_yearly_teaching_plans.presence ||
-            other_teacher_lesson_plans.presence ||
-            other_teacher_teaching_plans.presence ||
-            []
+    # Verifica se existe algum plano de aula (do mesmo professor ou de outro)
+    has_lesson_plan = same_teacher_lesson_plans_objectives.exists? || other_teacher_lesson_plans_objectives.exists?
+    
+    if has_lesson_plan
+      # Se existe plano de aula, retorna apenas objetivos dos planos de aula
+      # Não inclui objetivos do plano de ensino
+      plans = same_teacher_lesson_plans_objectives.presence || other_teacher_lesson_plans_objectives.presence || []
+    else
+      # Se não existe plano de aula, busca planos de ensino
+      plans = same_teacher_teaching_plans.presence ||
+              same_teacher_yearly_teaching_plans.presence ||
+              other_teacher_teaching_plans.presence ||
+              []
+    end
 
     plans.map(&:objectives).uniq.flatten
   end
@@ -43,6 +62,10 @@ class ContentsRecordFetcher
 
   def other_teacher_lesson_plans
     lesson_plans.by_other_teacher_id(@teacher.id)
+  end
+
+  def other_teacher_lesson_plans_objectives
+    lesson_plans_objectives.by_other_teacher_id(@teacher.id)
   end
 
   def other_teacher_teaching_plans

@@ -9,17 +9,19 @@ class ContentsForDisciplineRecordFetcher < ContentsRecordFetcher
   private
 
   def lesson_plans
-    @lesson_plans ||= DisciplineLessonPlan.includes(lesson_plan: :contents)
-                                          .by_classroom_id(@classroom.id)
-                                          .by_discipline_id(@discipline.id)
-                                          .by_date(@date)
+    # Não usar cache para garantir que a data seja sempre verificada corretamente
+    @lesson_plans = DisciplineLessonPlan.includes(lesson_plan: :contents)
+                        .by_classroom_id(@classroom.id)
+                        .by_discipline_id(@discipline.id)
+                        .by_date(@date)
   end
 
   def lesson_plans_objectives
-    @lesson_plans_objectives ||= DisciplineLessonPlan.includes(lesson_plan: :objectives)
-                                                      .by_classroom_id(@classroom.id)
-                                                      .by_discipline_id(@discipline.id)
-                                                      .by_date(@date)
+    # Não usar cache para garantir que a data seja sempre verificada corretamente
+    @lesson_plans_objectives = DisciplineLessonPlan.includes(lesson_plan: :objectives)
+                        .by_classroom_id(@classroom.id)
+                        .by_discipline_id(@discipline.id)
+                        .by_date(@date)
   end
 
   def teaching_plans

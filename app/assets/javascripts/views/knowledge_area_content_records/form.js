@@ -29,13 +29,27 @@ $(function () {
 
 
   var handleFetchContentsSuccess = function(data){
-    // Não limpar conteúdos marcados manualmente (que têm classe 'manual')
-    // Apenas remover conteúdos que não são manuais
-    $('#contents-list .list-group-item:not(.manual)').remove();
-
+    
+    // Remove TODOS os conteúdos não manuais antes de adicionar os novos
+    // Isso garante que quando a data muda, os conteúdos antigos sejam removidos
+    // IMPORTANTE: Remove novamente aqui para garantir que não há itens residuais
+    var itemsBefore = $('#contents-list .list-group-item').length;
+    
+    $('#contents-list .list-group-item').each(function() {
+      $(this).remove();
+    });
+    
+    var itemsAfter = $('#contents-list .list-group-item').length;
+    
+    // Adiciona os novos conteúdos retornados pelo servidor
     if (!_.isEmpty(data.contents)) {
+    
       _.each(data.contents, function(content) {
-        if(!$('input[type=checkbox][data-content_description="'+content.description+'"]').length){
+        // Verifica se o conteúdo já existe (incluindo os manuais)
+        // Se já existe, não adiciona novamente para evitar duplicatas
+        var contentExists = $('input[type=checkbox][data-content_description="'+content.description+'"]').length > 0;
+        
+        if (!contentExists) {
           var html = JST['templates/knowledge_area_content_records/contents_list_item'](content);
           $('#contents-list').append(html);
         }
@@ -57,9 +71,7 @@ $(function () {
       fetch_for_knowledge_area_records: true,
       format: "json"
     }
-    
-    console.log('Fetching contents with params:', params);
-    
+        
     $.ajax({
       url: Routes.contents_pt_br_path(params),
       success: handleFetchContentsSuccess,
@@ -72,13 +84,20 @@ $(function () {
   }
 
   var handleFetchObjectivesSuccess = function(data){
-    // Não limpar objetivos marcados manualmente (que têm classe 'manual')
-    // Apenas remover objetivos que não são manuais
-    $('#objectives-list .list-group-item:not(.manual)').remove();
+    
+    // Remove TODOS os objetivos não manuais antes de adicionar os novos
+    // Isso garante que quando a data muda, os objetivos antigos sejam removidos
+    // IMPORTANTE: Remove novamente aqui para garantir que não há itens residuais
+    $('#objectives-list .list-group-item').remove();
 
+    // Adiciona os novos objetivos retornados pelo servidor
     if (!_.isEmpty(data.objectives)) {
       _.each(data.objectives, function(objective) {
-        if(!$('input[type=checkbox][data-objective_description="'+objective.description+'"]').length){
+        // Verifica se o objetivo já existe (incluindo os manuais)
+        // Se já existe, não adiciona novamente para evitar duplicatas
+        var objectiveExists = $('input[type=checkbox][data-objective_description="'+objective.description+'"]').length > 0;
+        
+        if (!objectiveExists) {
           var html = JST['templates/knowledge_area_content_records/objectives_list_item'](objective);
           $('#objectives-list').append(html);
         }
@@ -95,9 +114,7 @@ $(function () {
       fetch_for_knowledge_area_records: true,
       format: "json"
     }
-    
-    console.log('Fetching objectives with params:', params);
-    
+        
     $.ajax({
       url: Routes.objectives_pt_br_path(params),
       success: handleFetchObjectivesSuccess,
@@ -125,22 +142,33 @@ $(function () {
       knowledge_area_ids = $knowledgeArea.val();
     }
     
-    var date = $recordDate.val();
-    
-    console.log('loadContents called - classroom_id:', classroom_id, 'knowledge_area_ids:', knowledge_area_ids, 'date:', date);
+    var date = $recordDate.val();  
     
     // Se knowledge_area_ids está vazio, tenta ler do campo hidden (para modais)
     if (_.isEmpty(knowledge_area_ids)) {
       var hiddenKnowledgeArea = $('input[name="knowledge_area_content_record[knowledge_area_ids]"]');
       if (hiddenKnowledgeArea.length && hiddenKnowledgeArea.val()) {
         knowledge_area_ids = hiddenKnowledgeArea.val();
-        console.log('Found hidden knowledge_area_ids:', knowledge_area_ids);
       }
     }
     
-    $('#contents-list .list-group-item:not(.manual)').remove();
-    $('#objectives-list .list-group-item:not(.manual)').remove();
-
+    // Remove TODOS os conteúdos e objetivos não manuais ANTES de fazer a requisição
+    // Isso garante que quando a data muda, os itens antigos sejam removidos imediatamente
+    var contentsBefore = $('#contents-list .list-group-item').length;
+    var objectivesBefore = $('#objectives-list .list-group-item').length;
+        
+    // Remove os elementos do DOM de forma mais agressiva
+    $('#contents-list .list-group-item').each(function() {
+      $(this).remove();
+    });
+    $('#objectives-list .list-group-item').each(function() {
+      $(this).remove();
+    });
+    
+    // Verifica se realmente foram removidos
+    var contentsAfter = $('#contents-list .list-group-item').length;
+    var objectivesAfter = $('#objectives-list .list-group-item').length;
+    
     // Se knowledge_area_ids é um array, converte para string separada por vírgula
     if (_.isArray(knowledge_area_ids)) {
       knowledge_area_ids = knowledge_area_ids.join(',');
@@ -152,27 +180,30 @@ $(function () {
         !_.isEmpty(date.match(dateRegex))) {
       // Se knowledge_area_ids é string, converte para array
       var knowledge_area_ids_array = _.isArray(knowledge_area_ids) ? knowledge_area_ids : knowledge_area_ids.split(',').filter(function(id) { return id.trim() !== ''; });
-      console.log('All conditions met, fetching contents and objectives. knowledge_area_ids_array:', knowledge_area_ids_array);
+
+      // Faz as requisições para buscar novos conteúdos e objetivos baseados na nova data
+      // As funções de sucesso também removem itens não manuais como segurança extra
       fetchContents(classroom_id, knowledge_area_ids_array, date);
       fetchObjectives(classroom_id, knowledge_area_ids_array, date);
     } else {
-      console.log('Conditions not met for loading contents. classroom_id:', classroom_id, 'knowledge_area_ids:', knowledge_area_ids, 'date:', date, 'date match:', date ? date.match(dateRegex) : 'no date');
+      // Se os campos não estão preenchidos, limpa a lista completamente
+      $('#contents-list .list-group-item').remove();
+      $('#objectives-list .list-group-item').remove();
     }
   }
 
   $knowledgeArea.on('change', function(){
-    console.log('Knowledge area changed, loading contents...');
     loadContents();
   });
   
   // Também escuta o evento select2:select para garantir que funciona
   $knowledgeArea.on('select2:select select2:unselect', function(){
-    console.log('Knowledge area select2 event, loading contents...');
     setTimeout(function() {
       loadContents();
     }, 100);
   });
 
+  // Sempre recarrega conteúdos e objetivos quando a data mudar
   $recordDate.on('change', function(){
     loadContents();
   });
@@ -187,9 +218,7 @@ $(function () {
     } else {
       classroom_id = $classroom.val();
     }
-    
-    console.log('Initial load - classroom_id:', classroom_id);
-    
+        
     // Se há classroom_id, carrega as knowledge areas primeiro
     if (!_.isEmpty(classroom_id)) {
       // Verifica se as knowledge areas já foram carregadas
@@ -199,7 +228,6 @@ $(function () {
       }
       
       if (_.isEmpty(knowledgeAreaData) || knowledgeAreaData.length === 0) {
-        console.log('Fetching knowledge areas for classroom:', classroom_id);
         fetchKnowledgeAreas(classroom_id);
       }
     }
@@ -229,9 +257,7 @@ $(function () {
         }
         hasKnowledgeAreaIds = !_.isEmpty(knowledge_area_ids);
       }
-      
-      console.log('Initial load check - hasKnowledgeAreaIds:', hasKnowledgeAreaIds, 'contents list length:', $("#contents-list li").length);
-      
+            
       // Se não há conteúdos na lista E há todos os dados necessários, carrega
       if (!$("#contents-list li").length && hasKnowledgeAreaIds) {
         loadContents();
@@ -248,16 +274,13 @@ $(function () {
   };
 
   function handlefetchKnowledgeAreasSuccess(knowledge_areas) {
-    console.log('Knowledge areas fetched:', knowledge_areas);
     
     // Filtra áreas de conhecimento válidas (com id e description não vazios)
     var validKnowledgeAreas = _.filter(knowledge_areas, function(knowledge_area) {
       return knowledge_area && knowledge_area['id'] && knowledge_area['description'] && 
              knowledge_area['id'] !== '' && knowledge_area['description'] !== '';
     });
-    
-    console.log('Valid knowledge areas (after filtering):', validKnowledgeAreas);
-    
+        
     var selectedKnowledgeAreas = _.map(validKnowledgeAreas, function(knowledge_area) {
       return { id: knowledge_area['id'], text: knowledge_area['description'] };
     });
@@ -266,19 +289,15 @@ $(function () {
     if ($knowledgeArea.length) {
       var isSelect = $knowledgeArea.is('select');
       var isInput = $knowledgeArea.is('input');
-      console.log('Knowledge area element - isSelect:', isSelect, 'isInput:', isInput, 'Element:', $knowledgeArea[0]);
       
       // Verifica se o select2 já está inicializado
       var isSelect2Initialized = $knowledgeArea.data('select2') !== undefined;
-      console.log('Select2 initialized:', isSelect2Initialized);
       
       // Filtra áreas válidas removendo qualquer item com id "empty" ou vazio
       var validSelectedKnowledgeAreas = _.filter(selectedKnowledgeAreas, function(item) {
         return item && item.id && item.id !== '' && item.id !== 'empty' && item.id !== 'null';
       });
-      
-      console.log('Valid selected knowledge areas (after filtering empty):', validSelectedKnowledgeAreas);
-      
+            
       if (isSelect || isInput) {
         if (isSelect2Initialized) {
           // Se já está inicializado, apenas atualiza os dados
@@ -294,7 +313,7 @@ $(function () {
           var hiddenKnowledgeArea = $('input[name="knowledge_area_content_record[knowledge_area_ids]"]');
           if (hiddenKnowledgeArea.length && hiddenKnowledgeArea.val()) {
             var ids = hiddenKnowledgeArea.val().split(',').filter(function(id) { return id && id !== '' && id !== 'empty'; });
-            console.log('Selecting knowledge areas from hidden field:', ids);
+
             if (ids.length > 0) {
               // Define o valor diretamente no elemento e depois atualiza o select2
               $knowledgeArea.val(ids);
@@ -309,16 +328,10 @@ $(function () {
             // Sempre seleciona a primeira área de conhecimento válida (não vazia)
             var firstKnowledgeArea = validSelectedKnowledgeAreas[0];
             var firstKnowledgeAreaId = firstKnowledgeArea.id;
-            
-            console.log('Auto-selecting first valid knowledge area. ID:', firstKnowledgeAreaId, 'Text:', firstKnowledgeArea.text);
-            
+                        
             // Verifica o valor atual
             var currentVal = $knowledgeArea.select2('val') || [];
-            console.log('Current value before selection:', currentVal);
-            
-            // Sempre tenta selecionar
-            console.log('Setting value to:', [firstKnowledgeAreaId]);
-            
+                        
             // Primeiro define o valor no elemento HTML
             $knowledgeArea.val([firstKnowledgeAreaId]);
             
@@ -327,18 +340,16 @@ $(function () {
             
             // Verifica se foi selecionado
             var newVal = $knowledgeArea.select2('val');
-            console.log('Value after selection:', newVal);
             
             // Se ainda não foi selecionado, tenta novamente com método alternativo
             if (_.isEmpty(newVal) || (_.isArray(newVal) && newVal.length === 0) || 
                 (_.isArray(newVal) && !newVal.includes(firstKnowledgeAreaId.toString()) && !newVal.includes(firstKnowledgeAreaId))) {
-              console.log('Selection failed, trying alternative method...');
+            
               // Tenta usar o método de seleção do select2 diretamente
               var select2Instance = $knowledgeArea.data('select2');
               if (select2Instance) {
                 select2Instance.val([firstKnowledgeAreaId]).trigger('change');
                 newVal = $knowledgeArea.select2('val');
-                console.log('Value after alternative selection:', newVal);
               }
             }
             
@@ -349,12 +360,8 @@ $(function () {
             setTimeout(function() {
               loadContents();
             }, 500);
-          } else {
-            console.log('No valid knowledge areas to select');
-          }
+          } 
         }, 400);
-      } else {
-        console.log('Knowledge area element is not a select or input, cannot use select2');
       }
     }
   };

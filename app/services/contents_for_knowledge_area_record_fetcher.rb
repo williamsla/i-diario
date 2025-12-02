@@ -9,17 +9,19 @@ class ContentsForKnowledgeAreaRecordFetcher < ContentsRecordFetcher
   private
 
   def lesson_plans
-    @lesson_plans ||= KnowledgeAreaLessonPlan.includes(lesson_plan: :contents)
-                                             .by_classroom_id(@classroom.id)
-                                             .by_knowledge_area_id(@knowledge_areas.map(&:id))
-                                             .by_date(@date)
+    # Não usar cache para garantir que a data seja sempre verificada corretamente
+    @lesson_plans = KnowledgeAreaLessonPlan.includes(lesson_plan: :contents)
+                                           .by_classroom_id(@classroom.id)
+                                           .by_knowledge_area_id(@knowledge_areas.map(&:id))
+                                           .by_date(@date)
   end
 
   def lesson_plans_objectives
-    @lesson_plans_objectives ||= KnowledgeAreaLessonPlan.includes(lesson_plan: :objectives)
-                                                          .by_classroom_id(@classroom.id)
-                                                          .by_knowledge_area_id(@knowledge_areas.map(&:id))
-                                                          .by_date(@date)
+    # Não usar cache para garantir que a data seja sempre verificada corretamente
+    @lesson_plans_objectives = KnowledgeAreaLessonPlan.includes(lesson_plan: :objectives)
+                                                      .by_classroom_id(@classroom.id)
+                                                      .by_knowledge_area_id(@knowledge_areas.map(&:id))
+                                                      .by_date(@date)
   end
 
   def teaching_plans
