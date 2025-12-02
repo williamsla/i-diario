@@ -28,9 +28,10 @@ class BaseSynchronizer
       unity = error.try(:record).try(:unity)
       unity ||= error.try(:record).try(:school_calendar).try(:unity)
       unity = "#{unity.api_code} - #{unity.name}: " if unity.present?
-      error_message = "#{unity}#{error.message}"
+      error_message_text = error.message || error.class.name
+      error_message = "#{unity}#{error_message_text}"
 
-      worker_state.mark_with_error!(error_message) if error.message != '502 Bad Gateway'
+      worker_state.mark_with_error!(error_message) if error_message_text != '502 Bad Gateway'
 
       raise error
     end

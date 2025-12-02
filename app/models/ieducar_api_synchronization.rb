@@ -50,8 +50,8 @@ class IeducarApiSynchronization < ApplicationRecord
 
   def mark_as_error!(message, full_error_message = '')
     self.status = ApiSynchronizationStatus::ERROR
-    self.error_message = message
-    self.full_error_message = full_error_message
+    self.error_message = message || 'Erro desconhecido'
+    self.full_error_message = full_error_message || ''
 
     save(validate: false)
     worker_batch.mark_as_error! if worker_batch.present? && !worker_batch.error?

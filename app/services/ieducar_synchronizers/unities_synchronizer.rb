@@ -13,7 +13,7 @@ class UnitiesSynchronizer
       )
     )
   rescue IeducarApi::Base::ApiError => error
-    synchronization.mark_as_error!(error.message)
+    synchronization.mark_as_error!(error.message || error.class.name)
   end
 
   def initialize(params)
@@ -46,7 +46,8 @@ class UnitiesSynchronizer
       current_years: current_years
     )
   rescue StandardError => error
-    worker_state.mark_with_error!(error.message) if error.message != '502 Bad Gateway'
+    error_message = error.message || error.class.name
+    worker_state.mark_with_error!(error_message) if error_message != '502 Bad Gateway'
 
     raise error
   end

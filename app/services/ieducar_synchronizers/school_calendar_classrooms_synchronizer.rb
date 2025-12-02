@@ -10,7 +10,7 @@ class SchoolCalendarClassroomsSynchronizer < BaseSynchronizer
       )
     )
   rescue IeducarApi::Base::ApiError => error
-    synchronization.mark_as_error!(error.message)
+    synchronization.mark_as_error!(error.message || error.class.name)
   end
 
   private
@@ -127,7 +127,7 @@ class SchoolCalendarClassroomsSynchronizer < BaseSynchronizer
     unity = "Escola: #{unity.api_code} - #{unity.name}" if unity.present?
     classroom ||= error.record&.classroom
     classroom = "Turma: #{classroom.api_code} - #{classroom.description}" if classroom.present?
-    error_message = "#{unity}, #{classroom}: #{error.message}"
+    error_message = "#{unity}, #{classroom}: #{error.message || error.class.name}"
 
     worker_state.add_error!(error_message)
   end

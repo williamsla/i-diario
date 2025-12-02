@@ -18,14 +18,14 @@ class WorkerState < ActiveRecord::Base
   def mark_with_error!(message)
     update(
       status: ApiSynchronizationStatus::ERROR,
-      error_list: [message]
+      error_list: [message || 'Erro desconhecido']
     )
   end
 
   def add_error!(message)
     update(status: ApiSynchronizationStatus::ERROR) unless error?
 
-    update(error_list: (error_list || []) << message)
+    update(error_list: (error_list || []) << (message || 'Erro desconhecido'))
   end
 
   def mark_as_completed!
