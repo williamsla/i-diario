@@ -29,17 +29,27 @@ class LessonBoardsFetcher
   end
 
   def count_lessons(turma_id, disciplina_id, data)
+    # Domingo não tem aulas no quadro de horários
+    return 0 if data.sunday?
+
     if data.saturday?
-      # se for sábado, chamar lógica especial
+      # Se for sábado, usa o dia da semana equivalente do arquivo de configuração
       total_aulas = count_lessons_by_saturday(turma_id, disciplina_id, data)
     else
-      # Ruby wday: domingo=0..sábado=6 → banco: segunda=1..domingo=7
-      # dia_semana = data.wday # numero do dia da semana
-      dia_semana_nome = data.strftime("%A").downcase # nome do dia da semana
+      # Para segunda a sexta, usa o nome do dia da semana diretamente
+      # Ruby strftime("%A") retorna: Monday, Tuesday, Wednesday, Thursday, Friday
+      # Convertemos para minúsculas para corresponder ao formato do banco: monday, tuesday, etc.
+      dia_semana_nome = data.strftime("%A").downcase
 
-      total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_semana_nome, true, agrupar: false)
+      # Valida se é um dia válido (segunda a sexta)
+      dias_validos = %w[monday tuesday wednesday thursday friday]
+      unless dias_validos.include?(dia_semana_nome)
+        return 0
+      end
+
+      total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_semana_nome, true)
       if total_aulas == 0
-        total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_semana_nome, false, agrupar: false)
+        total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_semana_nome, false)
       end
     end
 
@@ -48,7 +58,7 @@ class LessonBoardsFetcher
 
   private
 
-  def count_lessons_from_boards(turma_id, disciplina_id, dia_semana_nome, ativo, agrupar: false)
+  def count_lessons_from_boards(turma_id, disciplina_id, dia_semana_nome, ativo)
     # Define filtro de ativo/inativo
     ativo_condicao = if ativo
       <<~SQL
@@ -59,13 +69,6 @@ class LessonBoardsFetcher
         AND lb.discarded_at IS NOT NULL
       SQL
     end
-
-    # Define agrupamento e ordenação, se for solicitado
-    group_and_order = <<~SQL if agrupar
-      GROUP BY lblw.weekday
-      ORDER BY COUNT(lbl.id) DESC
-      LIMIT 1
-    SQL
 
     sql = <<-SQL
       SELECT COUNT(lbl.id) AS total_aulas
@@ -80,7 +83,6 @@ class LessonBoardsFetcher
         AND lblw.weekday = '#{dia_semana_nome}'
         AND tdc.discipline_id = #{disciplina_id}
         #{ativo_condicao}
-      #{group_and_order}
     SQL
 
     total_aulas = ActiveRecord::Base.connection.exec_query(sql).first&.dig("total_aulas") || 0
@@ -95,18 +97,10 @@ class LessonBoardsFetcher
     return 0 if dia_equivalente.blank?
 
     # Tenta quadros ativos
-    total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_equivalente, true, agrupar: false)
+    total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_equivalente, true)
     if total_aulas == 0
       # Se não houver, tenta inativos
-      total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_equivalente, false, agrupar: false)
-    end
-
-    if total_aulas == 0
-      # Se não houver aulas no dia equivalente, usa o dia que tiver mais aulas da referida disciplina
-      total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_equivalente, true, agrupar: true)
-      if total_aulas == 0
-        total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_equivalente, false, agrupar: true)
-      end
+      total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_equivalente, false)
     end
     
     total_aulas
