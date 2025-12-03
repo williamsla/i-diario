@@ -1,8 +1,10 @@
 # bundle exec rake aulas:atualizar
+# bundle exec rake aulas:atualizar[YYYY]
+# ANO=YYYY bundle exec rake aulas:atualizar
 namespace :aulas do
-  desc "Atualiza class_number com base no quadro de horários (lessons_boards) e na data do conteúdo"
+  desc "Atualiza class_number com base no quadro de horários (lessons_boards) e na data do conteúdo [ano=YYYY]"
   
-  task atualizar: :environment do
+  task :atualizar, [:ano] => :environment do |t, args|
     def update_class_by_qtd(old_value, year)
       count = 0
       DisciplineContentRecord.joins(:content_record)
@@ -81,32 +83,36 @@ namespace :aulas do
       count
     end
     
-    puts "=== Atualizando class_number (somente NULL ou 0) ==="
+    # Obtém o ano do parâmetro ou variável de ambiente
+    year = args[:ano] || ENV['ANO']
+    year = year.to_i
+
+    puts "=== Atualizando class_number (somente NULL ou 0) para o ano #{year} ==="
 
     entity = Entity.active.last
     
     entity.using_connection do
       connection = ActiveRecord::Base.connection
 
-      count = update_class_by_qtd(0, 2025)
+      count = update_class_by_qtd(0, year)
       puts "Total de registros atualizados que antes estavam 0 ou NULL: #{count}"
       
       # temporary - updating specific values
-      # count = update_class_by_qtd(1, 2025)
+      # count = update_class_by_qtd(1, year)
       # puts "Total de registros atualizados que antes estavam 1: #{count}"
-      # count = update_class_by_qtd(2, 2025)
+      # count = update_class_by_qtd(2, year)
       # puts "Total de registros atualizados que antes estavam 2: #{count}"
-      # count = update_class_by_qtd(3, 2025)
+      # count = update_class_by_qtd(3, year)
       # puts "Total de registros atualizados que antes estavam 3: #{count}"
-      # count = update_class_by_qtd(4, 2025)
+      # count = update_class_by_qtd(4, year)
       # puts "Total de registros atualizados que antes estavam 4: #{count}"
     end
     
     puts "=== Fim da atualização ==="
   end
 
-  desc "Reconta class_number para todos os registros feitos em sábados letivos"
-  task recontar_sabados_letivos: :environment do
+  desc "Reconta class_number para todos os registros feitos em sábados letivos [ano=YYYY]"
+  task :recontar_sabados_letivos, [:ano] => :environment do |t, args|
     def update_sabados_letivos(year)
       # Carrega as datas dos sábados letivos do arquivo de configuração
       config_path = Rails.root.join('config', 'sabados_letivos.yml')
@@ -174,10 +180,13 @@ namespace :aulas do
       count
     end
 
+    # Obtém o ano do parâmetro ou variável de ambiente
+    year = args[:ano] || ENV['ANO']
+    year = year.to_i
+  
     entity = Entity.active.last
     
     entity.using_connection do
-      year = 2025
       count = update_sabados_letivos(year)
       puts ""
       puts "=== Total de registros de sábados letivos atualizados: #{count} ==="
