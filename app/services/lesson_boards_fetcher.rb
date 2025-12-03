@@ -88,21 +88,11 @@ class LessonBoardsFetcher
   end
 
   def count_lessons_by_saturday(turma_id, disciplina_id, data)
-    # Conta quantos sábados letivos já ocorreram até o sábado informado
-    sabados_letivos_anteriores = SchoolCalendarEvent
-                                    .where(event_type: EventTypes::EXTRA_SCHOOL)
-                                    .where("EXTRACT(DOW FROM start_date) = 6 OR EXTRACT(DOW FROM end_date) = 6")
-                                    .where("start_date <= ?", data)
-                                    .pluck(:start_date, :end_date)
-                                    .flat_map { |start_date, end_date| (start_date..(end_date || start_date)).to_a.select(&:saturday?) }
-                                    .uniq
-                                    .count
+    # Busca o dia da semana equivalente no arquivo de configuração
+    dia_equivalente = get_weekday_for_saturday(data)
 
-    return 0 if sabados_letivos_anteriores.zero? # evita cálculo quando não há sábados letivos
-
-    # Define qual dia da semana o sábado letivo "representa"
-    dias_semana = %w[monday tuesday wednesday thursday friday]
-    dia_equivalente = dias_semana[(sabados_letivos_anteriores - 1) % dias_semana.size]
+    # Se não houver mapeamento configurado, retorna 0
+    return 0 if dia_equivalente.blank?
 
     # Tenta quadros ativos
     total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_equivalente, true, agrupar: false)
@@ -120,6 +110,27 @@ class LessonBoardsFetcher
     end
     
     total_aulas
+  end
+
+  def get_weekday_for_saturday(date)
+    # Carrega o mapeamento de sábados letivos do arquivo de configuração
+    sabados_letivos_map = load_sabados_letivos_config
+    
+    # Busca o dia da semana equivalente para a data informada
+    date_key = date.strftime("%Y-%m-%d")
+    sabados_letivos_map[date_key]
+  end
+
+  def load_sabados_letivos_config
+    @sabados_letivos_map ||= begin
+      config_path = Rails.root.join('config', 'sabados_letivos.yml')
+      
+      if File.exist?(config_path)
+        YAML.load_file(config_path) || {}
+      else
+        {}
+      end
+    end
   end
 
 end
