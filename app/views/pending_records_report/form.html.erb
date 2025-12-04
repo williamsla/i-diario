@@ -1,0 +1,93 @@
+<div class="widget-body no-padding">
+  <%= simple_form_for @pending_records_report_form, url: pending_records_report_path, method: :post, html: { class: 'smart-form' } do |f| %>
+    <%= f.error_notification %>
+
+    <fieldset>
+      <div class="row">
+        <div class="col col-sm-4">
+          <%= f.input :unity_id, as: :select2, elements: @unities, user: current_user, readonly: !current_user.admin? %>
+        </div>
+
+        <div class="col col-sm-4">
+          <%= f.input :classroom_id, as: :select2, elements: @classrooms, user: current_user,
+                input_html: { value: @pending_records_report_form.classroom_id } %>
+        </div>
+
+        <div class="col col-sm-4">
+          <%= f.input :teacher_id, as: :select2, elements: @teachers, user: current_user,
+                input_html: { value: @pending_records_report_form.teacher_id } %>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col col-sm-4">
+          <%= f.input :discipline_id, as: :select2, elements: @disciplines, user: current_user,
+                input_html: { value: @pending_records_report_form.discipline_id } %>
+        </div>
+
+        <div class="col col-sm-4">
+          <%= f.input :start_at, as: :date %>
+        </div>
+
+        <div class="col col-sm-4">
+          <%= f.input :end_at, as: :date %>
+        </div>
+      </div>
+
+      <div class="row">
+        <%= f.input :school_calendar_year, as: :hidden %>
+      </div>
+    </fieldset>
+
+    <footer>
+      <div class="pull-right">
+        <%= f.submit 'Gerar Relatório', class: 'btn btn-primary pull-right', id: 'send-form' %>
+      </div>
+    </footer>
+  <% end %>
+</div>
+
+<% content_for :js do %>
+  <script>
+    $(document).ready(function() {
+      var $unity = $('#pending_records_report_form_unity_id');
+      var $classroom = $('#pending_records_report_form_classroom_id');
+      var $teacher = $('#pending_records_report_form_teacher_id');
+      var $discipline = $('#pending_records_report_form_discipline_id');
+
+      $classroom.on('change', function() {
+        var classroomId = $(this).val();
+        
+        if (classroomId) {
+          // Carregar professores da turma
+          $.ajax({
+            url: '<%= pending_records_report_classroom_teachers_path %>',
+            data: { classroom_id: classroomId },
+            success: function(data) {
+              var teachers = data.teachers.map(function(teacher) {
+                return { id: teacher.id, name: teacher.name, text: teacher.name };
+              });
+              $teacher.select2({ data: teachers, allowClear: true });
+            }
+          });
+
+          // Carregar disciplinas da turma
+          $.ajax({
+            url: '<%= pending_records_report_classroom_disciplines_path %>',
+            data: { classroom_id: classroomId },
+            success: function(data) {
+              var disciplines = data.disciplines.map(function(discipline) {
+                return { id: discipline.id, name: discipline.description, text: discipline.description };
+              });
+              $discipline.select2({ data: disciplines, allowClear: true });
+            }
+          });
+        } else {
+          $teacher.select2({ data: [], allowClear: true });
+          $discipline.select2({ data: [], allowClear: true });
+        }
+      });
+    });
+  </script>
+<% end %>
+

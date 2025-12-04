@@ -1,0 +1,77 @@
+<div class="widget-body no-padding">
+  <div class="table-responsive">
+    <table class="table table-bordered table-striped table-condensed table-hover">
+      <thead>
+        <tr>
+          <th>Professor</th>
+          <th>Disciplina</th>
+          <th>Turma</th>
+          <th>Período</th>
+          <th>Dias Letivos</th>
+          <th>Frequências Registradas</th>
+          <th>Conteúdos Registrados</th>
+          <th>Pendências Frequência</th>
+          <th>Pendências Conteúdo</th>
+          <th>Datas Pendentes Frequência</th>
+          <th>Datas Pendentes Conteúdo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if @results.present? %>
+          <% @results.each do |result| %>
+            <tr>
+              <td><%= result[:teacher_name] %></td>
+              <td><%= result[:discipline_name] %></td>
+              <td><%= result[:classroom_name] %></td>
+              <td><%= result[:period] %></td>
+              <td><%= result[:total_school_days] %></td>
+              <td><%= result[:total_frequencies] %></td>
+              <td><%= result[:total_content_records] %></td>
+              <td>
+                <span class="badge <%= result[:pending_frequency_count] > 0 ? 'badge-danger' : 'badge-success' %>">
+                  <%= result[:pending_frequency_count] %>
+                </span>
+              </td>
+              <td>
+                <span class="badge <%= result[:pending_content_count] > 0 ? 'badge-danger' : 'badge-success' %>">
+                  <%= result[:pending_content_count] %>
+                </span>
+              </td>
+              <td>
+                <% if result[:pending_frequency_dates].present? %>
+                  <small>
+                    <%= result[:pending_frequency_dates].map { |d| d.strftime('%d/%m/%Y') }.join(', ') %>
+                  </small>
+                <% else %>
+                  <span class="text-success">Nenhuma</span>
+                <% end %>
+              </td>
+              <td>
+                <% if result[:pending_content_dates].present? %>
+                  <small>
+                    <%= result[:pending_content_dates].map { |d| d.strftime('%d/%m/%Y') }.join(', ') %>
+                  </small>
+                <% else %>
+                  <span class="text-success">Nenhuma</span>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        <% else %>
+          <tr>
+            <td colspan="11" class="text-center">
+              <p class="text-muted">Nenhum resultado encontrado para os filtros selecionados.</p>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="widget-footer">
+    <div class="pull-left">
+      <%= link_to 'Voltar', pending_records_report_path, class: 'btn btn-default' %>
+    </div>
+  </div>
+</div>
+
