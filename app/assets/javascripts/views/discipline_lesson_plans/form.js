@@ -60,8 +60,6 @@ $(function () {
   function studentChangeHandler() {
     var student_id = $student.select2('val');
     copyTeachingPlanLink.click();
-
-    alert('aluno alterado ' + student_id);
   };
 
   $student.on('change', studentChangeHandler);

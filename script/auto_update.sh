@@ -60,7 +60,7 @@ if is_dawn; then
 fi
 
 echo "===> Iniciando sincronizações ..."
-bundle exec rake aulas:atualizar RAILS_ENV=production
+bundle exec rake aulas:atualizar ANO=2025 RAILS_ENV=production 
 bundle exec rake send_notification:absences RAILS_ENV=production
 bundle exec rake refresh_pedagogical_tracking_views RAILS_ENV=production
 
