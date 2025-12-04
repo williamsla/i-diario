@@ -57,7 +57,8 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
         pending_records = results.map do |result|
           {
             discipline: result[:discipline_name],
-            discipline_id: result[:discipline_id],
+            discipline_id: result[:discipline_id] || result[:knowledge_area_id], # Usar knowledge_area_id se discipline_id for nil
+            knowledge_area_id: result[:knowledge_area_id], # Para áreas de conhecimento
             pending_frequency_count: result[:pending_frequency_count],
             pending_content_count: result[:pending_content_count]
           }
@@ -78,7 +79,7 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
   end
 
   def dates
-    return render json: { error: 'Parâmetros inválidos' }, status: :bad_request if params[:step_id].blank? || params[:discipline_id].blank?
+    return render json: { error: 'Parâmetros inválidos' }, status: :bad_request if params[:step_id].blank? || (params[:discipline_id].blank? && params[:knowledge_area_id].blank?)
 
     return render json: { error: 'Não autorizado' }, status: :unauthorized if current_user_classroom.blank? || current_teacher.blank?
 
@@ -88,12 +89,12 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
 
     return render json: { error: 'Etapa não encontrada' }, status: :not_found unless step
 
-    # Buscar dados apenas da disciplina específica
+    # Buscar dados apenas da disciplina ou área de conhecimento específica
     calculator = PendingRecordsCalculator.new(
       unity_id: current_unity.id,
       classroom_id: current_user_classroom.id,
       teacher_id: current_teacher.id,
-      discipline_id: params[:discipline_id],
+      discipline_id: params[:discipline_id] || params[:knowledge_area_id], # Aceita ambos
       start_date: step.start_at,
       end_date: step.end_at,
       school_year: current_school_year
@@ -102,7 +103,7 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
     results = calculator.calculate
     result = results.first
 
-    return render json: { error: 'Disciplina não encontrada' }, status: :not_found unless result
+    return render json: { error: 'Disciplina/Área de conhecimento não encontrada' }, status: :not_found unless result
 
     render json: {
       pending_frequency_dates: result[:pending_frequency_dates].map { |d| d.strftime('%d/%m/%Y') },

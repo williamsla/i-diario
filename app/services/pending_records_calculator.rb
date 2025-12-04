@@ -33,9 +33,6 @@ class PendingRecordsCalculator
         end_date = [steps.map(&:end_at).max, @end_date].min
       end
 
-      # Verificar se é turma infantil
-      is_infantil = is_infantil_classroom?(classroom)
-
       # Obter frequency_type da turma
       # Usar o primeiro teacher_id para determinar o frequency_type (todos os professores da mesma turma têm o mesmo tipo)
       first_teacher_id = tdcs.first.teacher_id
@@ -44,22 +41,6 @@ class PendingRecordsCalculator
       frequency_type = frequency_type_definer.frequency_type
       is_general_frequency = frequency_type == FrequencyTypes::GENERAL
 
-      # Se for turma infantil, buscar áreas de conhecimento ao invés de disciplinas
-      if is_infantil
-        # Buscar áreas de conhecimento do professor na turma
-        knowledge_area_ids = KnowledgeArea.by_teacher(@teacher_id)
-                                         .by_classroom_id(classroom.id)
-                                         .pluck(:id)
-        
-        # Para turmas infantis, processar por área de conhecimento
-        return process_infantil_classroom(classroom, knowledge_area_ids, school_calendar, start_date, end_date, is_general_frequency, all_school_days, today, grade_id)
-      end
-
-      # Buscar weekdays em batch para todas as disciplinas (sempre necessário para conteúdos)
-      discipline_ids = tdcs.map { |tdc| tdc.discipline_id }.uniq
-      periods = tdcs.map(&:period).uniq
-      all_weekdays = get_all_disciplines_weekdays(classroom.id, discipline_ids, periods)
-      
       today = Date.current
       grade_id = classroom.grade_ids.first
 
@@ -68,6 +49,32 @@ class PendingRecordsCalculator
       first_discipline_id = tdcs.first.discipline_id
       school_day_checker = SchoolDayChecker.new(school_calendar, start_date, grade_id, classroom.id, first_discipline_id)
       all_school_days = school_day_checker.school_dates_between(start_date, end_date)
+
+      # Verificar se é turma infantil
+      is_infantil = is_infantil_classroom?(classroom)
+
+      # Se for turma infantil, buscar áreas de conhecimento ao invés de disciplinas
+      if is_infantil
+        # Buscar áreas de conhecimento do professor na turma
+        teacher_id = tdcs.first.teacher_id
+        knowledge_area_ids = KnowledgeArea.by_teacher(teacher_id)
+                                         .by_classroom_id(classroom.id)
+                                         .pluck(:id)
+        
+        # Se discipline_id foi fornecido e é um ID de área de conhecimento, filtrar
+        if @discipline_id.present?
+          knowledge_area_ids = knowledge_area_ids.select { |id| id.to_s == @discipline_id.to_s }
+        end
+        
+        # Para turmas infantis, processar por área de conhecimento
+        results.concat(process_infantil_classroom(classroom, knowledge_area_ids, school_calendar, start_date, end_date, is_general_frequency, all_school_days, today, grade_id, teacher_id))
+        next # Pular processamento normal de disciplinas
+      end
+
+      # Buscar weekdays em batch para todas as disciplinas (sempre necessário para conteúdos)
+      discipline_ids = tdcs.map { |tdc| tdc.discipline_id }.uniq
+      periods = tdcs.map(&:period).uniq
+      all_weekdays = get_all_disciplines_weekdays(classroom.id, discipline_ids, periods)
 
       # Buscar frequências e conteúdos em batch para todas as disciplinas (otimização)
       teacher_ids = tdcs.map { |tdc| tdc.teacher_id }.uniq
@@ -344,10 +351,13 @@ class PendingRecordsCalculator
     end
   end
 
-  def process_infantil_classroom(classroom, knowledge_area_ids, school_calendar, start_date, end_date, is_general_frequency, all_school_days, today, grade_id)
+  def process_infantil_classroom(classroom, knowledge_area_ids, school_calendar, start_date, end_date, is_general_frequency, all_school_days, today, grade_id, teacher_id)
     results = []
     
     return results if knowledge_area_ids.blank?
+
+    teacher = Teacher.find_by(id: teacher_id)
+    return results unless teacher
 
     # Para turmas infantis, não há quadro de aulas por disciplina/área de conhecimento
     # Então usamos todos os dias letivos para conteúdos
@@ -358,7 +368,7 @@ class PendingRecordsCalculator
     teacher_frequencies = {}
     if is_general_frequency
       general_freq_dates = DailyFrequency
-        .by_owner_teacher_id(@teacher_id)
+        .by_owner_teacher_id(teacher_id)
         .by_classroom_id(classroom.id)
         .general_frequency
         .by_frequency_date_between(start_date, end_date)
@@ -367,12 +377,12 @@ class PendingRecordsCalculator
         .map(&:to_date)
         .to_set
       
-      teacher_frequencies[@teacher_id] = { general: general_freq_dates }
+      teacher_frequencies[teacher_id] = { general: general_freq_dates }
     end
 
     # Buscar conteúdos por área de conhecimento em batch
     content_data = KnowledgeAreaContentRecord
-      .by_teacher_id(@teacher_id)
+      .by_teacher_id(teacher_id)
       .by_classroom_id(classroom.id)
       .by_knowledge_area_id(knowledge_area_ids)
       .by_date_range(start_date, end_date)
@@ -393,7 +403,7 @@ class PendingRecordsCalculator
       # Obter frequências registradas
       if @count_only
         if is_general_frequency
-          frequency_dates_set = teacher_frequencies[@teacher_id]&.dig(:general) || Set.new
+          frequency_dates_set = teacher_frequencies[teacher_id]&.dig(:general) || Set.new
         else
           frequency_dates_set = Set.new # Turmas infantis geralmente usam frequência geral
         end
@@ -407,7 +417,7 @@ class PendingRecordsCalculator
         # Modo completo: buscar todas as datas
         if is_general_frequency
           frequencies = DailyFrequency
-            .by_owner_teacher_id(@teacher_id)
+            .by_owner_teacher_id(teacher_id)
             .by_classroom_id(classroom.id)
             .general_frequency
             .by_frequency_date_between(start_date, end_date)
@@ -418,7 +428,7 @@ class PendingRecordsCalculator
         end
 
         content_records = KnowledgeAreaContentRecord
-          .by_teacher_id(@teacher_id)
+          .by_teacher_id(teacher_id)
           .by_classroom_id(classroom.id)
           .by_knowledge_area_id(knowledge_area_id)
           .by_date_range(start_date, end_date)
@@ -438,9 +448,10 @@ class PendingRecordsCalculator
       total_workload = weekly_hours * weeks_in_period
 
       result = {
-        teacher_id: @teacher_id,
-        teacher_name: User.find_by(teacher_id: @teacher_id)&.name || '',
+        teacher_id: teacher_id,
+        teacher_name: teacher.name,
         discipline_id: nil, # Para áreas de conhecimento, não há discipline_id
+        knowledge_area_id: knowledge_area_id, # ID da área de conhecimento
         discipline_name: knowledge_area.to_s,
         classroom_id: classroom.id,
         classroom_name: classroom.description,

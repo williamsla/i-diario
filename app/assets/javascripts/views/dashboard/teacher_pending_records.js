@@ -213,12 +213,18 @@ $(function(){
         $target.html('<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>').slideDown();
         
         // Buscar datas via AJAX
+        // Usar knowledge_area_id se disponível (para turmas infantis), senão usar discipline_id
+        var idParam = record.knowledge_area_id ? 
+          { knowledge_area_id: record.knowledge_area_id } : 
+          { discipline_id: record.discipline_id };
+        
         $.ajax({
-          url: Routes.dates_dashboard_teacher_pending_records_pt_br_path({
-            format: 'json',
-            step_id: stepData.step_id,
-            discipline_id: record.discipline_id
-          }),
+          url: Routes.dates_dashboard_teacher_pending_records_pt_br_path(
+            Object.assign({
+              format: 'json',
+              step_id: stepData.step_id
+            }, idParam)
+          ),
           success: function(data) {
             var dates = isFrequency ? data.pending_frequency_dates : data.pending_content_dates;
             var label = isFrequency ? 'Datas pendentes de frequência' : 'Datas pendentes de conteúdo';
