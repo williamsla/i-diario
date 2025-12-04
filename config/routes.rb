@@ -89,7 +89,11 @@ Rails.application.routes.draw do
       resources :teacher_next_avaliations, only: [:index]
       resources :teacher_pending_avaliations, only: [:index]
       resources :teacher_work_done_chart, only: [:index]
-      resources :teacher_pending_records, only: [:index]
+      resources :teacher_pending_records, only: [:index] do
+        collection do
+          get :dates
+        end
+      end
     end
 
     post '/current_role', to: 'current_role#set', as: :set_current_role

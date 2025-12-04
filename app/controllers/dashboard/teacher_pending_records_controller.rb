@@ -3,12 +3,19 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
   before_action :require_current_classroom
 
   def index
-    return render json: { steps: [], step_data: nil } if current_user_classroom.blank? || current_teacher.blank?
+    if current_user_classroom.blank? || current_teacher.blank?
+      return render json: { steps: [], step_data: nil, has_lessons_board: false }
+    end
+
+    # Verificar se a turma tem quadro de aulas
+    has_lessons_board = LessonsBoard.by_classroom(current_user_classroom.id)
+                                    .by_year(current_school_year)
+                                    .exists?
 
     steps_fetcher = StepsFetcher.new(current_user_classroom)
     steps = steps_fetcher.steps
 
-    return render json: { steps: [], step_data: nil } if steps.blank?
+    return render json: { steps: [], step_data: nil, has_lessons_board: has_lessons_board } if steps.blank?
 
     # Retornar lista de steps para o select
     today = Date.current
@@ -31,6 +38,7 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
       
       if step
         # Buscar todas as disciplinas do professor na turma atual para esta etapa
+        # Usar count_only: true para otimizar e retornar apenas contadores
         calculator = PendingRecordsCalculator.new(
           unity_id: current_unity.id,
           classroom_id: current_user_classroom.id,
@@ -38,21 +46,22 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
           discipline_id: nil, # nil para buscar todas as disciplinas
           start_date: step.start_at,
           end_date: step.end_at,
-          school_year: current_school_year
+          school_year: current_school_year,
+          count_only: true
         )
 
         results = calculator.calculate
 
-        # Formatar os resultados para o dashboard
+        # Formatar os resultados para o dashboard (sem as datas para otimizar)
+        # Ordenar por nome da disciplina em ordem alfabética
         pending_records = results.map do |result|
           {
             discipline: result[:discipline_name],
+            discipline_id: result[:discipline_id],
             pending_frequency_count: result[:pending_frequency_count],
-            pending_content_count: result[:pending_content_count],
-            pending_frequency_dates: result[:pending_frequency_dates].map { |d| d.strftime('%d/%m/%Y') },
-            pending_content_dates: result[:pending_content_dates].map { |d| d.strftime('%d/%m/%Y') }
+            pending_content_count: result[:pending_content_count]
           }
-        end
+        end.sort_by { |record| record[:discipline] }
 
         step_data = {
           step_id: step.id,
@@ -65,7 +74,40 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
       end
     end
 
-    render json: { steps: steps_list, step_data: step_data }
+    render json: { steps: steps_list, step_data: step_data, has_lessons_board: has_lessons_board }
+  end
+
+  def dates
+    return render json: { error: 'Parâmetros inválidos' }, status: :bad_request if params[:step_id].blank? || params[:discipline_id].blank?
+
+    return render json: { error: 'Não autorizado' }, status: :unauthorized if current_user_classroom.blank? || current_teacher.blank?
+
+    steps_fetcher = StepsFetcher.new(current_user_classroom)
+    steps = steps_fetcher.steps
+    step = steps.find { |s| s.id.to_s == params[:step_id].to_s }
+
+    return render json: { error: 'Etapa não encontrada' }, status: :not_found unless step
+
+    # Buscar dados apenas da disciplina específica
+    calculator = PendingRecordsCalculator.new(
+      unity_id: current_unity.id,
+      classroom_id: current_user_classroom.id,
+      teacher_id: current_teacher.id,
+      discipline_id: params[:discipline_id],
+      start_date: step.start_at,
+      end_date: step.end_at,
+      school_year: current_school_year
+    )
+
+    results = calculator.calculate
+    result = results.first
+
+    return render json: { error: 'Disciplina não encontrada' }, status: :not_found unless result
+
+    render json: {
+      pending_frequency_dates: result[:pending_frequency_dates].map { |d| d.strftime('%d/%m/%Y') },
+      pending_content_dates: result[:pending_content_dates].map { |d| d.strftime('%d/%m/%Y') }
+    }
   end
 end
 
