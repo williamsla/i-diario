@@ -89,6 +89,7 @@ Rails.application.routes.draw do
       resources :teacher_next_avaliations, only: [:index]
       resources :teacher_pending_avaliations, only: [:index]
       resources :teacher_work_done_chart, only: [:index]
+      resources :teacher_pending_records, only: [:index]
     end
 
     post '/current_role', to: 'current_role#set', as: :set_current_role
@@ -410,6 +411,11 @@ Rails.application.routes.draw do
     get '/reports/attendance_record_report_by_students/report',
       to: 'attendance_record_report_by_students#report',
       as: 'attendance_record_report_by_students_report'
+
+    get '/reports/pending_records', to: 'pending_records_report#form', as: 'pending_records_report'
+    post '/reports/pending_records', to: 'pending_records_report#report', as: 'pending_records_report'
+    get '/reports/pending_records/classroom_teachers', to: 'pending_records_report#classroom_teachers', as: 'pending_records_report_classroom_teachers'
+    get '/reports/pending_records/classroom_disciplines', to: 'pending_records_report#classroom_disciplines', as: 'pending_records_report_classroom_disciplines'
 
     get '/reports/absence_justification', to: 'absence_justification_report#form', as: 'absence_justification_report'
     post '/reports/absence_justification', to: 'absence_justification_report#report', as: 'absence_justification_report'
