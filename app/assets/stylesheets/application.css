@@ -454,23 +454,86 @@ span.multiline {
   line-height: 34px;
 }
 
-.whatsapp-button {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 1000;
+/* Botão WhatsApp na barra lateral - retangular verde com cantos arredondados */
+.whatsapp-sidebar-item {
+  width: 100%;
+  margin: 10px 0;
+  padding: 0 10px;
+  list-style: none;
 }
 
-.whatsapp-button img {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
-  transition: transform 0.3s ease-in-out;
+/* Sobrescreve estilos globais da navegação */
+#left-panel nav ul li.whatsapp-sidebar-item a.whatsapp-sidebar-button,
+.whatsapp-sidebar-item .whatsapp-sidebar-button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background-color: #25D366 !important; /* Verde do WhatsApp */
+  color: #ffffff !important;
+  padding: 12px 15px;
+  text-decoration: none !important;
+  border: none;
+  border-radius: 8px;
+  transition: all 0.3s ease-in-out;
+  font-weight: 500;
+  font-size: 14px;
+  box-sizing: border-box;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.whatsapp-button img:hover {
-  transform: scale(1.1);
+#left-panel nav ul li.whatsapp-sidebar-item a.whatsapp-sidebar-button:hover,
+#left-panel nav ul li.whatsapp-sidebar-item a.whatsapp-sidebar-button:focus,
+.whatsapp-sidebar-item .whatsapp-sidebar-button:hover,
+.whatsapp-sidebar-item .whatsapp-sidebar-button:focus {
+  background-color: #20BA5A !important; /* Verde mais escuro no hover */
+  color: #ffffff !important;
+  text-decoration: none !important;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+#left-panel nav ul li.whatsapp-sidebar-item a.whatsapp-sidebar-button:hover i,
+#left-panel nav ul li.whatsapp-sidebar-item a.whatsapp-sidebar-button:focus i,
+.whatsapp-sidebar-item .whatsapp-sidebar-button:hover i,
+.whatsapp-sidebar-item .whatsapp-sidebar-button:focus i {
+  color: #ffffff !important;
+}
+
+#left-panel nav ul li.whatsapp-sidebar-item a.whatsapp-sidebar-button:hover .menu-item-parent,
+#left-panel nav ul li.whatsapp-sidebar-item a.whatsapp-sidebar-button:focus .menu-item-parent,
+.whatsapp-sidebar-item .whatsapp-sidebar-button:hover .menu-item-parent,
+.whatsapp-sidebar-item .whatsapp-sidebar-button:focus .menu-item-parent {
+  color: #ffffff !important;
+}
+
+#left-panel nav ul li.whatsapp-sidebar-item a.whatsapp-sidebar-button:active,
+.whatsapp-sidebar-item .whatsapp-sidebar-button:active {
+  background-color: #1DA851 !important;
+  color: #ffffff !important;
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#left-panel nav ul li.whatsapp-sidebar-item a.whatsapp-sidebar-button:active i,
+.whatsapp-sidebar-item .whatsapp-sidebar-button:active i {
+  color: #ffffff !important;
+}
+
+#left-panel nav ul li.whatsapp-sidebar-item a.whatsapp-sidebar-button:active .menu-item-parent,
+.whatsapp-sidebar-item .whatsapp-sidebar-button:active .menu-item-parent {
+  color: #ffffff !important;
+}
+
+.whatsapp-sidebar-button i {
+  margin-right: 10px;
+  font-size: 18px;
+  flex-shrink: 0;
+  color: #ffffff !important;
+}
+
+.whatsapp-sidebar-button .menu-item-parent {
+  color: #ffffff !important;
+  white-space: nowrap;
 }
 
 /**
