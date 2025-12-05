@@ -93,14 +93,26 @@ class DescriptiveReport < BaseReport
     
     descriptive_number = @is_annual == true ? '' : exam_number
     exam_cell_header = make_cell(content: "Parecer #{descriptive_number}", size: 8, font_style: :bold, width: 100, borders: [:left, :right], padding: [2, 2, 4, 4], colspan: 2)
-    exam_cell = make_cell(content: Nokogiri::HTML(parecer).text, size: 10, width: 100, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan: 2)
+    
+    # Converte HTML para formato Prawn mantendo a formatação
+    formatted_parecer = convert_html_to_prawn_format(parecer)
+    
+    exam_cell = make_cell(
+      content: formatted_parecer, 
+      size: 10, 
+      width: 100, 
+      borders: [:bottom, :left, :right], 
+      padding: [0, 2, 4, 4], 
+      colspan: 2,
+      inline_format: true
+    )
     
     identification_table_data = [
       [exam_cell_header],
       [exam_cell]      
     ]
 
-    table(identification_table_data, width: bounds.width) do
+    table(identification_table_data, width: bounds.width, cell_style: { inline_format: true }) do
       cells.border_width = 0.25
       row(0).border_top_width = 0.25
       row(-1).border_bottom_width = 0.25
@@ -145,6 +157,48 @@ class DescriptiveReport < BaseReport
     
     page_footer(draw_datetime: true)
 
+  end
+
+  def convert_html_to_prawn_format(html_text)
+    return '' if html_text.blank?
+    
+    # Parse HTML
+    doc = Nokogiri::HTML::DocumentFragment.parse(html_text)
+    
+    # Converte tags HTML para formato Prawn recursivamente
+    convert_node = lambda do |node|
+      case node
+      when Nokogiri::XML::Text
+        node.text
+      when Nokogiri::XML::Element
+        case node.name.downcase
+        when 'strong', 'b'
+          "<b>#{node.children.map { |c| convert_node.call(c) }.join}</b>"
+        when 'em', 'i'
+          "<i>#{node.children.map { |c| convert_node.call(c) }.join}</i>"
+        when 'u'
+          "<u>#{node.children.map { |c| convert_node.call(c) }.join}</u>"
+        when 'p'
+          "#{node.children.map { |c| convert_node.call(c) }.join}\n"
+        when 'br'
+          "\n"
+        when 'div'
+          "#{node.children.map { |c| convert_node.call(c) }.join}\n"
+        when 'span'
+          node.children.map { |c| convert_node.call(c) }.join
+        else
+          node.children.map { |c| convert_node.call(c) }.join
+        end
+      else
+        ''
+      end
+    end
+    
+    # Converte o documento
+    result = doc.children.map { |c| convert_node.call(c) }.join
+    
+    # Limpa espaços em branco excessivos mas mantém quebras de linha
+    result.gsub(/\n\s*\n\s*\n+/, "\n\n").strip
   end
 
 end
