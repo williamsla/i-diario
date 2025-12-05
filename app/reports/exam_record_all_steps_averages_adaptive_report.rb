@@ -1,5 +1,6 @@
 require 'action_view'
 
+# Médias com Recuperação por Bimestre
 class ExamRecordAllStepsAveragesAdaptiveReport < BaseReport
   include ActionView::Helpers::NumberHelper
 
@@ -110,17 +111,21 @@ class ExamRecordAllStepsAveragesAdaptiveReport < BaseReport
       # Calcular médias de cada etapa
       step_averages[student_enrollment.id] = []
       step_recoveries[student_enrollment.id] = []
+      step_averages_with_recovery = []
       
-      @steps.each do |step|
+      @steps.each_with_index do |step, step_index|
         average = StudentAverageCalculator.new(student).calculate(@classroom, @discipline, step)
         step_averages[student_enrollment.id] << average
         
         # Buscar recuperação por etapa
-        step_recovery = AvaliationRecoveryDiaryRecord
+        # Busca recuperações de ETAPA (SchoolTermRecoveryDiaryRecord) pela data de registro dentro do período da etapa
+        # Segue o mesmo padrão usado em exam_record_all_steps_averages_report.rb
+        step_recovery = SchoolTermRecoveryDiaryRecord
           .joins(recovery_diary_record: :students)
           .where(recovery_diary_records: { classroom_id: @classroom.id, discipline_id: @discipline.id })
           .where(recovery_diary_record_students: { student_id: student_id })
-          .by_test_date_between(step.start_at, step.end_at)
+          .where('recovery_diary_records.recorded_at >= ? AND recovery_diary_records.recorded_at <= ?', 
+                 step.start_at, step.end_at)
           .order('recovery_diary_records.recorded_at DESC')
           .first
         
@@ -130,6 +135,12 @@ class ExamRecordAllStepsAveragesAdaptiveReport < BaseReport
           step_recovery_score = recovery_student&.score
         end
         step_recoveries[student_enrollment.id] << step_recovery_score
+        
+        # Aplicar recuperação de etapa na média usando SchoolTermAverageCalculator
+        # Isso garante que a recuperação seja aplicada corretamente conforme a regra da turma
+        recovery_score_for_calc = step_recovery_score.present? ? calculate_recovery_score(student_id, step_recovery_score, step) : nil
+        average_with_recovery = SchoolTermAverageCalculator.new(@classroom).calculate(average, recovery_score_for_calc)
+        step_averages_with_recovery << average_with_recovery
       end
 
       # Buscar recuperação final
@@ -147,11 +158,12 @@ class ExamRecordAllStepsAveragesAdaptiveReport < BaseReport
       end
       final_recoveries[student_enrollment.id] = final_recovery_score
 
-      # Calcular média final (média de todas as etapas dividida pela quantidade de etapas, aplicando recuperação final se houver)
+      # Calcular média final usando as médias já ajustadas pelas recuperações de etapa
       # Notas vazias são consideradas como 0
-      all_step_averages = step_averages[student_enrollment.id].map { |v| v.to_f }
+      all_step_averages = step_averages_with_recovery.map { |v| v.to_f }
       final_average = all_step_averages.any? ? (all_step_averages.sum.to_f / @steps.size.to_f) : nil
       
+      # Aplicar recuperação final se houver
       if final_recovery_score.present? && final_recovery_score.to_f > (final_average || 0).to_f
         final_average = final_recovery_score.to_f
       end
@@ -210,6 +222,16 @@ class ExamRecordAllStepsAveragesAdaptiveReport < BaseReport
     end
   end
 
+
+  def calculate_recovery_score(student_id, score, step)
+    ComplementaryExamCalculator.new(
+      [AffectedScoreTypes::STEP_RECOVERY_SCORE, AffectedScoreTypes::BOTH],
+      student_id,
+      @discipline.id,
+      @classroom.id,
+      step
+    ).calculate(score)
+  end
 
   def localize_score(score)
     return '' if score.blank?

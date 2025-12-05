@@ -1,5 +1,6 @@
 require 'action_view'
 
+# Médias com Recuperação por Semestre
 class ExamRecordAllStepsAveragesReport < BaseReport
   include ActionView::Helpers::NumberHelper
 
