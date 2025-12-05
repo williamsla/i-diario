@@ -43,8 +43,7 @@ $(function(){
       '<option value="">Selecione uma etapa...</option>';
     
     _.each(steps, function(step) {
-      selectHtml += '<option value="' + step.id + '">' + step.name + 
-        ' (' + step.start_at + ' a ' + step.end_at + ')</option>';
+      selectHtml += '<option value="' + step.id + '">' + step.name + '</option>';
     });
     
     selectHtml += '</select>' +
