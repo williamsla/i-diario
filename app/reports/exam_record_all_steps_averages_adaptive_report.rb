@@ -207,8 +207,11 @@ class ExamRecordAllStepsAveragesAdaptiveReport < BaseReport
       end
 
       # Dados finais
-      row << make_cell(content: localize_score(final_recoveries[student_enrollment.id]), size: 7, align: :center, background_color: SEMESTER_AVG_BG_COLOR)
-      row << make_cell(content: localize_score(final_averages[student_enrollment.id]), size: 7, align: :center, font_style: :bold, background_color: FINAL_AVG_BG_COLOR)
+      final_recovery = final_recoveries[student_enrollment.id]
+      final_average = final_averages[student_enrollment.id]
+      
+      row << make_cell(content: localize_score(final_recovery), size: 7, align: :center, background_color: SEMESTER_AVG_BG_COLOR)
+      row << make_cell(content: localize_score(final_average), size: 7, align: :center, font_style: :bold, background_color: FINAL_AVG_BG_COLOR)
 
       students_data << row
     end
