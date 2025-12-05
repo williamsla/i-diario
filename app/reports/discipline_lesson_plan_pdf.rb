@@ -230,10 +230,58 @@ class DisciplineLessonPlanPdf < BaseReport
     references_translation = Translation.find_by(key: 'navigation.references_by_discipline', group: 'lesson_plans').translation
     references_label = references_translation.present? ? references_translation : 'Referências'
 
-    text_box_truncate(actives_methodology_label, (lesson_plan.activities || '-'))
-    text_box_truncate(resources_label, (lesson_plan.resources || '-'))
-    text_box_truncate(evaluation_label, (lesson_plan.evaluation || '-'))
-    text_box_truncate(references_label, (lesson_plan.bibliography || '-'))
+    text_box_dynamic_height(actives_methodology_label, (lesson_plan.activities || '-'))
+    text_box_dynamic_height(resources_label, (lesson_plan.resources || '-'))
+    text_box_dynamic_height(evaluation_label, (lesson_plan.evaluation || '-'))
+    text_box_dynamic_height(references_label, (lesson_plan.bibliography || '-'))
+  end
+
+  def text_box_dynamic_height(title, information)
+    return if information.blank? || information == '-'
+    
+    # Altura do título
+    title_height = 12
+    # Espaçamento entre título e texto
+    title_spacing = 5
+    # Padding para o texto (5 pontos acima e abaixo)
+    padding = 10
+    
+    # Calcula o espaço disponível na página (reserva 20 pontos para footer)
+    available_height = cursor - 20
+    
+    # Calcula a altura real do texto completo
+    formatted_text = information.gsub("</p>", "</p><br>")
+    text_height = height_of(formatted_text, width: bounds.width - 10, size: 10)
+    
+    # Altura máxima disponível para o texto (descontando título, espaçamento e padding)
+    max_text_height_available = available_height - title_height - title_spacing - padding
+    
+    # Usa a altura real do texto ou o máximo disponível, o que for menor
+    # Isso garante que a caixa se ajuste ao tamanho do texto
+    text_height_available = [text_height, max_text_height_available].min
+    
+    # Altura total da caixa: título + espaçamento + texto (real) + padding
+    box_height = title_height + title_spacing + text_height_available + padding
+    
+    # Limita ao espaço disponível na página
+    box_height = [box_height, available_height].min
+    
+    # Garante altura mínima
+    box_height = [box_height, 30].max
+
+    bounding_box([0, cursor], width: bounds.width, height: box_height) do
+      line_width 0.5
+      stroke_bounds
+      
+      # Desenha o título dentro da caixa, no topo
+      draw_text(title, size: 8, style: :bold, at: [5, box_height - 8])
+      
+      # Cria um bounding_box interno para o texto, abaixo do título
+      text_y_position = box_height - title_height - title_spacing
+      bounding_box([5, text_y_position], width: bounds.width - 10, height: text_height_available) do
+        text(formatted_text, size: 10, inline_format: true)
+      end
+    end
   end
 
   def additional_information
