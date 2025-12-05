@@ -13,6 +13,63 @@ class PendingRecordsCalculator
   def calculate
     results = []
     
+    # Se foi passado um discipline_id e pode ser uma área de conhecimento (turma infantil),
+    # verificar primeiro se a turma é infantil antes de buscar teacher_discipline_classrooms
+    classroom = nil
+    is_infantil = false
+    
+    if @classroom_id.present?
+      classroom = Classroom.find_by(id: @classroom_id)
+      is_infantil = classroom ? is_infantil_classroom?(classroom) : false
+    end
+    
+    # Se for turma infantil e foi passado um discipline_id (que pode ser knowledge_area_id),
+    # processar diretamente sem depender de teacher_discipline_classrooms
+    if is_infantil && @discipline_id.present? && @teacher_id.present? && @classroom_id.present?
+      unity = classroom.unity
+      school_calendar = CurrentSchoolCalendarFetcher.new(unity, classroom, @school_year).fetch
+      return results unless school_calendar
+
+      steps_fetcher = StepsFetcher.new(classroom)
+      steps = steps_fetcher.steps_by_date_range(@start_date, @end_date)
+      
+      if steps.blank?
+        start_date = @start_date
+        end_date = @end_date
+      else
+        start_date = [steps.map(&:start_at).min, @start_date].max
+        end_date = [steps.map(&:end_at).max, @end_date].min
+      end
+
+      # Obter frequency_type da turma
+      frequency_type_definer = FrequencyTypeDefiner.new(classroom, @teacher_id, nil, year: @school_year)
+      frequency_type_definer.define!
+      frequency_type = frequency_type_definer.frequency_type
+      is_general_frequency = frequency_type == FrequencyTypes::GENERAL
+
+      today = Date.current
+      grade_id = classroom.grade_ids.first
+
+      # Calcular dias letivos
+      school_day_checker = SchoolDayChecker.new(school_calendar, start_date, grade_id, classroom.id, nil)
+      all_school_days = school_day_checker.school_dates_between(start_date, end_date)
+
+      # Buscar áreas de conhecimento do professor na turma
+      knowledge_area_ids = KnowledgeArea.by_teacher(@teacher_id)
+                                       .by_classroom_id(classroom.id)
+                                       .pluck(:id)
+      
+      # Filtrar pelo knowledge_area_id fornecido
+      knowledge_area_ids = knowledge_area_ids.select { |id| id.to_s == @discipline_id.to_s }
+      
+      # Se não encontrou a área de conhecimento, retornar vazio
+      return results if knowledge_area_ids.blank?
+      
+      # Processar por área de conhecimento
+      infantil_results = process_infantil_classroom(classroom, knowledge_area_ids, school_calendar, start_date, end_date, is_general_frequency, all_school_days, today, grade_id, @teacher_id)
+      return infantil_results
+    end
+    
     # Agrupar por classroom para otimizar queries
     tdcs_by_classroom = teacher_discipline_classrooms.group_by { |tdc| tdc.classroom }
     
@@ -75,6 +132,15 @@ class PendingRecordsCalculator
       discipline_ids = tdcs.map { |tdc| tdc.discipline_id }.uniq
       periods = tdcs.map(&:period).uniq
       all_weekdays = get_all_disciplines_weekdays(classroom.id, discipline_ids, periods)
+      
+      # Para frequência geral, obter os weekdays de cada professor (todos os dias que ele tem aula na turma)
+      teacher_weekdays_by_teacher = {}
+      if is_general_frequency
+        teacher_ids = tdcs.map { |tdc| tdc.teacher_id }.uniq
+        teacher_ids.each do |teacher_id|
+          teacher_weekdays_by_teacher[teacher_id] = get_teacher_weekdays(classroom.id, [teacher_id], periods)
+        end
+      end
 
       # Buscar frequências e conteúdos em batch para todas as disciplinas (otimização)
       teacher_ids = tdcs.map { |tdc| tdc.teacher_id }.uniq
@@ -148,15 +214,48 @@ class PendingRecordsCalculator
           end
         end.compact
         
+        # Obter weekdays do professor específico para frequência geral
+        current_teacher_weekdays = is_general_frequency ? (teacher_weekdays_by_teacher[teacher.id] || []) : []
+        
         if discipline_weekdays.empty?
           school_days_for_content = []
-          school_days_for_frequency = is_general_frequency ? all_school_days : []
+          # Para frequência geral, usar os weekdays do professor; senão, vazio
+          if is_general_frequency
+            teacher_weekday_numbers = current_teacher_weekdays.map do |wd|
+              case wd
+              when 'sunday' then 0
+              when 'monday' then 1
+              when 'tuesday' then 2
+              when 'wednesday' then 3
+              when 'thursday' then 4
+              when 'friday' then 5
+              when 'saturday' then 6
+              end
+            end.compact
+            school_days_for_frequency = teacher_weekday_numbers.any? ? all_school_days.select { |date| teacher_weekday_numbers.include?(date.wday) } : []
+          else
+            school_days_for_frequency = []
+          end
         else
           # Filtrar apenas os dias letivos que correspondem aos dias da semana da disciplina
           school_days_for_content = all_school_days.select { |date| weekday_numbers.include?(date.wday) }
-          
-          # Para frequências: se for GENERAL, usar todos os dias letivos; senão, usar os dias da disciplina
-          school_days_for_frequency = is_general_frequency ? all_school_days : school_days_for_content
+          # Para frequência geral, usar os weekdays do professor; senão, usar os da disciplina
+          if is_general_frequency
+            teacher_weekday_numbers = current_teacher_weekdays.map do |wd|
+              case wd
+              when 'sunday' then 0
+              when 'monday' then 1
+              when 'tuesday' then 2
+              when 'wednesday' then 3
+              when 'thursday' then 4
+              when 'friday' then 5
+              when 'saturday' then 6
+              end
+            end.compact
+            school_days_for_frequency = teacher_weekday_numbers.any? ? all_school_days.select { |date| teacher_weekday_numbers.include?(date.wday) } : []
+          else
+            school_days_for_frequency = school_days_for_content
+          end
         end
 
         # Obter frequências registradas (usar dados já carregados em batch)
@@ -342,6 +441,48 @@ class PendingRecordsCalculator
     # Método mantido para compatibilidade, mas agora usa o método otimizado
     all_weekdays = get_all_disciplines_weekdays(classroom_id, [discipline_id], [period])
     all_weekdays[discipline_id] || []
+  end
+
+  def get_teacher_weekdays(classroom_id, teacher_ids, periods)
+    # Buscar todos os weekdays de todos os professores na turma
+    # Retorna um array único de weekdays: ['monday', 'tuesday', etc]
+    
+    result = []
+    
+    # Primeiro tenta com período específico
+    weekdays_data = LessonsBoardLessonWeekday
+      .joins(lessons_board_lesson: [lessons_board: [classrooms_grade: :classroom]])
+      .joins(:teacher_discipline_classroom)
+      .where(classrooms: { id: classroom_id })
+      .where(lessons_boards: { period: periods })
+      .where(teacher_discipline_classrooms: { teacher_id: teacher_ids })
+      .where(teacher_discipline_classrooms: { active: true })
+      .where(teacher_discipline_classrooms: { discarded_at: nil })
+      .where.not(weekday: nil)
+      .where.not(teacher_discipline_classroom_id: nil)
+      .distinct
+      .pluck(:weekday)
+    
+    result.concat(weekdays_data)
+    
+    # Se não encontrou nada, tenta sem filtrar por período
+    if result.empty?
+      weekdays_data_fallback = LessonsBoardLessonWeekday
+        .joins(lessons_board_lesson: [lessons_board: [classrooms_grade: :classroom]])
+        .joins(:teacher_discipline_classroom)
+        .where(classrooms: { id: classroom_id })
+        .where(teacher_discipline_classrooms: { teacher_id: teacher_ids })
+        .where(teacher_discipline_classrooms: { active: true })
+        .where(teacher_discipline_classrooms: { discarded_at: nil })
+        .where.not(weekday: nil)
+        .where.not(teacher_discipline_classroom_id: nil)
+        .distinct
+        .pluck(:weekday)
+      
+      result.concat(weekdays_data_fallback)
+    end
+    
+    result.uniq
   end
 
   def is_infantil_classroom?(classroom)
