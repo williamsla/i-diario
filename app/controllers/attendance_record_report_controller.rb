@@ -20,15 +20,20 @@ class AttendanceRecordReportController < ApplicationController
   end
 
   def report
-    fetch_collections
-
     @attendance_record_report_form = AttendanceRecordReportForm.new(resource_params)
     @attendance_record_report_form.school_calendar = SchoolCalendar.find_by(
       unity: @attendance_record_report_form.unity_id,
       year: current_user_school_year
     )
 
+    fetch_collections
+
     @attendance_record_report_form.class_numbers = (1..@number_of_classes).to_a if @attendance_record_report_form.class_numbers.blank?
+    
+    # Se não houver quadro de horários, força show_only_teacher_days como false
+    unless has_lesson_board?
+      @attendance_record_report_form.show_only_teacher_days = false
+    end
 
     if @attendance_record_report_form.valid?
       attendance_record_report = AttendanceRecordReport.build(
@@ -83,6 +88,25 @@ class AttendanceRecordReportController < ApplicationController
     @number_of_classes = current_school_calendar.number_of_classes
     @teacher = current_teacher
     @period = current_teacher_period
+    @has_lesson_board = has_lesson_board?
+  end
+
+  def has_lesson_board?
+    return false if @attendance_record_report_form.blank?
+    return false if @attendance_record_report_form.classroom_id.blank?
+
+    begin
+      classroom_id = @attendance_record_report_form.classroom_id
+      school_year = current_user_school_year || current_school_year
+
+      # Verifica se existe qualquer quadro de horários para a turma
+      LessonsBoard.by_classroom(classroom_id)
+                  .by_year(school_year)
+                  .exists?
+    rescue => e
+      Rails.logger.error "Erro ao verificar quadro de horários: #{e.message}"
+      false
+    end
   end
 
   def resource_params
@@ -95,7 +119,8 @@ class AttendanceRecordReportController < ApplicationController
                                                           :end_at,
                                                           :school_calendar_year,
                                                           :current_teacher_id,
-                                                          :second_teacher_signature)
+                                                          :second_teacher_signature,
+                                                          :show_only_teacher_days)
   end
 
   def clear_invalid_dates

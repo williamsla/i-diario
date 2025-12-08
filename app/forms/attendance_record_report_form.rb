@@ -11,7 +11,8 @@ class AttendanceRecordReportForm
                 :school_calendar_year,
                 :current_teacher_id,
                 :school_calendar,
-                :second_teacher_signature
+                :second_teacher_signature,
+                :show_only_teacher_days
 
   validates :start_at, presence: true, date: true, timeliness: {
     on_or_before: :end_at, type: :date, on_or_before_message: I18n.t('errors.messages.on_or_before_message')
@@ -37,7 +38,7 @@ class AttendanceRecordReportForm
   def fetch_daily_frequencies
     global_absence = false
     # class_numbers = 5
-    DailyFrequencyQuery.call(
+    frequencies = DailyFrequencyQuery.call(
       classroom_id: classroom_id,
       period: period,
       frequency_date: start_at..end_at,
@@ -51,6 +52,72 @@ class AttendanceRecordReportForm
         daily_frequency || frequencies.first
       end
     end.flatten
+
+    # Filtra apenas os dias do professor se o checkbox estiver marcado
+    # Só filtra se realmente houver quadro de horários
+    if (show_only_teacher_days == true || show_only_teacher_days == '1') && has_lesson_board?
+      teacher_weekdays = get_teacher_weekdays
+      frequencies.select do |frequency|
+        weekday_name = frequency.frequency_date.strftime("%A").downcase
+        teacher_weekdays.include?(weekday_name)
+      end
+    else
+      frequencies
+    end
+  end
+
+  def has_lesson_board?
+    return false if current_teacher_id.blank? || classroom_id.blank? || discipline_id.blank?
+
+    LessonsBoardLessonWeekday
+      .joins(lessons_board_lesson: [lessons_board: [classrooms_grade: :classroom]])
+      .joins(:teacher_discipline_classroom)
+      .where(classrooms: { id: classroom_id })
+      .where(teacher_discipline_classrooms: { teacher_id: current_teacher_id })
+      .where(teacher_discipline_classrooms: { discipline_id: discipline_id })
+      .where(teacher_discipline_classrooms: { active: true })
+      .where(teacher_discipline_classrooms: { discarded_at: nil })
+      .where.not(weekday: nil)
+      .where.not(teacher_discipline_classroom_id: nil)
+      .exists?
+  end
+
+  def get_teacher_weekdays
+    return [] if current_teacher_id.blank? || classroom_id.blank?
+
+    periods = [period].compact
+    periods = [Periods::FULL, Periods::MATUTINAL, Periods::VESPERTINAL, Periods::NIGHT] if periods.empty?
+
+    # Busca os weekdays do professor no quadro de horários
+    weekdays = LessonsBoardLessonWeekday
+      .joins(lessons_board_lesson: [lessons_board: [classrooms_grade: :classroom]])
+      .joins(:teacher_discipline_classroom)
+      .where(classrooms: { id: classroom_id })
+      .where(lessons_boards: { period: periods })
+      .where(teacher_discipline_classrooms: { teacher_id: current_teacher_id })
+      .where(teacher_discipline_classrooms: { active: true })
+      .where(teacher_discipline_classrooms: { discarded_at: nil })
+      .where.not(weekday: nil)
+      .where.not(teacher_discipline_classroom_id: nil)
+      .distinct
+      .pluck(:weekday)
+
+    # Se não encontrou nada, tenta sem filtrar por período
+    if weekdays.empty?
+      weekdays = LessonsBoardLessonWeekday
+        .joins(lessons_board_lesson: [lessons_board: [classrooms_grade: :classroom]])
+        .joins(:teacher_discipline_classroom)
+        .where(classrooms: { id: classroom_id })
+        .where(teacher_discipline_classrooms: { teacher_id: current_teacher_id })
+        .where(teacher_discipline_classrooms: { active: true })
+        .where(teacher_discipline_classrooms: { discarded_at: nil })
+        .where.not(weekday: nil)
+        .where.not(teacher_discipline_classroom_id: nil)
+        .distinct
+        .pluck(:weekday)
+    end
+
+    weekdays.uniq
   end
 
   def school_calendar_events
