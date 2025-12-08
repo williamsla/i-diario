@@ -237,7 +237,6 @@ class DisciplineLessonPlanPdf < BaseReport
   end
 
   def text_box_dynamic_height(title, information)
-    return if information.blank? || information == '-'
     
     # Altura do título
     title_height = 12
