@@ -196,6 +196,9 @@ class PendingRecordsCalculator
         teacher = tdc.teacher
         discipline = tdc.discipline
 
+        # Filtrar apenas disciplinas que não são grouper e não são descriptor
+        next if discipline.grouper == true || discipline.descriptor == true
+
         # Para frequências: se for GENERAL, usar todos os dias letivos (não filtrar por weekdays)
         # Se for BY_DISCIPLINE, filtrar por weekdays da disciplina
         # Para conteúdos: sempre filtrar por weekdays da disciplina
