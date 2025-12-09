@@ -6,6 +6,7 @@ class SchoolCalendarsController < ApplicationController
   def index
     @school_calendars = apply_scopes(SchoolCalendar).includes(:unity)
                                                     .filter(filtering_params(params[:search]))
+                                                    .by_year(current_school_year)
                                                     .ordered
 
     unless show_all_unities?

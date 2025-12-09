@@ -4,7 +4,7 @@ class SchoolCalendarEventBatchesController < ApplicationController
 
   def index
     @school_calendar_event_batches = apply_scopes(SchoolCalendarEventBatch).ordered
-
+    @school_calendar_event_batches = @school_calendar_event_batches.by_year(current_school_year)
     authorize @school_calendar_event_batches
   end
 
