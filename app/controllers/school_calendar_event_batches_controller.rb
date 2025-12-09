@@ -90,13 +90,25 @@ class SchoolCalendarEventBatchesController < ApplicationController
   end
 
   def create_or_update_batch(school_calendar_event_batch_id)
-    SchoolCalendarEventBatchManager::EventCreatorWorker.perform_in(
-      1.second,
-      current_entity.id,
-      school_calendar_event_batch_id,
-      current_user.id,
-      action_name
-    )
+    # Tenta executar de forma assíncrona via Sidekiq
+    begin
+      SchoolCalendarEventBatchManager::EventCreatorWorker.perform_in(
+        1.second,
+        current_entity.id,
+        school_calendar_event_batch_id,
+        current_user.id,
+        action_name
+      )
+    rescue => e
+      # Se falhar (Sidekiq não disponível), executa de forma síncrona
+      Rails.logger.warn("Sidekiq não disponível, executando worker de forma síncrona: #{e.message}")
+      SchoolCalendarEventBatchManager::EventCreatorWorker.new.perform(
+        current_entity.id,
+        school_calendar_event_batch_id,
+        current_user.id,
+        action_name
+      )
+    end
   end
 
   def destroy_batch(school_calendar_event_batch_id)
