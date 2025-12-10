@@ -90,24 +90,47 @@ class SchoolCalendarEventBatchesController < ApplicationController
   end
 
   def create_or_update_batch(school_calendar_event_batch_id)
-    # Tenta executar de forma assíncrona via Sidekiq
+    # Por padrão, executa de forma síncrona para garantir que o processamento aconteça
+    # Se o Sidekiq estiver rodando, o job também será enfileirado, mas não vamos depender dele
+    execute_worker_synchronously(school_calendar_event_batch_id)
+    
+    # Tenta também agendar no Sidekiq para processamento assíncrono (opcional)
     begin
-      SchoolCalendarEventBatchManager::EventCreatorWorker.perform_in(
+      job_id = SchoolCalendarEventBatchManager::EventCreatorWorker.perform_in(
         1.second,
         current_entity.id,
         school_calendar_event_batch_id,
         current_user.id,
         action_name
       )
+      Rails.logger.info("Worker também agendado no Sidekiq. Job ID: #{job_id} para batch #{school_calendar_event_batch_id}")
     rescue => e
-      # Se falhar (Sidekiq não disponível), executa de forma síncrona
-      Rails.logger.warn("Sidekiq não disponível, executando worker de forma síncrona: #{e.message}")
+      Rails.logger.debug("Não foi possível agendar no Sidekiq (pode não estar rodando): #{e.message}")
+      # Não é um erro crítico, já executamos de forma síncrona
+    end
+  end
+
+  def execute_worker_synchronously(school_calendar_event_batch_id)
+    Rails.logger.info("Executando worker de forma síncrona para batch #{school_calendar_event_batch_id}")
+    begin
       SchoolCalendarEventBatchManager::EventCreatorWorker.new.perform(
         current_entity.id,
         school_calendar_event_batch_id,
         current_user.id,
         action_name
       )
+      Rails.logger.info("Worker executado com sucesso de forma síncrona para batch #{school_calendar_event_batch_id}")
+    rescue => e
+      Rails.logger.error("Erro ao executar worker de forma síncrona para batch #{school_calendar_event_batch_id}: #{e.class} - #{e.message}")
+      Rails.logger.error(e.backtrace.join("\n")) if e.backtrace
+      
+      # Marca como erro se falhar
+      begin
+        batch = SchoolCalendarEventBatch.find(school_calendar_event_batch_id)
+        batch.mark_with_error!("Erro ao executar worker: #{e.message}")
+      rescue => find_error
+        Rails.logger.error("Erro ao marcar batch #{school_calendar_event_batch_id} como erro: #{find_error.message}")
+      end
     end
   end
 
