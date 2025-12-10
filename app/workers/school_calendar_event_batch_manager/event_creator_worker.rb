@@ -5,15 +5,15 @@ module SchoolCalendarEventBatchManager
     def perform(entity_id, school_calendar_event_batch_id, user_id, action_name)
       Rails.logger.info("=== INÍCIO: Processando evento em lote #{school_calendar_event_batch_id} para entity #{entity_id} ===")
       
-      entity = Entity.find_by(id: entity_id)
-      unless entity
+      begin
+        entity = Entity.find(entity_id)
+        Rails.logger.info("Entity encontrada: #{entity.name} (id: #{entity.id})")
+      rescue ActiveRecord::RecordNotFound => e
         error_message = "Entity com id #{entity_id} não encontrada"
         Rails.logger.error(error_message)
         mark_batch_with_error_simple(school_calendar_event_batch_id, error_message)
         return
       end
-      
-      Rails.logger.info("Entity encontrada: #{entity.name} (id: #{entity.id})")
       
       entity.using_connection do
         Rails.logger.info("Conexão com entity estabelecida")
