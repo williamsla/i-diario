@@ -1,8 +1,12 @@
 class AdminSynchronization
   class << self
     def dump
-      $REDIS_DB.set('AdminSynchronizations', Marshal.dump(mount))
-      $REDIS_DB.set('AdminSynchronizations#updated_at', Time.current)
+      $REDIS_DB.with do |redis|
+        redis.multi do |transaction|
+          transaction.set('AdminSynchronizations', Marshal.dump(mount))
+          transaction.set('AdminSynchronizations#updated_at', Time.current)
+        end
+      end
     end
 
     private
@@ -65,7 +69,9 @@ class AdminSynchronization
   end
 
   def updated_at
-    $REDIS_DB.get('AdminSynchronizations#updated_at')
+    $REDIS_DB.with do |redis|
+      redis.get('AdminSynchronizations#updated_at')
+    end
   end
 
   def started
@@ -83,10 +89,14 @@ class AdminSynchronization
   private
 
   def entity_syncs
-    @entity_syncs ||= Marshal.load($REDIS_DB.get('AdminSynchronizations')) || {}
+    @entity_syncs ||= begin
+      $REDIS_DB.with do |redis|
+        data = redis.get('AdminSynchronizations')
+        data ? Marshal.load(data) : {}
+      end
+    end
   rescue StandardError => error
     Honeybadger.notify(error)
-
     {}
   end
 
