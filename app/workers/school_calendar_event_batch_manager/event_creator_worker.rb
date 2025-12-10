@@ -27,27 +27,47 @@ module SchoolCalendarEventBatchManager
           school_calendars = SchoolCalendar.by_year(school_calendar_event_batch.year)
           Rails.logger.info("Encontrados #{school_calendars.count} calendário(s) escolar(es) para o ano #{school_calendar_event_batch.year}")
 
+          events_created_count = 0
+          events_failed_count = 0
+          validation_errors = []
+
           school_calendars.each do |school_calendar|
             begin
-              SchoolCalendarEvent.find_or_initialize_by(
+              event = SchoolCalendarEvent.find_or_initialize_by(
                 school_calendar_id: school_calendar.id,
                 batch_id: school_calendar_event_batch.id
-              ).tap do |event|
-                event.description = school_calendar_event_batch.description
-                event.start_date = school_calendar_event_batch.start_date
-                event.end_date = school_calendar_event_batch.end_date
-                event.event_type = school_calendar_event_batch.event_type
-                event.periods = school_calendar_event_batch.periods
-                event.legend = school_calendar_event_batch.legend
-                event.show_in_frequency_record = school_calendar_event_batch.show_in_frequency_record
-                event.save! if event.changed?
-
+              )
+              
+              event.description = school_calendar_event_batch.description
+              event.start_date = school_calendar_event_batch.start_date
+              event.end_date = school_calendar_event_batch.end_date
+              event.event_type = school_calendar_event_batch.event_type
+              event.periods = school_calendar_event_batch.periods
+              event.legend = school_calendar_event_batch.legend
+              event.show_in_frequency_record = school_calendar_event_batch.show_in_frequency_record
+              
+              if event.changed?
+                event.save!
+                Rails.logger.info("Evento criado/atualizado com sucesso para calendário escolar ID #{school_calendar.id} (Unity ID: #{school_calendar.unity_id})")
+                events_created_count += 1
                 created = true
-
                 school_calendars_days(school_calendar_event_batch, action_name)
+              else
+                Rails.logger.info("Evento já existe e não foi alterado para calendário escolar ID #{school_calendar.id} (Unity ID: #{school_calendar.unity_id})")
+                events_created_count += 1
+                created = true
               end
-            rescue ActiveRecord::RecordInvalid
-              unity_name = Unity.find_by(id: school_calendar.unity_id)&.name
+            rescue ActiveRecord::RecordInvalid => e
+              events_failed_count += 1
+              unity_name = Unity.find_by(id: school_calendar.unity_id)&.name || "ID #{school_calendar.unity_id}"
+              error_details = {
+                unity: unity_name,
+                calendar_id: school_calendar.id,
+                errors: e.record.errors.full_messages
+              }
+              validation_errors << error_details
+              
+              Rails.logger.error("Erro de validação ao criar evento para escola #{unity_name} (Calendário ID: #{school_calendar.id}): #{e.record.errors.full_messages.join(', ')}")
 
               school_calendar.steps.each do |step|
                 if school_calendar_event_batch.start_date.between?(step.start_at, step.end_at) &&
@@ -69,11 +89,23 @@ module SchoolCalendarEventBatchManager
                 end
               end
               next
+            rescue StandardError => e
+              events_failed_count += 1
+              unity_name = Unity.find_by(id: school_calendar.unity_id)&.name || "ID #{school_calendar.unity_id}"
+              Rails.logger.error("Erro inesperado ao criar evento para escola #{unity_name} (Calendário ID: #{school_calendar.id}): #{e.class} - #{e.message}")
+              Rails.logger.error(e.backtrace.join("\n")) if e.backtrace
+              next
             end
           end
 
+          Rails.logger.info("Resumo: #{events_created_count} evento(s) criado(s)/atualizado(s), #{events_failed_count} evento(s) falharam")
+
           if !created
             error_message = "Nenhum evento foi criado. Verifique se existem calendários escolares para o ano #{school_calendar_event_batch.year}."
+            if validation_errors.any?
+              error_details = validation_errors.map { |err| "#{err[:unity]}: #{err[:errors].join(', ')}" }.join('; ')
+              error_message += " Erros de validação: #{error_details}"
+            end
             Rails.logger.error(error_message)
             raise EventsNotCreatedError, error_message
           end
