@@ -109,21 +109,8 @@ class SchoolCalendarEventBatchesController < ApplicationController
     entity_id = current_entity.id
     Rails.logger.info("Entity ID: #{entity_id}, Entity Name: #{current_entity.name}")
     
-    # Verifica se a entidade existe no banco (sem usar exists? que pode ter problemas de conexão)
-    begin
-      entity_check = Entity.find_by(id: entity_id)
-      unless entity_check
-        error_message = "Entity com id #{entity_id} não existe no banco de dados"
-        Rails.logger.error(error_message)
-        mark_batch_with_error(school_calendar_event_batch_id, error_message)
-        return
-      end
-    rescue => e
-      Rails.logger.error("Erro ao verificar entity: #{e.message}")
-      mark_batch_with_error(school_calendar_event_batch_id, "Erro ao verificar entity: #{e.message}")
-      return
-    end
-    
+    # Usa a entidade já encontrada pelo current_entity (que busca por domínio)
+    # Não precisa verificar novamente, pois se current_entity existe, a entidade existe
     Rails.logger.info("Chamando worker.perform para entity_id=#{entity_id}, batch_id=#{school_calendar_event_batch_id}")
     
     begin
@@ -169,21 +156,8 @@ class SchoolCalendarEventBatchesController < ApplicationController
     entity_id = current_entity.id
     Rails.logger.info("Entity ID: #{entity_id}, Entity Name: #{current_entity.name}")
     
-    # Verifica se a entidade existe no banco
-    begin
-      entity_check = Entity.find_by(id: entity_id)
-      unless entity_check
-        error_message = "Entity com id #{entity_id} não existe no banco de dados"
-        Rails.logger.error(error_message)
-        mark_batch_with_error(school_calendar_event_batch_id, error_message)
-        return
-      end
-    rescue => e
-      Rails.logger.error("Erro ao verificar entity: #{e.message}")
-      mark_batch_with_error(school_calendar_event_batch_id, "Erro ao verificar entity: #{e.message}")
-      return
-    end
-    
+    # Usa a entidade já encontrada pelo current_entity (que busca por domínio)
+    # Não precisa verificar novamente, pois se current_entity existe, a entidade existe
     Rails.logger.info("Chamando destroyer worker.perform para entity_id=#{entity_id}, batch_id=#{school_calendar_event_batch_id}")
     
     begin
