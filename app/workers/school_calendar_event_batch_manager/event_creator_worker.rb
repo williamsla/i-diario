@@ -26,6 +26,7 @@ module SchoolCalendarEventBatchManager
           
           school_calendars = SchoolCalendar.by_year(school_calendar_event_batch.year)
           Rails.logger.info("Encontrados #{school_calendars.count} calendário(s) escolar(es) para o ano #{school_calendar_event_batch.year}")
+          Rails.logger.info("Tentando criar evento: '#{school_calendar_event_batch.description}' de #{school_calendar_event_batch.start_date.strftime('%d/%m/%Y')} até #{school_calendar_event_batch.end_date.strftime('%d/%m/%Y')}")
 
           events_created_count = 0
           events_failed_count = 0
@@ -67,7 +68,14 @@ module SchoolCalendarEventBatchManager
               }
               validation_errors << error_details
               
-              Rails.logger.error("Erro de validação ao criar evento para escola #{unity_name} (Calendário ID: #{school_calendar.id}): #{e.record.errors.full_messages.join(', ')}")
+              # Log detalhado dos períodos letivos disponíveis
+              steps_info = school_calendar.steps.map { |step| 
+                "#{step.start_at.strftime('%d/%m/%Y')} a #{step.end_at.strftime('%d/%m/%Y')}" 
+              }.join('; ')
+              Rails.logger.error("Erro de validação ao criar evento para escola #{unity_name} (Calendário ID: #{school_calendar.id})")
+              Rails.logger.error("  Datas do evento: #{school_calendar_event_batch.start_date.strftime('%d/%m/%Y')} a #{school_calendar_event_batch.end_date.strftime('%d/%m/%Y')}")
+              Rails.logger.error("  Períodos letivos disponíveis: #{steps_info.present? ? steps_info : 'NENHUM PERÍODO CONFIGURADO'}")
+              Rails.logger.error("  Erros: #{e.record.errors.full_messages.join(', ')}")
 
               school_calendar.steps.each do |step|
                 if school_calendar_event_batch.start_date.between?(step.start_at, step.end_at) &&
