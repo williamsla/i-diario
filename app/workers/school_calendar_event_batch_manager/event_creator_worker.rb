@@ -3,9 +3,17 @@ module SchoolCalendarEventBatchManager
     class EventsNotCreatedError < StandardError; end
 
     def perform(entity_id, school_calendar_event_batch_id, user_id, action_name)
-      Rails.logger.info("Iniciando processamento de evento em lote #{school_calendar_event_batch_id}")
+      Rails.logger.info("Iniciando processamento de evento em lote #{school_calendar_event_batch_id} para entity #{entity_id}")
       
-      Entity.find(entity_id).using_connection do
+      entity = Entity.find_by(id: entity_id)
+      unless entity
+        error_message = "Entity com id #{entity_id} não encontrada"
+        Rails.logger.error(error_message)
+        mark_batch_with_error(school_calendar_event_batch_id, error_message)
+        return
+      end
+      
+      entity.using_connection do
         school_calendar_event_batch = nil
         begin
           school_calendar_event_batch = SchoolCalendarEventBatch.find(school_calendar_event_batch_id)
@@ -76,18 +84,7 @@ module SchoolCalendarEventBatchManager
           Rails.logger.error("Erro ao processar evento em lote #{school_calendar_event_batch_id}: #{error.class} - #{error.message}")
           Rails.logger.error(error.backtrace.join("\n")) if error.backtrace
           
-          if school_calendar_event_batch.present?
-            school_calendar_event_batch.mark_with_error!(error.message)
-          else
-            # Se não conseguiu encontrar o batch, tenta novamente
-            begin
-              batch = SchoolCalendarEventBatch.find(school_calendar_event_batch_id)
-              batch.mark_with_error!(error.message)
-            rescue StandardError => find_error
-              # Se ainda assim falhar, loga o erro mas não quebra o worker
-              Rails.logger.error("Erro ao encontrar e marcar evento em lote #{school_calendar_event_batch_id}: #{find_error.message}")
-            end
-          end
+          mark_batch_with_error(school_calendar_event_batch_id, error.message, school_calendar_event_batch)
         end
       end
     end
@@ -109,6 +106,40 @@ module SchoolCalendarEventBatchManager
 
     def school_calendars(school_calendar_event_batch)
       SchoolCalendar.by_year(school_calendar_event_batch.year)
+    end
+
+    private
+
+    def mark_batch_with_error(school_calendar_event_batch_id, error_message, batch = nil)
+      if batch.present?
+        batch.mark_with_error!(error_message)
+      else
+        # Tenta encontrar o batch em qualquer conexão disponível
+        begin
+          # Tenta na conexão padrão primeiro
+          batch = SchoolCalendarEventBatch.find(school_calendar_event_batch_id)
+          batch.mark_with_error!(error_message)
+        rescue StandardError => find_error
+          # Se falhar, tenta encontrar a entidade e usar sua conexão
+          begin
+            # Busca todas as entidades ativas e tenta encontrar o batch
+            Entity.active.each do |entity|
+              entity.using_connection do
+                batch = SchoolCalendarEventBatch.find_by(id: school_calendar_event_batch_id)
+                if batch
+                  batch.mark_with_error!(error_message)
+                  break
+                end
+              end
+            rescue StandardError => e
+              Rails.logger.debug("Erro ao buscar batch na entity #{entity.id}: #{e.message}")
+              next
+            end
+          rescue StandardError => e
+            Rails.logger.error("Erro ao marcar batch #{school_calendar_event_batch_id} como erro: #{e.message}")
+          end
+        end
+      end
     end
   end
 end

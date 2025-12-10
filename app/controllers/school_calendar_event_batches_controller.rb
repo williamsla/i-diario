@@ -112,9 +112,26 @@ class SchoolCalendarEventBatchesController < ApplicationController
 
   def execute_worker_synchronously(school_calendar_event_batch_id)
     Rails.logger.info("Executando worker de forma síncrona para batch #{school_calendar_event_batch_id}")
+    
+    # Verifica se a entidade existe
+    unless current_entity.present?
+      error_message = "Entity não encontrada para o domínio #{request.host}"
+      Rails.logger.error(error_message)
+      mark_batch_with_error(school_calendar_event_batch_id, error_message)
+      return
+    end
+    
+    entity_id = current_entity.id
+    unless Entity.exists?(id: entity_id)
+      error_message = "Entity com id #{entity_id} não existe no banco de dados"
+      Rails.logger.error(error_message)
+      mark_batch_with_error(school_calendar_event_batch_id, error_message)
+      return
+    end
+    
     begin
       SchoolCalendarEventBatchManager::EventCreatorWorker.new.perform(
-        current_entity.id,
+        entity_id,
         school_calendar_event_batch_id,
         current_user.id,
         action_name
@@ -123,14 +140,16 @@ class SchoolCalendarEventBatchesController < ApplicationController
     rescue => e
       Rails.logger.error("Erro ao executar worker de forma síncrona para batch #{school_calendar_event_batch_id}: #{e.class} - #{e.message}")
       Rails.logger.error(e.backtrace.join("\n")) if e.backtrace
-      
-      # Marca como erro se falhar
-      begin
-        batch = SchoolCalendarEventBatch.find(school_calendar_event_batch_id)
-        batch.mark_with_error!("Erro ao executar worker: #{e.message}")
-      rescue => find_error
-        Rails.logger.error("Erro ao marcar batch #{school_calendar_event_batch_id} como erro: #{find_error.message}")
-      end
+      mark_batch_with_error(school_calendar_event_batch_id, "Erro ao executar worker: #{e.message}")
+    end
+  end
+
+  def mark_batch_with_error(school_calendar_event_batch_id, error_message)
+    begin
+      batch = SchoolCalendarEventBatch.find(school_calendar_event_batch_id)
+      batch.mark_with_error!(error_message)
+    rescue => find_error
+      Rails.logger.error("Erro ao marcar batch #{school_calendar_event_batch_id} como erro: #{find_error.message}")
     end
   end
 
