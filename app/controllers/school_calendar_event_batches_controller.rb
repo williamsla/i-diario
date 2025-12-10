@@ -111,7 +111,7 @@ class SchoolCalendarEventBatchesController < ApplicationController
   end
 
   def execute_worker_synchronously(school_calendar_event_batch_id)
-    Rails.logger.info("Executando worker de forma síncrona para batch #{school_calendar_event_batch_id}")
+    Rails.logger.info("=== CONTROLLER: Iniciando execução síncrona do worker para batch #{school_calendar_event_batch_id} ===")
     
     # Verifica se a entidade existe
     unless current_entity.present?
@@ -122,12 +122,24 @@ class SchoolCalendarEventBatchesController < ApplicationController
     end
     
     entity_id = current_entity.id
-    unless Entity.exists?(id: entity_id)
-      error_message = "Entity com id #{entity_id} não existe no banco de dados"
-      Rails.logger.error(error_message)
-      mark_batch_with_error(school_calendar_event_batch_id, error_message)
+    Rails.logger.info("Entity ID: #{entity_id}, Entity Name: #{current_entity.name}")
+    
+    # Verifica se a entidade existe no banco (sem usar exists? que pode ter problemas de conexão)
+    begin
+      entity_check = Entity.find_by(id: entity_id)
+      unless entity_check
+        error_message = "Entity com id #{entity_id} não existe no banco de dados"
+        Rails.logger.error(error_message)
+        mark_batch_with_error(school_calendar_event_batch_id, error_message)
+        return
+      end
+    rescue => e
+      Rails.logger.error("Erro ao verificar entity: #{e.message}")
+      mark_batch_with_error(school_calendar_event_batch_id, "Erro ao verificar entity: #{e.message}")
       return
     end
+    
+    Rails.logger.info("Chamando worker.perform para entity_id=#{entity_id}, batch_id=#{school_calendar_event_batch_id}")
     
     begin
       SchoolCalendarEventBatchManager::EventCreatorWorker.new.perform(
@@ -136,9 +148,9 @@ class SchoolCalendarEventBatchesController < ApplicationController
         current_user.id,
         action_name
       )
-      Rails.logger.info("Worker executado com sucesso de forma síncrona para batch #{school_calendar_event_batch_id}")
+      Rails.logger.info("=== CONTROLLER: Worker executado com sucesso para batch #{school_calendar_event_batch_id} ===")
     rescue => e
-      Rails.logger.error("Erro ao executar worker de forma síncrona para batch #{school_calendar_event_batch_id}: #{e.class} - #{e.message}")
+      Rails.logger.error("=== CONTROLLER: Erro ao executar worker para batch #{school_calendar_event_batch_id}: #{e.class} - #{e.message} ===")
       Rails.logger.error(e.backtrace.join("\n")) if e.backtrace
       mark_batch_with_error(school_calendar_event_batch_id, "Erro ao executar worker: #{e.message}")
     end
