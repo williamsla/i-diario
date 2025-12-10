@@ -69,12 +69,22 @@ module SchoolCalendarEventBatchManager
               validation_errors << error_details
               
               # Log detalhado dos períodos letivos disponíveis
-              steps_info = school_calendar.steps.map { |step| 
-                "#{step.start_at.strftime('%d/%m/%Y')} a #{step.end_at.strftime('%d/%m/%Y')}" 
-              }.join('; ')
+              begin
+                steps_info = school_calendar.steps.map { |step| 
+                  if step.start_at.present? && step.end_at.present?
+                    "#{step.start_at.strftime('%d/%m/%Y')} a #{step.end_at.strftime('%d/%m/%Y')}"
+                  else
+                    "Período sem datas definidas"
+                  end
+                }.join('; ')
+                steps_info = 'NENHUM PERÍODO CONFIGURADO' if steps_info.blank?
+              rescue => steps_error
+                steps_info = "Erro ao buscar períodos: #{steps_error.message}"
+              end
+              
               Rails.logger.error("Erro de validação ao criar evento para escola #{unity_name} (Calendário ID: #{school_calendar.id})")
               Rails.logger.error("  Datas do evento: #{school_calendar_event_batch.start_date.strftime('%d/%m/%Y')} a #{school_calendar_event_batch.end_date.strftime('%d/%m/%Y')}")
-              Rails.logger.error("  Períodos letivos disponíveis: #{steps_info.present? ? steps_info : 'NENHUM PERÍODO CONFIGURADO'}")
+              Rails.logger.error("  Períodos letivos disponíveis: #{steps_info}")
               Rails.logger.error("  Erros: #{e.record.errors.full_messages.join(', ')}")
 
               school_calendar.steps.each do |step|

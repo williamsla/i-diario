@@ -33,7 +33,7 @@ class SchoolCalendarEvent < ApplicationRecord
   validate :uniqueness_of_start_at_in_course
   validate :uniqueness_of_end_at_in_course
   validate :uniqueness_of_start_at_and_end_at
-  validate :start_at_and_end_at_in_step
+  # validate :start_at_and_end_at_in_step # Removido para permitir eventos fora do calendário letivo
 
   scope :ordered, -> { order(arel_table[:start_date]) }
   scope :school_event, -> { where(event_type: [EventTypes::EXTRA_SCHOOL, EventTypes::EXTRA_SCHOOL_WITHOUT_FREQUENCY]) }
