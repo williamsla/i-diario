@@ -230,25 +230,10 @@ class PendingRecordsCalculator
         # Obter weekdays do professor específico para frequência geral
         current_teacher_weekdays = is_general_frequency ? (teacher_weekdays_by_teacher[teacher.id] || []) : []
         
+        # Se a disciplina não está no quadro de aulas, não há pendências
         if discipline_weekdays.empty?
           school_days_for_content = []
-          # Para frequência geral, usar os weekdays do professor; senão, vazio
-          if is_general_frequency
-            teacher_weekday_numbers = current_teacher_weekdays.map do |wd|
-              case wd
-              when 'sunday' then 0
-              when 'monday' then 1
-              when 'tuesday' then 2
-              when 'wednesday' then 3
-              when 'thursday' then 4
-              when 'friday' then 5
-              when 'saturday' then 6
-              end
-            end.compact
-            school_days_for_frequency = teacher_weekday_numbers.any? ? all_school_days.select { |date| teacher_weekday_numbers.include?(date.wday) } : []
-          else
-            school_days_for_frequency = []
-          end
+          school_days_for_frequency = []
         else
           # Filtrar apenas os dias letivos que correspondem aos dias da semana da disciplina (quadro ativo)
           school_days_for_content = all_school_days.select { |date| weekday_numbers.include?(date.wday) }
@@ -265,6 +250,7 @@ class PendingRecordsCalculator
               when 'saturday' then 6
               end
             end.compact
+            # Se a disciplina não tem weekdays, não há pendências
             school_days_for_frequency = teacher_weekday_numbers.any? ? all_school_days.select { |date| teacher_weekday_numbers.include?(date.wday) } : []
           else
             school_days_for_frequency = school_days_for_content
@@ -530,6 +516,42 @@ class PendingRecordsCalculator
     all_weekdays[discipline_id] || []
   end
 
+  def get_knowledge_areas_weekdays(classroom_id, knowledge_area_ids, periods)
+    # Buscar weekdays para áreas de conhecimento através das disciplinas que pertencem a essas áreas
+    # Retorna um hash: { knowledge_area_id => [weekdays] }
+    
+    result = {}
+    return result if knowledge_area_ids.blank?
+    
+    # Buscar disciplinas que pertencem às áreas de conhecimento
+    discipline_ids = Discipline.joins(:knowledge_area_disciplines)
+                               .where(knowledge_area_disciplines: { knowledge_area_id: knowledge_area_ids })
+                               .pluck(:id)
+    
+    return result if discipline_ids.blank?
+    
+    # Buscar weekdays das disciplinas (apenas quadros ativos)
+    all_weekdays, _discarded_weekdays = get_all_disciplines_weekdays(classroom_id, discipline_ids, periods || [])
+    
+    # Agrupar weekdays por área de conhecimento
+    knowledge_area_ids.each do |knowledge_area_id|
+      # Buscar disciplinas desta área de conhecimento
+      ka_discipline_ids = Discipline.joins(:knowledge_area_disciplines)
+                                    .where(knowledge_area_disciplines: { knowledge_area_id: knowledge_area_id })
+                                    .pluck(:id)
+      
+      # Coletar todos os weekdays das disciplinas desta área
+      weekdays = []
+      ka_discipline_ids.each do |discipline_id|
+        weekdays.concat(all_weekdays[discipline_id] || [])
+      end
+      
+      result[knowledge_area_id] = weekdays.uniq
+    end
+    
+    result
+  end
+
   def get_teacher_weekdays(classroom_id, teacher_ids, periods)
     # Buscar todos os weekdays de todos os professores na turma
     # Retorna um array único de weekdays: ['monday', 'tuesday', etc]
@@ -602,10 +624,10 @@ class PendingRecordsCalculator
     teacher = Teacher.find_by(id: teacher_id)
     return results unless teacher
 
-    # Para turmas infantis, não há quadro de aulas por disciplina/área de conhecimento
-    # Então usamos todos os dias letivos para conteúdos
-    school_days_for_content = all_school_days
-    school_days_for_frequency = is_general_frequency ? all_school_days : []
+    # Para turmas infantis, verificar se há quadro de aulas para áreas de conhecimento
+    # Se não houver weekdays no quadro de aulas, não há pendências
+    # Buscar weekdays para áreas de conhecimento (se houver quadro de aulas)
+    knowledge_area_weekdays = get_knowledge_areas_weekdays(classroom.id, knowledge_area_ids, nil)
 
     # Buscar frequências em batch (sem filtrar por professor)
     # Isso garante que registros de professores anteriores sejam considerados
@@ -639,6 +661,33 @@ class PendingRecordsCalculator
     knowledge_area_ids.each do |knowledge_area_id|
       knowledge_area = KnowledgeArea.find_by(id: knowledge_area_id)
       next unless knowledge_area
+
+      # Verificar se a área de conhecimento tem weekdays no quadro de aulas
+      # Se não houver weekdays, não há pendências
+      area_weekdays = knowledge_area_weekdays[knowledge_area_id] || []
+      
+      if area_weekdays.empty?
+        # Se a área de conhecimento não está no quadro de aulas, não há pendências
+        school_days_for_content = []
+        school_days_for_frequency = []
+      else
+        # Mapear weekdays para números (0=domingo, 1=segunda, etc)
+        weekday_numbers = area_weekdays.map do |wd|
+          case wd
+          when 'sunday' then 0
+          when 'monday' then 1
+          when 'tuesday' then 2
+          when 'wednesday' then 3
+          when 'thursday' then 4
+          when 'friday' then 5
+          when 'saturday' then 6
+          end
+        end.compact
+        
+        # Filtrar apenas os dias letivos que correspondem aos dias da semana da área de conhecimento
+        school_days_for_content = all_school_days.select { |date| weekday_numbers.include?(date.wday) }
+        school_days_for_frequency = is_general_frequency ? school_days_for_content : []
+      end
 
       # Obter frequências registradas
       if @count_only
