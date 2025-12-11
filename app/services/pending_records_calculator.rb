@@ -518,20 +518,23 @@ class PendingRecordsCalculator
 
   def get_knowledge_areas_weekdays(classroom_id, knowledge_area_ids, periods)
     # Buscar weekdays para áreas de conhecimento através das disciplinas que pertencem a essas áreas
-    # Retorna um hash: { knowledge_area_id => [weekdays] }
+    # Retorna dois hashes: [active_weekdays, discarded_weekdays]
+    # active_weekdays: { knowledge_area_id => [weekdays] } - quadros ativos
+    # discarded_weekdays: { knowledge_area_id => [weekdays] } - quadros excluídos
     
-    result = {}
-    return result if knowledge_area_ids.blank?
+    active_result = {}
+    discarded_result = {}
+    return [active_result, discarded_result] if knowledge_area_ids.blank?
     
     # Buscar disciplinas que pertencem às áreas de conhecimento
     discipline_ids = Discipline.joins(:knowledge_area_disciplines)
                                .where(knowledge_area_disciplines: { knowledge_area_id: knowledge_area_ids })
                                .pluck(:id)
     
-    return result if discipline_ids.blank?
+    return [active_result, discarded_result] if discipline_ids.blank?
     
-    # Buscar weekdays das disciplinas (apenas quadros ativos)
-    all_weekdays, _discarded_weekdays = get_all_disciplines_weekdays(classroom_id, discipline_ids, periods || [])
+    # Buscar weekdays das disciplinas (ativos e excluídos)
+    all_weekdays, discarded_weekdays = get_all_disciplines_weekdays(classroom_id, discipline_ids, periods || [])
     
     # Agrupar weekdays por área de conhecimento
     knowledge_area_ids.each do |knowledge_area_id|
@@ -540,16 +543,19 @@ class PendingRecordsCalculator
                                     .where(knowledge_area_disciplines: { knowledge_area_id: knowledge_area_id })
                                     .pluck(:id)
       
-      # Coletar todos os weekdays das disciplinas desta área
-      weekdays = []
+      # Coletar todos os weekdays das disciplinas desta área (ativos e excluídos)
+      active_weekdays = []
+      discarded_weekdays_ka = []
       ka_discipline_ids.each do |discipline_id|
-        weekdays.concat(all_weekdays[discipline_id] || [])
+        active_weekdays.concat(all_weekdays[discipline_id] || [])
+        discarded_weekdays_ka.concat(discarded_weekdays[discipline_id] || [])
       end
       
-      result[knowledge_area_id] = weekdays.uniq
+      active_result[knowledge_area_id] = active_weekdays.uniq
+      discarded_result[knowledge_area_id] = discarded_weekdays_ka.uniq
     end
     
-    result
+    [active_result, discarded_result]
   end
 
   def get_teacher_weekdays(classroom_id, teacher_ids, periods)
@@ -627,7 +633,7 @@ class PendingRecordsCalculator
     # Para turmas infantis, verificar se há quadro de aulas para áreas de conhecimento
     # Se não houver weekdays no quadro de aulas, não há pendências
     # Buscar weekdays para áreas de conhecimento (se houver quadro de aulas)
-    knowledge_area_weekdays = get_knowledge_areas_weekdays(classroom.id, knowledge_area_ids, nil)
+    knowledge_area_weekdays, knowledge_area_discarded_weekdays = get_knowledge_areas_weekdays(classroom.id, knowledge_area_ids, nil)
 
     # Buscar frequências em batch (sem filtrar por professor)
     # Isso garante que registros de professores anteriores sejam considerados
@@ -665,6 +671,7 @@ class PendingRecordsCalculator
       # Verificar se a área de conhecimento tem weekdays no quadro de aulas
       # Se não houver weekdays, não há pendências
       area_weekdays = knowledge_area_weekdays[knowledge_area_id] || []
+      area_discarded_weekdays = knowledge_area_discarded_weekdays[knowledge_area_id] || []
       
       if area_weekdays.empty?
         # Se a área de conhecimento não está no quadro de aulas, não há pendências
@@ -684,10 +691,26 @@ class PendingRecordsCalculator
           end
         end.compact
         
+        # Mapear weekdays excluídos para números
+        discarded_weekday_numbers = area_discarded_weekdays.map do |wd|
+          case wd
+          when 'sunday' then 0
+          when 'monday' then 1
+          when 'tuesday' then 2
+          when 'wednesday' then 3
+          when 'thursday' then 4
+          when 'friday' then 5
+          when 'saturday' then 6
+          end
+        end.compact
+        
         # Filtrar apenas os dias letivos que correspondem aos dias da semana da área de conhecimento
         school_days_for_content = all_school_days.select { |date| weekday_numbers.include?(date.wday) }
         school_days_for_frequency = is_general_frequency ? school_days_for_content : []
       end
+      
+      # Obter dias que estão em quadros excluídos
+      school_days_discarded = all_school_days.select { |date| discarded_weekday_numbers.include?(date.wday) }
 
       # Obter frequências registradas
       if @count_only
@@ -699,9 +722,25 @@ class PendingRecordsCalculator
 
         content_dates_set = all_contents_by_knowledge_area[knowledge_area_id] || Set.new
 
-        # Calcular apenas contadores
-        pending_frequency_count = school_days_for_frequency.count { |date| date <= today && !frequency_dates_set.include?(date) }
-        pending_content_count = school_days_for_content.count { |date| date <= today && !content_dates_set.include?(date) }
+        # Calcular pendências baseado apenas no quadro ativo
+        pending_frequency_dates = school_days_for_frequency.select { |date| date <= today && !frequency_dates_set.include?(date) }.to_a
+        pending_content_dates = school_days_for_content.select { |date| date <= today && !content_dates_set.include?(date) }.to_a
+        
+        # Identificar registros em datas de quadro excluído e remover pendência da data mais próxima do quadro ativo
+        frequency_dates_in_discarded = frequency_dates_set.select { |date| school_days_discarded.include?(date) && !school_days_for_frequency.include?(date) }
+        frequency_dates_in_discarded.each do |discarded_date|
+          nearest_pending = find_nearest_pending_date(discarded_date, pending_frequency_dates)
+          pending_frequency_dates.delete(nearest_pending) if nearest_pending
+        end
+        
+        content_dates_in_discarded = content_dates_set.select { |date| school_days_discarded.include?(date) && !school_days_for_content.include?(date) }
+        content_dates_in_discarded.each do |discarded_date|
+          nearest_pending = find_nearest_pending_date(discarded_date, pending_content_dates)
+          pending_content_dates.delete(nearest_pending) if nearest_pending
+        end
+        
+        pending_frequency_count = pending_frequency_dates.count
+        pending_content_count = pending_content_dates.count
       else
         # Modo completo: buscar todas as datas (sem filtrar por professor)
         if is_general_frequency
@@ -725,8 +764,23 @@ class PendingRecordsCalculator
           .pluck('content_records.record_date')
           .map(&:to_date)
 
+        # Calcular dias pendentes baseado apenas no quadro ativo
         pending_frequency_dates = (school_days_for_frequency - frequencies).select { |date| date <= today }
         pending_content_dates = (school_days_for_content - content_records).select { |date| date <= today }
+        
+        # Identificar registros em datas de quadro excluído e remover pendência da data mais próxima do quadro ativo
+        frequency_dates_in_discarded = frequencies.select { |date| school_days_discarded.include?(date) && !school_days_for_frequency.include?(date) }
+        frequency_dates_in_discarded.each do |discarded_date|
+          nearest_pending = find_nearest_pending_date(discarded_date, pending_frequency_dates)
+          pending_frequency_dates.delete(nearest_pending) if nearest_pending
+        end
+        
+        content_dates_in_discarded = content_records.select { |date| school_days_discarded.include?(date) && !school_days_for_content.include?(date) }
+        content_dates_in_discarded.each do |discarded_date|
+          nearest_pending = find_nearest_pending_date(discarded_date, pending_content_dates)
+          pending_content_dates.delete(nearest_pending) if nearest_pending
+        end
+        
         pending_frequency_count = pending_frequency_dates.count
         pending_content_count = pending_content_dates.count
       end
