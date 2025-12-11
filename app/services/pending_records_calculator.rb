@@ -143,54 +143,50 @@ class PendingRecordsCalculator
       end
 
       # Buscar frequências e conteúdos em batch para todas as disciplinas (otimização)
-      teacher_ids = tdcs.map { |tdc| tdc.teacher_id }.uniq
-      all_frequencies_by_teacher_discipline = {}
-      all_contents_by_teacher_discipline = {}
+      all_frequencies_by_discipline = {}
+      all_contents_by_discipline = {}
       
-      teacher_ids.each do |teacher_id|
-        if is_general_frequency
-          # Frequências gerais: buscar uma vez para todas as disciplinas
-          general_freq_dates = DailyFrequency
-            .by_owner_teacher_id(teacher_id)
-            .by_classroom_id(classroom.id)
-            .general_frequency
-            .by_frequency_date_between(start_date, end_date)
-            .where('frequency_date <= ?', today)
-            .pluck(:frequency_date)
-            .map(&:to_date)
-            .to_set
-          
-          # Para frequências gerais, todas as disciplinas usam o mesmo conjunto
-          all_frequencies_by_teacher_discipline[teacher_id] = { general: general_freq_dates }
-        else
-          # Frequências por disciplina: buscar todas de uma vez
-          frequency_data = DailyFrequency
-            .by_owner_teacher_id(teacher_id)
-            .by_classroom_id(classroom.id)
-            .where(discipline_id: discipline_ids)
-            .by_frequency_date_between(start_date, end_date)
-            .where('frequency_date <= ?', today)
-            .pluck(:discipline_id, :frequency_date)
-          
-          all_frequencies_by_teacher_discipline[teacher_id] = frequency_data
-            .group_by { |d| d[0] }
-            .transform_values { |dates| dates.map { |d| d[1].to_date }.to_set }
-        end
+      # Frequências: buscar uma única vez por turma/disciplina (sem filtrar por professor)
+      # Isso garante que registros de professores anteriores sejam considerados
+      if is_general_frequency
+        # Frequências gerais: buscar uma vez para todas as disciplinas
+        general_freq_dates = DailyFrequency
+          .by_classroom_id(classroom.id)
+          .general_frequency
+          .by_frequency_date_between(start_date, end_date)
+          .where('frequency_date <= ?', today)
+          .pluck(:frequency_date)
+          .map(&:to_date)
+          .to_set
         
-        # Conteúdos: buscar todos de uma vez para todas as disciplinas
-        content_data = DisciplineContentRecord
-          .by_teacher_id(teacher_id)
+        # Para frequências gerais, todas as disciplinas usam o mesmo conjunto
+        all_frequencies_by_discipline[:general] = general_freq_dates
+      else
+        # Frequências por disciplina: buscar todas de uma vez
+        frequency_data = DailyFrequency
           .by_classroom_id(classroom.id)
           .where(discipline_id: discipline_ids)
-          .by_date_range(start_date, end_date)
-          .joins(:content_record)
-          .where('content_records.record_date <= ?', today)
-          .pluck(:discipline_id, 'content_records.record_date')
+          .by_frequency_date_between(start_date, end_date)
+          .where('frequency_date <= ?', today)
+          .pluck(:discipline_id, :frequency_date)
         
-        all_contents_by_teacher_discipline[teacher_id] = content_data
+        all_frequencies_by_discipline = frequency_data
           .group_by { |d| d[0] }
           .transform_values { |dates| dates.map { |d| d[1].to_date }.to_set }
       end
+      
+      # Conteúdos: buscar uma única vez por turma/disciplina (sem filtrar por professor)
+      # Isso garante que registros de professores anteriores sejam considerados
+      content_data = DisciplineContentRecord
+        .joins(:content_record)
+        .where(content_records: { classroom_id: classroom.id })
+        .where(discipline_id: discipline_ids)
+        .where('content_records.record_date >= ? AND content_records.record_date <= ? AND content_records.record_date <= ?', start_date, end_date, today)
+        .pluck(:discipline_id, 'content_records.record_date')
+      
+      all_contents_by_discipline = content_data
+        .group_by { |d| d[0] }
+        .transform_values { |dates| dates.map { |d| d[1].to_date }.to_set }
 
       tdcs.each do |tdc|
         teacher = tdc.teacher
@@ -265,12 +261,12 @@ class PendingRecordsCalculator
         if @count_only
           # Modo otimizado: usar dados já carregados em batch
           if is_general_frequency
-            frequency_dates_set = all_frequencies_by_teacher_discipline[teacher.id]&.dig(:general) || Set.new
+            frequency_dates_set = all_frequencies_by_discipline[:general] || Set.new
           else
-            frequency_dates_set = all_frequencies_by_teacher_discipline[teacher.id]&.dig(discipline.id) || Set.new
+            frequency_dates_set = all_frequencies_by_discipline[discipline.id] || Set.new
           end
 
-          content_dates_set = all_contents_by_teacher_discipline[teacher.id]&.dig(discipline.id) || Set.new
+          content_dates_set = all_contents_by_discipline[discipline.id] || Set.new
 
           # Calcular apenas contadores
           pending_frequency_dates = []
@@ -279,10 +275,9 @@ class PendingRecordsCalculator
           pending_content_dates = []
           pending_content_count = school_days_for_content.count { |date| date <= today && !content_dates_set.include?(date) }
         else
-          # Modo completo: buscar todas as datas
+          # Modo completo: buscar todas as datas (sem filtrar por professor)
           if is_general_frequency
             frequencies = DailyFrequency
-              .by_owner_teacher_id(teacher.id)
               .by_classroom_id(classroom.id)
               .general_frequency
               .by_frequency_date_between(start_date, end_date)
@@ -290,7 +285,6 @@ class PendingRecordsCalculator
               .map(&:to_date)
           else
             frequencies = DailyFrequency
-              .by_owner_teacher_id(teacher.id)
               .by_classroom_id(classroom.id)
               .by_discipline_id(discipline.id)
               .by_frequency_date_between(start_date, end_date)
@@ -298,12 +292,12 @@ class PendingRecordsCalculator
               .map(&:to_date)
           end
 
+          # Buscar conteúdos sem filtrar por professor (considera registros de professores anteriores)
           content_records = DisciplineContentRecord
-            .by_teacher_id(teacher.id)
-            .by_classroom_id(classroom.id)
-            .by_discipline_id(discipline.id)
-            .by_date_range(start_date, end_date)
             .joins(:content_record)
+            .where(content_records: { classroom_id: classroom.id })
+            .where(discipline_id: discipline.id)
+            .where('content_records.record_date >= ? AND content_records.record_date <= ?', start_date, end_date)
             .pluck('content_records.record_date')
             .map(&:to_date)
 
@@ -508,11 +502,11 @@ class PendingRecordsCalculator
     school_days_for_content = all_school_days
     school_days_for_frequency = is_general_frequency ? all_school_days : []
 
-    # Buscar frequências em batch
-    teacher_frequencies = {}
+    # Buscar frequências em batch (sem filtrar por professor)
+    # Isso garante que registros de professores anteriores sejam considerados
+    general_freq_dates = Set.new
     if is_general_frequency
       general_freq_dates = DailyFrequency
-        .by_owner_teacher_id(teacher_id)
         .by_classroom_id(classroom.id)
         .general_frequency
         .by_frequency_date_between(start_date, end_date)
@@ -520,19 +514,16 @@ class PendingRecordsCalculator
         .pluck(:frequency_date)
         .map(&:to_date)
         .to_set
-      
-      teacher_frequencies[teacher_id] = { general: general_freq_dates }
     end
 
-    # Buscar conteúdos por área de conhecimento em batch
+    # Buscar conteúdos por área de conhecimento em batch (sem filtrar por professor)
+    # Isso garante que registros de professores anteriores sejam considerados
     content_data = KnowledgeAreaContentRecord
-      .by_teacher_id(teacher_id)
-      .by_classroom_id(classroom.id)
-      .by_knowledge_area_id(knowledge_area_ids)
-      .by_date_range(start_date, end_date)
       .joins(:content_record)
       .joins(:knowledge_areas)
-      .where('content_records.record_date <= ?', today)
+      .where(content_records: { classroom_id: classroom.id })
+      .where(knowledge_areas: { id: knowledge_area_ids })
+      .where('content_records.record_date >= ? AND content_records.record_date <= ? AND content_records.record_date <= ?', start_date, end_date, today)
       .pluck('knowledge_areas.id', 'content_records.record_date')
     
     all_contents_by_knowledge_area = content_data
@@ -547,7 +538,7 @@ class PendingRecordsCalculator
       # Obter frequências registradas
       if @count_only
         if is_general_frequency
-          frequency_dates_set = teacher_frequencies[teacher_id]&.dig(:general) || Set.new
+          frequency_dates_set = general_freq_dates
         else
           frequency_dates_set = Set.new # Turmas infantis geralmente usam frequência geral
         end
@@ -558,10 +549,9 @@ class PendingRecordsCalculator
         pending_frequency_count = school_days_for_frequency.count { |date| date <= today && !frequency_dates_set.include?(date) }
         pending_content_count = school_days_for_content.count { |date| date <= today && !content_dates_set.include?(date) }
       else
-        # Modo completo: buscar todas as datas
+        # Modo completo: buscar todas as datas (sem filtrar por professor)
         if is_general_frequency
           frequencies = DailyFrequency
-            .by_owner_teacher_id(teacher_id)
             .by_classroom_id(classroom.id)
             .general_frequency
             .by_frequency_date_between(start_date, end_date)
@@ -571,12 +561,13 @@ class PendingRecordsCalculator
           frequencies = []
         end
 
+        # Buscar conteúdos sem filtrar por professor (considera registros de professores anteriores)
         content_records = KnowledgeAreaContentRecord
-          .by_teacher_id(teacher_id)
-          .by_classroom_id(classroom.id)
-          .by_knowledge_area_id(knowledge_area_id)
-          .by_date_range(start_date, end_date)
           .joins(:content_record)
+          .joins(:knowledge_areas)
+          .where(content_records: { classroom_id: classroom.id })
+          .where(knowledge_areas: { id: knowledge_area_id })
+          .where('content_records.record_date >= ? AND content_records.record_date <= ?', start_date, end_date)
           .pluck('content_records.record_date')
           .map(&:to_date)
 

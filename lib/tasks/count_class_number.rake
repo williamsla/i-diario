@@ -1,6 +1,6 @@
 # bundle exec rake aulas:atualizar
 # bundle exec rake aulas:atualizar[YYYY]
-# ANO=YYYY bundle exec rake aulas:atualizar
+# RAILS_ENV=production ANO=YYYY bundle exec rake aulas:atualizar
 namespace :aulas do
   desc "Atualiza class_number com base no quadro de horários (lessons_boards) e na data do conteúdo [ano=YYYY]"
   
