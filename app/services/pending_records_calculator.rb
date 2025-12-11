@@ -131,7 +131,7 @@ class PendingRecordsCalculator
       # Buscar weekdays em batch para todas as disciplinas (sempre necessário para conteúdos)
       discipline_ids = tdcs.map { |tdc| tdc.discipline_id }.uniq
       periods = tdcs.map(&:period).uniq
-      all_weekdays = get_all_disciplines_weekdays(classroom.id, discipline_ids, periods)
+      all_weekdays, discarded_weekdays = get_all_disciplines_weekdays(classroom.id, discipline_ids, periods)
       
       # Para frequência geral, obter os weekdays de cada professor (todos os dias que ele tem aula na turma)
       teacher_weekdays_by_teacher = {}
@@ -199,9 +199,23 @@ class PendingRecordsCalculator
         # Se for BY_DISCIPLINE, filtrar por weekdays da disciplina
         # Para conteúdos: sempre filtrar por weekdays da disciplina
         discipline_weekdays = all_weekdays[discipline.id] || []
+        discipline_discarded_weekdays = discarded_weekdays[discipline.id] || []
         
         # Mapear weekdays para números (0=domingo, 1=segunda, etc)
         weekday_numbers = discipline_weekdays.map do |wd|
+          case wd
+          when 'sunday' then 0
+          when 'monday' then 1
+          when 'tuesday' then 2
+          when 'wednesday' then 3
+          when 'thursday' then 4
+          when 'friday' then 5
+          when 'saturday' then 6
+          end
+        end.compact
+        
+        # Mapear weekdays excluídos para números
+        discarded_weekday_numbers = discipline_discarded_weekdays.map do |wd|
           case wd
           when 'sunday' then 0
           when 'monday' then 1
@@ -236,7 +250,7 @@ class PendingRecordsCalculator
             school_days_for_frequency = []
           end
         else
-          # Filtrar apenas os dias letivos que correspondem aos dias da semana da disciplina
+          # Filtrar apenas os dias letivos que correspondem aos dias da semana da disciplina (quadro ativo)
           school_days_for_content = all_school_days.select { |date| weekday_numbers.include?(date.wday) }
           # Para frequência geral, usar os weekdays do professor; senão, usar os da disciplina
           if is_general_frequency
@@ -256,6 +270,9 @@ class PendingRecordsCalculator
             school_days_for_frequency = school_days_for_content
           end
         end
+        
+        # Obter dias que estão em quadros excluídos
+        school_days_discarded = all_school_days.select { |date| discarded_weekday_numbers.include?(date.wday) }
 
         # Obter frequências registradas (usar dados já carregados em batch)
         if @count_only
@@ -268,12 +285,25 @@ class PendingRecordsCalculator
 
           content_dates_set = all_contents_by_discipline[discipline.id] || Set.new
 
-          # Calcular apenas contadores
-          pending_frequency_dates = []
-          pending_frequency_count = school_days_for_frequency.count { |date| date <= today && !frequency_dates_set.include?(date) }
+          # Calcular pendências baseado apenas no quadro ativo
+          pending_frequency_dates = school_days_for_frequency.select { |date| date <= today && !frequency_dates_set.include?(date) }.to_a
+          pending_content_dates = school_days_for_content.select { |date| date <= today && !content_dates_set.include?(date) }.to_a
           
-          pending_content_dates = []
-          pending_content_count = school_days_for_content.count { |date| date <= today && !content_dates_set.include?(date) }
+          # Identificar registros em datas de quadro excluído e remover pendência da data mais próxima do quadro ativo
+          frequency_dates_in_discarded = frequency_dates_set.select { |date| school_days_discarded.include?(date) && !school_days_for_frequency.include?(date) }
+          frequency_dates_in_discarded.each do |discarded_date|
+            nearest_pending = find_nearest_pending_date(discarded_date, pending_frequency_dates)
+            pending_frequency_dates.delete(nearest_pending) if nearest_pending
+          end
+          
+          content_dates_in_discarded = content_dates_set.select { |date| school_days_discarded.include?(date) && !school_days_for_content.include?(date) }
+          content_dates_in_discarded.each do |discarded_date|
+            nearest_pending = find_nearest_pending_date(discarded_date, pending_content_dates)
+            pending_content_dates.delete(nearest_pending) if nearest_pending
+          end
+          
+          pending_frequency_count = pending_frequency_dates.count
+          pending_content_count = pending_content_dates.count
         else
           # Modo completo: buscar todas as datas (sem filtrar por professor)
           if is_general_frequency
@@ -301,9 +331,23 @@ class PendingRecordsCalculator
             .pluck('content_records.record_date')
             .map(&:to_date)
 
-          # Calcular dias pendentes
+          # Calcular dias pendentes baseado apenas no quadro ativo
           pending_frequency_dates = (school_days_for_frequency - frequencies).select { |date| date <= today }
           pending_content_dates = (school_days_for_content - content_records).select { |date| date <= today }
+          
+          # Identificar registros em datas de quadro excluído e remover pendência da data mais próxima do quadro ativo
+          frequency_dates_in_discarded = frequencies.select { |date| school_days_discarded.include?(date) && !school_days_for_frequency.include?(date) }
+          frequency_dates_in_discarded.each do |discarded_date|
+            nearest_pending = find_nearest_pending_date(discarded_date, pending_frequency_dates)
+            pending_frequency_dates.delete(nearest_pending) if nearest_pending
+          end
+          
+          content_dates_in_discarded = content_records.select { |date| school_days_discarded.include?(date) && !school_days_for_content.include?(date) }
+          content_dates_in_discarded.each do |discarded_date|
+            nearest_pending = find_nearest_pending_date(discarded_date, pending_content_dates)
+            pending_content_dates.delete(nearest_pending) if nearest_pending
+          end
+          
           pending_frequency_count = pending_frequency_dates.count
           pending_content_count = pending_content_dates.count
         end
@@ -385,12 +429,15 @@ class PendingRecordsCalculator
 
   def get_all_disciplines_weekdays(classroom_id, discipline_ids, periods)
     # Buscar todos os weekdays de uma vez para todas as disciplinas
-    # Retorna um hash: { discipline_id => [weekdays] }
+    # Retorna dois hashes: [active_weekdays, discarded_weekdays]
+    # active_weekdays: { discipline_id => [weekdays] } - quadros ativos
+    # discarded_weekdays: { discipline_id => [weekdays] } - quadros excluídos
     
-    result = {}
+    active_result = {}
+    discarded_result = {}
     
-    # Primeiro tenta com período específico
-    weekdays_data = LessonsBoardLessonWeekday
+    # Buscar weekdays de quadros ativos (discarded_at IS NULL)
+    weekdays_data_active = LessonsBoardLessonWeekday
       .joins(lessons_board_lesson: [lessons_board: [classrooms_grade: :classroom]])
       .joins(:teacher_discipline_classroom)
       .joins('INNER JOIN disciplines d ON d.id = teacher_discipline_classrooms.discipline_id')
@@ -399,18 +446,40 @@ class PendingRecordsCalculator
       .where('d.id IN (?)', discipline_ids)
       .where(teacher_discipline_classrooms: { active: true })
       .where(teacher_discipline_classrooms: { discarded_at: nil })
+      .where('lessons_boards.discarded_at IS NULL')
       .where.not(weekday: nil)
       .where.not(teacher_discipline_classroom_id: nil)
       .distinct
       .pluck('d.id', :weekday)
     
-    weekdays_data.each do |discipline_id, weekday|
-      result[discipline_id] ||= []
-      result[discipline_id] << weekday unless result[discipline_id].include?(weekday)
+    weekdays_data_active.each do |discipline_id, weekday|
+      active_result[discipline_id] ||= []
+      active_result[discipline_id] << weekday unless active_result[discipline_id].include?(weekday)
+    end
+    
+    # Buscar weekdays de quadros excluídos (discarded_at IS NOT NULL)
+    weekdays_data_discarded = LessonsBoardLessonWeekday
+      .joins(lessons_board_lesson: [lessons_board: [classrooms_grade: :classroom]])
+      .joins(:teacher_discipline_classroom)
+      .joins('INNER JOIN disciplines d ON d.id = teacher_discipline_classrooms.discipline_id')
+      .where(classrooms: { id: classroom_id })
+      .where(lessons_boards: { period: periods })
+      .where('d.id IN (?)', discipline_ids)
+      .where(teacher_discipline_classrooms: { active: true })
+      .where(teacher_discipline_classrooms: { discarded_at: nil })
+      .where('lessons_boards.discarded_at IS NOT NULL')
+      .where.not(weekday: nil)
+      .where.not(teacher_discipline_classroom_id: nil)
+      .distinct
+      .pluck('d.id', :weekday)
+    
+    weekdays_data_discarded.each do |discipline_id, weekday|
+      discarded_result[discipline_id] ||= []
+      discarded_result[discipline_id] << weekday unless discarded_result[discipline_id].include?(weekday)
     end
     
     # Para disciplinas que não foram encontradas, tenta sem filtrar por período
-    missing_discipline_ids = discipline_ids - result.keys
+    missing_discipline_ids = discipline_ids - active_result.keys
     if missing_discipline_ids.any?
       weekdays_data_fallback = LessonsBoardLessonWeekday
         .joins(lessons_board_lesson: [lessons_board: [classrooms_grade: :classroom]])
@@ -420,23 +489,44 @@ class PendingRecordsCalculator
         .where('d.id IN (?)', missing_discipline_ids)
         .where(teacher_discipline_classrooms: { active: true })
         .where(teacher_discipline_classrooms: { discarded_at: nil })
+        .where('lessons_boards.discarded_at IS NULL')
         .where.not(weekday: nil)
         .where.not(teacher_discipline_classroom_id: nil)
         .distinct
         .pluck('d.id', :weekday)
       
       weekdays_data_fallback.each do |discipline_id, weekday|
-        result[discipline_id] ||= []
-        result[discipline_id] << weekday unless result[discipline_id].include?(weekday)
+        active_result[discipline_id] ||= []
+        active_result[discipline_id] << weekday unless active_result[discipline_id].include?(weekday)
+      end
+      
+      # Buscar também quadros excluídos sem período
+      weekdays_data_discarded_fallback = LessonsBoardLessonWeekday
+        .joins(lessons_board_lesson: [lessons_board: [classrooms_grade: :classroom]])
+        .joins(:teacher_discipline_classroom)
+        .joins('INNER JOIN disciplines d ON d.id = teacher_discipline_classrooms.discipline_id')
+        .where(classrooms: { id: classroom_id })
+        .where('d.id IN (?)', missing_discipline_ids)
+        .where(teacher_discipline_classrooms: { active: true })
+        .where(teacher_discipline_classrooms: { discarded_at: nil })
+        .where('lessons_boards.discarded_at IS NOT NULL')
+        .where.not(weekday: nil)
+        .where.not(teacher_discipline_classroom_id: nil)
+        .distinct
+        .pluck('d.id', :weekday)
+      
+      weekdays_data_discarded_fallback.each do |discipline_id, weekday|
+        discarded_result[discipline_id] ||= []
+        discarded_result[discipline_id] << weekday unless discarded_result[discipline_id].include?(weekday)
       end
     end
     
-    result
+    [active_result, discarded_result]
   end
 
   def get_discipline_weekdays(classroom_id, discipline_id, period)
     # Método mantido para compatibilidade, mas agora usa o método otimizado
-    all_weekdays = get_all_disciplines_weekdays(classroom_id, [discipline_id], [period])
+    all_weekdays, _discarded_weekdays = get_all_disciplines_weekdays(classroom_id, [discipline_id], [period])
     all_weekdays[discipline_id] || []
   end
 
@@ -480,6 +570,21 @@ class PendingRecordsCalculator
     end
     
     result.uniq
+  end
+
+  def find_nearest_pending_date(discarded_date, pending_dates)
+    # Encontrar a data pendente mais próxima da data de quadro excluído
+    return nil if pending_dates.empty?
+    
+    # Ordenar datas pendentes
+    sorted_pending = pending_dates.sort
+    
+    # Preferir datas anteriores ou iguais à data do quadro excluído
+    before_or_equal = sorted_pending.select { |date| date <= discarded_date }
+    return before_or_equal.last if before_or_equal.any?
+    
+    # Se não houver datas anteriores, usar a mais próxima em geral
+    sorted_pending.min_by { |date| (date - discarded_date).abs }
   end
 
   def is_infantil_classroom?(classroom)
