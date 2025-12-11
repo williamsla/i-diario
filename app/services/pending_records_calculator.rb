@@ -607,7 +607,23 @@ class PendingRecordsCalculator
     # Ordenar datas pendentes
     sorted_pending = pending_dates.sort
     
-    # Preferir datas anteriores ou iguais à data do quadro excluído
+    # Calcular início e fim da semana da data do quadro excluído
+    week_start = discarded_date.beginning_of_week
+    week_end = discarded_date.end_of_week
+    
+    # Primeiro, tentar encontrar datas na mesma semana
+    same_week_pending = sorted_pending.select { |date| date >= week_start && date <= week_end }
+    
+    if same_week_pending.any?
+      # Preferir datas anteriores ou iguais à data do quadro excluído na mesma semana
+      before_or_equal = same_week_pending.select { |date| date <= discarded_date }
+      return before_or_equal.last if before_or_equal.any?
+      
+      # Se não houver anteriores, usar a primeira posterior na mesma semana
+      return same_week_pending.first
+    end
+    
+    # Se não houver datas na mesma semana, preferir datas anteriores ou iguais
     before_or_equal = sorted_pending.select { |date| date <= discarded_date }
     return before_or_equal.last if before_or_equal.any?
     
