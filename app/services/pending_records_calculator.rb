@@ -279,13 +279,19 @@ class PendingRecordsCalculator
           frequency_dates_in_discarded = frequency_dates_set.select { |date| school_days_discarded.include?(date) && !school_days_for_frequency.include?(date) }
           frequency_dates_in_discarded.each do |discarded_date|
             nearest_pending = find_nearest_pending_date(discarded_date, pending_frequency_dates)
-            pending_frequency_dates.delete(nearest_pending) if nearest_pending
+            if nearest_pending
+              # Remover usando comparação por data (não por identidade do objeto)
+              pending_frequency_dates.delete_if { |date| date.to_date == nearest_pending.to_date }
+            end
           end
           
           content_dates_in_discarded = content_dates_set.select { |date| school_days_discarded.include?(date) && !school_days_for_content.include?(date) }
           content_dates_in_discarded.each do |discarded_date|
             nearest_pending = find_nearest_pending_date(discarded_date, pending_content_dates)
-            pending_content_dates.delete(nearest_pending) if nearest_pending
+            if nearest_pending
+              # Remover usando comparação por data (não por identidade do objeto)
+              pending_content_dates.delete_if { |date| date.to_date == nearest_pending.to_date }
+            end
           end
           
           pending_frequency_count = pending_frequency_dates.count
@@ -325,13 +331,19 @@ class PendingRecordsCalculator
           frequency_dates_in_discarded = frequencies.select { |date| school_days_discarded.include?(date) && !school_days_for_frequency.include?(date) }
           frequency_dates_in_discarded.each do |discarded_date|
             nearest_pending = find_nearest_pending_date(discarded_date, pending_frequency_dates)
-            pending_frequency_dates.delete(nearest_pending) if nearest_pending
+            if nearest_pending
+              # Remover usando comparação por data (não por identidade do objeto)
+              pending_frequency_dates.delete_if { |date| date.to_date == nearest_pending.to_date }
+            end
           end
           
           content_dates_in_discarded = content_records.select { |date| school_days_discarded.include?(date) && !school_days_for_content.include?(date) }
           content_dates_in_discarded.each do |discarded_date|
             nearest_pending = find_nearest_pending_date(discarded_date, pending_content_dates)
-            pending_content_dates.delete(nearest_pending) if nearest_pending
+            if nearest_pending
+              # Remover usando comparação por data (não por identidade do objeto)
+              pending_content_dates.delete_if { |date| date.to_date == nearest_pending.to_date }
+            end
           end
           
           pending_frequency_count = pending_frequency_dates.count
@@ -604,31 +616,38 @@ class PendingRecordsCalculator
     # Encontrar a data pendente mais próxima da data de quadro excluído
     return nil if pending_dates.empty?
     
+    # Converter para array e garantir que são objetos Date
+    pending_array = pending_dates.to_a.map(&:to_date)
+    discarded_date = discarded_date.to_date
+    
     # Ordenar datas pendentes
-    sorted_pending = pending_dates.sort
+    sorted_pending = pending_array.sort
     
-    # Calcular início e fim da semana da data do quadro excluído
-    week_start = discarded_date.beginning_of_week
-    week_end = discarded_date.end_of_week
+    # Calcular início e fim da semana da data do quadro excluído (segunda-feira como início)
+    # wday: 0=domingo, 1=segunda, 2=terça, ..., 6=sábado
+    days_from_monday = discarded_date.wday == 0 ? 6 : discarded_date.wday - 1
+    week_start = discarded_date - days_from_monday
+    week_end = week_start + 6
     
-    # Primeiro, tentar encontrar datas na mesma semana
-    same_week_pending = sorted_pending.select { |date| date >= week_start && date <= week_end }
+    # Primeiro, tentar encontrar datas na mesma semana (segunda a domingo)
+    same_week_pending = sorted_pending.select { |date| date.to_date >= week_start && date.to_date <= week_end }
     
     if same_week_pending.any?
       # Preferir datas anteriores ou iguais à data do quadro excluído na mesma semana
-      before_or_equal = same_week_pending.select { |date| date <= discarded_date }
+      before_or_equal = same_week_pending.select { |date| date.to_date <= discarded_date }
       return before_or_equal.last if before_or_equal.any?
       
-      # Se não houver anteriores, usar a primeira posterior na mesma semana
+      # Se não houver anteriores na mesma semana, usar a primeira posterior na mesma semana
       return same_week_pending.first
     end
     
-    # Se não houver datas na mesma semana, preferir datas anteriores ou iguais
-    before_or_equal = sorted_pending.select { |date| date <= discarded_date }
+    # Se não houver datas na mesma semana, buscar a data mais próxima
+    # Preferir datas anteriores ou iguais
+    before_or_equal = sorted_pending.select { |date| date.to_date <= discarded_date }
     return before_or_equal.last if before_or_equal.any?
     
     # Se não houver datas anteriores, usar a mais próxima em geral
-    sorted_pending.min_by { |date| (date - discarded_date).abs }
+    sorted_pending.min_by { |date| (date.to_date - discarded_date).abs }
   end
 
   def is_infantil_classroom?(classroom)
@@ -746,13 +765,19 @@ class PendingRecordsCalculator
         frequency_dates_in_discarded = frequency_dates_set.select { |date| school_days_discarded.include?(date) && !school_days_for_frequency.include?(date) }
         frequency_dates_in_discarded.each do |discarded_date|
           nearest_pending = find_nearest_pending_date(discarded_date, pending_frequency_dates)
-          pending_frequency_dates.delete(nearest_pending) if nearest_pending
+          if nearest_pending
+            # Remover usando comparação por data (não por identidade do objeto)
+            pending_frequency_dates.delete_if { |date| date.to_date == nearest_pending.to_date }
+          end
         end
         
         content_dates_in_discarded = content_dates_set.select { |date| school_days_discarded.include?(date) && !school_days_for_content.include?(date) }
         content_dates_in_discarded.each do |discarded_date|
           nearest_pending = find_nearest_pending_date(discarded_date, pending_content_dates)
-          pending_content_dates.delete(nearest_pending) if nearest_pending
+          if nearest_pending
+            # Remover usando comparação por data (não por identidade do objeto)
+            pending_content_dates.delete_if { |date| date.to_date == nearest_pending.to_date }
+          end
         end
         
         pending_frequency_count = pending_frequency_dates.count
@@ -788,13 +813,19 @@ class PendingRecordsCalculator
         frequency_dates_in_discarded = frequencies.select { |date| school_days_discarded.include?(date) && !school_days_for_frequency.include?(date) }
         frequency_dates_in_discarded.each do |discarded_date|
           nearest_pending = find_nearest_pending_date(discarded_date, pending_frequency_dates)
-          pending_frequency_dates.delete(nearest_pending) if nearest_pending
+          if nearest_pending
+            # Remover usando comparação por data (não por identidade do objeto)
+            pending_frequency_dates.delete_if { |date| date.to_date == nearest_pending.to_date }
+          end
         end
         
         content_dates_in_discarded = content_records.select { |date| school_days_discarded.include?(date) && !school_days_for_content.include?(date) }
         content_dates_in_discarded.each do |discarded_date|
           nearest_pending = find_nearest_pending_date(discarded_date, pending_content_dates)
-          pending_content_dates.delete(nearest_pending) if nearest_pending
+          if nearest_pending
+            # Remover usando comparação por data (não por identidade do objeto)
+            pending_content_dates.delete_if { |date| date.to_date == nearest_pending.to_date }
+          end
         end
         
         pending_frequency_count = pending_frequency_dates.count
