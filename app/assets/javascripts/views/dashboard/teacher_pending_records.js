@@ -109,7 +109,7 @@ $(function(){
     var $stepContainer = $('#step-data-container');
     
     if(!stepData || !stepData.pending_records || stepData.pending_records.length === 0){
-      $stepContainer.html('<div class="alert alert-info">Nenhum registro pendente para esta etapa.</div>');
+      $stepContainer.html('<div class="alert alert-info">Ocorreu um erro ao buscar os dias pendentes-.</div>');
       return;
     }
 
