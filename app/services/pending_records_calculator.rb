@@ -275,23 +275,53 @@ class PendingRecordsCalculator
           pending_frequency_dates = school_days_for_frequency.select { |date| date <= today && !frequency_dates_set.include?(date) }.to_a
           pending_content_dates = school_days_for_content.select { |date| date <= today && !content_dates_set.include?(date) }.to_a
           
-          # Identificar registros em datas de quadro excluído
-          frequency_dates_in_discarded = frequency_dates_set.select { |date| school_days_discarded.include?(date) && !school_days_for_frequency.include?(date) }
+          # Incluir registros que estão em dias de quadro excluído, mesmo que também estejam no quadro ativo
+          # Isso permite compensar pendências quando há registro em um dia que está em ambos os quadros
+          frequency_dates_in_discarded = frequency_dates_set.select { |date| school_days_discarded.include?(date) }
           
           # Para cada data pendente do quadro ativo, verificar se há registro do quadro excluído na mesma semana
+          removed_frequency_count = 0
           pending_frequency_dates.reject! do |pending_date|
-            week_number = get_week_number(pending_date)
-            frequency_dates_in_discarded.any? { |discarded_date| get_week_number(discarded_date) == week_number }
+            has_discarded_in_same_week = has_record_in_same_week_from_discarded_board?(
+              pending_date, 
+              frequency_dates_in_discarded.to_a, 
+              school_days_discarded, 
+              classroom, 
+              discipline, 
+              is_general_frequency, 
+              today,
+              discarded_weekday_numbers
+            )
+            if has_discarded_in_same_week
+              pending_week = get_week_number(pending_date)
+              removed_frequency_count += 1
+            end
+            has_discarded_in_same_week
           end
           
-          content_dates_in_discarded = content_dates_set.select { |date| school_days_discarded.include?(date) && !school_days_for_content.include?(date) }
+          # Identificar registros em datas de quadro excluído
+          # Incluir registros que estão em dias de quadro excluído, mesmo que também estejam no quadro ativo
+          content_dates_in_discarded = content_dates_set.select { |date| school_days_discarded.include?(date) }
           
           # Para cada data pendente do quadro ativo, verificar se há registro do quadro excluído na mesma semana
+          removed_content_count = 0
           pending_content_dates.reject! do |pending_date|
-            week_number = get_week_number(pending_date)
-            content_dates_in_discarded.any? { |discarded_date| get_week_number(discarded_date) == week_number }
+            has_discarded_in_same_week = has_content_record_in_same_week_from_discarded_board?(
+              pending_date, 
+              content_dates_in_discarded.to_a, 
+              school_days_discarded, 
+              classroom, 
+              discipline, 
+              today,
+              discarded_weekday_numbers
+            )
+            if has_discarded_in_same_week
+              pending_week = get_week_number(pending_date)
+              removed_content_count += 1
+            end
+            has_discarded_in_same_week
           end
-          
+     
           pending_frequency_count = pending_frequency_dates.count
           pending_content_count = pending_content_dates.count
         else
@@ -326,20 +356,51 @@ class PendingRecordsCalculator
           pending_content_dates = (school_days_for_content - content_records).select { |date| date <= today }
           
           # Identificar registros em datas de quadro excluído
-          frequency_dates_in_discarded = frequencies.select { |date| school_days_discarded.include?(date) && !school_days_for_frequency.include?(date) }
-          
+          # Identificar registros em datas de quadro excluído
+          # Incluir registros que estão em dias de quadro excluído, mesmo que também estejam no quadro ativo
+          frequency_dates_in_discarded = frequencies.select { |date| school_days_discarded.include?(date) }
+    
           # Para cada data pendente do quadro ativo, verificar se há registro do quadro excluído na mesma semana
+          removed_frequency_count = 0
           pending_frequency_dates.reject! do |pending_date|
-            week_number = get_week_number(pending_date)
-            frequency_dates_in_discarded.any? { |discarded_date| get_week_number(discarded_date) == week_number }
+            has_discarded_in_same_week = has_record_in_same_week_from_discarded_board?(
+              pending_date, 
+              frequency_dates_in_discarded.to_a, 
+              school_days_discarded, 
+              classroom, 
+              discipline, 
+              is_general_frequency, 
+              today,
+              discarded_weekday_numbers
+            )
+            if has_discarded_in_same_week
+              pending_week = get_week_number(pending_date)
+              removed_frequency_count += 1
+            end
+            has_discarded_in_same_week
           end
           
-          content_dates_in_discarded = content_records.select { |date| school_days_discarded.include?(date) && !school_days_for_content.include?(date) }
+          # Identificar registros em datas de quadro excluído
+          # Incluir registros que estão em dias de quadro excluído, mesmo que também estejam no quadro ativo
+          content_dates_in_discarded = content_records.select { |date| school_days_discarded.include?(date) }
           
           # Para cada data pendente do quadro ativo, verificar se há registro do quadro excluído na mesma semana
+          removed_content_count = 0
           pending_content_dates.reject! do |pending_date|
-            week_number = get_week_number(pending_date)
-            content_dates_in_discarded.any? { |discarded_date| get_week_number(discarded_date) == week_number }
+            has_discarded_in_same_week = has_content_record_in_same_week_from_discarded_board?(
+              pending_date, 
+              content_dates_in_discarded.to_a, 
+              school_days_discarded, 
+              classroom, 
+              discipline, 
+              today,
+              discarded_weekday_numbers
+            )
+            if has_discarded_in_same_week
+              pending_week = get_week_number(pending_date)
+              removed_content_count += 1
+            end
+            has_discarded_in_same_week
           end
           
           pending_frequency_count = pending_frequency_dates.count
@@ -452,18 +513,38 @@ class PendingRecordsCalculator
     end
     
     # Buscar weekdays de quadros excluídos (discarded_at IS NOT NULL)
-    weekdays_data_discarded = LessonsBoardLessonWeekday
-      .joins(lessons_board_lesson: [lessons_board: [classrooms_grade: :classroom]])
-      .joins(:teacher_discipline_classroom)
-      .joins('INNER JOIN disciplines d ON d.id = teacher_discipline_classrooms.discipline_id')
+    # Usar unscoped para ignorar default_scope e joins diretos nas tabelas
+    # Verificar primeiro se há quadros excluídos no banco
+    sql_check = <<-SQL
+      SELECT COUNT(*) 
+      FROM lessons_boards lb
+      INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id
+      WHERE cg.classroom_id = #{classroom_id}
+      AND lb.discarded_at IS NOT NULL
+    SQL
+    discarded_boards_count = ActiveRecord::Base.connection.exec_query(sql_check).first&.dig('count') || 0
+    
+    # Usar unscoped para ignorar default_scope do LessonsBoardLessonWeekday
+    query_discarded = LessonsBoardLessonWeekday.unscoped
+      .joins('INNER JOIN lessons_board_lessons lbl ON lbl.id = lessons_board_lesson_weekdays.lessons_board_lesson_id')
+      .joins('INNER JOIN lessons_boards lb ON lb.id = lbl.lessons_board_id AND lb.discarded_at IS NOT NULL')
+      .joins('INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id')
+      .joins('INNER JOIN classrooms ON classrooms.id = cg.classroom_id')
+      .joins('INNER JOIN teacher_discipline_classrooms tdc ON tdc.id = lessons_board_lesson_weekdays.teacher_discipline_classroom_id')
+      .joins('INNER JOIN disciplines d ON d.id = tdc.discipline_id')
       .where(classrooms: { id: classroom_id })
-      .where(lessons_boards: { period: periods })
       .where('d.id IN (?)', discipline_ids)
-      .where(teacher_discipline_classrooms: { active: true })
-      .where(teacher_discipline_classrooms: { discarded_at: nil })
-      .where('lessons_boards.discarded_at IS NOT NULL')
+      .where(tdc: { active: true })
+      .where(tdc: { discarded_at: nil })
       .where.not(weekday: nil)
       .where.not(teacher_discipline_classroom_id: nil)
+    
+    # Filtrar por período se fornecido
+    if periods.present? && periods.any? { |p| p.present? }
+      query_discarded = query_discarded.where('lb.period IN (?)', periods.compact)
+    end
+    
+    weekdays_data_discarded = query_discarded
       .distinct
       .pluck('d.id', :weekday)
     
@@ -494,27 +575,52 @@ class PendingRecordsCalculator
         active_result[discipline_id] << weekday unless active_result[discipline_id].include?(weekday)
       end
       
-      # Buscar também quadros excluídos sem período
-      weekdays_data_discarded_fallback = LessonsBoardLessonWeekday
-        .joins(lessons_board_lesson: [lessons_board: [classrooms_grade: :classroom]])
-        .joins(:teacher_discipline_classroom)
-        .joins('INNER JOIN disciplines d ON d.id = teacher_discipline_classrooms.discipline_id')
+      # Buscar também quadros excluídos sem período (fallback)
+      weekdays_data_discarded_fallback = LessonsBoardLessonWeekday.unscoped
+        .joins('INNER JOIN lessons_board_lessons lbl ON lbl.id = lessons_board_lesson_weekdays.lessons_board_lesson_id')
+        .joins('INNER JOIN lessons_boards lb ON lb.id = lbl.lessons_board_id AND lb.discarded_at IS NOT NULL')
+        .joins('INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id')
+        .joins('INNER JOIN classrooms ON classrooms.id = cg.classroom_id')
+        .joins('INNER JOIN teacher_discipline_classrooms tdc ON tdc.id = lessons_board_lesson_weekdays.teacher_discipline_classroom_id')
+        .joins('INNER JOIN disciplines d ON d.id = tdc.discipline_id')
         .where(classrooms: { id: classroom_id })
         .where('d.id IN (?)', missing_discipline_ids)
-        .where(teacher_discipline_classrooms: { active: true })
-        .where(teacher_discipline_classrooms: { discarded_at: nil })
-        .where('lessons_boards.discarded_at IS NOT NULL')
+        .where(tdc: { active: true })
+        .where(tdc: { discarded_at: nil })
         .where.not(weekday: nil)
         .where.not(teacher_discipline_classroom_id: nil)
         .distinct
         .pluck('d.id', :weekday)
-      
+            
       weekdays_data_discarded_fallback.each do |discipline_id, weekday|
         discarded_result[discipline_id] ||= []
         discarded_result[discipline_id] << weekday unless discarded_result[discipline_id].include?(weekday)
       end
     end
     
+    # Buscar também quadros excluídos para todas as disciplinas, mesmo que tenham sido encontradas no ativo
+    # Isso garante que encontramos todos os quadros excluídos, independente do período
+    weekdays_data_discarded_all = LessonsBoardLessonWeekday.unscoped
+      .joins('INNER JOIN lessons_board_lessons lbl ON lbl.id = lessons_board_lesson_weekdays.lessons_board_lesson_id')
+      .joins('INNER JOIN lessons_boards lb ON lb.id = lbl.lessons_board_id AND lb.discarded_at IS NOT NULL')
+      .joins('INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id')
+      .joins('INNER JOIN classrooms ON classrooms.id = cg.classroom_id')
+      .joins('INNER JOIN teacher_discipline_classrooms tdc ON tdc.id = lessons_board_lesson_weekdays.teacher_discipline_classroom_id')
+      .joins('INNER JOIN disciplines d ON d.id = tdc.discipline_id')
+      .where(classrooms: { id: classroom_id })
+      .where('d.id IN (?)', discipline_ids)
+      .where(tdc: { active: true })
+      .where(tdc: { discarded_at: nil })
+      .where.not(weekday: nil)
+      .where.not(teacher_discipline_classroom_id: nil)
+      .distinct
+      .pluck('d.id', :weekday)
+        
+    weekdays_data_discarded_all.each do |discipline_id, weekday|
+      discarded_result[discipline_id] ||= []
+      discarded_result[discipline_id] << weekday unless discarded_result[discipline_id].include?(weekday)
+    end
+        
     [active_result, discarded_result]
   end
 
@@ -615,7 +721,151 @@ class PendingRecordsCalculator
     
     # cweek retorna o número da semana ISO 8601 (segunda-feira como início)
     # cwyear retorna o ano da semana ISO 8601
-    [date.cwyear, date.cweek]
+    week_number = [date.cwyear, date.cweek]
+    
+    week_number
+  end
+
+  def has_record_in_same_week_from_discarded_board?(pending_date, loaded_discarded_dates, school_days_discarded, classroom, discipline, is_general_frequency, today, discarded_weekday_numbers)
+    # Verifica se há registro na mesma semana que esteja em um dia de quadro excluído
+    # Primeiro verifica nos registros já carregados, depois busca diretamente no banco se necessário
+    pending_week = get_week_number(pending_date)
+    
+    # Primeiro verificar nos registros já carregados
+    has_discarded_in_same_week = loaded_discarded_dates.any? do |discarded_date|
+      discarded_week = get_week_number(discarded_date)
+      discarded_week == pending_week
+    end
+    
+    # Se não encontrou, verificar diretamente no banco se existe registro na mesma semana
+    if !has_discarded_in_same_week
+      week_start = pending_date.beginning_of_week(:monday)
+      week_end = pending_date.end_of_week(:monday)
+      
+      # Buscar registros na mesma semana
+      week_records = if is_general_frequency
+        DailyFrequency
+          .by_classroom_id(classroom.id)
+          .general_frequency
+          .where('frequency_date >= ? AND frequency_date <= ?', week_start, week_end)
+          .where('frequency_date <= ?', today)
+          .pluck(:frequency_date)
+          .map(&:to_date)
+      else
+        DailyFrequency
+          .by_classroom_id(classroom.id)
+          .where(discipline_id: discipline.id)
+          .where('frequency_date >= ? AND frequency_date <= ?', week_start, week_end)
+          .where('frequency_date <= ?', today)
+          .pluck(:frequency_date)
+          .map(&:to_date)
+      end
+      
+      # Verificar se algum registro da semana está em um dia de quadro excluído
+      # Verificar diretamente pelo dia da semana (wday) ao invés de verificar se está em school_days_discarded
+      # porque school_days_discarded só inclui dias letivos no range, e o registro pode estar fora
+      has_discarded_in_same_week = week_records.any? do |record_date|
+        record_week = get_week_number(record_date)
+        # Verificar se o dia da semana do registro está nos weekdays descartados
+        is_in_discarded = discarded_weekday_numbers.include?(record_date.wday)
+        if record_week == pending_week && is_in_discarded
+          true
+        else
+          false
+        end
+      end
+    end
+    
+    has_discarded_in_same_week
+  end
+
+  def has_content_record_in_same_week_from_discarded_board?(pending_date, loaded_discarded_dates, school_days_discarded, classroom, discipline, today, discarded_weekday_numbers)
+    # Verifica se há registro de conteúdo na mesma semana que esteja em um dia de quadro excluído
+    # Primeiro verifica nos registros já carregados, depois busca diretamente no banco se necessário
+    pending_week = get_week_number(pending_date)
+    
+    # Primeiro verificar nos registros já carregados
+    has_discarded_in_same_week = loaded_discarded_dates.any? do |discarded_date|
+      discarded_week = get_week_number(discarded_date)
+      discarded_week == pending_week
+    end
+    
+    # Se não encontrou, verificar diretamente no banco se existe registro na mesma semana
+    if !has_discarded_in_same_week
+      week_start = pending_date.beginning_of_week(:monday)
+      week_end = pending_date.end_of_week(:monday)
+      
+      # Buscar registros de conteúdo na mesma semana
+      week_records = DisciplineContentRecord
+        .joins(:content_record)
+        .where(content_records: { classroom_id: classroom.id })
+        .where(discipline_id: discipline.id)
+        .where('content_records.record_date >= ? AND content_records.record_date <= ?', week_start, week_end)
+        .where('content_records.record_date <= ?', today)
+        .pluck('content_records.record_date')
+        .map(&:to_date)
+      
+      # Verificar se algum registro da semana está em um dia de quadro excluído
+      # Verificar diretamente pelo dia da semana (wday) ao invés de verificar se está em school_days_discarded
+      # porque school_days_discarded só inclui dias letivos no range, e o registro pode estar fora
+      has_discarded_in_same_week = week_records.any? do |record_date|
+        record_week = get_week_number(record_date)
+        # Verificar se o dia da semana do registro está nos weekdays descartados
+        is_in_discarded = discarded_weekday_numbers.include?(record_date.wday)
+        if record_week == pending_week && is_in_discarded
+          true
+        else
+          false
+        end
+      end
+    end
+    
+    has_discarded_in_same_week
+  end
+
+  def has_knowledge_area_content_record_in_same_week_from_discarded_board?(pending_date, loaded_discarded_dates, school_days_discarded, classroom, knowledge_area_id, today, discarded_weekday_numbers)
+    # Verifica se há registro de conteúdo de área de conhecimento na mesma semana que esteja em um dia de quadro excluído
+    # Primeiro verifica nos registros já carregados, depois busca diretamente no banco se necessário
+    pending_week = get_week_number(pending_date)
+    
+    # Primeiro verificar nos registros já carregados
+    has_discarded_in_same_week = loaded_discarded_dates.any? do |discarded_date|
+      discarded_week = get_week_number(discarded_date)
+      discarded_week == pending_week
+    end
+    
+    # Se não encontrou, verificar diretamente no banco se existe registro na mesma semana
+    if !has_discarded_in_same_week
+      week_start = pending_date.beginning_of_week(:monday)
+      week_end = pending_date.end_of_week(:monday)
+      
+      # Buscar registros de conteúdo de área de conhecimento na mesma semana
+      week_records = KnowledgeAreaContentRecord
+        .joins(:content_record)
+        .joins(:knowledge_areas)
+        .where(content_records: { classroom_id: classroom.id })
+        .where(knowledge_areas: { id: knowledge_area_id })
+        .where('content_records.record_date >= ? AND content_records.record_date <= ?', week_start, week_end)
+        .where('content_records.record_date <= ?', today)
+        .pluck('content_records.record_date')
+        .map(&:to_date)
+      
+      # Verificar se algum registro da semana está em um dia de quadro excluído
+      # Verificar diretamente pelo dia da semana (wday) ao invés de verificar se está em school_days_discarded
+      # porque school_days_discarded só inclui dias letivos no range, e o registro pode estar fora
+      has_discarded_in_same_week = week_records.any? do |record_date|
+        record_week = get_week_number(record_date)
+        # Verificar se o dia da semana do registro está nos weekdays descartados
+        is_in_discarded = discarded_weekday_numbers.include?(record_date.wday)
+        if record_week == pending_week && is_in_discarded
+          true
+        else
+          false
+        end
+      end
+    end
+    
+    has_discarded_in_same_week
   end
 
   def is_infantil_classroom?(classroom)
@@ -729,21 +979,47 @@ class PendingRecordsCalculator
         pending_frequency_dates = school_days_for_frequency.select { |date| date <= today && !frequency_dates_set.include?(date) }.to_a
         pending_content_dates = school_days_for_content.select { |date| date <= today && !content_dates_set.include?(date) }.to_a
         
-        # Identificar registros em datas de quadro excluído
-        frequency_dates_in_discarded = frequency_dates_set.select { |date| school_days_discarded.include?(date) && !school_days_for_frequency.include?(date) }
+        # Incluir registros que estão em dias de quadro excluído, mesmo que também estejam no quadro ativo
+        frequency_dates_in_discarded = frequency_dates_set.select { |date| school_days_discarded.include?(date) }
         
         # Para cada data pendente do quadro ativo, verificar se há registro do quadro excluído na mesma semana
+        removed_frequency_count = 0
         pending_frequency_dates.reject! do |pending_date|
-          week_number = get_week_number(pending_date)
-          frequency_dates_in_discarded.any? { |discarded_date| get_week_number(discarded_date) == week_number }
+          pending_week = get_week_number(pending_date)
+          has_discarded_in_same_week = frequency_dates_in_discarded.any? do |discarded_date|
+            discarded_week = get_week_number(discarded_date)
+            if discarded_week == pending_week
+              true
+            else
+              false
+            end
+          end
+          if has_discarded_in_same_week
+            removed_frequency_count += 1
+          end
+          has_discarded_in_same_week
         end
         
         content_dates_in_discarded = content_dates_set.select { |date| school_days_discarded.include?(date) && !school_days_for_content.include?(date) }
         
         # Para cada data pendente do quadro ativo, verificar se há registro do quadro excluído na mesma semana
+        removed_content_count = 0
         pending_content_dates.reject! do |pending_date|
-          week_number = get_week_number(pending_date)
-          content_dates_in_discarded.any? { |discarded_date| get_week_number(discarded_date) == week_number }
+          has_discarded_in_same_week = has_knowledge_area_content_record_in_same_week_from_discarded_board?(
+            pending_date, 
+            content_dates_in_discarded.to_a, 
+            school_days_discarded, 
+            classroom, 
+            knowledge_area_id, 
+            today,
+            discarded_weekday_numbers
+          )
+          if has_discarded_in_same_week
+            pending_week = get_week_number(pending_date)
+            # Removendo pendência de conteúdo (área)
+            removed_content_count += 1
+          end
+          has_discarded_in_same_week
         end
         
         pending_frequency_count = pending_frequency_dates.count
@@ -779,17 +1055,41 @@ class PendingRecordsCalculator
         frequency_dates_in_discarded = frequencies.select { |date| school_days_discarded.include?(date) && !school_days_for_frequency.include?(date) }
         
         # Para cada data pendente do quadro ativo, verificar se há registro do quadro excluído na mesma semana
+        removed_frequency_count = 0
         pending_frequency_dates.reject! do |pending_date|
-          week_number = get_week_number(pending_date)
-          frequency_dates_in_discarded.any? { |discarded_date| get_week_number(discarded_date) == week_number }
+          pending_week = get_week_number(pending_date)
+          has_discarded_in_same_week = frequency_dates_in_discarded.any? do |discarded_date|
+            discarded_week = get_week_number(discarded_date)
+            if discarded_week == pending_week
+              true
+            else
+              false
+            end
+          end
+          if has_discarded_in_same_week
+            removed_frequency_count += 1
+          end
+          has_discarded_in_same_week
         end
         
         content_dates_in_discarded = content_records.select { |date| school_days_discarded.include?(date) && !school_days_for_content.include?(date) }
         
         # Para cada data pendente do quadro ativo, verificar se há registro do quadro excluído na mesma semana
+        removed_content_count = 0
         pending_content_dates.reject! do |pending_date|
-          week_number = get_week_number(pending_date)
-          content_dates_in_discarded.any? { |discarded_date| get_week_number(discarded_date) == week_number }
+          pending_week = get_week_number(pending_date)
+          has_discarded_in_same_week = content_dates_in_discarded.any? do |discarded_date|
+            discarded_week = get_week_number(discarded_date)
+            if discarded_week == pending_week
+              true
+            else
+              false
+            end
+          end
+          if has_discarded_in_same_week
+            removed_content_count += 1
+          end
+          has_discarded_in_same_week
         end
         
         pending_frequency_count = pending_frequency_dates.count
