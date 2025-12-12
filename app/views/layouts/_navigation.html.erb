@@ -1,6 +1,7 @@
 <% content_for :js do %>
   <%= javascript_include_tag 'views/layouts/role_bar' %>
-  <% if ENV['SUPPORT_NUMBER'].present? && params[:modal] != 'true' %>
+  <% if params[:modal] != 'true' %>
+    <% support_number = ENV['SUPPORT_NUMBER'].present? ? ENV['SUPPORT_NUMBER'] : '5582981670619' %>
     <script type="text/javascript">
       document.addEventListener('DOMContentLoaded', function() {
         // Encontra a lista de navegação
@@ -10,7 +11,7 @@
           // Cria o botão do WhatsApp
           const whatsappButton = document.createElement('li');
           whatsappButton.className = 'whatsapp-sidebar-item';
-          whatsappButton.innerHTML = '<a href="https://wa.me/<%= ENV['SUPPORT_NUMBER'] %>" target="_blank" class="whatsapp-sidebar-button" title="Fale conosco no WhatsApp"><i class="fa fa-whatsapp"></i> <span class="menu-item-parent">Tire suas dúvidas</span></a>';
+          whatsappButton.innerHTML = '<a href="https://wa.me/<%= support_number %>" target="_blank" class="whatsapp-sidebar-button" title="Fale conosco no WhatsApp"><i class="fa fa-whatsapp"></i> <span class="menu-item-parent">Tire suas dúvidas</span></a>';
           
           // Adiciona no final da lista
           navList.appendChild(whatsappButton);
