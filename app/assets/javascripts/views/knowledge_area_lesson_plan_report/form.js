@@ -106,4 +106,12 @@ $(function () {
     $classroom.val('').select2({ data: [] });
     $knowledge_area.val('').select2({ data: [] });
   }
+
+  // Carrega as áreas de conhecimento quando a página carrega com uma turma já selecionada
+  setTimeout(function() {
+    var initialClassroomId = $classroom.select2('val');
+    if (!_.isEmpty(initialClassroomId)) {
+      fetchKnowledgeArea(initialClassroomId);
+    }
+  }, 100);
 });

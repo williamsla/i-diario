@@ -58,7 +58,11 @@ class KnowledgeAreaLessonPlanReportController < ApplicationController
   def fetch_knowledge_areas
     return if params[:classroom_id].blank?
 
-    knowledge_areas = KnowledgeArea.by_teacher(current_teacher_id).by_classroom_id(params[:classroom_id]).ordered
+    if current_user.current_role_is_admin_or_employee?
+      knowledge_areas = KnowledgeArea.by_classroom_id(params[:classroom_id]).ordered
+    else
+      knowledge_areas = KnowledgeArea.by_teacher(current_teacher_id).by_classroom_id(params[:classroom_id]).ordered
+    end
 
     render json: knowledge_areas.to_json
   end
@@ -84,10 +88,15 @@ class KnowledgeAreaLessonPlanReportController < ApplicationController
 
   def fetch_collections
     @number_of_classes = current_school_calendar.number_of_classes
-    @knowledge_areas = KnowledgeArea.all
     @classrooms = Classroom.by_unity(@knowledge_area_lesson_plan_report_form.unity_id)
                            .by_year(current_user_school_year || Date.current.year)
                            .ordered
+    
+    if @knowledge_area_lesson_plan_report_form.classroom_id.present?
+      @knowledge_areas = KnowledgeArea.by_classroom_id(@knowledge_area_lesson_plan_report_form.classroom_id).ordered
+    else
+      @knowledge_areas = []
+    end
   end
 
   def resource_params
