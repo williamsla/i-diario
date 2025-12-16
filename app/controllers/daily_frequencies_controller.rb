@@ -108,19 +108,59 @@ class DailyFrequenciesController < ApplicationController
 
     @students_as_justified = []
 
-    fetch_enrollment_classrooms.each do |enrollment_classroom|
+    # Agrupar enrollment_classrooms por student_id para selecionar apenas a matrícula mais recente
+    enrollment_classrooms_by_student = fetch_enrollment_classrooms.group_by { |ec| ec[:student].id }
+    frequency_date = @daily_frequency.frequency_date.to_date
+    
+    enrollment_classrooms_by_student.each do |student_id, enrollment_classrooms|
+      # Selecionar a matrícula mais recente baseada em changed_at e joined_at
+      # Prioriza changed_at (última alteração na turma), depois joined_at (data de entrada)
+      enrollment_classroom = enrollment_classrooms.max_by do |ec|
+        # Acessar changed_at do objeto student_enrollment_classroom
+        sec = ec[:student_enrollment_classroom]
+        changed_at = sec.try(:changed_at)
+        joined_at = ec[:joined_at]
+        
+        # Converter para Date para comparação
+        changed_at_date = if changed_at.present?
+          changed_at.is_a?(Date) ? changed_at : (changed_at.to_date rescue nil)
+        end
+        
+        joined_at_date = joined_at.is_a?(Date) ? joined_at : (joined_at.to_date rescue nil)
+        
+        # Usar changed_at se disponível (indica última alteração), senão usar joined_at
+        # Se ambos estiverem disponíveis, usar o mais recente entre eles
+        if changed_at_date && joined_at_date
+          [changed_at_date, joined_at_date].max
+        elsif changed_at_date
+          changed_at_date
+        elsif joined_at_date
+          joined_at_date
+        else
+          Date.new(1900, 1, 1)
+        end
+      end
+      
       student = enrollment_classroom[:student]
       student_enrollment = enrollment_classroom[:student_enrollment]
       left_at = enrollment_classroom[:left_at]
-      
-      # evita matrículas que estejam com situação duplicada.
-      # Ex: aluno com duas matrículas na situação STATUS e SAIDA.
-      aux = "#{student.id}_#{student_enrollment[:status]}_#{left_at}"
-      next if @students_list_marked_as_read.include?(aux)
-      @students_list_marked_as_read << aux
+      joined_at = enrollment_classroom[:joined_at]
       
       student_enrollment_id = enrollment_classroom[:student_enrollment_id]
-      activated_student = active.include?(enrollment_classroom[:student_enrollment_classroom_id])
+      
+      # Verificar se o aluno está ativo na data da frequência
+      # Considera: joined_at <= frequency_date E (left_at é nulo OU left_at > frequency_date)
+      joined_at_date = joined_at.to_date rescue nil
+      left_at_date = left_at.to_date rescue nil if left_at.present?
+      
+      is_active_on_frequency_date = false
+      if joined_at_date && joined_at_date <= frequency_date
+        is_active_on_frequency_date = left_at_date.nil? || left_at_date.blank? || left_at_date > frequency_date
+      end
+      
+      # O aluno está ativo se está no hash 'active' (calculado pelo ActiveStudentsOnDate)
+      # E está realmente ativo na data (verificação manual)
+      activated_student = active.include?(enrollment_classroom[:student_enrollment_classroom_id]) && is_active_on_frequency_date
       has_dependence = dependencies[student_enrollment_id] ? true : false
       has_exempted = exempt[student_enrollment_id] ? true : false
       
@@ -149,7 +189,7 @@ class DailyFrequenciesController < ApplicationController
         in_active_search: in_active_search,
         absence_justification: absence_justification,
         sequence: sequence,
-        joined_at: enrollment_classroom[:joined_at],
+        joined_at: joined_at,
         left_at: left_at
       }
 
