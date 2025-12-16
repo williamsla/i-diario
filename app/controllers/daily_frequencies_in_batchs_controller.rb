@@ -226,14 +226,41 @@ class DailyFrequenciesInBatchsController < ApplicationController
       return false
     end
 
-    fetch_student_enrollments.each do |student_enrollment|
+    # Agrupar student_enrollments por student_id para evitar duplicatas
+    student_enrollments_by_student = fetch_student_enrollments.group_by { |se| se.student_id }
+    
+    student_enrollments_by_student.each do |student_id, student_enrollments|
+      student_enrollment = student_enrollments.first
       student_enrollments_ids << student_enrollment.id
       student = student_enrollment.student
       student_ids << student.id
-      type_of_teaching = student_enrollment.student_enrollment_classrooms
-                                           .by_classroom(@classroom.id)
-                                           .last
-                                           .type_of_teaching
+      
+      # Buscar todos os enrollment_classrooms do aluno na turma
+      enrollment_classrooms = StudentEnrollmentClassroom.joins(:student_enrollment)
+                                                         .where(student_enrollments: { student_id: student_id })
+                                                         .by_classroom(@classroom.id)
+                                                         .order('changed_at DESC, joined_at DESC')
+      
+      # Selecionar o enrollment_classroom mais recente baseado em changed_at e joined_at
+      most_recent_enrollment_classroom = enrollment_classrooms.max_by do |ec|
+        changed_at = ec.changed_at
+        joined_at = ec.joined_at
+        
+        changed_at_date = changed_at.present? ? (changed_at.is_a?(Date) ? changed_at : (changed_at.to_date rescue nil)) : nil
+        joined_at_date = joined_at.present? ? (joined_at.is_a?(Date) ? joined_at : (joined_at.to_date rescue nil)) : nil
+        
+        if changed_at_date && joined_at_date
+          [changed_at_date, joined_at_date].max
+        elsif changed_at_date
+          changed_at_date
+        elsif joined_at_date
+          joined_at_date
+        else
+          Date.new(1900, 1, 1)
+        end
+      end
+      
+      type_of_teaching = most_recent_enrollment_classroom&.type_of_teaching
 
       next if student.blank?
 
@@ -483,22 +510,91 @@ class DailyFrequenciesInBatchsController < ApplicationController
 
   def students_inactive_on_range(student_enrollments_ids, dates)
     inactives = []
+    
+    # Agrupar student_enrollments por student_id para considerar apenas a matrícula mais recente
+    student_enrollments_by_student = StudentEnrollment.where(id: student_enrollments_ids)
+                                                       .includes(:student)
+                                                       .group_by { |se| se.student_id }
 
     dates.each do |date|
-      active_student_enrollments_ids = StudentEnrollment.where(id: student_enrollments_ids)
-                                                        .by_classroom(@classroom)
-                                                        .by_date(date)
-                                                        .pluck(:id)
-
-      next if active_student_enrollments_ids.sort == student_enrollments_ids.sort
-
-      inactives_student_enrollments_ids = student_enrollments_ids.sort - active_student_enrollments_ids.sort
-
-      inactives_students_ids = StudentEnrollment.where(id: inactives_student_enrollments_ids)
-                                                .includes(:student)
-                                                .pluck('students.id')
-
-      inactives << { date: date, student_ids: inactives_students_ids}
+      inactives_students_ids = []
+      
+      student_enrollments_by_student.each do |student_id, student_enrollments|
+        # Para cada aluno, buscar todos os enrollment_classrooms na turma
+        enrollment_classrooms = StudentEnrollmentClassroom.joins(:student_enrollment)
+                                                           .where(student_enrollments: { student_id: student_id })
+                                                           .by_classroom(@classroom.id)
+        
+        # Primeiro, verificar se há algum enrollment_classroom ativo na data específica
+        # Usar o mesmo critério do scope by_date: date >= joined_at AND (date < left_at OR left_at é vazio)
+        active_enrollment_classrooms = enrollment_classrooms.select do |ec|
+          joined_at_str = ec.joined_at
+          left_at_str = ec.left_at
+          
+          # Converter para Date
+          joined_at = joined_at_str.present? ? (joined_at_str.is_a?(Date) ? joined_at_str : (joined_at_str.to_date rescue nil)) : nil
+          left_at = left_at_str.present? ? (left_at_str.is_a?(Date) ? left_at_str : (left_at_str.to_date rescue nil)) : nil
+          
+          # Verificar se está ativo na data usando o mesmo critério do scope by_date
+          if joined_at && date >= joined_at
+            # Se left_at é vazio/nil, está ativo
+            # Se left_at existe, verificar se date < left_at (não <=, igual ao scope)
+            left_at.nil? || left_at_str.blank? || date < left_at
+          else
+            false
+          end
+        end
+        
+        if active_enrollment_classrooms.any?
+          # Se há ativos na data, usar o mais recente baseado em changed_at e joined_at
+          most_recent_enrollment_classroom = active_enrollment_classrooms.max_by do |ec|
+            changed_at = ec.changed_at
+            joined_at = ec.joined_at
+            
+            changed_at_date = changed_at.present? ? (changed_at.is_a?(Date) ? changed_at : (changed_at.to_date rescue nil)) : nil
+            joined_at_date = joined_at.present? ? (joined_at.is_a?(Date) ? joined_at : (joined_at.to_date rescue nil)) : nil
+            
+            if changed_at_date && joined_at_date
+              [changed_at_date, joined_at_date].max
+            elsif changed_at_date
+              changed_at_date
+            elsif joined_at_date
+              joined_at_date
+            else
+              Date.new(1900, 1, 1)
+            end
+          end
+          
+          # Se encontrou um ativo, o aluno está ativo na data
+          # Não adicionar à lista de inativos
+        else
+          # Se não há ativo na data, verificar se há algum que estava ativo antes da transferência
+          # e foi transferido depois da data (caso: frequência de antes da transferência)
+          enrollment_classroom_before_transfer = enrollment_classrooms.find do |ec|
+            joined_at = ec.joined_at.to_date rescue nil
+            left_at = ec.left_at.to_date rescue nil if ec.left_at.present?
+            
+            # Verificar se estava ativo na data (joined_at <= date)
+            # e foi transferido depois (left_at > date ou left_at é nil)
+            if joined_at && joined_at <= date
+              left_at.nil? || left_at.blank? || left_at > date
+            else
+              false
+            end
+          end
+          
+          if enrollment_classroom_before_transfer
+            # Aluno estava ativo na data mas foi transferido depois
+            # Não adicionar à lista de inativos
+          else
+            # Aluno foi transferido antes da data ou não está na turma
+            # Adicionar à lista de inativos
+            inactives_students_ids << student_id
+          end
+        end
+      end
+      
+      inactives << { date: date, student_ids: inactives_students_ids } if inactives_students_ids.any?
     end
 
     inactives
