@@ -59,7 +59,7 @@ class AttendanceRecordReportForm
       teacher_weekdays = get_teacher_weekdays
       frequencies.select do |frequency|
         weekday_name = frequency.frequency_date.strftime("%A").downcase
-        teacher_weekdays.include?(weekday_name)
+        teacher_weekdays.include?(weekday_name) || frequency.frequency_date.saturday?
       end
     else
       frequencies
