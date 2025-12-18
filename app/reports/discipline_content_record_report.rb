@@ -225,9 +225,13 @@ class DisciplineContentRecordReport < BaseReport
     
     move_down 5
     begin
-      text_box("Total de aulas dadas: #{@discipline_content_record.sum(&:class_number)}", size: 12, align: :left, at: [0, cursor], width: 260)
-    rescue
-      text_box("Total de aulas dadas: #{@discipline_content_record.count}", size: 12, align: :left, at: [0, cursor], width: 260)
+      # Carrega todos os registros em memória e soma o class_number
+      total_aulas = @discipline_content_record.to_a.sum { |record| record.class_number.to_i }
+      text_box("Total de aulas dadas: #{total_aulas}", size: 12, align: :left, at: [0, cursor], width: 260)
+    rescue => e
+      # Fallback para contagem simples em caso de erro
+      total_aulas = @discipline_content_record.count
+      text_box("Total de aulas dadas: #{total_aulas}", size: 12, align: :left, at: [0, cursor], width: 260)
     end
     
     move_down 30

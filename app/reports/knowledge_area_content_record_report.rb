@@ -232,10 +232,12 @@ class KnowledgeAreaContentRecordReport < BaseReport
     start_new_page if cursor < 55
 
     move_down 5
-    text_box("Total de dias registrados: #{@knowledge_area_content_records.count}", size: 12, align: :left, at: [0, cursor], width: 260)
+    # Carrega todos os registros em memória para garantir contagem correta
+    total_dias = @knowledge_area_content_records.to_a.count
+    text_box("Total de dias registrados: #{total_dias}", size: 12, align: :left, at: [0, cursor], width: 260)
 
     move_down 30
     text_box("______________________________________________\nProfessor(a)", size: 10, align: :center, at: [0, cursor], width: 260)
-    text_box("______________________________________________\nCoordenador(a)/diretor(a)", size: 10, align: :center, at: [306, cursor], width: 260)
+    text_box("______________________________________________\nCoordenador(a)/diretor(a)", size: 10, align: :center, at: [0, cursor], width: 260)
   end
 end
