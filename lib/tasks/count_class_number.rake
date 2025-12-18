@@ -1,6 +1,7 @@
 # bundle exec rake aulas:atualizar
 # bundle exec rake aulas:atualizar[YYYY]
 # RAILS_ENV=production ANO=YYYY bundle exec rake aulas:atualizar
+# RAILS_ENV=production ANO=YYYY bundle exec rake aulas:recontar_sabados_letivos
 namespace :aulas do
   desc "Atualiza class_number com base no quadro de horários (lessons_boards) e na data do conteúdo [ano=YYYY]"
   
@@ -29,59 +30,6 @@ namespace :aulas do
 
       count
     end
-
-    def update_sabados_letivos(year)
-      # Carrega as datas dos sábados letivos do arquivo de configuração
-      config_path = Rails.root.join('config', 'sabados_letivos.yml')
-      sabados_letivos_map = if File.exist?(config_path)
-        YAML.load_file(config_path) || {}
-      else
-        {}
-      end
-
-      return 0 if sabados_letivos_map.empty?
-
-      # Converte as chaves (strings de data) para objetos Date
-      sabados_letivos_dates = sabados_letivos_map.keys.map { |date_str| Date.parse(date_str) }
-      
-      # Filtra apenas as datas do ano especificado
-      sabados_letivos_dates = sabados_letivos_dates.select { |date| date.year == year }
-
-      return 0 if sabados_letivos_dates.empty?
-
-      puts "Encontradas #{sabados_letivos_dates.count} datas de sábados letivos para o ano #{year}"
-      puts "Datas: #{sabados_letivos_dates.map { |d| d.strftime('%d/%m/%Y') }.join(', ')}"
-
-      count = 0
-      fetcher = LessonBoardsFetcher.new(nil)
-
-      # Busca todos os registros feitos nas datas de sábados letivos
-      DisciplineContentRecord.joins(:content_record)
-        .where("EXTRACT(YEAR FROM content_records.record_date) = ?", year)
-        .where("content_records.record_date IN (?)", sabados_letivos_dates)
-        .find_each do |dcr|
-          cr = dcr.content_record
-          
-          turma_id = cr.classroom_id
-          disciplina_id = dcr.discipline_id
-          data = cr.record_date
-
-          next unless data.present?
-          next unless data.saturday? # Garante que é sábado
-          next unless sabados_letivos_dates.include?(data) # Garante que está na lista configurada
-
-          total = fetcher.count_lessons(turma_id, disciplina_id, data)
-
-          if total > 0
-            old_value = dcr.class_number
-            dcr.update_column(:class_number, total)
-            count += 1
-            puts "  Atualizado: Turma #{turma_id}, Disciplina #{disciplina_id}, Data #{data.strftime('%d/%m/%Y')}, class_number: #{old_value} -> #{total}"
-          end
-        end
-
-      count
-    end
     
     # Obtém o ano do parâmetro ou variável de ambiente
     year = args[:ano] || ENV['ANO']
@@ -97,15 +45,7 @@ namespace :aulas do
       count = update_class_by_qtd(0, year)
       puts "Total de registros atualizados que antes estavam 0 ou NULL: #{count}"
       
-      # temporary - updating specific values
-      # count = update_class_by_qtd(1, year)
-      # puts "Total de registros atualizados que antes estavam 1: #{count}"
-      # count = update_class_by_qtd(2, year)
-      # puts "Total de registros atualizados que antes estavam 2: #{count}"
-      # count = update_class_by_qtd(3, year)
-      # puts "Total de registros atualizados que antes estavam 3: #{count}"
-      # count = update_class_by_qtd(4, year)
-      # puts "Total de registros atualizados que antes estavam 4: #{count}"
+
     end
     
     puts "=== Fim da atualização ==="
@@ -169,9 +109,11 @@ namespace :aulas do
 
           if total > 0
             old_value = dcr.class_number
-            dcr.update_column(:class_number, total)
-            count += 1
-            puts "  ✓ Atualizado: Turma #{turma_id}, Disciplina #{disciplina_id}, Data #{data.strftime('%d/%m/%Y')}, class_number: #{old_value || 'NULL'} -> #{total}"
+            if old_value != total
+              dcr.update_column(:class_number, total)
+              count += 1
+              puts "  ✓ Atualizado: Turma #{turma_id}, Disciplina #{disciplina_id}, Data #{data.strftime('%d/%m/%Y')}, class_number: #{old_value || 'NULL'} -> #{total}"
+            end
           else
             puts "  ⚠ Sem aulas encontradas: Turma #{turma_id}, Disciplina #{disciplina_id}, Data #{data.strftime('%d/%m/%Y')}"
           end
