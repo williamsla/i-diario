@@ -202,6 +202,7 @@ $(function () {
     var student_id = $student.select2('val');
     $('.old_step_column').remove();
 
+    // Verifica se todos os parâmetros necessários estão preenchidos antes de fazer a requisição
     if (!_.isEmpty(classroom_id) && !_.isEmpty(step_id) && !_.isEmpty(student_id)) {
 
       $.when(
@@ -219,19 +220,24 @@ $(function () {
           makeOldValuesHeader();
         })
       ).then(function () {
-        $.ajax({
-          url: Routes.disciplines_pt_br_path(
-            {
-              classroom_id: classroom_id,
-              step_id: step_id,
-              conceptual: true,
-              student_id: $student.select2('val'),
-              format: 'json'
-            }
-          ),
-          success: handleFetchDisciplinesSuccess,
-          error: handleFetchDisciplinesError
-        });
+        // Revalida student_id antes de fazer a requisição de disciplinas
+        // para garantir que não foi limpo durante a execução assíncrona
+        var current_student_id = $student.select2('val');
+        if (!_.isEmpty(current_student_id)) {
+          $.ajax({
+            url: Routes.disciplines_pt_br_path(
+              {
+                classroom_id: classroom_id,
+                step_id: step_id,
+                conceptual: true,
+                student_id: current_student_id,
+                format: 'json'
+              }
+            ),
+            success: handleFetchDisciplinesSuccess,
+            error: handleFetchDisciplinesError
+          });
+        }
       });
     }
   };

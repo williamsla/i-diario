@@ -21,20 +21,31 @@ class DisciplinesController < ApplicationController
     @disciplines = Discipline.by_classroom(classroom).by_teacher_id(current_teacher.id).order_by_sequence
 
     if params[:conceptual]
+      # Se student_id está vazio, retorna lista vazia e aguarda o JS carregar o aluno
+      if params[:student_id].blank?
+        @disciplines = Discipline.none
+        return
+      end
+      
       school_calendar = step_fetcher.school_calendar
-      student_grade_id = ClassroomsGrade.by_student_id(params[:student_id])
-                                        .by_classroom_id(classroom.id)
-                                        .first
-                                        .grade_id
-      disciplines_in_grade_ids = SchoolCalendarDisciplineGrade.where(
-        school_calendar_id: school_calendar.id,
-        grade_id: student_grade_id
-      ).pluck(:discipline_id)
+      classroom_grade = ClassroomsGrade.by_student_id(params[:student_id])
+                                       .by_classroom_id(classroom.id)
+                                       .first
+      
+      if classroom_grade.present?
+        student_grade_id = classroom_grade.grade_id
+        disciplines_in_grade_ids = SchoolCalendarDisciplineGrade.where(
+          school_calendar_id: school_calendar.id,
+          grade_id: student_grade_id
+        ).pluck(:discipline_id)
 
-      @disciplines = @disciplines.not_grouper
-                                 .by_score_type(ScoreTypes::CONCEPT, params[:student_id])
-                                 .where(id: disciplines_in_grade_ids)
-
+        @disciplines = @disciplines.not_grouper
+                                   .by_score_type(ScoreTypes::CONCEPT, params[:student_id])
+                                   .where(id: disciplines_in_grade_ids)
+      else
+        # Se não encontrou o aluno na turma, retorna lista vazia
+        @disciplines = Discipline.none
+      end
     end
 
     @disciplines = @disciplines.where.not(id: exempted_discipline_ids) if exempted_discipline_ids.present?
