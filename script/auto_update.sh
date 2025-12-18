@@ -1,5 +1,7 @@
 #!/bin/bash
 
+TOTAL_RAM_GB=$(free -g | awk '/^Mem:/{print $2}')
+
 TZ="America/Sao_Paulo"
 export TZ
 
@@ -105,11 +107,14 @@ if echo "$GIT_OUTPUT" | grep -q "Already up to date\|Atualizado"; then
     echo "===> O envio automático de avaliações já está rodando (PIDs: $PIDS)"
   else
     echo "===> INICIANDO o envio automático de avaliações"
+    
     nohup bundle exec rake post_avaliations:init ORDER=asc RAILS_ENV=production > log/auto_post.log 2>&1 &
     echo $! > tmp/auto_post.pid
 
-    nohup bundle exec rake post_avaliations:init ORDER=desc RAILS_ENV=production > log/auto_post_desc.log 2>&1 &
-    echo $! > tmp/auto_post_desc.pid
+    if [ "$TOTAL_RAM_GB" -gt 10 ]; then
+      nohup bundle exec rake post_avaliations:init ORDER=desc RAILS_ENV=production > log/auto_post_desc.log 2>&1 &
+      echo $! > tmp/auto_post_desc.pid
+    fi
   fi 
 
   exit 0 #encerra script
@@ -176,6 +181,15 @@ if [ -f tmp/auto_post.pid ]; then
   rm -f tmp/auto_post.pid
 fi
 
+if [ -f tmp/auto_post_desc.pid ]; then
+  PID=$(cat tmp/auto_post_desc.pid)
+  if ps -p $PID > /dev/null 2>&1; then
+    echo "Parando processo anterior (PID $PID)..."
+    kill -9 $PID
+  fi
+  rm -f tmp/auto_post_desc.pid
+fi
+
 # Para processos que contenham 'post_avaliations' no comando
 echo "Verificando processos com 'post_avaliations'..."
 PIDS=$(pgrep -f post_avaliations || true)
@@ -190,8 +204,11 @@ echo "===> INICIANDO SERVIÇO de envio automático de avaliações"
 nohup bundle exec rake post_avaliations:init ORDER=asc RAILS_ENV=production > log/auto_post.log 2>&1 &
 echo $! > tmp/auto_post.pid
 
-nohup bundle exec rake post_avaliations:init ORDER=desc RAILS_ENV=production > log/auto_post_desc.log 2>&1 &
-echo $! > tmp/auto_post_desc.pid
+# Verifica se o sistema tem mais de 8GB de RAM antes de iniciar o processo DESC
+if [ "$TOTAL_RAM_GB" -gt 10 ]; then
+  nohup bundle exec rake post_avaliations:init ORDER=desc RAILS_ENV=production > log/auto_post_desc.log 2>&1 &
+  echo $! > tmp/auto_post_desc.pid
+fi
 
 
 # add to crontab to run this script daily
