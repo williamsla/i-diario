@@ -188,7 +188,14 @@ class PendingRecordsCalculator
         .group_by { |d| d[0] }
         .transform_values { |dates| dates.map { |d| d[1].to_date }.to_set }
 
-      tdcs.each do |tdc|
+      # Agrupar por disciplina para evitar duplicatas em turmas multisseriadas
+      # Em turmas multisseriadas, o mesmo professor pode ter a mesma disciplina para diferentes séries
+      # Queremos mostrar apenas uma vez por disciplina
+      tdcs_by_discipline = tdcs.group_by { |tdc| tdc.discipline_id }
+      
+      tdcs_by_discipline.each do |discipline_id, discipline_tdcs|
+        # Usar o primeiro tdc da disciplina (todos têm a mesma disciplina, professor e turma)
+        tdc = discipline_tdcs.first
         teacher = tdc.teacher
         discipline = tdc.discipline
 
@@ -476,7 +483,10 @@ class PendingRecordsCalculator
         end
 
         # Calcular carga horária total (usar school_days_for_content para cálculo)
-        weekly_hours = calculate_weekly_hours(classroom.id, discipline.id, tdc.period)
+        # Para turmas multisseriadas, usar o período do primeiro tdc (ou calcular a média se necessário)
+        # Mas como estamos agrupando por disciplina, usar o período do primeiro tdc é suficiente
+        period_for_calculation = discipline_tdcs.first.period
+        weekly_hours = calculate_weekly_hours(classroom.id, discipline.id, period_for_calculation)
         weeks_in_period = calculate_weeks_in_period(start_date, end_date, school_days_for_content)
         total_workload = weekly_hours * weeks_in_period
 
@@ -489,7 +499,7 @@ class PendingRecordsCalculator
           classroom_name: classroom.description,
           unity_id: unity.id,
           unity_name: unity.name,
-          period: tdc.period,
+          period: period_for_calculation,
           total_workload: total_workload,
           pending_frequency_count: pending_frequency_count,
           pending_content_count: pending_content_count
