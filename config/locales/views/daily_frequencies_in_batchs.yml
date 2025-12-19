@@ -1,5 +1,7 @@
 pt-BR:
   daily_frequencies_in_batchs:
+    new:
+      exam_rule_not_found: 'Não localizamos uma regra de avaliação para a turma informada. Entre em contato com o administrador do sistema.'
     create_or_update_multiple:
       destroy: "Excluir"
       confirm: "Essa operação irá excluir este registro de frequência em lote. Você tem certeza?"

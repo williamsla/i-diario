@@ -387,13 +387,14 @@ class DailyFrequenciesInBatchsController < ApplicationController
   end
 
   def find_or_initialize_daily_frequency_by(date, lesson_number, unity_id, classroom_id, discipline_id, period)
-    daily_frequency = DailyFrequency.find_or_initialize_by(unity_id: unity_id,
-                                                           classroom_id: classroom_id,
-                                                           frequency_date: date,
-                                                           discipline_id: discipline_id,
-                                                           class_number: lesson_number,
-                                                           period: period
+    daily_frequency = DailyFrequency.find_or_initialize_by(
+      classroom_id: classroom_id,
+      frequency_date: date,
+      discipline_id: discipline_id,
+      class_number: lesson_number,
+      period: period
     ).tap do |daily_frequency_record|
+      daily_frequency_record.unity_id = unity_id
       daily_frequency_record.school_calendar_id = current_school_calendar.id
       daily_frequency_record.owner_teacher_id = daily_frequency_record.teacher_id = current_teacher_id
       daily_frequency_record.origin = OriginTypes::WEB
