@@ -294,6 +294,22 @@ class DailyFrequenciesInBatchsController < ApplicationController
 
     @additional_data = additional_data(dates, student_ids, dependences,
                                        inactives_on_date, exempteds_from_discipline, active_searchs)
+    
+    # Buscar todas as frequências salvas do período para verificar se há alguma para exibir o botão excluir
+    # Isso inclui frequências que não estão no quadro de horários (como aulas registradas anteriormente)
+    start_date = dates.first
+    end_date = dates.last
+    @saved_frequencies = DailyFrequency.by_classroom_id(@classroom.id)
+                                       .by_period_or_by_teacher(@period, current_teacher_id)
+                                       .by_frequency_date_between(start_date, end_date)
+    
+    if @frequency_type == FrequencyTypes::GENERAL
+      @saved_frequencies = @saved_frequencies.general_frequency
+    else
+      @saved_frequencies = @saved_frequencies.by_discipline_id(@discipline.id) if @discipline.present?
+    end
+    
+    @has_saved_frequencies = @saved_frequencies.exists?
   end
 
   def additional_data(dates, student_ids, dependences, inactives_on_date, exempteds_from_discipline, active_searchs)
