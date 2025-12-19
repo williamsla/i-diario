@@ -400,6 +400,9 @@ class DailyFrequenciesInBatchsController < ApplicationController
       daily_frequency_record.origin = OriginTypes::WEB
     end
 
+    # Recarrega do banco se já estiver persistido para garantir que tem todos os dados atualizados
+    daily_frequency.reload if daily_frequency.persisted?
+
     daily_frequency
   end
 
