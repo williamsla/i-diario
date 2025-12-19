@@ -148,7 +148,7 @@ class ExamRecordAllStepsAveragesReport < BaseReport
       end
 
       # Buscar recuperação do 1º semestre
-      first_sem_recovery = SchoolTermRecoveryDiaryRecord
+      first_recovery_record = SchoolTermRecoveryDiaryRecord
         .joins(recovery_diary_record: :students)
         .where(recovery_diary_records: { classroom_id: @classroom.id, discipline_id: @discipline.id })
         .where(recovery_diary_record_students: { student_id: student_id })
@@ -156,15 +156,15 @@ class ExamRecordAllStepsAveragesReport < BaseReport
         .order('recovery_diary_records.recorded_at DESC')
         .first
       
-      first_sem_recovery_score = nil
-      if first_sem_recovery
-        recovery_student = first_sem_recovery.recovery_diary_record.students.find_by(student_id: student_id)
-        first_sem_recovery_score = recovery_student&.score
+      rec_first_semester_score = nil
+      if first_recovery_record
+        recovery_student = first_recovery_record.recovery_diary_record.students.find_by(student_id: student_id)
+        rec_first_semester_score = recovery_student&.score
       end
-      first_semester_recoveries[student_enrollment.id] = first_sem_recovery_score
+      first_semester_recoveries[student_enrollment.id] = rec_first_semester_score
 
       # Buscar recuperação do 2º semestre
-      second_sem_recovery = SchoolTermRecoveryDiaryRecord
+      second_recovery_record = SchoolTermRecoveryDiaryRecord
         .joins(recovery_diary_record: :students)
         .where(recovery_diary_records: { classroom_id: @classroom.id, discipline_id: @discipline.id })
         .where(recovery_diary_record_students: { student_id: student_id })
@@ -172,26 +172,31 @@ class ExamRecordAllStepsAveragesReport < BaseReport
         .order('recovery_diary_records.recorded_at DESC')
         .first
       
-      second_sem_recovery_score = nil
-      if second_sem_recovery
-        recovery_student = second_sem_recovery.recovery_diary_record.students.find_by(student_id: student_id)
-        second_sem_recovery_score = recovery_student&.score
+      rec_second_semester_score = nil
+      if second_recovery_record
+        recovery_student = second_recovery_record.recovery_diary_record.students.find_by(student_id: student_id)
+        rec_second_semester_score = recovery_student&.score
       end
-      second_semester_recoveries[student_enrollment.id] = second_sem_recovery_score
+      second_semester_recoveries[student_enrollment.id] = rec_second_semester_score
 
       # Calcular médias finais dos semestres (aplicando recuperação se houver)
+      # Para recuperação semestral, calcular sempre como (recuperação + média parcial) / 2
       # Usar valor não arredondado para comparação e cálculo
-      first_sem_final = first_semester_avg_raw
-      if first_sem_recovery_score.present? && first_sem_recovery_score.to_f > (first_sem_final || 0).to_f
-        first_sem_final = first_sem_recovery_score.to_f
+      first_semester_final_average = first_semester_avg_raw
+      if rec_first_semester_score.present? && first_semester_avg_raw.present?        
+        if rec_first_semester_score.to_f > (first_semester_avg_raw || 0).to_f
+          first_semester_final_average = (rec_first_semester_score.to_f + first_semester_avg_raw.to_f) / 2.0
+        end
       end
-      first_semester_final_averages[student_enrollment.id] = first_sem_final ? ScoreRounder.new(@classroom, RoundedAvaliations::NUMERICAL_EXAM, first_semester_steps.last).round(first_sem_final) : nil
+      first_semester_final_averages[student_enrollment.id] = first_semester_final_average ? ScoreRounder.new(@classroom, RoundedAvaliations::NUMERICAL_EXAM, first_semester_steps.last).round(first_semester_final_average) : nil
 
-      second_sem_final = second_semester_avg_raw
-      if second_sem_recovery_score.present? && second_sem_recovery_score.to_f > (second_sem_final || 0).to_f
-        second_sem_final = second_sem_recovery_score.to_f
+      second_semester_final_average = second_semester_avg_raw
+      if rec_second_semester_score.present? && second_semester_avg_raw.present?
+        if rec_second_semester_score.to_f > (second_semester_avg_raw || 0).to_f
+          second_semester_final_average = (rec_second_semester_score.to_f + second_semester_avg_raw.to_f) / 2.0
+        end
       end
-      second_semester_final_averages[student_enrollment.id] = second_sem_final ? ScoreRounder.new(@classroom, RoundedAvaliations::NUMERICAL_EXAM, second_semester_steps.last).round(second_sem_final) : nil
+      second_semester_final_averages[student_enrollment.id] = second_semester_final_average ? ScoreRounder.new(@classroom, RoundedAvaliations::NUMERICAL_EXAM, second_semester_steps.last).round(second_semester_final_average) : nil
 
       # Buscar recuperação final
       final_recovery_record = FinalRecoveryDiaryRecord
@@ -214,8 +219,8 @@ class ExamRecordAllStepsAveragesReport < BaseReport
       mp2 = second_semester_final_averages[student_enrollment.id] || 0
       final_average = (mp1.to_f + mp2.to_f) / 2.0
       
-      if final_recovery_score.present? && final_recovery_score.to_f > (final_average || 0).to_f
-        final_average = final_recovery_score.to_f
+      if final_recovery_score.present? && final_recovery_score.to_f > final_average.to_f
+        final_average = (final_recovery_score.to_f + final_average.to_f) / 2.0
       end
       
       final_averages[student_enrollment.id] = final_average ? ScoreRounder.new(@classroom, RoundedAvaliations::NUMERICAL_EXAM, @steps.last).round(final_average) : nil
