@@ -32,11 +32,17 @@ module DailyFrequencyHelper
   end
 
   def get_start_at(daily_frequency)
-    StepsFetcher.new(daily_frequency.classroom).step_by_date(daily_frequency.frequency_date).start_at
+    step = StepsFetcher.new(daily_frequency.classroom).step_by_date(daily_frequency.frequency_date)
+    # Se não há step (data fora dos períodos letivos mas com evento que permite lançamentos),
+    # usa a própria data da frequência como fallback
+    step&.start_at || daily_frequency.frequency_date
   end
 
   def get_end_at(daily_frequency)
-    StepsFetcher.new(daily_frequency.classroom).step_by_date(daily_frequency.frequency_date).end_at
+    step = StepsFetcher.new(daily_frequency.classroom).step_by_date(daily_frequency.frequency_date)
+    # Se não há step (data fora dos períodos letivos mas com evento que permite lançamentos),
+    # usa a própria data da frequência como fallback
+    step&.end_at || daily_frequency.frequency_date
   end
 
   def frequency_student_name_class(dependence, active, exempted_from_discipline, in_active_search)

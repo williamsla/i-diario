@@ -117,7 +117,9 @@ class KnowledgeAreaContentRecord < ActiveRecord::Base
                   content_record.school_calendar.present? &&
                   record_date.present?
 
-    unless content_record.school_calendar.school_day?(record_date, grades.first, classroom_id)
+    # Usa day_allows_entry? em vez de school_day? para permitir lançamentos
+    # mesmo em dias não letivos se houver evento que permite lançamentos
+    unless content_record.school_calendar.day_allows_entry?(record_date, grades.first, classroom_id, nil)
       errors.add(:base, "")
       content_record.errors.add(:record_date, :not_school_calendar_day)
     end
