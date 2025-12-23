@@ -102,7 +102,7 @@ class SchoolCalendarStep < ActiveRecord::Base
     return if end_date_for_posting >= start_date_for_posting
 
     errors.add(:end_date_for_posting, :must_be_greater_than_start_date_for_posting)
-    errors.add("", "school_calendar_id: #{school_calendar.id} DATA INICIAL: #{end_date_for_posting} DATA FINAL: #{start_date_for_posting}")
+    errors.add(:base, "school_calendar_id: #{school_calendar.id} DATA INICIAL: #{end_date_for_posting} DATA FINAL: #{start_date_for_posting}")
   end
 
   def start_at_must_not_have_conflicting_date

@@ -112,14 +112,28 @@ class ExamRecordReport < BaseReport
     school_term_recovery_scores = {}
     self.any_student_with_dependence = false
 
+    # Obter data de início do ano letivo
+    year_start_date = year_start_date_for_classroom
+
     @students_enrollments.each do |student_enrollment|
-      averages[student_enrollment.id] = StudentAverageCalculator.new(
+      average = StudentAverageCalculator.new(
         student_enrollment.student
       ).calculate(
         classroom,
         discipline,
         @school_calendar_step
       )
+
+      # Se a média estiver em branco e o aluno chegou após o início do ano letivo,
+      # consultar o i-educar para recuperar a média
+      if average.blank? && student_arrived_after_year_start?(student_enrollment, year_start_date)
+        average = fetch_average_from_ieducar(
+          student_enrollment.student_id,
+          @school_calendar_step.step_number
+        )
+      end
+
+      averages[student_enrollment.id] = average
 
       if @lowest_notes
         lowest_note = @lowest_notes[student_enrollment.student_id].to_s
@@ -201,6 +215,22 @@ class ExamRecordReport < BaseReport
             student_note = ActiveSearchDailyNoteStudent.new
           elsif avaliation_id.present?
             note_student = DailyNoteStudent.find_by(student_id: student_id, daily_note_id: daily_note_id, active: true)
+            
+            # Se não encontrou nota normal, busca nota de transferência para esta avaliação
+            # Notas de transferência podem ter sido criadas para outra turma/disciplina,
+            # mas devem aparecer no relatório da turma atual se forem da mesma avaliação
+            if note_student.blank?
+              note_student = DailyNoteStudent.joins(:daily_note)
+                                            .joins("INNER JOIN transfer_notes ON transfer_notes.id = daily_note_students.transfer_note_id")
+                                            .where(
+                                              student_id: student_id,
+                                              daily_notes: { avaliation_id: avaliation_id }
+                                            )
+                                            .where(active: true)
+                                            .where.not(transfer_note_id: nil)
+                                            .first
+            end
+            
             daily_note_student = student_transferred?(note_student) if note_student.present?
             student_note = daily_note_student || NullDailyNoteStudent.new
           end
@@ -434,6 +464,44 @@ class ExamRecordReport < BaseReport
       "Recuperação da etapa\n<font size='7'>#{record.recorded_at.strftime("%d/%m")}"
     else
       "#{record.avaliation.to_s}\n<font size='7'>#{record.test_date.strftime("%d/%m")}</font>\n<font size='7'>#{record.avaliation.try(:weight)}</font>"
+    end
+  end
+
+  def year_start_date_for_classroom
+    steps_fetcher = StepsFetcher.new(classroom)
+    school_calendar = steps_fetcher.school_calendar
+    
+    if school_calendar&.steps&.any?
+      school_calendar.first_day
+    else
+      Date.new(@year, 1, 1)
+    end
+  end
+
+  def student_arrived_after_year_start?(student_enrollment, year_start_date)
+    student_enrollment_classroom = StudentEnrollmentClassroom
+      .joins(:student_enrollment)
+      .where(student_enrollments: { id: student_enrollment.id })
+      .by_classroom(classroom.id)
+      .first
+
+    return false if student_enrollment_classroom.blank? || student_enrollment_classroom.joined_at.blank?
+
+    student_enrollment_classroom.joined_at.to_date > year_start_date
+  end
+
+  def fetch_average_from_ieducar(student_id, step_number)
+    ieducar_api_configuration = IeducarApiConfiguration.current
+    return nil if ieducar_api_configuration.blank?
+
+    fetcher = StudentAverageFromIeducarFetcher.new(ieducar_api_configuration)
+    average = fetcher.fetch(student_id, classroom.id, discipline.id, step_number)
+    
+    # Arredondar a média conforme as configurações da turma
+    if average.present?
+      ScoreRounder.new(classroom, RoundedAvaliations::NUMERICAL_EXAM, @school_calendar_step).round(average)
+    else
+      nil
     end
   end
 end
