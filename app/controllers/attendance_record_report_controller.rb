@@ -17,6 +17,9 @@ class AttendanceRecordReportController < ApplicationController
 
     set_options_by_user
     fetch_collections
+    
+    # Preenche automaticamente com todas as aulas
+    @attendance_record_report_form.class_numbers = (1..@number_of_classes).to_a.join(',') if @attendance_record_report_form.class_numbers.blank?
   end
 
   def report

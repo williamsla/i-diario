@@ -234,6 +234,15 @@ $(function () {
 
   $hideWhenGlobalAbsence.hide();
 
+  // Se houver valor inicial em class_numbers, seleciona automaticamente
+  if ($class_numbers.length && $class_numbers.val() && $class_numbers.val().length > 0) {
+    var initialValue = $class_numbers.val();
+    $class_numbers.val(initialValue);
+    $class_numbers.trigger("change");
+    $selectAllClasses.hide();
+    $deselectAllClasses.show();
+  }
+
   if ($classroom.length && $classroom.val().length) {
     checkExamRule({ classroom_id: $classroom.val() });
   }
