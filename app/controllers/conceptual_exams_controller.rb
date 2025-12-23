@@ -344,7 +344,7 @@ class ConceptualExamsController < ApplicationController
       @conceptual_exam.step.start_at,
       @conceptual_exam.step.end_at,
       @conceptual_exam.classroom,
-      @conceptual_exam.discipline
+      current_user_discipline
     )
 
     if current_student_enrollment = @student_enrollments.find { |item| item[:student_id] == @conceptual_exam.student_id }
