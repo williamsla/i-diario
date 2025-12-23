@@ -13,5 +13,7 @@ production:
   - [exam_posting, 2]
   - [exam_posting_1, 1]
   - [exam_posting_2, 1]
-  - [synchronizer, 1]
-  - [synchronizer_enqueue_next_job, 1]
+  - [synchronizer, 3]
+  - [synchronizer_enqueue_next_job, 3]
+
+:timeout: 1200

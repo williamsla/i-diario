@@ -1,7 +1,8 @@
 # bundle exec rake aulas:atualizar
 # bundle exec rake aulas:atualizar[YYYY]
-# RAILS_ENV=production ANO=YYYY bundle exec rake aulas:atualizar
+# RAILS_ENV=production ANO=YYYY OLD_VALUE=0 bundle exec rake aulas:atualizar
 # RAILS_ENV=production ANO=YYYY bundle exec rake aulas:recontar_sabados_letivos
+
 namespace :aulas do
   desc "Atualiza class_number com base no quadro de horários (lessons_boards) e na data do conteúdo [ano=YYYY]"
   
@@ -34,16 +35,18 @@ namespace :aulas do
     # Obtém o ano do parâmetro ou variável de ambiente
     year = args[:ano] || ENV['ANO']
     year = year.to_i
-
-    puts "=== Atualizando class_number (somente NULL ou 0) para o ano #{year} ==="
+    old_value = args[:old_value] || ENV['OLD_VALUE'] || 0
+    old_value = old_value.to_i
+    
+    puts "=== Atualizando class_number (somente NULL ou #{old_value}) para o ano #{year} ==="
 
     entity = Entity.active.last
     
     entity.using_connection do
       connection = ActiveRecord::Base.connection
 
-      count = update_class_by_qtd(0, year)
-      puts "Total de registros atualizados que antes estavam 0 ou NULL: #{count}"
+      count = update_class_by_qtd(old_value, year)
+      puts "Total de registros atualizados que antes estavam #{old_value} ou NULL: #{count}"
       
 
     end

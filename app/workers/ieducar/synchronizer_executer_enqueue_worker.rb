@@ -17,7 +17,10 @@ class SynchronizerExecuterEnqueueWorker
     worker_batch = WorkerBatch.find(params[:worker_batch_id])
     orchestrator = SynchronizationOrchestrator.new(worker_batch, params[:klass], params)
 
-    return unless orchestrator.can_synchronize?
+    unless orchestrator.can_synchronize?
+      Rails.logger.warn "[SynchronizerExecuterEnqueueWorker] Cannot synchronize #{params[:klass]}: dependencies not solved or already initialized"
+      return
+    end
 
     worker_state = create_worker_state(worker_state_params(params, worker_batch))
 
