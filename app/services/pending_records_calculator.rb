@@ -1004,6 +1004,20 @@ class PendingRecordsCalculator
     has_discarded_in_same_week
   end
 
+  def has_discipline_content_record_on_date?(classroom, discipline_ids, date, today)
+    # Verifica se há registro de conteúdo por disciplina na data especificada
+    # Para turmas infantis onde o professor iniciou preenchimento por disciplina
+    return false if date > today
+    return false if discipline_ids.blank?
+    
+    DisciplineContentRecord
+      .joins(:content_record)
+      .where(content_records: { classroom_id: classroom.id })
+      .where(discipline_id: discipline_ids)
+      .where('content_records.record_date = ?', date)
+      .exists?
+  end
+
   def is_infantil_classroom?(classroom)
     classroom.classrooms_grades.any? do |classroom_grade|
       grade = classroom_grade.grade
@@ -1038,6 +1052,13 @@ class PendingRecordsCalculator
         .to_set
     end
 
+    # Verificar se o professor iniciou preenchimento por disciplina
+    # Se sim, também verificar registros por disciplina ao invés de apenas por área de conhecimento
+    started_as_discipline = DisciplineContentRecord
+      .by_teacher_id(teacher_id)
+      .by_classroom_id(classroom.id)
+      .exists?
+    
     # Buscar conteúdos por área de conhecimento em batch (sem filtrar por professor)
     # Isso garante que registros de professores anteriores sejam considerados
     content_data = KnowledgeAreaContentRecord
@@ -1051,6 +1072,32 @@ class PendingRecordsCalculator
     all_contents_by_knowledge_area = content_data
       .group_by { |d| d[0] }
       .transform_values { |dates| dates.map { |d| d[1].to_date }.to_set }
+    
+    # Se o professor iniciou preenchimento por disciplina, buscar também registros por disciplina
+    # Buscar disciplinas que pertencem às áreas de conhecimento
+    discipline_ids_by_knowledge_area = {}
+    all_contents_by_discipline = {}
+    if started_as_discipline
+      knowledge_area_ids.each do |knowledge_area_id|
+        discipline_ids = Discipline.where(knowledge_area_id: knowledge_area_id).pluck(:id)
+        discipline_ids_by_knowledge_area[knowledge_area_id] = discipline_ids
+      end
+      
+      # Buscar conteúdos por disciplina em batch
+      all_discipline_ids = discipline_ids_by_knowledge_area.values.flatten.uniq
+      if all_discipline_ids.any?
+        discipline_content_data = DisciplineContentRecord
+          .joins(:content_record)
+          .where(content_records: { classroom_id: classroom.id })
+          .where(discipline_id: all_discipline_ids)
+          .where('content_records.record_date >= ? AND content_records.record_date <= ? AND content_records.record_date <= ?', start_date, end_date, today)
+          .pluck(:discipline_id, 'content_records.record_date')
+        
+        all_contents_by_discipline = discipline_content_data
+          .group_by { |d| d[0] }
+          .transform_values { |dates| dates.map { |d| d[1].to_date }.to_set }
+      end
+    end
 
     # Processar cada área de conhecimento
     knowledge_area_ids.each do |knowledge_area_id|
@@ -1110,6 +1157,17 @@ class PendingRecordsCalculator
         end
 
         content_dates_set = all_contents_by_knowledge_area[knowledge_area_id] || Set.new
+        
+        # Se o professor iniciou preenchimento por disciplina, também verificar registros por disciplina
+        if started_as_discipline
+          discipline_ids = discipline_ids_by_knowledge_area[knowledge_area_id] || []
+          discipline_content_dates = Set.new
+          discipline_ids.each do |discipline_id|
+            discipline_content_dates.merge(all_contents_by_discipline[discipline_id] || Set.new)
+          end
+          # Combinar datas de área de conhecimento e disciplina
+          content_dates_set = content_dates_set + discipline_content_dates
+        end
 
         # Calcular pendências baseado apenas no quadro ativo
         pending_frequency_dates = school_days_for_frequency.select { |date| date <= today && !frequency_dates_set.include?(date) }.to_a
@@ -1182,6 +1240,22 @@ class PendingRecordsCalculator
           .where('content_records.record_date >= ? AND content_records.record_date <= ?', start_date, end_date)
           .pluck('content_records.record_date')
           .map(&:to_date)
+        
+        # Se o professor iniciou preenchimento por disciplina, também buscar registros por disciplina
+        if started_as_discipline
+          discipline_ids = discipline_ids_by_knowledge_area[knowledge_area_id] || []
+          if discipline_ids.any?
+            discipline_content_records = DisciplineContentRecord
+              .joins(:content_record)
+              .where(content_records: { classroom_id: classroom.id })
+              .where(discipline_id: discipline_ids)
+              .where('content_records.record_date >= ? AND content_records.record_date <= ?', start_date, end_date)
+              .pluck('content_records.record_date')
+              .map(&:to_date)
+            # Combinar datas de área de conhecimento e disciplina
+            content_records = (content_records + discipline_content_records).uniq
+          end
+        end
 
         # Calcular dias pendentes baseado apenas no quadro ativo
         pending_frequency_dates = (school_days_for_frequency - frequencies).select { |date| date <= today }
@@ -1255,7 +1329,15 @@ class PendingRecordsCalculator
       
       unless @count_only
         result[:pending_frequency_dates] = pending_frequency_dates.sort
-        result[:pending_content_dates] = pending_content_dates.sort
+        # Se o professor iniciou preenchimento por disciplina, verificar se há registro por disciplina nas datas pendentes
+        if started_as_discipline
+          discipline_ids = discipline_ids_by_knowledge_area[knowledge_area_id] || []
+          result[:pending_content_dates] = pending_content_dates.reject do |date|
+            has_discipline_content_record_on_date?(classroom, discipline_ids, date, today)
+          end.sort
+        else
+          result[:pending_content_dates] = pending_content_dates.sort
+        end
       end
       
       results << result
