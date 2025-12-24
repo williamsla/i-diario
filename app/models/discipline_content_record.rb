@@ -144,7 +144,9 @@ class DisciplineContentRecord < ActiveRecord::Base
                   record_date.present?
 
     grades.each do |grade|
-      unless content_record.school_calendar.school_day?(record_date, grade, classroom_id, discipline)
+      # Usa day_allows_entry? em vez de school_day? para permitir lançamentos
+      # mesmo em dias não letivos se houver evento que permite lançamentos
+      unless content_record.school_calendar.day_allows_entry?(record_date, grade, classroom_id, discipline_id)
         errors.add(:base, :not_school_calendar_day)
         content_record.errors.add(:record_date, :not_school_calendar_day)
       end

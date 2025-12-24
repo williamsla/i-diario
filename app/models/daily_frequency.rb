@@ -170,6 +170,12 @@ class DailyFrequency < ApplicationRecord
   def ensure_belongs_to_step
     return if school_calendar.blank? || frequency_date.blank?
 
+    # Se há um evento que permite lançamentos, não precisa verificar step
+    # (eventos "não letivo - permite lançamentos" podem estar fora dos períodos letivos)
+    if school_calendar.day_allows_entry?(frequency_date, nil, classroom_id, discipline_id)
+      return
+    end
+
     step = StepsFetcher.new(classroom).step_by_date(frequency_date)
     errors.add(:frequency_date, I18n.t('errors.messages.is_not_between_steps')) if step.blank?
   end

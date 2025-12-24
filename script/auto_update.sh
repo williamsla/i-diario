@@ -1,7 +1,5 @@
 #!/bin/bash
 
-TOTAL_RAM_GB=$(free -g | awk '/^Mem:/{print $2}')
-
 TZ="America/Sao_Paulo"
 export TZ
 
@@ -74,11 +72,11 @@ if is_dawn; then
   if [[ "${CIDADE_COD:-}" == *delmiro* ]]; then
     echo "Sincronizando Delmiro..."
     
-    sudo systemctl stop rails-server.service
+    sudo systemctl stop puma.service
     RAILS_ENV=production bundle exec rake ieducar_api:synchronize[true,true]
   
     sleep 30m
-    sudo systemctl restart rails-server.service
+    sudo systemctl start puma.service
   
   else
     RAILS_ENV=production bundle exec rake ieducar_api:synchronize[true,true]
@@ -100,22 +98,6 @@ GIT_OUTPUT=$(git pull)
 # Verifica se houve alterações
 if echo "$GIT_OUTPUT" | grep -q "Already up to date\|Atualizado"; then
   echo "Nenhuma alteração detectada. Preparando para encerrar script."
-
-  echo "Verificando envio de avaliações..."
-  PIDS=$(pgrep -f post_avaliations || true)
-  if [ -n "$PIDS" ]; then 
-    echo "===> O envio automático de avaliações já está rodando (PIDs: $PIDS)"
-  else
-    echo "===> INICIANDO o envio automático de avaliações"
-    
-    nohup bundle exec rake post_avaliations:init ORDER=asc RAILS_ENV=production > log/auto_post.log 2>&1 &
-    echo $! > tmp/auto_post.pid
-
-    if [ "$TOTAL_RAM_GB" -gt 10 ]; then
-      nohup bundle exec rake post_avaliations:init ORDER=desc RAILS_ENV=production > log/auto_post_desc.log 2>&1 &
-      echo $! > tmp/auto_post_desc.pid
-    fi
-  fi 
 
   exit 0 #encerra script
 fi
@@ -201,13 +183,11 @@ else
 fi
 
 echo "===> INICIANDO SERVIÇO de envio automático de avaliações"
-nohup bundle exec rake post_avaliations:init ORDER=asc RAILS_ENV=production > log/auto_post.log 2>&1 &
-echo $! > tmp/auto_post.pid
+systemctl restart auto_post_asc.service
 
-# Verifica se o sistema tem mais de 8GB de RAM antes de iniciar o processo DESC
-if [ "$TOTAL_RAM_GB" -gt 10 ]; then
-  nohup bundle exec rake post_avaliations:init ORDER=desc RAILS_ENV=production > log/auto_post_desc.log 2>&1 &
-  echo $! > tmp/auto_post_desc.pid
+# Verifica se o serviço está em execução antes de reiniciar o processo DESC
+if systemctl is-active --quiet auto_post_desc.service; then
+  systemctl restart auto_post_desc.service
 fi
 
 
