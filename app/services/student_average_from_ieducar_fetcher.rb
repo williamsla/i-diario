@@ -19,6 +19,8 @@ class StudentAverageFromIeducarFetcher
       etapa: step_number
     )
 
+    logger.info "Result: #{result.inspect}"
+
     # A API pode retornar a média em diferentes formatos
     # Tentar diferentes chaves possíveis
     media = result['media'] || result['nota'] || result['media_geral']
@@ -33,10 +35,12 @@ class StudentAverageFromIeducarFetcher
       nil
     end
   rescue IeducarApi::Base::ApiError => error
-    Rails.logger.error "Erro ao buscar média do i-educar: #{error.message}"
+    logger.error "Erro ao buscar média do i-educar: #{error.message}"
+    logger.error "Backtrace: #{error.backtrace.join("\n")}" if error.backtrace
     nil
   rescue StandardError => error
-    Rails.logger.error "Erro inesperado ao buscar média do i-educar: #{error.message}"
+    logger.error "Erro inesperado ao buscar média do i-educar: #{error.message}"
+    logger.error "Backtrace: #{error.backtrace.join("\n")}" if error.backtrace
     nil
   end
 
@@ -44,6 +48,18 @@ class StudentAverageFromIeducarFetcher
 
   def api
     IeducarApi::StudentAverages.new(@ieducar_api_configuration.to_api)
+  end
+
+  def logger
+    @logger ||= begin
+      log_file = Rails.root.join('log', 'student_average_from_ieducar.log')
+      logger = Logger.new(log_file, 'daily')
+      logger.level = Logger::INFO
+      logger.formatter = proc do |severity, datetime, progname, msg|
+        "[#{datetime.strftime('%Y-%m-%d %H:%M:%S')}] #{severity} -- #{msg}\n"
+      end
+      logger
+    end
   end
 end
 
