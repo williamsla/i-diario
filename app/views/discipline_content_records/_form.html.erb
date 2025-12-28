@@ -34,7 +34,7 @@
           </div>
         <% end %>
 
-        <% if @allow_class_number %>
+        <% if @allow_class_number || @has_lesson_board_map == false %>
           <div class="col col-sm-4">
             <% isDisabled = ['new', 'create', 'edit', 'update'].include?(action_name) ? false : true %>
             <%= f.input :class_number, as: :select2, multiple: false,
@@ -180,7 +180,7 @@
     <% if @discipline_content_record.persisted? %>
       <%= link_to t('views.form.history'),
             history_discipline_content_record_path(@discipline_content_record),
-            class: 'btn btn-info' %>
+            class: 'btn btn-info pull-left' %>
     <% end %>
   </footer>
 <% end %>

@@ -58,6 +58,8 @@ class DisciplineContentRecordsController < ApplicationController
       classroom_id: current_user_classroom.id
     )
 
+    @has_lesson_board_map = false
+
     if params[:class_number].present?
       @class_number_qtd = params[:class_number]
     else
@@ -66,6 +68,7 @@ class DisciplineContentRecordsController < ApplicationController
         @discipline_content_record.discipline_id,
         @discipline_content_record.content_record.record_date
       )
+      @has_lesson_board_map = qtd > 0
 
       @class_number_qtd = qtd || 0
     end
@@ -92,7 +95,11 @@ class DisciplineContentRecordsController < ApplicationController
     
     authorize @discipline_content_record
 
-    return render_content_with_multiple_class_numbers if allow_class_number
+    @class_numbers = resource_params[:class_number]
+    
+    if @class_numbers.present? && @class_numbers.size > 0
+      return render_content_with_multiple_class_numbers
+    end
 
     # Usa transação para garantir atomicidade e evitar condições de corrida
     saved = false
@@ -166,10 +173,17 @@ class DisciplineContentRecordsController < ApplicationController
 
     @discipline_content_record = DisciplineContentRecord.find(params[:id]).localized
 
+    qtd = LessonBoardsFetcher.new(current_user).count_lessons(
+        current_user_classroom.id,
+        @discipline_content_record.discipline_id,
+        @discipline_content_record.content_record.record_date
+    )
+    @has_lesson_board_map = qtd > 0
+
     if @discipline_content_record[:class_number].present?
       @class_number_qtd = @discipline_content_record[:class_number]
-    else
-      @class_number_qtd = 0
+    else      
+      @class_number_qtd = qtd || 0
     end
  
     authorize @discipline_content_record
