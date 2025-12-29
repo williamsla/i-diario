@@ -565,16 +565,21 @@ class PendingRecordsCalculator
     [weeks, 1].max # Mínimo de 1 semana
   end
 
-  def get_all_disciplines_weekdays(classroom_id, discipline_ids, periods)
+  def get_all_disciplines_weekdays(classroom_id, discipline_ids, periods, teacher_id = nil)
     # Buscar todos os weekdays de uma vez para todas as disciplinas
     # Retorna dois hashes: [active_weekdays, discarded_weekdays]
     # active_weekdays: { discipline_id => [weekdays] } - quadros ativos
     # discarded_weekdays: { discipline_id => [weekdays] } - quadros excluídos
+    # IMPORTANTE: Não filtra por teacher_id nos weekdays para garantir que se dois professores
+    # têm a mesma disciplina, ambos vejam os mesmos dias pendentes, independente de qual
+    # professor está associado ao weekday no quadro de aulas
+    # O parâmetro teacher_id é mantido para compatibilidade, mas não é usado aqui
     
     active_result = {}
     discarded_result = {}
     
     # Buscar weekdays de quadros ativos (discarded_at IS NULL)
+    # Não filtrar por teacher_id - buscar weekdays de todos os professores que têm a disciplina
     query_active = LessonsBoardLessonWeekday
       .joins(lessons_board_lesson: [lessons_board: [classrooms_grade: :classroom]])
       .joins(:teacher_discipline_classroom)
@@ -617,6 +622,7 @@ class PendingRecordsCalculator
     discarded_boards_count = ActiveRecord::Base.connection.exec_query(sql_check).first&.dig('count') || 0
     
     # Usar unscoped para ignorar default_scope do LessonsBoardLessonWeekday
+    # Não filtrar por teacher_id - buscar weekdays de todos os professores que têm a disciplina
     query_discarded = LessonsBoardLessonWeekday.unscoped
       .joins('INNER JOIN lessons_board_lessons lbl ON lbl.id = lessons_board_lesson_weekdays.lessons_board_lesson_id')
       .joins('INNER JOIN lessons_boards lb ON lb.id = lbl.lessons_board_id AND lb.discarded_at IS NOT NULL')
@@ -653,6 +659,7 @@ class PendingRecordsCalculator
     # Para disciplinas que não foram encontradas OU que foram encontradas mas sem weekdays, tenta sem filtrar por período
     missing_discipline_ids = discipline_ids.select { |id| active_result[id].blank? }
     if missing_discipline_ids.any?
+      # Não filtrar por teacher_id - buscar weekdays de todos os professores que têm a disciplina
       weekdays_data_fallback = LessonsBoardLessonWeekday
         .joins(lessons_board_lesson: [lessons_board: [classrooms_grade: :classroom]])
         .joins(:teacher_discipline_classroom)
@@ -678,6 +685,7 @@ class PendingRecordsCalculator
       end
       
       # Buscar também quadros excluídos sem período (fallback)
+      # Não filtrar por teacher_id - buscar weekdays de todos os professores que têm a disciplina
       weekdays_data_discarded_fallback = LessonsBoardLessonWeekday.unscoped
         .joins('INNER JOIN lessons_board_lessons lbl ON lbl.id = lessons_board_lesson_weekdays.lessons_board_lesson_id')
         .joins('INNER JOIN lessons_boards lb ON lb.id = lbl.lessons_board_id AND lb.discarded_at IS NOT NULL')
@@ -707,6 +715,7 @@ class PendingRecordsCalculator
     
     # Buscar também quadros excluídos para todas as disciplinas, mesmo que tenham sido encontradas no ativo
     # Isso garante que encontramos todos os quadros excluídos, independente do período
+    # Não filtrar por teacher_id - buscar weekdays de todos os professores que têm a disciplina
     weekdays_data_discarded_all = LessonsBoardLessonWeekday.unscoped
       .joins('INNER JOIN lessons_board_lessons lbl ON lbl.id = lessons_board_lesson_weekdays.lessons_board_lesson_id')
       .joins('INNER JOIN lessons_boards lb ON lb.id = lbl.lessons_board_id AND lb.discarded_at IS NOT NULL')
@@ -742,25 +751,43 @@ class PendingRecordsCalculator
     all_weekdays[discipline_id] || []
   end
 
-  def get_knowledge_areas_weekdays(classroom_id, knowledge_area_ids, periods)
+  def get_knowledge_areas_weekdays(classroom_id, knowledge_area_ids, periods, teacher_id = nil)
     # Buscar weekdays para áreas de conhecimento através das disciplinas que pertencem a essas áreas
     # Retorna dois hashes: [active_weekdays, discarded_weekdays]
     # active_weekdays: { knowledge_area_id => [weekdays] } - quadros ativos
     # discarded_weekdays: { knowledge_area_id => [weekdays] } - quadros excluídos
+    # Se teacher_id for fornecido, filtra apenas as disciplinas desse professor na turma
+    # IMPORTANTE: Os weekdays não são filtrados por teacher_id para garantir que se dois professores
+    # têm a mesma disciplina, ambos vejam os mesmos dias pendentes
     
     active_result = {}
     discarded_result = {}
     return [active_result, discarded_result] if knowledge_area_ids.blank?
     
     # Buscar disciplinas que pertencem às áreas de conhecimento
-    # Discipline tem belongs_to :knowledge_area, então buscar diretamente por knowledge_area_id
-    discipline_ids = Discipline.where(knowledge_area_id: knowledge_area_ids)
-                               .pluck(:id)
+    # Se teacher_id for fornecido, filtrar apenas disciplinas desse professor na turma
+    if teacher_id.present?
+      # Buscar disciplinas do professor através de teacher_discipline_classroom
+      discipline_ids = TeacherDisciplineClassroom
+        .where(classroom_id: classroom_id)
+        .where(teacher_id: teacher_id)
+        .where(active: true)
+        .where(discarded_at: nil)
+        .joins(:discipline)
+        .where(disciplines: { knowledge_area_id: knowledge_area_ids })
+        .pluck(:discipline_id)
+        .uniq
+    else
+      # Se não houver teacher_id, buscar todas as disciplinas das áreas de conhecimento
+      discipline_ids = Discipline.where(knowledge_area_id: knowledge_area_ids)
+                                 .pluck(:id)
+    end
     
     return [active_result, discarded_result] if discipline_ids.blank?
     
     # Buscar weekdays das disciplinas (ativos e excluídos)
-    all_weekdays, discarded_weekdays = get_all_disciplines_weekdays(classroom_id, discipline_ids, periods || [])
+    # Passar teacher_id para filtrar apenas os weekdays do professor específico
+    all_weekdays, discarded_weekdays = get_all_disciplines_weekdays(classroom_id, discipline_ids, periods || [], teacher_id)
     
     # Agrupar weekdays por área de conhecimento
     knowledge_area_ids.each do |knowledge_area_id|
@@ -1036,7 +1063,8 @@ class PendingRecordsCalculator
     # Para turmas infantis, verificar se há quadro de aulas para áreas de conhecimento
     # Se não houver weekdays no quadro de aulas, não há pendências
     # Buscar weekdays para áreas de conhecimento (se houver quadro de aulas)
-    knowledge_area_weekdays, knowledge_area_discarded_weekdays = get_knowledge_areas_weekdays(classroom.id, knowledge_area_ids, nil)
+    # IMPORTANTE: Passar teacher_id para filtrar apenas os weekdays do professor específico
+    knowledge_area_weekdays, knowledge_area_discarded_weekdays = get_knowledge_areas_weekdays(classroom.id, knowledge_area_ids, nil, teacher_id)
 
     # Buscar frequências em batch (sem filtrar por professor)
     # Isso garante que registros de professores anteriores sejam considerados
