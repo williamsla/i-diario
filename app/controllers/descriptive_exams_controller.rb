@@ -217,25 +217,53 @@ class DescriptiveExamsController < ApplicationController
 
   def fetch_students
     @students = []
+    @students_by_student_id = {} # Mapeia student_id => exam_student para rastrear e substituir matrículas inativas
 
     enrollment_classrooms_list.each do |enrollment_classroom|
       student = enrollment_classroom[:student]
       student_enrollment = enrollment_classroom[:student_enrollment]
 
+      left_at = enrollment_classroom[:student_enrollment_classroom].left_at.to_date
+      is_active = !(left_at.present? && left_at < @descriptive_exam.step.try(:start_at))
+
+      # Verifica se já existe um exam_student para este aluno na lista atual
+      existing_exam_student = @students_by_student_id[student.id]
+
+      if existing_exam_student.present?
+        # Se já existe uma matrícula para este aluno
+        existing_is_active = !(existing_exam_student.active_student)
+        
+        if existing_is_active && !is_active
+          # Se a existente é ativa e a nova é inativa, mantém a existente (ativa)
+          next
+        elsif !existing_is_active && is_active
+          # Se a existente é inativa e a nova é ativa, remove a antiga e adiciona a nova
+          @students.delete(existing_exam_student)
+          @students_by_student_id.delete(student.id)
+        elsif !existing_is_active && !is_active
+          # Se ambas são inativas, mantém a primeira
+          next
+        else
+          # Se ambas são ativas, mantém a primeira (não deveria acontecer, mas por segurança)
+          next
+        end
+      end
+
+      # Busca ou cria o exam_student
       exam_student = (@descriptive_exam.students.where(student_id: student.id).first || @descriptive_exam.students.build(student_id: student.id))
       exam_student.dependence = student_has_dependence?(student_enrollment, @descriptive_exam.discipline)
       exam_student.exempted_from_discipline = student_exempted_from_discipline?(student_enrollment)
       regular_expression = /contenteditable(([ ]*)?\=?([ ]*)?("(.*)"|'(.*)'))/
       exam_student.value = exam_student.value.gsub(regular_expression, '') if exam_student.value.present?
 
-      left_at = enrollment_classroom[:student_enrollment_classroom].left_at.to_date
-
       exam_student.left_at = left_at
       exam_student.active_student = left_at.present? && left_at < @descriptive_exam.step.try(:start_at)
       
       classroom_grade = current_user_classroom.classrooms_grades.by_id(enrollment_classroom[:student_enrollment_classroom].classrooms_grade_id).first
       exam_student.grade_description = classroom_grade.grade.description
+      
       @students << exam_student
+      @students_by_student_id[student.id] = exam_student
     end
 
     @any_student_exempted_from_discipline = any_student_exempted_from_discipline?
