@@ -791,19 +791,26 @@ class DailyFrequenciesInBatchsController < ApplicationController
     end
   end
 
-  def invalid_dates?(start_date, end_date)
+  def invalid_dates?(start_date, end_date, classroom = nil, discipline = nil)
     if start_date.nil? || end_date.nil?
       flash[:error] = t('daily_frequencies_in_batchs.create_or_update_multiple.blank_dates')
       return true
     end
 
-    unless SchoolDayChecker.new(current_school_calendar, start_date, nil, nil, nil).school_day?
-      flash[:error] = t('daily_frequencies_in_batchs.create_or_update_multiple.initial_date_no_school_day')
+    if start_date > end_date
+      flash[:error] = t('daily_frequencies_in_batchs.create_or_update_multiple.start_date_greater_end_date')
       return true
     end
 
-    unless SchoolDayChecker.new(current_school_calendar, end_date, nil, nil, nil).school_day?
-      flash[:error] = t('daily_frequencies_in_batchs.create_or_update_multiple.final_date_no_school_day')
+    # Verificar se há pelo menos uma data letiva no intervalo
+    # Permite que a data inicial ou final não sejam letivas, desde que haja datas letivas no intervalo
+    classroom_id = classroom&.id || @classroom&.id
+    discipline_id = discipline&.id || @discipline&.id
+    school_day_checker = SchoolDayChecker.new(current_school_calendar, start_date, nil, classroom_id, discipline_id)
+    school_dates = school_day_checker.school_dates_between(start_date, end_date)
+    
+    if school_dates.empty?
+      flash[:error] = t('daily_frequencies_in_batchs.create_or_update_multiple.no_school_day')
       return true
     end
 
@@ -812,17 +819,20 @@ class DailyFrequenciesInBatchsController < ApplicationController
     #   return true
     # end
 
-    if start_date > end_date
-      flash[:error] = t('daily_frequencies_in_batchs.create_or_update_multiple.start_date_greater_end_date')
-      true
-    end
+    false
   end
 
   def require_valid_dates
     start_date = params[:frequency_in_batch_form][:start_date].to_date
     end_date = params[:frequency_in_batch_form][:end_date].to_date
+    
+    # Buscar classroom e discipline para validação
+    classroom_id = params[:frequency_in_batch_form][:classroom_id]
+    discipline_id = params[:frequency_in_batch_form][:discipline_id]
+    classroom = Classroom.find(classroom_id) if classroom_id.present?
+    discipline = Discipline.find(discipline_id) if discipline_id.present?
 
-    if invalid_dates?(start_date, end_date)
+    if invalid_dates?(start_date, end_date, classroom, discipline)
       redirect_to(new_daily_frequencies_in_batch_path) and return
     end
   end
