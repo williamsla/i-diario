@@ -45,7 +45,7 @@ class RecoveryDiaryRecord < ActiveRecord::Base
   validates :unity, presence: true
   validates :classroom, presence: true
   validates :discipline, presence: true
-  validates :recorded_at, presence: true, school_calendar_day: true, posting_date: true
+  validates :recorded_at, presence: true, school_calendar_day: true, posting_date: true, unless: :final_recovery?
 
   validate :at_least_one_assigned_student
   validate :recorded_at_must_be_less_than_or_equal_to_today
@@ -60,6 +60,10 @@ class RecoveryDiaryRecord < ActiveRecord::Base
 
   def test_date
     recorded_at
+  end
+
+  def final_recovery?
+    creator_type == 'final_recovery_diary_record'
   end
 
   private
