@@ -462,13 +462,31 @@ class DailyFrequenciesInBatchsController < ApplicationController
   end
 
   def find_or_initialize_daily_frequency_by(date, lesson_number, unity_id, classroom_id, discipline_id, period)
-    daily_frequency = DailyFrequency.find_or_initialize_by(
+    # Buscar primeiro sem o period para encontrar frequências registradas por outros professores
+    search_params = {
       classroom_id: classroom_id,
       frequency_date: date,
       discipline_id: discipline_id,
-      class_number: lesson_number,
-      period: period
-    ).tap do |daily_frequency_record|
+      class_number: lesson_number
+    }
+    
+    # Tenta encontrar sem o period primeiro (para encontrar frequências de outros professores)
+    daily_frequency = DailyFrequency.find_by(search_params)
+    
+    # Se não encontrou, tenta com o period também
+    if daily_frequency.nil?
+      search_params_with_period = search_params.dup
+      search_params_with_period[:period] = period
+      daily_frequency = DailyFrequency.find_by(search_params_with_period)
+    end
+    
+    # Se ainda não encontrou, inicializa um novo registro
+    if daily_frequency.nil?
+      search_params[:period] = period
+      daily_frequency = DailyFrequency.new(search_params)
+    end
+    
+    daily_frequency.tap do |daily_frequency_record|
       daily_frequency_record.unity_id = unity_id
       daily_frequency_record.school_calendar_id = current_school_calendar.id
       daily_frequency_record.owner_teacher_id = daily_frequency_record.teacher_id = current_teacher_id
