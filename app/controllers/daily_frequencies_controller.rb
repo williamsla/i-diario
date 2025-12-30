@@ -113,32 +113,20 @@ class DailyFrequenciesController < ApplicationController
     frequency_date = @daily_frequency.frequency_date.to_date
     
     enrollment_classrooms_by_student.each do |student_id, enrollment_classrooms|
-      # Selecionar a matrícula mais recente baseada em changed_at e joined_at
-      # Prioriza changed_at (última alteração na turma), depois joined_at (data de entrada)
+      # Selecionar a matrícula mais recente baseada no sequence e joined_at
+      # Prioriza sequence (maior = mais recente), depois joined_at (mais recente = mais recente)
       enrollment_classroom = enrollment_classrooms.max_by do |ec|
-        # Acessar changed_at do objeto student_enrollment_classroom
-        sec = ec[:student_enrollment_classroom]
-        changed_at = sec.try(:changed_at)
+        # Acessar sequence e joined_at do hash
+        sequence = ec[:sequence]
         joined_at = ec[:joined_at]
         
-        # Converter para Date para comparação
-        changed_at_date = if changed_at.present?
-          changed_at.is_a?(Date) ? changed_at : (changed_at.to_date rescue nil)
-        end
-        
+        # Converter sequence para inteiro e joined_at para Date
+        sequence_value = sequence.to_i rescue 0
         joined_at_date = joined_at.is_a?(Date) ? joined_at : (joined_at.to_date rescue nil)
         
-        # Usar changed_at se disponível (indica última alteração), senão usar joined_at
-        # Se ambos estiverem disponíveis, usar o mais recente entre eles
-        if changed_at_date && joined_at_date
-          [changed_at_date, joined_at_date].max
-        elsif changed_at_date
-          changed_at_date
-        elsif joined_at_date
-          joined_at_date
-        else
-          Date.new(1900, 1, 1)
-        end
+        # Retorna um array para comparação: [sequence, joined_at]
+        # O max_by vai comparar primeiro pelo sequence, depois pelo joined_at
+        [joined_at_date, sequence_value || Date.new(1900, 1, 1)]
       end
       
       student = enrollment_classroom[:student]
