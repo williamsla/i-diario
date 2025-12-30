@@ -387,7 +387,10 @@ class DisciplineLessonPlansController < ApplicationController
     
     @student_ids = @student_enrollments.collect(&:student_id)
 
-    if current_user_classroom.description.include?('AEE')    
+    Rails.logger.info("is_aee: #{is_aee}")
+    Rails.logger.info("student_ids: #{@student_ids}")
+    Rails.logger.info("students: #{@students} \n\n\n\n\n\n")
+    if is_aee == true
       @students = Student.where(id: @student_ids).ordered      
     else
       @students = Student.where(id: @student_ids).where(uses_differentiated_exam_rule: true).ordered      

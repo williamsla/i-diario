@@ -213,6 +213,14 @@ class ApplicationController < ActionController::Base
   end
   helper_method :is_infantil
 
+  def is_aee
+    classroom_grades.each do |classroom_grade|
+      return true if classroom_grade.grade.description.match?(/aee/i)
+    end
+    return false
+  end
+  helper_method :is_aee
+
   def has_opinion
     classroom_grades.each do |classroom_grade|
       exam_rule = classroom_grade.exam_rule
