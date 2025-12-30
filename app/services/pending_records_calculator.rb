@@ -53,6 +53,9 @@ class PendingRecordsCalculator
       # Calcular dias letivos
       school_day_checker = SchoolDayChecker.new(school_calendar, start_date, grade_id, classroom.id, nil)
       all_school_days = school_day_checker.school_dates_between(start_date, end_date)
+      
+      # Adicionar sábados que estão no quadro de aulas, mesmo que não sejam dias letivos no calendário
+      all_school_days = add_saturdays_from_lesson_boards(all_school_days, start_date, end_date, classroom.id)
 
       # Buscar áreas de conhecimento do professor na turma
       knowledge_area_ids = KnowledgeArea.by_teacher(@teacher_id)
@@ -106,6 +109,9 @@ class PendingRecordsCalculator
       first_discipline_id = tdcs.first.discipline_id
       school_day_checker = SchoolDayChecker.new(school_calendar, start_date, grade_id, classroom.id, first_discipline_id)
       all_school_days = school_day_checker.school_dates_between(start_date, end_date)
+      
+      # Adicionar sábados que estão no quadro de aulas, mesmo que não sejam dias letivos no calendário
+      all_school_days = add_saturdays_from_lesson_boards(all_school_days, start_date, end_date, classroom.id)
 
       # Verificar se é turma infantil
       is_infantil = is_infantil_classroom?(classroom)
@@ -303,7 +309,8 @@ class PendingRecordsCalculator
           end
         else
           # Filtrar apenas os dias letivos que correspondem aos dias da semana da disciplina (quadro ativo)
-          school_days_for_content = all_school_days.select { |date| weekday_numbers.include?(date.wday) }
+          # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
+          school_days_for_content = all_school_days.select { |date| weekday_numbers.include?(get_equivalent_weekday_number(date)) }
           # Para frequência geral, usar os weekdays do professor; senão, usar os da disciplina
           if is_general_frequency
             teacher_weekday_numbers = current_teacher_weekdays.map do |wd|
@@ -318,14 +325,16 @@ class PendingRecordsCalculator
               end
             end.compact
             # Se a disciplina não tem weekdays, não há pendências
-            school_days_for_frequency = teacher_weekday_numbers.any? ? all_school_days.select { |date| teacher_weekday_numbers.include?(date.wday) } : []
+            # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
+            school_days_for_frequency = teacher_weekday_numbers.any? ? all_school_days.select { |date| teacher_weekday_numbers.include?(get_equivalent_weekday_number(date)) } : []
           else
             school_days_for_frequency = school_days_for_content
           end
         end
         
         # Obter dias que estão em quadros excluídos
-        school_days_discarded = all_school_days.select { |date| discarded_weekday_numbers.include?(date.wday) }
+        # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
+        school_days_discarded = all_school_days.select { |date| discarded_weekday_numbers.include?(get_equivalent_weekday_number(date)) }
 
         # Obter frequências registradas (usar dados já carregados em batch)
         if @count_only
@@ -922,7 +931,8 @@ class PendingRecordsCalculator
       has_discarded_in_same_week = week_records.any? do |record_date|
         record_week = get_week_number(record_date)
         # Verificar se o dia da semana do registro está nos weekdays descartados
-        is_in_discarded = discarded_weekday_numbers.include?(record_date.wday)
+        # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
+        is_in_discarded = discarded_weekday_numbers.include?(get_equivalent_weekday_number(record_date))
         record_week == pending_week && is_in_discarded
       end
     end
@@ -968,7 +978,8 @@ class PendingRecordsCalculator
       has_discarded_in_same_week = week_records.any? do |record_date|
         record_week = get_week_number(record_date)
         # Verificar se o dia da semana do registro está nos weekdays descartados
-        is_in_discarded = discarded_weekday_numbers.include?(record_date.wday)
+        # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
+        is_in_discarded = discarded_weekday_numbers.include?(get_equivalent_weekday_number(record_date))
         if record_week == pending_week && is_in_discarded
           true
         else
@@ -1019,7 +1030,8 @@ class PendingRecordsCalculator
       has_discarded_in_same_week = week_records.any? do |record_date|
         record_week = get_week_number(record_date)
         # Verificar se o dia da semana do registro está nos weekdays descartados
-        is_in_discarded = discarded_weekday_numbers.include?(record_date.wday)
+        # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
+        is_in_discarded = discarded_weekday_numbers.include?(get_equivalent_weekday_number(record_date))
         if record_week == pending_week && is_in_discarded
           true
         else
@@ -1049,6 +1061,92 @@ class PendingRecordsCalculator
     classroom.classrooms_grades.any? do |classroom_grade|
       grade = classroom_grade.grade
       grade&.description&.match?(/creche|pre|pre-escola|pré|pré-escola|maternal|bercario|berçario|infantil|aee/i)
+    end
+  end
+
+  def add_saturdays_from_lesson_boards(all_school_days, start_date, end_date, classroom_id)
+    # Carregar mapeamento de sábados letivos do arquivo de configuração
+    sabados_letivos_map = load_sabados_letivos_config
+    
+    # Se não houver mapeamento, retornar os dias letivos sem modificação
+    return all_school_days if sabados_letivos_map.blank?
+    
+    # Buscar todos os sábados no intervalo de datas
+    saturdays_in_range = start_date.upto(end_date).select { |date| date.saturday? }
+    
+    # Para cada sábado, verificar se está mapeado e se o dia equivalente está no quadro de aulas
+    saturdays_to_add = []
+    saturdays_in_range.each do |saturday_date|
+      # Verificar se o sábado está mapeado no arquivo de configuração
+      date_key = saturday_date.strftime("%Y-%m-%d")
+      equivalent_weekday = sabados_letivos_map[date_key]
+      
+      next if equivalent_weekday.blank?
+      
+      # Verificar se o dia equivalente está no quadro de aulas para esta turma
+      has_equivalent_weekday = LessonsBoardLessonWeekday
+        .joins(lessons_board_lesson: [lessons_board: [classrooms_grade: :classroom]])
+        .joins(:teacher_discipline_classroom)
+        .where(classrooms: { id: classroom_id })
+        .where(teacher_discipline_classrooms: { active: true })
+        .where(teacher_discipline_classrooms: { discarded_at: nil })
+        .where('lessons_boards.discarded_at IS NULL')
+        .where(weekday: equivalent_weekday)
+      
+      # IMPORTANTE: Filtrar por ano do quadro de aulas para garantir que está buscando do ano correto
+      if @school_year.present?
+        has_equivalent_weekday = has_equivalent_weekday.where(classrooms: { year: @school_year })
+      end
+      
+      # Se o dia equivalente estiver no quadro de aulas, adicionar o sábado
+      if has_equivalent_weekday.exists?
+        saturdays_to_add << saturday_date unless all_school_days.include?(saturday_date)
+      end
+    end
+    
+    # Retornar a lista atualizada com os sábados adicionados
+    (all_school_days + saturdays_to_add).sort
+  end
+
+  def load_sabados_letivos_config
+    # Carrega o mapeamento de sábados letivos do arquivo de configuração
+    @sabados_letivos_map ||= begin
+      config_path = Rails.root.join('config', 'sabados_letivos.yml')
+      
+      if File.exist?(config_path)
+        YAML.load_file(config_path) || {}
+      else
+        {}
+      end
+    end
+  end
+
+  def get_equivalent_weekday_number(date)
+    # Retorna o número do dia da semana equivalente para uma data
+    # Se for um sábado mapeado, retorna o número do dia equivalente
+    # Caso contrário, retorna o wday normal da data
+    
+    return date.wday unless date.saturday?
+    
+    # Verificar se o sábado está mapeado
+    sabados_letivos_map = load_sabados_letivos_config
+    date_key = date.strftime("%Y-%m-%d")
+    equivalent_weekday = sabados_letivos_map[date_key]
+    
+    # Se não estiver mapeado, retornar o wday normal (6 para sábado)
+    return date.wday if equivalent_weekday.blank?
+    
+    # Converter o dia equivalente para número
+    case equivalent_weekday
+    when 'sunday' then 0
+    when 'monday' then 1
+    when 'tuesday' then 2
+    when 'wednesday' then 3
+    when 'thursday' then 4
+    when 'friday' then 5
+    when 'saturday' then 6
+    else
+      date.wday # Se não for um dia válido, retornar o wday normal
     end
   end
 
@@ -1169,12 +1267,14 @@ class PendingRecordsCalculator
         end.compact
         
         # Filtrar apenas os dias letivos que correspondem aos dias da semana da área de conhecimento
-        school_days_for_content = all_school_days.select { |date| weekday_numbers.include?(date.wday) }
+        # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
+        school_days_for_content = all_school_days.select { |date| weekday_numbers.include?(get_equivalent_weekday_number(date)) }
         school_days_for_frequency = is_general_frequency ? school_days_for_content : []
       end
       
       # Obter dias que estão em quadros excluídos
-      school_days_discarded = all_school_days.select { |date| discarded_weekday_numbers.include?(date.wday) }
+      # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
+      school_days_discarded = all_school_days.select { |date| discarded_weekday_numbers.include?(get_equivalent_weekday_number(date)) }
 
       # Obter frequências registradas
       if @count_only
