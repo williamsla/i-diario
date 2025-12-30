@@ -24,6 +24,9 @@ class FinalRecoveryDiaryRecordsController < ApplicationController
     set_options_by_user
     fetch_disciplines_by_classroom
 
+    students_in_final_recovery = fetch_final_recoveries_by_classroom
+    add_missing_students(students_in_final_recovery) if students_in_final_recovery
+
     number_of_decimal_places
   end
 
