@@ -25,15 +25,35 @@ class DescriptiveReportForm
   end
 
   def fetch_exam_steps
-    @descriptive_exams_steps ||= DescriptiveExam.by_classroom_id(classroom_id).ordered
+    exams = DescriptiveExam.by_classroom_id(classroom_id)
+    
+    # Se não for por disciplina, buscar apenas pareceres sem disciplina
+    unless opinion_type_by_discipline?
+      exams = exams.where(discipline_id: nil)
+    end
+    
+    @descriptive_exams_steps ||= exams.ordered
   end
 
   def fetch_exam_values
-    @descriptive_exam_values ||= DescriptiveExamStudent.by_classroom(classroom_id)
+    exam_students = DescriptiveExamStudent.by_classroom(classroom_id)
+    
+    # Se não for por disciplina, buscar apenas pareceres sem disciplina
+    unless opinion_type_by_discipline?
+      exam_students = exam_students.joins(:descriptive_exam)
+                                    .merge(DescriptiveExam.where(discipline_id: nil))
+    end
+    
+    @descriptive_exam_values ||= exam_students
+  end
+
+  def opinion_type_by_discipline?
+    opinion_type = classroom.first_exam_rule.opinion_type.to_s
+    [OpinionTypes::BY_STEP_AND_DISCIPLINE.to_s, OpinionTypes::BY_YEAR_AND_DISCIPLINE.to_s].include?(opinion_type)
   end
 
   def is_annual
-    classroom.first_exam_rule.opinion_type == 3
+    classroom.first_exam_rule.opinion_type.to_s == OpinionTypes::BY_YEAR.to_s
   end
 
   
