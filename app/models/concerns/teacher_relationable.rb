@@ -107,6 +107,10 @@ module TeacherRelationable
 
   def ensure_teacher_can_post_to_discipline
     return if teacher_relation_fetcher.exists_discipline_in_relation?
+    
+    # Permite edição de planos existentes mesmo que o professor não esteja mais na turma
+    # Isso permite que outros professores editem planos de professores que já saíram
+    return if persisted? && validation_type != :create
 
     errors.add(:discipline_id, :not_belongs_to_teacher)
   end
@@ -122,6 +126,10 @@ module TeacherRelationable
 
   def ensure_teacher_can_post_to_grades
     return if teacher_relation_fetcher.exists_all_grades_in_relation?
+    
+    # Permite edição de planos existentes mesmo que a série não pertença mais ao professor
+    # Isso permite que outros professores editem planos de professores que já saíram
+    return if persisted? && validation_type != :create
 
     errors.add(@grade_field, :not_belongs_to_teacher)
   end
