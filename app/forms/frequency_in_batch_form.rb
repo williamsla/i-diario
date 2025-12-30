@@ -6,7 +6,6 @@ class FrequencyInBatchForm < ApplicationRecord
   validates_date :start_date, :end_date
 
   validates :unity_id, :classroom_id, :period, presence: true
-  validates :frequency_date, presence: true, school_calendar_day: true, posting_date: true
 
   validate :frequency_date_must_be_less_than_or_equal_to_today
 

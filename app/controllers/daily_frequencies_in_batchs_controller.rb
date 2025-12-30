@@ -9,12 +9,33 @@ class DailyFrequenciesInBatchsController < ApplicationController
   before_action :require_valid_dates, only: [:create, :form]
 
   def new
+    @admin_or_teacher = current_user.current_role_is_admin_or_employee?
+    
     classroom_id = teacher_allocated.blank? ? nil : current_user_classroom.id
     discipline_id = teacher_allocated.blank? ? nil : current_user_discipline.id
+    unity_id = current_unity&.id
+    
+    # Para o período, usar o período da turma ou tentar buscar o período do professor
+    period = nil
+    if @admin_or_teacher && current_user_classroom.present? && current_user_discipline.present?
+      begin
+        period = TeacherPeriodFetcher.new(
+          current_teacher.id,
+          current_user_classroom.id,
+          current_user_discipline.id
+        ).teacher_period
+      rescue
+        period = current_user_classroom.period
+      end
+    else
+      period = current_user_classroom&.period
+    end
 
     @frequency_in_batch_form = FrequencyInBatchForm.new(
+      unity_id: unity_id,
       classroom_id: classroom_id,
-      discipline_id: discipline_id
+      discipline_id: discipline_id,
+      period: period
     )
 
     @frequency_type = current_frequency_type(current_user_classroom)
@@ -221,6 +242,21 @@ class DailyFrequenciesInBatchsController < ApplicationController
     if dates.empty?
       flash.now[:warning] = t('daily_frequencies_in_batchs.create_or_update_multiple.no_school_day')
 
+      # Inicializar o formulário com os parâmetros corretos para renderizar :new
+      start_date = params[:frequency_in_batch_form][:start_date] rescue nil
+      end_date = params[:frequency_in_batch_form][:end_date] rescue nil
+      
+      @frequency_in_batch_form = FrequencyInBatchForm.new(
+        unity_id: @classroom.unity_id,
+        classroom_id: @classroom.id,
+        discipline_id: @discipline&.id,
+        period: @period,
+        start_date: start_date,
+        end_date: end_date
+      )
+      @admin_or_teacher = current_user.current_role_is_admin_or_employee?
+      set_options_by_user
+
       render :new
 
       return false
@@ -274,6 +310,21 @@ class DailyFrequenciesInBatchsController < ApplicationController
     if @students.blank?
       flash.now[:warning] = t('daily_frequencies_in_batchs.create_or_update_multiple.warning_no_students')
 
+      # Inicializar o formulário com os parâmetros corretos para renderizar :new
+      start_date = params[:frequency_in_batch_form][:start_date] rescue nil
+      end_date = params[:frequency_in_batch_form][:end_date] rescue nil
+      
+      @frequency_in_batch_form = FrequencyInBatchForm.new(
+        unity_id: @classroom.unity_id,
+        classroom_id: @classroom.id,
+        discipline_id: @discipline&.id,
+        period: @period,
+        start_date: start_date,
+        end_date: end_date
+      )
+      @admin_or_teacher = current_user.current_role_is_admin_or_employee?
+      set_options_by_user
+
       render :new
 
       return false
@@ -297,10 +348,13 @@ class DailyFrequenciesInBatchsController < ApplicationController
     
     # Buscar todas as frequências salvas do período para verificar se há alguma para exibir o botão excluir
     # Isso inclui frequências que não estão no quadro de horários (como aulas registradas anteriormente)
-    start_date = dates.first
-    end_date = dates.last
+    start_date = dates.first.to_date
+    end_date = dates.last.to_date
+    
+    # Buscar frequências de forma mais ampla para garantir que encontre todos os registros
+    # Busca apenas por classroom, data e disciplina (se houver), sem filtro de period/teacher
+    # Isso garante que encontre todos os registros que existem no banco
     @saved_frequencies = DailyFrequency.by_classroom_id(@classroom.id)
-                                       .by_period_or_by_teacher(@period, current_teacher_id)
                                        .by_frequency_date_between(start_date, end_date)
     
     if @frequency_type == FrequencyTypes::GENERAL
@@ -309,7 +363,12 @@ class DailyFrequenciesInBatchsController < ApplicationController
       @saved_frequencies = @saved_frequencies.by_discipline_id(@discipline.id) if @discipline.present?
     end
     
-    @has_saved_frequencies = @saved_frequencies.exists?
+    # Coletar os IDs primeiro para garantir que temos os dados
+    # Não aplicar filtro de period/teacher aqui, pois queremos encontrar TODOS os registros existentes
+    @saved_frequencies_ids = @saved_frequencies.pluck(:id)
+    @has_saved_frequencies = @saved_frequencies_ids.present?
+    
+    true
   end
 
   def additional_data(dates, student_ids, dependences, inactives_on_date, exempteds_from_discipline, active_searchs)

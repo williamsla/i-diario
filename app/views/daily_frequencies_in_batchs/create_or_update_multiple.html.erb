@@ -144,16 +144,14 @@
     <footer>
       <div class="pull-left">
         <%= link_to 'Voltar', new_daily_frequencies_in_batch_path, class: 'btn btn-default pull-left' %>
-        <% # Buscar TODOS os IDs das frequências salvas do período, não apenas as do quadro de horários %>
-        <% all_saved_frequency_ids = @saved_frequencies.pluck(:id) if @has_saved_frequencies %>
-        <% # Usar @has_saved_frequencies que busca TODAS as frequências salvas, não apenas as do quadro de horários %>
-        <% if @has_saved_frequencies %>
+        <% # Usar @saved_frequencies_ids que já foi coletado no controller para garantir que os IDs estejam disponíveis %>
+        <% if @saved_frequencies_ids.present? %>
           <%= link_to t('.destroy'), destroy_multiple_daily_frequencies_in_batchs_path(
-            daily_frequencies_ids: all_saved_frequency_ids), method: :delete,
+            daily_frequencies_ids: @saved_frequencies_ids), method: :delete,
                       data: { confirm: t('.confirm') }, class: 'btn new-delete-style pull-left'
           %>
           <%= link_to t('views.form.history'), history_multiple_daily_frequencies_in_batchs_url(
-            daily_frequencies_ids: all_saved_frequency_ids), class: 'btn btn-primary pull-left'
+            daily_frequencies_ids: @saved_frequencies_ids), class: 'btn btn-primary pull-left'
           %>
           <div class="btn-group pull-left dropup" style="margin-left: 5px;">
             <button class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-expanded="true">
