@@ -314,11 +314,13 @@ class ConceptualExamsController < ApplicationController
   end
 
   def mark_not_existing_disciplines_as_invisible
-    return if @disciplines.blank?
+    teacher_discipline_ids = disciplines_with_assignment
 
     @conceptual_exam.conceptual_exam_values.each do |conceptual_exam_value|
-      discipline_exists = @disciplines.any? do |discipline|
-        conceptual_exam_value.discipline.id == discipline.id
+      discipline_exists = if @disciplines.present?
+        @disciplines.any? { |discipline| conceptual_exam_value.discipline.id == discipline.id }
+      else
+        teacher_discipline_ids.include?(conceptual_exam_value.discipline_id)
       end
 
       conceptual_exam_value.mark_as_invisible unless discipline_exists
@@ -358,6 +360,7 @@ class ConceptualExamsController < ApplicationController
 
   def disciplines_with_assignment
     TeacherDisciplineClassroom.by_classroom(@conceptual_exam.classroom_id)
+                              .by_teacher_id(current_teacher_id)
                               .by_year(current_school_calendar.year)
                               .pluck(:discipline_id)
                               .uniq
