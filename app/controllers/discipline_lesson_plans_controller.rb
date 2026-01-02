@@ -387,9 +387,6 @@ class DisciplineLessonPlansController < ApplicationController
     
     @student_ids = @student_enrollments.collect(&:student_id)
 
-    Rails.logger.info("is_aee: #{is_aee}")
-    Rails.logger.info("student_ids: #{@student_ids}")
-    Rails.logger.info("students: #{@students} \n\n\n\n\n\n")
     if is_aee == true
       @students = Student.where(id: @student_ids).ordered      
     else

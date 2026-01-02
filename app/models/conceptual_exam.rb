@@ -80,16 +80,45 @@ class ConceptualExam < ActiveRecord::Base
                                                .by_teacher_id(teacher_id)
                                                .pluck(:discipline_id)
 
-    exempted_discipline_ids = SpecificStep.where(classroom_id: classroom_id)
-                                          .where.not(used_steps: '')
-                                          .pluck(:discipline_id)
+    return none if discipline_ids.blank?
 
-    incomplete_conceptual_exams_ids = ConceptualExamValue.joins(:conceptual_exam).active.where(value: nil)
-                                                         .where(conceptual_exams: { classroom_id: classroom_id })
-                                                         .where.not(discipline_id: exempted_discipline_ids)
-                                                         .by_discipline_id(discipline_ids)
-                                                         .group(:conceptual_exam_id)
-                                                         .pluck(:conceptual_exam_id)
+    classroom = Classroom.find(classroom_id)
+    school_calendar = StepsFetcher.new(classroom).school_calendar
+
+    return none unless school_calendar.present?
+
+    # Busca conceptual_exams incompletos considerando a série de cada aluno
+    # Para turmas multisseriadas, apenas as disciplinas da série do aluno são consideradas
+    incomplete_conceptual_exams_ids = ConceptualExamValue
+      .joins(:conceptual_exam)
+      .active(false)
+      .where(value: nil)
+      .where(conceptual_exams: { classroom_id: classroom_id })
+      .where(conceptual_exam_values: { discipline_id: discipline_ids })
+      .where(
+        "EXISTS (
+          SELECT 1
+          FROM classrooms_grades
+          INNER JOIN student_enrollment_classrooms ON student_enrollment_classrooms.classrooms_grade_id = classrooms_grades.id
+          INNER JOIN student_enrollments ON student_enrollments.id = student_enrollment_classrooms.student_enrollment_id
+          INNER JOIN school_calendar_discipline_grades ON school_calendar_discipline_grades.school_calendar_id = #{school_calendar.id}
+                                                       AND school_calendar_discipline_grades.grade_id = classrooms_grades.grade_id
+                                                       AND school_calendar_discipline_grades.discipline_id = conceptual_exam_values.discipline_id
+          WHERE classrooms_grades.classroom_id = conceptual_exams.classroom_id
+          AND student_enrollments.student_id = conceptual_exams.student_id
+        )"
+      )
+      .where(
+        "NOT EXISTS (
+          SELECT 1 FROM specific_steps
+          WHERE specific_steps.classroom_id = conceptual_exams.classroom_id
+          AND specific_steps.discipline_id = conceptual_exam_values.discipline_id
+          AND specific_steps.used_steps != ''
+          AND NOT (conceptual_exams.step_number = ANY(string_to_array(specific_steps.used_steps, ',')::integer[]))
+        )"
+      )
+      .group(:conceptual_exam_id)
+      .pluck(:conceptual_exam_id)
 
     case status
     when ConceptualExamStatus::INCOMPLETE
@@ -106,6 +135,20 @@ class ConceptualExam < ActiveRecord::Base
                                                .where(disciplines: { descriptor: true })
                                                .pluck(:discipline_id)
     
+    # Filtra disciplinas pela série do aluno (para turmas multisseriadas)
+    student_grade = ClassroomsGrade.by_student_id(student_id)
+                                   .by_classroom_id(classroom_id)
+                                   .first
+    
+    if student_grade.present? && school_calendar.present?
+      disciplines_in_grade_ids = SchoolCalendarDisciplineGrade.where(
+        school_calendar_id: school_calendar.id,
+        grade_id: student_grade.grade_id
+      ).pluck(:discipline_id)
+      
+      discipline_ids = discipline_ids & disciplines_in_grade_ids
+    end
+    
     exempted_discipline_ids = ExemptedDisciplinesInStep.discipline_ids(
       classroom.id,
       step_number
@@ -116,13 +159,7 @@ class ConceptualExam < ActiveRecord::Base
       .where.not(discipline_id: exempted_discipline_ids)
       .by_discipline_id(discipline_ids)
 
-    return ConceptualExamStatus::COMPLETE if values.blank?
-
-    return ConceptualExamStatus::INCOMPLETE if values.any? { |conceptual_exam_value|
-      conceptual_exam_value.value.blank?
-    }
-
-    ConceptualExamStatus::INCOMPLETE
+    values.blank? ? ConceptualExamStatus::COMPLETE : ConceptualExamStatus::INCOMPLETE
   end
 
   def valid_for_destruction?
