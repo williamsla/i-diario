@@ -95,6 +95,7 @@ namespace :aulas do
 
       # Busca todos os registros feitos nas datas de sábados letivos
       DisciplineContentRecord.joins(:content_record)
+        .where("class_number IS NULL OR class_number = ?", 0)
         .where("EXTRACT(YEAR FROM content_records.record_date) = ?", year)
         .where("content_records.record_date IN (?)", sabados_letivos_dates)
         .find_each do |dcr|
@@ -117,8 +118,6 @@ namespace :aulas do
               count += 1
               puts "  ✓ Atualizado: Turma #{turma_id}, Disciplina #{disciplina_id}, Data #{data.strftime('%d/%m/%Y')}, class_number: #{old_value || 'NULL'} -> #{total}"
             end
-          else
-            puts "  ⚠ Sem aulas encontradas: Turma #{turma_id}, Disciplina #{disciplina_id}, Data #{data.strftime('%d/%m/%Y')}"
           end
         end
 
