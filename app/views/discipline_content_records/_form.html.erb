@@ -34,7 +34,7 @@
           </div>
         <% end %>
 
-        <% if @allow_class_number || @has_lesson_board_map == false %>
+        <% if @allow_class_number || @has_lesson_board_map == false || ['edit', 'update'].include?(action_name) %>
           <div class="col col-sm-4">
             <% isDisabled = ['new', 'create', 'edit', 'update'].include?(action_name) ? false : true %>
             <%= f.input :class_number, as: :select2, multiple: false,
