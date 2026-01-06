@@ -12,11 +12,17 @@ class StudentAverageCalculator
     @recovery_lowest_note_in_step = student_notes_query.recovery_lowest_note_in_step(step)
     @recovery_diary_records = student_notes_query.recovery_diary_records
 
-    return if daily_note_students.blank? && recovery_diary_records.blank? && recovery_lowest_note_in_step.blank?
+    # Se não houver notas locais, tentar buscar do i-educar
+    if daily_note_students.blank? && recovery_diary_records.blank? && recovery_lowest_note_in_step.blank?
+      return fetch_average_from_ieducar(classroom, discipline, step)
+    end
 
     result = calculate_average_by_settings(test_setting)
 
-    return if result.blank?
+    # Se o cálculo local retornar nil/blank, tentar buscar do i-educar
+    if result.blank?
+      return fetch_average_from_ieducar(classroom, discipline, step)
+    end
 
     result = ComplementaryExamCalculator.new(
       [AffectedScoreTypes::STEP_AVERAGE, AffectedScoreTypes::BOTH],
@@ -149,5 +155,23 @@ class StudentAverageCalculator
     else
       calculate_average(score_sum, @scores.size)
     end
+  end
+
+  def fetch_average_from_ieducar(classroom, discipline, step)
+    ieducar_api_configuration = IeducarApiConfiguration.current
+    return nil if ieducar_api_configuration.blank?
+
+    fetcher = StudentAverageFromIeducarFetcher.new(ieducar_api_configuration)
+    average = fetcher.fetch(student.id, classroom.id, discipline.id, step.step_number)
+    
+    # Arredondar a média conforme as configurações da turma
+    if average.present?
+      ScoreRounder.new(classroom, RoundedAvaliations::NUMERICAL_EXAM, step).round(average)
+    else
+      nil
+    end
+  rescue StandardError => error
+    Rails.logger.error "Erro ao buscar média do i-educar para aluno #{student.id}, turma #{classroom.id}, disciplina #{discipline.id}, etapa #{step.step_number}: #{error.message}"
+    nil
   end
 end
