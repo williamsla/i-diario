@@ -33,9 +33,9 @@ class AttendanceRecordReportController < ApplicationController
 
     @attendance_record_report_form.class_numbers = (1..@number_of_classes).to_a if @attendance_record_report_form.class_numbers.blank?
     
-    # Se não houver quadro de horários, força show_only_teacher_days como false
+    # Se não houver quadro de horários, força show_only_discipline_days como false
     unless has_lesson_board?
-      @attendance_record_report_form.show_only_teacher_days = false
+      @attendance_record_report_form.show_only_discipline_days = false
     end
 
     if @attendance_record_report_form.valid?
@@ -123,7 +123,7 @@ class AttendanceRecordReportController < ApplicationController
                                                           :school_calendar_year,
                                                           :current_teacher_id,
                                                           :second_teacher_signature,
-                                                          :show_only_teacher_days)
+                                                          :show_only_discipline_days)
   end
 
   def clear_invalid_dates
