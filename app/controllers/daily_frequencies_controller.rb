@@ -54,6 +54,21 @@ class DailyFrequenciesController < ApplicationController
         class_numbers: @class_numbers
       )
     else
+
+      # Verifica se já existe frequência salva para essa data, mesmo que não seja dia letivo
+      # Se existir, redireciona para edit_multiple para permitir exclusão
+      if existing_frequencies_for_date?
+        @frequency_type = current_frequency_type(@daily_frequency)
+
+        return if @frequency_type == FrequencyTypes::BY_DISCIPLINE && !(validate_class_numbers && validate_discipline)
+
+        redirect_to edit_multiple_daily_frequencies_path(
+          daily_frequency: daily_frequency_params,
+          class_numbers: @class_numbers
+        )
+        return
+      end
+      
       render :new
     end
   end
@@ -639,6 +654,81 @@ class DailyFrequenciesController < ApplicationController
     @daily_schedule_discipline.count { |d| d == discipline_id }
   end
   helper_method :count_classes_of_the_day
+
+  def existing_frequencies_for_date?
+    return false unless daily_frequency_params[:classroom_id].present? && daily_frequency_params[:frequency_date].present?
+
+    frequency_date_str = daily_frequency_params[:frequency_date]
+    
+    # Parse da data
+    if frequency_date_str.is_a?(String)
+      if frequency_date_str.include?('/')
+        frequency_date = Date.strptime(frequency_date_str, "%d/%m/%Y")
+      else
+        frequency_date = Date.strptime(frequency_date_str, "%Y-%m-%d")
+      end
+    else
+      frequency_date = frequency_date_str.to_date
+    end
+
+    # Determina o período - usa o mesmo padrão do find_or_initialize_daily_frequency_by
+    period = @period || daily_frequency_params[:period]
+    period = period.to_i if period.is_a?(String)
+    
+    # Se há class_numbers, verifica frequências por disciplina
+    if class_numbers?(@class_numbers)
+      @class_numbers.each do |class_number|
+        # Usa os mesmos critérios do find_or_initialize_daily_frequency_by
+        search_params = {
+          classroom_id: daily_frequency_params[:classroom_id],
+          frequency_date: frequency_date,
+          discipline_id: daily_frequency_params[:discipline_id],
+          class_number: class_number,
+          period: period
+        }
+        
+        existing_frequency = DailyFrequency.find_by(search_params)
+        
+        # Se não encontrou e o período é FULL, tenta buscar em todos os períodos
+        if existing_frequency.blank? && period == Periods::FULL.to_i
+          existing_frequency = DailyFrequency.where(
+            classroom_id: daily_frequency_params[:classroom_id],
+            frequency_date: frequency_date,
+            discipline_id: daily_frequency_params[:discipline_id],
+            class_number: class_number,
+            period: [Periods::FULL, Periods::MATUTINAL, Periods::VESPERTINE, Periods::NIGHTLY]
+          ).first
+        end
+
+        return true if existing_frequency.present?
+      end
+      false
+    else
+      # Verifica frequência global - usa os mesmos critérios do find_or_initialize_daily_frequency_by
+      search_params = {
+        classroom_id: daily_frequency_params[:classroom_id],
+        frequency_date: frequency_date,
+        discipline_id: nil,
+        class_number: nil,
+        period: period
+      }
+      
+      exists = DailyFrequency.exists?(search_params)
+      
+      # Se não encontrou e o período é FULL, tenta buscar em todos os períodos
+      if !exists && period == Periods::FULL.to_i
+        exists = DailyFrequency.exists?(
+          classroom_id: daily_frequency_params[:classroom_id],
+          frequency_date: frequency_date,
+          discipline_id: nil,
+          class_number: nil,
+          period: [Periods::FULL, Periods::MATUTINAL, Periods::VESPERTINE, Periods::NIGHTLY]
+        )
+      end
+      
+      exists
+    end
+  end
 
   def get_discipline_content_record_id_by_date(discipline_id)
     @disciplines_with_contents ||= fetch_disciplines_with_contents_by_day
