@@ -21,11 +21,21 @@ class DailyNoteStudentPresenter < BasePresenter
     if in_active_search
       "*****#{student}"
     elsif !active
-      "***#{student}"
+      left_at_text = ""
+      if left_at.present? && left_at.to_s.strip.present?
+        begin
+          left_at_date = left_at.is_a?(String) ? Date.parse(left_at) : left_at.to_date
+          left_at_text = "\nSaiu em: #{I18n.l(left_at_date, format: :default)}"
+        rescue
+          # Se não conseguir fazer parse, não exibe a data
+        end
+      end
+      "***#{student}#{left_at_text}"
     elsif exempted
       "**#{student}"
     elsif dependence
-      "*#{student}"
+      dependence_text = "\nAluno(a) com matrícula de dependência nesta disciplina"
+      "*#{student}#{dependence_text}"
     elsif exempted_from_discipline
       "****#{student}"
     else
