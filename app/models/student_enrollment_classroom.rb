@@ -23,7 +23,7 @@ class StudentEnrollmentClassroom < ActiveRecord::Base
     joins(classrooms_grade: :classroom).merge(Classroom.by_year(year))
   }
   scope :by_date, lambda { |date|
-    where("? >= joined_at AND (? < left_at OR coalesce(left_at, '') = '')", date.to_date, date.to_date)
+    where("? >= joined_at AND (? <= left_at OR coalesce(left_at, '') = '')", date.to_date, date.to_date)
   }
   scope :by_date_not_before, ->(date) { where.not('joined_at < ?', date.to_date) }
   scope :by_left_at_date, ->(date) { where("left_at IN (NULL, '') OR left_at > ?", date.to_date) }

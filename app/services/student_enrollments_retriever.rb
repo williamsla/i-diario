@@ -100,7 +100,20 @@ class StudentEnrollmentsRetriever
     student_enrollments.each do |student_enrollment|
       student_id = student_enrollment.student_id
 
-      unique_student_enrollments[student_id] = student_enrollment
+      # Se já existe uma matrícula para este aluno, prioriza a que tem joined_at mais recente
+      # (nova matrícula) quando ambas estão ativas na data
+      if unique_student_enrollments[student_id].present?
+        existing_enrollment = unique_student_enrollments[student_id]
+        existing_joined_at = existing_enrollment.student_enrollment_classrooms.first&.joined_at
+        current_joined_at = student_enrollment.student_enrollment_classrooms.first&.joined_at
+        
+        # Prioriza a matrícula com joined_at mais recente (nova matrícula)
+        if current_joined_at.present? && existing_joined_at.present? && current_joined_at > existing_joined_at
+          unique_student_enrollments[student_id] = student_enrollment
+        end
+      else
+        unique_student_enrollments[student_id] = student_enrollment
+      end
     end
 
     unique_student_enrollments.values

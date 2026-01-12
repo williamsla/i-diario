@@ -30,21 +30,23 @@ SELECT outer_daily_notes.id AS daily_note_id,
                 SELECT 1
                   FROM student_enrollment_classrooms
                   JOIN classrooms_grades ON (
-                  student_enrollment_classrooms.classrooms_grade_id = classrooms_grades.id
+                    student_enrollment_classrooms.classrooms_grade_id = classrooms_grades.id
                   )
                   AND classrooms_grades.classroom_id = avaliations.classroom_id
                   JOIN student_enrollments ON (
                     student_enrollment_classrooms.student_enrollment_id = student_enrollments.id
                   )
                   AND student_enrollments.student_id = daily_note_students.student_id
+                  AND student_enrollments.active = 1
+                  AND student_enrollments.discarded_at IS NULL
+                  AND student_enrollment_classrooms.discarded_at IS NULL
                   AND (
-                    student_enrollment_classrooms.left_at = ''
-                    OR (
-                      avaliations.test_date::date < student_enrollment_classrooms.left_at::date
-                      AND avaliations.test_date::date >= student_enrollment_classrooms.joined_at::date
+                    avaliations.test_date::date >= student_enrollment_classrooms.joined_at::date
+                    AND (
+                      COALESCE(student_enrollment_classrooms.left_at, '') = ''
+                      OR avaliations.test_date::date <= student_enrollment_classrooms.left_at::date
                     )
                   )
-                  AND student_enrollments.active = 1
               )
             )
           AND daily_notes.id = outer_daily_notes.id
