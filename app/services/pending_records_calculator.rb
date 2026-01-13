@@ -405,6 +405,10 @@ class PendingRecordsCalculator
               has_discarded_in_same_week
             end
           end
+          
+          # Filtrar sábados pendentes baseado em eventos cadastrados
+          pending_frequency_dates = filter_saturdays_by_events(pending_frequency_dates, classroom, school_calendar)
+          pending_content_dates = filter_saturdays_by_events(pending_content_dates, classroom, school_calendar)
      
           pending_frequency_count = pending_frequency_dates.count
           pending_content_count = pending_content_dates.count
@@ -486,6 +490,10 @@ class PendingRecordsCalculator
             end
             has_discarded_in_same_week
           end
+          
+          # Filtrar sábados pendentes baseado em eventos cadastrados
+          pending_frequency_dates = filter_saturdays_by_events(pending_frequency_dates, classroom, school_calendar)
+          pending_content_dates = filter_saturdays_by_events(pending_content_dates, classroom, school_calendar)
           
           pending_frequency_count = pending_frequency_dates.count
           pending_content_count = pending_content_dates.count
@@ -1150,6 +1158,48 @@ class PendingRecordsCalculator
     end
   end
 
+  def filter_saturdays_by_events(pending_dates, classroom, school_calendar)
+    # Filtra sábados pendentes baseado em eventos cadastrados
+    # Se um sábado não tiver evento cadastrado ou o evento não se aplicar à turma, remove da lista
+    return pending_dates if pending_dates.blank? || school_calendar.blank?
+    
+    # Obter IDs dos cursos da turma
+    classroom_course_ids = classroom.courses.map(&:id)
+    
+    pending_dates.reject do |date|
+      # Só processar sábados
+      next false unless date.saturday?
+      
+      # Buscar eventos cadastrados para esta data
+      events = school_calendar.events.by_date(date)
+      
+      # Se não houver eventos, remover o sábado da lista de pendentes
+      next true if events.blank?
+      
+      # Verificar se algum evento se aplica à turma
+      has_applicable_event = events.any? do |event|
+        # Se o evento for geral (by_unity), verificar se a turma é da mesma unidade
+        if event.coverage_by_unity?
+          event.unity_id == classroom.unity_id
+        # Se o evento for por curso e a turma for do mesmo curso, aplicar
+        elsif event.coverage_by_course? && event.course_id.present?
+          classroom_course_ids.include?(event.course_id)
+        # Se o evento for por grade e a turma tiver o mesmo grade, aplicar
+        elsif event.coverage_by_grade? && event.grade_id.present?
+          classroom.grade_ids.include?(event.grade_id)
+        # Se o evento for por turma e for a mesma turma, aplicar
+        elsif event.coverage_by_classroom? && event.classroom_id.present?
+          classroom.id == event.classroom_id
+        else
+          false
+        end
+      end
+      
+      # Se não houver evento aplicável, remover da lista
+      !has_applicable_event
+    end
+  end
+
   def process_infantil_classroom(classroom, knowledge_area_ids, school_calendar, start_date, end_date, is_general_frequency, all_school_days, today, grade_id, teacher_id)
     results = []
     
@@ -1344,6 +1394,10 @@ class PendingRecordsCalculator
           has_discarded_in_same_week
         end
         
+        # Filtrar sábados pendentes baseado em eventos cadastrados
+        pending_frequency_dates = filter_saturdays_by_events(pending_frequency_dates, classroom, school_calendar)
+        pending_content_dates = filter_saturdays_by_events(pending_content_dates, classroom, school_calendar)
+        
         pending_frequency_count = pending_frequency_dates.count
         pending_content_count = pending_content_dates.count
       else
@@ -1429,6 +1483,10 @@ class PendingRecordsCalculator
           end
           has_discarded_in_same_week
         end
+        
+        # Filtrar sábados pendentes baseado em eventos cadastrados
+        pending_frequency_dates = filter_saturdays_by_events(pending_frequency_dates, classroom, school_calendar)
+        pending_content_dates = filter_saturdays_by_events(pending_content_dates, classroom, school_calendar)
         
         pending_frequency_count = pending_frequency_dates.count
         pending_content_count = pending_content_dates.count
