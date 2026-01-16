@@ -123,11 +123,8 @@ module ExamPoster
         student_enrollment: :student,
         classrooms_grade: :exam_rule
       ).by_student(students).by_classroom(classroom)
-      classrooms_grades = classroom.classrooms_grades.where(
-        id: enrollment_classrooms.map(&:classrooms_grade).uniq
-      ).first
 
-      return {} if classrooms_grades.nil?
+      return {} if enrollment_classrooms.empty?
 
       enrollment_classrooms_exam_rules = {}
 
@@ -135,9 +132,10 @@ module ExamPoster
         student_id = sec.student_enrollment.student_id
 
         next if enrollment_classrooms_exam_rules.key?(student_id)
+        next unless sec.classrooms_grade&.exam_rule
 
         enrollment_classrooms_exam_rules[sec.student_id] = {
-          exam_rule: classrooms_grades.exam_rule
+          exam_rule: sec.classrooms_grade.exam_rule
         }
       end
 
