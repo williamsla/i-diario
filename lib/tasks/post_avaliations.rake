@@ -4,16 +4,23 @@ namespace :post_avaliations do
   task init: :environment do
 
     def get_last_post_date(connection, post_type, teacher_id, step_number)
-      connection.select_value("SELECT max(iaep.created_at)
-                                FROM public.ieducar_api_exam_postings iaep
-                                LEFT JOIN public.school_calendar_steps scs on scs.id = iaep.school_calendar_step_id
-                                LEFT JOIN public.school_calendar_classroom_steps sccs on sccs.id = iaep.school_calendar_classroom_step_id
-                                WHERE iaep.post_type='#{post_type}' and iaep.status='completed' and iaep.teacher_id=#{teacher_id}
-                                and (
-                                      (iaep.school_calendar_step_id is not null and scs.step_number=#{step_number})
-                                      or
-                                      (iaep.school_calendar_classroom_step_id is not null and sccs.step_number=#{step_number})
-                                    )")
+      if post_type == 'final_recovery'
+        # Para recuperação final, não filtra por etapa, busca o último envio independente da etapa
+        connection.select_value("SELECT max(iaep.created_at)
+                                  FROM public.ieducar_api_exam_postings iaep
+                                  WHERE iaep.post_type='#{post_type}' and iaep.status='completed' and iaep.teacher_id=#{teacher_id}")
+      else
+        connection.select_value("SELECT max(iaep.created_at)
+                                  FROM public.ieducar_api_exam_postings iaep
+                                  LEFT JOIN public.school_calendar_steps scs on scs.id = iaep.school_calendar_step_id
+                                  LEFT JOIN public.school_calendar_classroom_steps sccs on sccs.id = iaep.school_calendar_classroom_step_id
+                                  WHERE iaep.post_type='#{post_type}' and iaep.status='completed' and iaep.teacher_id=#{teacher_id}
+                                  and (
+                                        (iaep.school_calendar_step_id is not null and scs.step_number=#{step_number})
+                                        or
+                                        (iaep.school_calendar_classroom_step_id is not null and sccs.step_number=#{step_number})
+                                      )")
+      end
     end
 
     def counting_started_postings(connection)
@@ -195,7 +202,7 @@ namespace :post_avaliations do
                                                 inner join public.classrooms c on c.id = rdr.classroom_id
                                                 inner join public.teacher_discipline_classrooms tdc on tdc.classroom_id = c.id and tdc.classroom_id = c.id
                                                 where c.year=#{calendar.year} and c.unity_id=#{school.id} 
-                                                      and tdc.teacher_id=#{teacher.id} and rdr.recorded_at BETWEEN '#{step.start_at}' and '#{step.end_at}'"
+                                                      and tdc.teacher_id=#{teacher.id} and frdr.school_calendar_id=#{calendar.id}"
                                               )
                   elsif postType.last == 'school_term_recovery'
                       last_change = connection.select_value("SELECT max(rdrs.updated_at) 
