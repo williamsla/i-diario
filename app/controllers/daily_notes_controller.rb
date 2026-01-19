@@ -103,7 +103,10 @@ class DailyNotesController < ApplicationController
 
   def update
     @daily_note = DailyNote.find(params[:id]).localized
-    @daily_note.assign_attributes(resource_params.to_h)
+    
+    # Processa students_attributes para garantir que registros existentes sejam identificados
+    processed_params = process_students_attributes(resource_params.to_h)
+    @daily_note.assign_attributes(processed_params)
 
     authorize @daily_note
 
@@ -394,5 +397,34 @@ class DailyNotesController < ApplicationController
 
   def any_in_active_search?
     (@students || []).any?(&:in_active_search)
+  end
+
+  def process_students_attributes(params_hash)
+    return params_hash unless params_hash[:students_attributes].present?
+
+    students_attributes = params_hash[:students_attributes].dup
+    
+    students_attributes.each do |key, attributes|
+      # Se o id está vazio, tenta encontrar um registro existente (incluindo descartados)
+      if attributes[:id].blank? && attributes[:student_id].present?
+        existing_student = DailyNoteStudent.with_discarded.find_by(
+          daily_note_id: @daily_note.id,
+          student_id: attributes[:student_id]
+        )
+        
+        # Se encontrou um registro existente, usa seu id
+        if existing_student
+          students_attributes[key][:id] = existing_student.id.to_s
+          
+          # Se o registro estava descartado, restaura-o antes de atualizar
+          if existing_student.discarded?
+            existing_student.undiscard
+          end
+        end
+      end
+    end
+    
+    params_hash[:students_attributes] = students_attributes
+    params_hash
   end
 end
