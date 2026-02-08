@@ -46,6 +46,8 @@ module SchoolCalendarEventBatchManager
               event.periods = school_calendar_event_batch.periods
               event.legend = school_calendar_event_batch.legend
               event.show_in_frequency_record = school_calendar_event_batch.show_in_frequency_record
+              # Define coverage como by_unity para eventos em lote (padrão para eventos globais)
+              event.coverage = EventCoverageType::BY_UNITY
               
               if event.changed?
                 event.save!
