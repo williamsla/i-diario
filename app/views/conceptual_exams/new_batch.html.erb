@@ -1,0 +1,32 @@
+<div class="widget-body no-padding">
+  <% content_for :js do %>
+    <%= javascript_include_tag 'views/conceptual_exams/new_batch' %>
+  <% end %>
+
+  <%= simple_form_for @batch_form, as: :conceptual_exam_batch, url: form_batch_conceptual_exams_path, method: :get,
+                      html: { class: 'smart-form', id: 'conceptual_exam_batch_filter_form' } do |f| %>
+    <%= f.error_notification %>
+
+    <fieldset>
+      <legend><%= t('.legend') %></legend>
+      <div class="row">
+        <div class="col col-sm-4">
+          <%= f.input :unity_id, as: :select2_unity, user: current_user, label: Unity.human_attribute_name(:name) %>
+        </div>
+        <div class="col col-sm-4">
+          <%= f.input :classroom_id, as: :select2_classroom, user: current_user, record: @batch_form,
+                        elements: @classrooms.to_a, label: Classroom.human_attribute_name(:description) %>
+        </div>
+        <div class="col col-sm-4">
+          <%= f.input :step_id, as: :select2_step, classroom: current_user_classroom,
+                      label: ConceptualExam.human_attribute_name(:step), required: true %>
+        </div>
+      </div>
+    </fieldset>
+
+    <footer>
+      <%= link_to t('views.form.back'), conceptual_exams_path, class: 'btn btn-default' %>
+      <%= f.submit t('.continue'), class: 'btn btn-primary', data: { disable_with: 'Aguarde...' } %>
+    </footer>
+  <% end %>
+</div>

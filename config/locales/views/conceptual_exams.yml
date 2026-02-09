@@ -2,10 +2,25 @@ pt-BR:
   conceptual_exams:
     index:
       new_html: "<i class='fa fa-plus'></i> Novo lançamento"
+      new_batch_html: "<i class='fa fa-list'></i> Preencher por turma"
       by_classroom: 'Filtrar turma'
       by_student_name: 'Filtrar aluno'
       by_step: 'Filtrar etapa'
       by_status: 'Filtrar situação'
+      batch_layout_title: 'Lançamento por etapa'
+      batch_layout_subtitle: 'Selecione a etapa para preencher as avaliações conceituais de todos os alunos da turma.'
+      batch_layout_fill_button: 'Preencher / Editar'
+      batch_layout_no_steps: 'Nenhuma etapa encontrada para esta turma.'
+      batch_layout_classroom: 'Turma'
+
+    new_batch:
+      legend: 'Selecione a turma e a etapa'
+      continue: 'Continuar'
+
+    form_batch:
+      legend: 'Avaliações conceituais - todos os alunos'
+      exempted: 'Dispensado'
+      exempted_legend: '**** Disciplina dispensada para o aluno'
 
     form:
       save_and_go_to_the_next: 'Salvar e ir para o próximo'
