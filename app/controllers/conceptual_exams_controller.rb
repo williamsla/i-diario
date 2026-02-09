@@ -523,9 +523,8 @@ class ConceptualExamsController < ApplicationController
     )
 
     @disciplines = @disciplines.not_grouper
-                               .descriptor
-                               .where.not(id: exempted_discipline_ids)
-                               .where(id: disciplines_in_grade)
+    @disciplines = @disciplines.descriptor unless conceptual_exam_batch_layout?
+    @disciplines = @disciplines.where.not(id: exempted_discipline_ids).where(id: disciplines_in_grade)
   end
 
   def disciplines_in_grade
@@ -788,13 +787,9 @@ class ConceptualExamsController < ApplicationController
 
     step_number = step.respond_to?(:to_number) ? step.to_number : step.step_number
     exempted_discipline_ids = ExemptedDisciplinesInStep.discipline_ids(classroom.id, step_number)
-    discipline_ids_global = Discipline
-      .where(id: teacher_discipline_ids)
-      .by_score_type(ScoreTypes::CONCEPT)
-      .not_grouper
-      .descriptor
-      .where.not(id: exempted_discipline_ids)
-      .pluck(:id)
+    discipline_scope = Discipline.where(id: teacher_discipline_ids).by_score_type(ScoreTypes::CONCEPT).not_grouper
+    discipline_scope = discipline_scope.descriptor unless conceptual_exam_batch_layout?
+    discipline_ids_global = discipline_scope.where.not(id: exempted_discipline_ids).pluck(:id)
 
     result = {}
     students.each do |student|

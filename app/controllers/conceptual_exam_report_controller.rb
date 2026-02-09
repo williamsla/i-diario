@@ -83,6 +83,10 @@ class ConceptualExamReportController < ApplicationController
   end
 
   def conceptual_exam_report_enabled?
+    conceptual_exam_batch_layout?
+  end
+
+  def conceptual_exam_batch_layout?
     Rails.application.secrets.conceptual_exam_batch_layout.present? &&
       Rails.application.secrets.conceptual_exam_batch_layout
   end
@@ -108,22 +112,37 @@ class ConceptualExamReportController < ApplicationController
     school_calendar = SchoolCalendar.find_by(unity_id: classroom.unity_id, year: classroom.year)
     return Discipline.none if school_calendar.blank?
 
+    year = school_calendar.year
     teacher_discipline_ids = TeacherDisciplineClassroom
       .by_classroom(classroom.id)
       .by_teacher_id(current_teacher_id)
-      .by_year(current_school_calendar.year)
+      .by_year(year)
       .pluck(:discipline_id)
       .uniq
 
     step_number = step.respond_to?(:to_number) ? step.to_number : step.step_number
     exempted_discipline_ids = ExemptedDisciplinesInStep.discipline_ids(classroom.id, step_number)
-    discipline_ids_global = Discipline
-      .where(id: teacher_discipline_ids)
-      .by_score_type(ScoreTypes::CONCEPT)
-      .not_grouper
-      .descriptor
-      .where.not(id: exempted_discipline_ids)
-      .pluck(:id)
+
+    # Se o professor não tiver disciplinas (ex.: admin/coordenador), usa as disciplinas conceituais da série no calendário
+    discipline_scope = Discipline.by_score_type(ScoreTypes::CONCEPT).not_grouper
+    discipline_scope = discipline_scope.descriptor unless conceptual_exam_batch_layout?
+
+    if teacher_discipline_ids.present?
+      discipline_ids_global = discipline_scope
+        .where(id: teacher_discipline_ids)
+        .where.not(id: exempted_discipline_ids)
+        .pluck(:id)
+    else
+      grade_ids = ClassroomsGrade.by_classroom_id(classroom.id).pluck(:grade_id).uniq
+      grade_discipline_ids = SchoolCalendarDisciplineGrade
+        .where(school_calendar_id: school_calendar.id, grade_id: grade_ids)
+        .pluck(:discipline_id)
+        .uniq
+      discipline_ids_global = discipline_scope
+        .where(id: grade_discipline_ids)
+        .where.not(id: exempted_discipline_ids)
+        .pluck(:id)
+    end
 
     result_ids = []
     students.each do |student|
