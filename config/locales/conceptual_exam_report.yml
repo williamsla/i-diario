@@ -1,0 +1,11 @@
+pt-BR:
+  conceptual_exam_report:
+    title: 'Relatório de avaliação conceitual'
+    not_available: 'Relatório de avaliação conceitual não disponível para esta configuração.'
+    pdf_title: 'Relatório de avaliação conceitual'
+    form:
+      legend: 'Selecione a turma e a etapa'
+      generate: 'Gerar'
+      unity: 'Unidade'
+      classroom: 'Turma'
+      step: 'Etapa'
