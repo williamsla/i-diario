@@ -20,14 +20,24 @@
                 <%= l(step.start_at) %> a <%= l(step.end_at) %>
               </p>
             </div>
-            <div class="col-sm-4 col-md-3 text-right">
-              <%= link_to form_batch_conceptual_exams_path(conceptual_exam_batch: {
-                    unity_id: @classroom.unity_id,
-                    classroom_id: @classroom.id,
-                    step_id: step.id
-                  }), class: 'btn btn-primary' do %>
-                <i class='fa fa-edit'></i> <%= t('conceptual_exams.index.batch_layout_fill_button') %>
-              <% end %>
+            <div class="col-sm-4 col-md-3">
+              <div class="pull-right">
+                <%= link_to form_batch_conceptual_exams_path(conceptual_exam_batch: {
+                      unity_id: @classroom.unity_id,
+                      classroom_id: @classroom.id,
+                      step_id: step.id
+                    }), class: 'btn btn-primary' do %>
+                  <i class='fa fa-edit'></i> <%= t('conceptual_exams.index.batch_layout_fill_button') %>
+                <% end %>
+                <%= form_tag conceptual_exam_report_report_path, method: :post, target: '_blank', style: 'display: inline; margin-left: 8px;' do %>
+                  <%= hidden_field_tag 'conceptual_exam_report_form[unity_id]', @classroom.unity_id %>
+                  <%= hidden_field_tag 'conceptual_exam_report_form[classroom_id]', @classroom.id %>
+                  <%= hidden_field_tag 'conceptual_exam_report_form[step_id]', step.id %>
+                  <%= button_tag type: 'submit', class: 'btn btn-default' do %>
+                    <i class='fa fa-file-pdf-o'></i> <%= t('conceptual_exam_report.form.generate') %> relatório
+                  <% end %>
+                <% end %>
+              </div>
             </div>
           </div>
         </div>

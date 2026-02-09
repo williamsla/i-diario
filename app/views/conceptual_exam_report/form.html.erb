@@ -1,0 +1,33 @@
+<% content_for :js do %>
+  <%= javascript_include_tag 'views/conceptual_exam_report/form' %>
+<% end %>
+
+<div class="widget-body no-padding">
+  <%= simple_form_for @conceptual_exam_report_form, as: :conceptual_exam_report_form,
+                      url: conceptual_exam_report_report_path, method: :post,
+                      html: { class: 'smart-form', target: '_blank', id: 'conceptual_exam_report_form' } do |f| %>
+    <%= f.error_notification %>
+
+    <fieldset>
+      <legend><%= t('conceptual_exam_report.form.legend') %></legend>
+      <div class="row">
+        <div class="col col-sm-4">
+          <%= f.input :unity_id, as: :select2_unity, user: current_user, label: t('conceptual_exam_report.form.unity') %>
+        </div>
+        <div class="col col-sm-4">
+          <%= f.input :classroom_id, as: :select2_classroom, user: current_user, record: @conceptual_exam_report_form,
+                        elements: @classrooms.to_a, label: t('conceptual_exam_report.form.classroom'), required: true %>
+        </div>
+        <div class="col col-sm-4">
+          <%= f.input :step_id, as: :select2_step, classroom: @classroom,
+                      label: t('conceptual_exam_report.form.step'), required: true %>
+        </div>
+      </div>
+    </fieldset>
+
+    <footer>
+      <%= link_to t('views.form.back'), conceptual_exams_path, class: 'btn btn-default' %>
+      <%= f.submit t('conceptual_exam_report.form.generate'), class: 'btn btn-primary', data: { disable_with: 'Aguarde...' } %>
+    </footer>
+  <% end %>
+</div>

@@ -453,6 +453,10 @@ Rails.application.routes.draw do
     get '/reports/knowledge_area_lesson_plan/fetch_knowledge_areas', to: 'knowledge_area_lesson_plan_report#fetch_knowledge_areas', as: 'fetch_knowledge_areas_knowledge_area_lesson_plan_report'
     post '/reports/knowledge_area_content_record', to: 'knowledge_area_lesson_plan_report#content_record_report', as: 'knowledge_area_content_record_report'
 
+    get '/reports/conceptual_exam', to: 'conceptual_exam_report#form', as: 'conceptual_exam_report'
+    get '/reports/conceptual_exam/fetch_step', to: 'conceptual_exam_report#fetch_step', as: 'fetch_step_conceptual_exam_report'
+    post '/reports/conceptual_exam', to: 'conceptual_exam_report#report', as: 'conceptual_exam_report_report'
+
     get '/reports/teacher_report_cards', to: 'teacher_report_cards#form', as: 'teacher_report_cards'
     get '/reports/teacher_report_cards/set_grades_by_classroom', to: 'teacher_report_cards#set_grades_by_classroom', as: 'grade_teacher_report_cards'
     get '/reports/teacher_report_cards/classrooms_filter', to: 'teacher_report_cards#classrooms_filter', as: 'classrooms_filter_teacher_report_cards'
