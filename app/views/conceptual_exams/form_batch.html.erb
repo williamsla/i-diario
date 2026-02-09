@@ -1,0 +1,96 @@
+<% content_for :js do %>
+  <%= javascript_include_tag 'views/conceptual_exams/form_batch' %>
+<% end %>
+
+<div class="widget-body no-padding">
+  <table class="table table-bordered table-only-inner-bordered">
+    <thead>
+      <tr>
+        <th><%= ConceptualExam.human_attribute_name(:unity_id) %></th>
+        <th><%= ConceptualExam.human_attribute_name(:classroom) %></th>
+        <th><%= ConceptualExam.human_attribute_name(:step) %></th>
+        <th><%= ConceptualExam.human_attribute_name(:recorded_at) %></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><%= @classroom.unity.name %></td>
+        <td><%= @classroom.description %></td>
+        <td><%= @step.to_s %></td>
+        <td><%= l(@recorded_at) %></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <%= form_tag create_batch_conceptual_exams_path, method: :post, class: 'smart-form', id: 'conceptual_exam_batch_form' do %>
+    <%= hidden_field_tag 'conceptual_exam_batch[unity_id]', @batch_form.unity_id %>
+    <%= hidden_field_tag 'conceptual_exam_batch[classroom_id]', @batch_form.classroom_id %>
+    <%= hidden_field_tag 'conceptual_exam_batch[step_id]', @batch_form.step_id %>
+    <%= hidden_field_tag 'conceptual_exam_batch[recorded_at]', @batch_form.recorded_at %>
+
+    <fieldset>
+      <legend><%= t('.legend') %></legend>
+
+      <div class="table-responsive">
+        <table class="table table-bordered table-only-inner-bordered table-striped table-condensed table-hover" id="conceptual_exam_batch_table">
+          <thead>
+            <tr>
+              <th style="min-width: 180px;"><%= Student.human_attribute_name(:name) %></th>
+              <% @disciplines.each do |discipline| %>
+                <th class="discipline-cell" title="<%= discipline.description %>"><%= discipline.description %></th>
+              <% end %>
+            </tr>
+          </thead>
+          <tbody>
+            <% @students.each do |student| %>
+              <tr data-student-id="<%= student.id %>">
+                <td><strong><%= student.name %></strong></td>
+                <% discipline_ids_for_student = @disciplines_by_student[student.id] || [] %>
+                <% exempted_ids = @exempted_by_student[student.id] || [] %>
+                <% existing_exam = @existing_by_student[student.id] %>
+                <% existing_values = existing_exam ? existing_exam.conceptual_exam_values.index_by(&:discipline_id) : {} %>
+                <% concept_options = concept_options_for_student(@classroom, student) %>
+
+                <% @disciplines.each do |discipline| %>
+                  <td class="concept-cell">
+                    <% if discipline_ids_for_student.include?(discipline.id) %>
+                      <% if exempted_ids.include?(discipline.id) %>
+                        <span class="text-muted"><%= t('.exempted') %></span>
+                      <% else %>
+                        <% existing_value = existing_values[discipline.id]&.value %>
+                        <%= select_tag "conceptual_exam_batch[students][#{student.id}][#{discipline.id}]",
+                              options_for_select(concept_options, existing_value),
+                              class: 'form-control input-sm concept-select',
+                              data: { student_id: student.id, discipline_id: discipline.id },
+                              include_blank: true %>
+                      <% end %>
+                    <% else %>
+                      <span class="text-muted">—</span>
+                    <% end %>
+                  </td>
+                <% end %>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <tfoot class="exempted_students_from_discipline_legend">
+        <tr>
+          <td colspan="<%= @disciplines.count + 1 %>">
+            <span class="conceptual-exam-student-legend"><%= t('.exempted_legend') %></span>
+          </td>
+        </tr>
+      </tfoot>
+    </fieldset>
+
+    <footer>
+      <%= link_to t('views.form.back'), new_batch_conceptual_exams_path(conceptual_exam_batch: {
+            unity_id: @batch_form.unity_id,
+            classroom_id: @batch_form.classroom_id,
+            step_id: @batch_form.step_id
+          }), class: 'btn btn-default' %>
+      <%= submit_tag t('views.form.save'), class: 'btn btn-primary', data: { disable_with: 'Salvando...' } %>
+    </footer>
+  <% end %>
+</div>

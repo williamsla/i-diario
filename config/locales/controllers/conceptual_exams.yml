@@ -2,3 +2,7 @@ pt-BR:
   conceptual_exams:
     new:
       current_discipline_does_not_have_conceptual_exam: 'A disciplina selecionada não possui nota conceitual'
+    batch:
+      not_available: 'O preenchimento por turma não está disponível para esta unidade.'
+    create_batch:
+      saved: '%{count} avaliação(ões) salva(s) com sucesso.'

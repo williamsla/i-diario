@@ -12,7 +12,8 @@ if ! test -f ".setup"; then
     shortcuts_enabled: true
     only_one_conceptual_avaliation: false
     show_objectives: true
-    SEMESTRAL_RECOVERY: false
+    SEMESTRAL_RECOVERY: true
+    conceptual_exam_batch_layout: true
     " > config/secrets.yml
 
   cp config/database.sample.yml config/database.yml

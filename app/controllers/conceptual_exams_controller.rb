@@ -5,8 +5,9 @@ class ConceptualExamsController < ApplicationController
   before_action :require_current_classroom
   before_action :require_current_teacher
   before_action :require_allow_to_modify_prev_years, only: [:create, :update, :destroy]
-  before_action :allow_teacher_modify_prev_years, only: [:create, :update]
+  before_action :allow_teacher_modify_prev_years, only: [:create, :update, :create_batch]
   before_action :view_data, only: [:edit, :show]
+  before_action :require_batch_layout_enabled, only: [:new_batch, :form_batch, :create_batch]
 
   def index
     step_id = (params[:filter] || []).delete(:by_step)
@@ -14,12 +15,18 @@ class ConceptualExamsController < ApplicationController
 
     set_options_by_user
 
-    @conceptual_exams = fetch_conceptual_exams
-    @only_one_conceptual_avaliation = Rails.application.secrets.only_one_conceptual_avaliation.present? && Rails.application.secrets.only_one_conceptual_avaliation
+    @conceptual_exam_batch_layout = conceptual_exam_batch_layout?
 
-    check_status_and_step(step_id, status)
-
-    authorize @conceptual_exams
+    if @conceptual_exam_batch_layout
+      @classroom = current_user_classroom
+      @steps = steps_fetcher(@classroom).steps if @classroom.present?
+      authorize ConceptualExam.new(classroom_id: @classroom&.id, student_id: nil)
+    else
+      @conceptual_exams = fetch_conceptual_exams
+      @only_one_conceptual_avaliation = Rails.application.secrets.only_one_conceptual_avaliation.present? && Rails.application.secrets.only_one_conceptual_avaliation
+      check_status_and_step(step_id, status)
+      authorize @conceptual_exams
+    end
   end
 
   def new
@@ -186,6 +193,130 @@ class ConceptualExamsController < ApplicationController
     steps = step_numbers.map { |step| { id: step.id, description: step.to_s, start_at: step.start_at, end_at: step.end_at } }
 
     render json: steps.to_json
+  end
+
+  def new_batch
+    set_options_by_user
+    @batch_form = ConceptualExamBatchForm.new(
+      unity_id: current_unity.id,
+      classroom_id: current_user_classroom.id,
+      teacher_id: current_teacher_id,
+      current_user: current_user
+    )
+    authorize ConceptualExam.new(classroom_id: current_user_classroom.id, student_id: nil)
+  end
+
+  def form_batch
+    @batch_form = ConceptualExamBatchForm.new(batch_form_params)
+    @batch_form.teacher_id = current_teacher_id
+    @batch_form.current_user = current_user
+
+    unless @batch_form.valid?
+      set_options_by_user
+      flash.now[:alert] = @batch_form.errors.full_messages.join('; ')
+      return render :new_batch
+    end
+
+    @classroom = @batch_form.classroom
+    @step = @batch_form.step
+    @recorded_at = batch_last_date_of_step(@step)
+    @batch_form.recorded_at = @recorded_at
+
+    only_one = Rails.application.secrets.only_one_conceptual_avaliation.present? && Rails.application.secrets.only_one_conceptual_avaliation
+    if only_one
+      # Na configuração "uma etapa só", step e recorded_at vêm do primeiro aluno; aqui usamos step_id do form
+      @step = StepsFetcher.new(@classroom).step_by_id(@batch_form.step_id)
+    end
+
+    @student_enrollments = batch_student_enrollments(@classroom, @step)
+    student_ids = @student_enrollments.map(&:student_id).uniq
+    @students = Student.where(id: student_ids).ordered
+
+    @disciplines_by_student = batch_disciplines_by_student(@classroom, @students, @step)
+    @all_discipline_ids = @disciplines_by_student.values.flatten.uniq
+    @disciplines = Discipline.where(id: @all_discipline_ids).includes(:knowledge_area)
+    @disciplines = @disciplines.to_a.sort_by { |d| [d.knowledge_area&.sequence.to_i, d.knowledge_area&.description.to_s, d.sequence.to_i, d.description] }
+
+    @exempted_by_student = batch_exempted_by_student(@student_enrollments, @step)
+    @existing_by_student = batch_existing_conceptual_exams(@classroom, @step, student_ids)
+
+    authorize ConceptualExam.new(classroom_id: @classroom.id, student_id: @students.first&.id)
+    render :form_batch
+  end
+
+  def create_batch
+    set_options_by_user
+    @batch_form = ConceptualExamBatchForm.new(create_batch_params)
+    @batch_form.teacher_id = current_teacher_id
+    @batch_form.current_user = current_user
+
+    unless @batch_form.valid?
+      return redirect_to new_batch_conceptual_exams_path, alert: @batch_form.errors.full_messages.join('; ')
+    end
+
+    @classroom = @batch_form.classroom
+    @step = @batch_form.step
+    record_at = batch_valid_recorded_at(@step, @batch_form.recorded_at.to_date, @classroom)
+    record_at = batch_last_date_of_step(@step) if record_at.blank?
+
+    only_one = Rails.application.secrets.only_one_conceptual_avaliation.present? && Rails.application.secrets.only_one_conceptual_avaliation
+    saved = 0
+    errors = []
+
+    (@batch_form.students || {}).each do |student_id_str, disciplines_hash|
+      begin
+        student_id = student_id_str.to_i
+        next if student_id.zero?
+
+        values_by_discipline = (disciplines_hash || {}).reject { |_d, v| v.blank? }
+        next if values_by_discipline.empty?
+
+        if only_one
+          enrollment = StudentEnrollmentClassroom.by_classroom(@classroom.id).by_student(student_id).first
+          step = enrollment ? find_step_by_date(enrollment.joined_at) : @step
+          record_at = step && (enrollment.joined_at.to_date < step.start_at) ? step.start_at : (enrollment&.joined_at&.to_date || record_at)
+          record_at = batch_valid_recorded_at(step, record_at, @classroom) if step.present?
+        else
+          step = @step
+        end
+
+        # Se já existir lançamento para este aluno nesta etapa, editar o existente.
+        conceptual_exam = ConceptualExam.by_classroom(@classroom.id)
+                                        .by_student_id(student_id)
+                                        .by_step_number(step.step_number)
+                                        .first
+        conceptual_exam ||= ConceptualExam.new(
+          classroom_id: @classroom.id,
+          student_id: student_id,
+          recorded_at: record_at
+        )
+        conceptual_exam.unity_id = @classroom.unity_id
+        conceptual_exam.step_id = step.id
+        conceptual_exam.step_number = step.step_number
+        conceptual_exam.recorded_at = record_at
+        conceptual_exam.teacher_id = current_teacher_id
+        conceptual_exam.current_user = current_user
+
+        build_batch_conceptual_exam_values(conceptual_exam, values_by_discipline)
+        conceptual_exam.merge_conceptual_exam_values
+
+        authorize conceptual_exam
+        if conceptual_exam.save
+          saved += 1
+        else
+          errors << "#{Student.find_by(id: student_id)&.name}: #{conceptual_exam.errors.full_messages.join(', ')}"
+        end
+      rescue ActiveRecord::RecordNotUnique
+        retry
+      end
+    end
+
+    if errors.any?
+      flash[:alert] = "Salvos: #{saved}. Erros: #{errors.join('; ')}"
+    else
+      flash[:notice] = I18n.t('conceptual_exams.create_batch.saved', count: saved)
+    end
+    redirect_to conceptual_exams_path
   end
 
   def fetch_score_type
@@ -587,6 +718,136 @@ class ConceptualExamsController < ApplicationController
       year = current_school_year || current_school_calendar.year
       steps ||= SchoolCalendar.find_by(unity_id: current_unity.id, year: year).steps
       steps
+    end
+  end
+
+  def conceptual_exam_batch_layout?
+    Rails.application.secrets.conceptual_exam_batch_layout.present? &&
+      Rails.application.secrets.conceptual_exam_batch_layout
+  end
+
+  def require_batch_layout_enabled
+    return if conceptual_exam_batch_layout?
+
+    redirect_to conceptual_exams_path, alert: t('conceptual_exams.batch.not_available')
+  end
+
+  def batch_form_params
+    params.fetch(:conceptual_exam_batch, {}).permit(:unity_id, :classroom_id, :step_id)
+  end
+
+  def create_batch_params
+    p = params.require(:conceptual_exam_batch).permit(:unity_id, :classroom_id, :step_id, :recorded_at)
+    # Strong Parameters não permite hashes aninhados com chaves dinâmicas (student_id => { discipline_id => value }).
+    # Precisamos permitir o subtree students explicitamente.
+    if params[:conceptual_exam_batch][:students].present?
+      p[:students] = params[:conceptual_exam_batch][:students].permit!.to_h
+    end
+    p[:recorded_at] = p[:recorded_at].to_date if p[:recorded_at].present?
+    p
+  end
+
+  # Última data da etapa (último dia letivo quando disponível, senão end_at).
+  def batch_last_date_of_step(step)
+    return nil if step.blank?
+
+    if step.respond_to?(:school_day_dates) && step.school_day_dates.present?
+      step.school_day_dates.last
+    elsif step.respond_to?(:school_calendar_step_day?) && step.respond_to?(:start_at) && step.respond_to?(:end_at)
+      range = (step.start_at.to_date..step.end_at.to_date).to_a
+      range.reverse.find { |d| step.school_calendar_step_day?(d) } || step.end_at.to_date
+    else
+      step.end_at.to_date
+    end
+  end
+
+  def batch_student_enrollments(classroom, step)
+    period = TeacherPeriodFetcher.new(current_teacher.id, classroom.id, current_user_discipline).teacher_period
+    period = nil if period == Periods::FULL.to_i
+    StudentEnrollmentsList.new(
+      classroom: classroom,
+      discipline: current_user_discipline,
+      start_at: step.start_at,
+      end_at: step.end_at,
+      score_type: StudentEnrollmentScoreTypeFilters::CONCEPT,
+      search_type: :by_date_range,
+      period: period
+    ).student_enrollments
+  end
+
+  def batch_disciplines_by_student(classroom, students, step)
+    school_calendar = SchoolCalendar.find_by(unity_id: classroom.unity_id, year: classroom.year)
+    return {} if school_calendar.blank?
+
+    teacher_discipline_ids = TeacherDisciplineClassroom
+      .by_classroom(classroom.id)
+      .by_teacher_id(current_teacher_id)
+      .by_year(current_school_calendar.year)
+      .pluck(:discipline_id)
+      .uniq
+
+    step_number = step.respond_to?(:to_number) ? step.to_number : step.step_number
+    exempted_discipline_ids = ExemptedDisciplinesInStep.discipline_ids(classroom.id, step_number)
+    discipline_ids_global = Discipline
+      .where(id: teacher_discipline_ids)
+      .by_score_type(ScoreTypes::CONCEPT)
+      .not_grouper
+      .descriptor
+      .where.not(id: exempted_discipline_ids)
+      .pluck(:id)
+
+    result = {}
+    students.each do |student|
+      cg = ClassroomsGrade.by_student_id(student.id).by_classroom_id(classroom.id).first
+      next if cg.blank?
+
+      grade_discipline_ids = SchoolCalendarDisciplineGrade
+        .where(school_calendar_id: school_calendar.id, grade_id: cg.grade_id)
+        .pluck(:discipline_id)
+      result[student.id] = (discipline_ids_global & grade_discipline_ids)
+    end
+    result
+  end
+
+  def batch_exempted_by_student(student_enrollments, step)
+    result = {}
+    step_number = step.respond_to?(:to_number) ? step.to_number : step.step_number
+    student_enrollments.each do |enrollment|
+      exempted = enrollment.exempted_disciplines&.by_step_number(step_number)
+      result[enrollment.student_id] = exempted ? exempted.pluck(:discipline_id) : []
+    end
+    result
+  end
+
+  def batch_existing_conceptual_exams(classroom, step, student_ids)
+    ConceptualExam
+      .by_classroom(classroom.id)
+      .by_step_number(step.step_number)
+      .where(student_id: student_ids)
+      .includes(:conceptual_exam_values)
+      .index_by(&:student_id)
+  end
+
+  # Retorna uma data que seja dia letivo da etapa (para passar na validação do ConceptualExam).
+  def batch_valid_recorded_at(step, date, classroom)
+    return date if date.blank? || step.blank?
+
+    date = date.to_date
+    if step.respond_to?(:school_calendar_step_day?) && step.school_calendar_step_day?(date)
+      return date
+    end
+    step.respond_to?(:first_school_calendar_date) ? step.first_school_calendar_date : date
+  end
+
+  def build_batch_conceptual_exam_values(conceptual_exam, values_by_discipline)
+    conceptual_exam.conceptual_exam_values.destroy_all if conceptual_exam.persisted?
+    values_by_discipline.each do |discipline_id, value|
+      next if value.blank?
+
+      conceptual_exam.conceptual_exam_values.build(
+        discipline_id: discipline_id,
+        value: value
+      )
     end
   end
 end

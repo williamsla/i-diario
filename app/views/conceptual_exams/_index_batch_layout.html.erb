@@ -1,0 +1,41 @@
+<div class="conceptual-exams-batch-index">
+  <div class="well well-sm">
+    <h4><%= t('conceptual_exams.index.batch_layout_title') %></h4>
+    <p class="text-muted"><%= t('conceptual_exams.index.batch_layout_subtitle') %></p>
+    <% if @classroom.present? %>
+      <p>
+        <strong><%= t('conceptual_exams.index.batch_layout_classroom') %>:</strong> <%= @classroom.description %>
+      </p>
+    <% end %>
+  </div>
+
+  <% if @steps.present? %>
+    <div class="list-group">
+      <% @steps.each do |step| %>
+        <div class="list-group-item">
+          <div class="row">
+            <div class="col-sm-8 col-md-9">
+              <h5 class="list-group-item-heading"><%= step.to_s %></h5>
+              <p class="list-group-item-text text-muted small">
+                <%= l(step.start_at) %> a <%= l(step.end_at) %>
+              </p>
+            </div>
+            <div class="col-sm-4 col-md-3 text-right">
+              <%= link_to form_batch_conceptual_exams_path(conceptual_exam_batch: {
+                    unity_id: @classroom.unity_id,
+                    classroom_id: @classroom.id,
+                    step_id: step.id
+                  }), class: 'btn btn-primary' do %>
+                <i class='fa fa-edit'></i> <%= t('conceptual_exams.index.batch_layout_fill_button') %>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <div class="alert alert-info">
+      <i class="fa fa-info-circle"></i> <%= t('conceptual_exams.index.batch_layout_no_steps') %>
+    </div>
+  <% end %>
+</div>
