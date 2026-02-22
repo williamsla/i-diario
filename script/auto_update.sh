@@ -140,8 +140,13 @@ fi
 echo "===> RODANDO MIGRATIONS"    
 RAILS_ENV=production bundle exec rake db:migrate
 
-echo "===> COMPILANDO CSS"
+echo "===> COMPILANDO ASSETS (Sprockets + Webpacker)"
 RAILS_ENV=production bundle exec rake assets:precompile
+# Garante manifest Webpacker; evita erro "handle_missing_entry" no layout
+if [ ! -f "public/packs/manifest.json" ]; then
+  echo "[AVISO] manifest.json ausente, forçando compilação Webpacker..."
+  RAILS_ENV=production bundle exec rake webpacker:compile
+fi
 
 echo "===> REINICIANDO O SERVIÇO rails E sidekiq"
 if [ -f /var/www/scripts/restart.sh ]; then
