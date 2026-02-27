@@ -45,14 +45,14 @@
         </div>
         <div class="col col-sm-4 discipline_absence_fields">
           <div class="control-group required daily_frequency_class_numbers <%= @error_on_class_numbers ? 'error' : '' %>">
-            <label class="select2 required control-label" for="daily_frequency_class_numbers">Aula <abbr title="obrigatório">*</abbr></label>
+            <label class="select2 required control-label" for="daily_frequency_class_numbers">Informe o número exato da aula (1ª, 2ª, 3ª...) <abbr title="obrigatório">*</abbr></label>
             <%= hidden_field_tag :class_numbers,
                   @class_numbers.to_s,
                   class: 'form-control select2',
                   data:{
                     multiple: true,
                     elements: number_of_classes_elements(@number_of_classes),
-                    placeholder: 'Selecione uma ou mais aulas'
+                    placeholder: 'Ex: 2 (somente a segunda aula)'
                   } %>
           </div>
         </div>
