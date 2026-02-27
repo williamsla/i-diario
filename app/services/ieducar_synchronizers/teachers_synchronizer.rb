@@ -37,9 +37,9 @@ class TeachersSynchronizer < BaseSynchronizer
           user = User.by_cpf(teacher_record.cpf)
           
           if user.exists?
-            update_users(teacher.id, teacher_record.cpf, teacher_record.escola_id)
+            update_users(teacher.id, teacher_record.cpf, teacher_record.escola_id, teacher_record.nm_funcao)
           else
-            create_users(teacher.id, teacher_record.cpf, teacher_record.escola_id)
+            create_users(teacher.id, teacher_record.cpf, teacher_record.escola_id, teacher_record.nm_funcao)
           end
         end
 
@@ -47,12 +47,12 @@ class TeachersSynchronizer < BaseSynchronizer
     end
   end
 
-  def create_users(teacher_id, cpf, school_id)
-    UserForTeacherCreatorWorker.perform_in(1.second, entity_id, teacher_id, cpf, school_id)
+  def create_users(teacher_id, cpf, school_id, function_name)
+    UserForTeacherCreatorWorker.perform_in(1.second, entity_id, teacher_id, cpf, school_id, function_name)
   end
 
-  def update_users(teacher_id, cpf, school_id)
-    UserForTeacherUpdaterWorker.perform_in(1.second, entity_id, teacher_id, cpf, school_id)
+  def update_users(teacher_id, cpf, school_id, function_name)
+    UserForTeacherUpdaterWorker.perform_in(1.second, entity_id, teacher_id, cpf, school_id, function_name)
   end
   
 end
