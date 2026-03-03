@@ -140,7 +140,7 @@ $(function(){
       var frequencyButton;
       if (frequencyByDiscipline) {
         frequencyButton = record.pending_frequency_count > 0 ?
-          '<button type="button" class="btn toggle-dates" style="background-color: #ff9800; color: white; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#freq-' + recordId + '" data-record-index="' + recordIndex + '">' +
+          '<button type="button" class="btn toggle-dates" style="background-color: #ff9800 !important; border-color: #ff9800 !important; color: white !important; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#freq-' + recordId + '" data-record-index="' + recordIndex + '">' +
             '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
             record.pending_frequency_count + ' datas' +
           '</button>' :
@@ -152,7 +152,7 @@ $(function(){
         // Frequência única para todas as disciplinas: só na primeira linha
         if (recordIndex === 0) {
           frequencyButton = firstRecord.pending_frequency_count > 0 ?
-            '<button type="button" class="btn toggle-dates toggle-dates-merged-freq" style="background-color: #ff9800; color: white; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#' + mergedFreqId + '" data-record-index="0">' +
+            '<button type="button" class="btn toggle-dates toggle-dates-merged-freq" style="background-color: #ff9800 !important; border-color: #ff9800 !important; color: white !important; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#' + mergedFreqId + '" data-record-index="0">' +
               '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
               firstRecord.pending_frequency_count + ' datas' +
             '</button>' :
