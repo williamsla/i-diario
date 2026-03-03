@@ -136,15 +136,15 @@ $(function(){
       var recordId = 'record-' + stepData.step_id + '-' + recordIndex;
       var mergedFreqId = 'freq-merged-' + stepData.step_id;
 
-      // Botão azul para frequências: quando não é por disciplina, um único valor (primeiro registro) com célula mesclada
+      // Frequências: laranja quando há pendências; verde quando está ok (0 datas)
       var frequencyButton;
       if (frequencyByDiscipline) {
         frequencyButton = record.pending_frequency_count > 0 ?
-          '<button type="button" class="btn btn-primary toggle-dates" style="cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#freq-' + recordId + '" data-record-index="' + recordIndex + '">' +
+          '<button type="button" class="btn toggle-dates" style="background-color: #ff9800; color: white; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#freq-' + recordId + '" data-record-index="' + recordIndex + '">' +
             '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
             record.pending_frequency_count + ' datas' +
           '</button>' :
-          '<button type="button" class="btn btn-default" style="border-radius: 20px; padding: 6px 15px;" disabled>' +
+          '<button type="button" class="btn btn-success" style="border-radius: 20px; padding: 6px 15px;" disabled>' +
             '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
             '0 datas' +
           '</button>';
@@ -152,24 +152,24 @@ $(function(){
         // Frequência única para todas as disciplinas: só na primeira linha
         if (recordIndex === 0) {
           frequencyButton = firstRecord.pending_frequency_count > 0 ?
-            '<button type="button" class="btn btn-primary toggle-dates toggle-dates-merged-freq" style="cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#' + mergedFreqId + '" data-record-index="0">' +
+            '<button type="button" class="btn toggle-dates toggle-dates-merged-freq" style="background-color: #ff9800; color: white; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#' + mergedFreqId + '" data-record-index="0">' +
               '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
               firstRecord.pending_frequency_count + ' datas' +
             '</button>' :
-            '<button type="button" class="btn btn-default" style="border-radius: 20px; padding: 6px 15px;" disabled>' +
+            '<button type="button" class="btn btn-success" style="border-radius: 20px; padding: 6px 15px;" disabled>' +
               '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
               '0 datas' +
             '</button>';
         }
       }
 
-      // Botão laranja para conteúdos (com ícone de documento/lista)
+      // Conteúdos: laranja quando há pendências; verde quando está ok (0 datas)
       var contentButton = record.pending_content_count > 0 ?
         '<button type="button" class="btn toggle-dates" style="background-color: #ff9800; color: white; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#cont-' + recordId + '" data-record-index="' + recordIndex + '">' +
           '<i class="fa fa-file-text" style="margin-right: 5px;"></i>' +
           record.pending_content_count + ' datas' +
         '</button>' :
-        '<button type="button" class="btn btn-default" style="border-radius: 20px; padding: 6px 15px;" disabled>' +
+        '<button type="button" class="btn btn-success" style="border-radius: 20px; padding: 6px 15px;" disabled>' +
           '<i class="fa fa-file-text" style="margin-right: 5px;"></i>' +
           '0 datas' +
         '</button>';
