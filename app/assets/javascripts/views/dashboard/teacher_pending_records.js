@@ -113,6 +113,10 @@ $(function(){
       return;
     }
 
+    var frequencyByDiscipline = stepData.frequency_by_discipline !== false;
+    var totalRows = stepData.pending_records.length;
+    var firstRecord = stepData.pending_records[0];
+
     var stepHtml = '<div class="panel panel-default" style="margin-top: 20px;">' +
       '<div class="panel-body">' +
         '<div class="table-responsive">' +
@@ -130,21 +134,38 @@ $(function(){
     var recordIndex = 0;
     _.each(stepData.pending_records, function(record) {
       var recordId = 'record-' + stepData.step_id + '-' + recordIndex;
-      
-      // Botão azul para frequências (com ícone de calendário)
-      var frequencyButton = record.pending_frequency_count > 0 ? 
-        '<button type="button" class="btn btn-primary toggle-dates" style="cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#freq-' + recordId + '">' +
-          '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
-          record.pending_frequency_count + ' datas' +
-        '</button>' :
-        '<button type="button" class="btn btn-default" style="border-radius: 20px; padding: 6px 15px;" disabled>' +
-          '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
-          '0 datas' +
-        '</button>';
-      
+      var mergedFreqId = 'freq-merged-' + stepData.step_id;
+
+      // Botão azul para frequências: quando não é por disciplina, um único valor (primeiro registro) com célula mesclada
+      var frequencyButton;
+      if (frequencyByDiscipline) {
+        frequencyButton = record.pending_frequency_count > 0 ?
+          '<button type="button" class="btn btn-primary toggle-dates" style="cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#freq-' + recordId + '" data-record-index="' + recordIndex + '">' +
+            '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
+            record.pending_frequency_count + ' datas' +
+          '</button>' :
+          '<button type="button" class="btn btn-default" style="border-radius: 20px; padding: 6px 15px;" disabled>' +
+            '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
+            '0 datas' +
+          '</button>';
+      } else {
+        // Frequência única para todas as disciplinas: só na primeira linha
+        if (recordIndex === 0) {
+          frequencyButton = firstRecord.pending_frequency_count > 0 ?
+            '<button type="button" class="btn btn-primary toggle-dates toggle-dates-merged-freq" style="cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#' + mergedFreqId + '" data-record-index="0">' +
+              '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
+              firstRecord.pending_frequency_count + ' datas' +
+            '</button>' :
+            '<button type="button" class="btn btn-default" style="border-radius: 20px; padding: 6px 15px;" disabled>' +
+              '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
+              '0 datas' +
+            '</button>';
+        }
+      }
+
       // Botão laranja para conteúdos (com ícone de documento/lista)
-      var contentButton = record.pending_content_count > 0 ? 
-        '<button type="button" class="btn toggle-dates" style="background-color: #ff9800; color: white; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#cont-' + recordId + '">' +
+      var contentButton = record.pending_content_count > 0 ?
+        '<button type="button" class="btn toggle-dates" style="background-color: #ff9800; color: white; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#cont-' + recordId + '" data-record-index="' + recordIndex + '">' +
           '<i class="fa fa-file-text" style="margin-right: 5px;"></i>' +
           record.pending_content_count + ' datas' +
         '</button>' :
@@ -153,26 +174,53 @@ $(function(){
           '0 datas' +
         '</button>';
 
-      stepHtml += '<tr>' +
-        '<td><strong>' + record.discipline + '</strong></td>' +
-        '<td style="text-align: center;">' +
-          '<div>' +
-            frequencyButton +
-          '</div>' +
-          '<div id="freq-' + recordId + '" class="dates-container" style="display: none; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">' +
-            '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
-          '</div>' +
-        '</td>' +
-        '<td style="text-align: center;">' +
-          '<div>' +
-            contentButton +
-          '</div>' +
-          '<div id="cont-' + recordId + '" class="dates-container" style="display: none; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">' +
-            '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
-          '</div>' +
-        '</td>' +
-        '</tr>';
-      
+      if (frequencyByDiscipline) {
+        stepHtml += '<tr>' +
+          '<td><strong>' + record.discipline + '</strong></td>' +
+          '<td style="text-align: center;">' +
+            '<div>' + frequencyButton + '</div>' +
+            '<div id="freq-' + recordId + '" class="dates-container" style="display: none; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">' +
+              '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
+            '</div>' +
+          '</td>' +
+          '<td style="text-align: center;">' +
+            '<div>' + contentButton + '</div>' +
+            '<div id="cont-' + recordId + '" class="dates-container" style="display: none; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">' +
+              '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
+            '</div>' +
+          '</td>' +
+          '</tr>';
+      } else {
+        // Frequência não por disciplina: coluna de frequência só na primeira linha (rowspan)
+        if (recordIndex === 0) {
+          stepHtml += '<tr>' +
+            '<td><strong>' + record.discipline + '</strong></td>' +
+            '<td rowspan="' + totalRows + '" style="text-align: center; vertical-align: middle;">' +
+              '<div>' + frequencyButton + '</div>' +
+              '<div id="' + mergedFreqId + '" class="dates-container" style="display: none; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">' +
+                '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
+              '</div>' +
+            '</td>' +
+            '<td style="text-align: center;">' +
+              '<div>' + contentButton + '</div>' +
+              '<div id="cont-' + recordId + '" class="dates-container" style="display: none; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">' +
+                '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
+              '</div>' +
+            '</td>' +
+            '</tr>';
+        } else {
+          stepHtml += '<tr>' +
+            '<td><strong>' + record.discipline + '</strong></td>' +
+            '<td style="text-align: center;">' +
+              '<div>' + contentButton + '</div>' +
+              '<div id="cont-' + recordId + '" class="dates-container" style="display: none; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">' +
+                '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
+              '</div>' +
+            '</td>' +
+            '</tr>';
+        }
+      }
+
       recordIndex++;
     });
 
@@ -200,23 +248,33 @@ $(function(){
       // Fechar todos os outros containers de datas
       $stepContainer.find('.dates-container').not($target).slideUp();
       
-      // Se o container não tem dados carregados, buscar via AJAX
+      // Se o container não tem dados carregados, usar datas já na resposta ou buscar via AJAX
       if($target.find('.loading-dates').length > 0 || $target.text().trim() === '' || $target.text().indexOf('Carregando') !== -1) {
-        var recordId = targetId.replace('#freq-', '').replace('#cont-', '');
-        var parts = recordId.split('-');
-        var recordIndex = parseInt(parts[parts.length - 1]); // Último elemento é o índice
+        var recordIndex = $(this).data('record-index');
+        if (recordIndex === undefined) {
+          var recordId = targetId.replace('#freq-', '').replace('#cont-', '');
+          var parts = recordId.split('-');
+          recordIndex = recordId.indexOf('merged') !== -1 ? 0 : parseInt(parts[parts.length - 1], 10);
+        }
         var record = stepData.pending_records[recordIndex];
         var isFrequency = targetId.indexOf('freq-') !== -1;
-        
-        // Mostrar loading
+        var label = isFrequency ? 'Datas pendentes de frequência' : 'Datas pendentes de conteúdo';
+
+        // Datas já vieram na resposta inicial: exibir na hora (sem nova requisição)
+        var datesFromRecord = isFrequency ? record.pending_frequency_dates : record.pending_content_dates;
+        if (datesFromRecord !== undefined && Array.isArray(datesFromRecord)) {
+          $target.html(
+            '<strong>' + label + ':</strong><br>' +
+            (datesFromRecord.length > 0 ? datesFromRecord.join(', ') : 'Nenhuma')
+          ).slideDown();
+          return;
+        }
+
+        // Fallback: buscar datas via AJAX (respostas antigas ou dados não incluídos)
         $target.html('<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>').slideDown();
-        
-        // Buscar datas via AJAX
-        // Usar knowledge_area_id se disponível (para turmas infantis), senão usar discipline_id
-        var idParam = record.knowledge_area_id ? 
-          { knowledge_area_id: record.knowledge_area_id } : 
+        var idParam = record.knowledge_area_id ?
+          { knowledge_area_id: record.knowledge_area_id } :
           { discipline_id: record.discipline_id };
-        
         $.ajax({
           url: Routes.dates_dashboard_teacher_pending_records_pt_br_path(
             Object.assign({
@@ -226,8 +284,6 @@ $(function(){
           ),
           success: function(data) {
             var dates = isFrequency ? data.pending_frequency_dates : data.pending_content_dates;
-            var label = isFrequency ? 'Datas pendentes de frequência' : 'Datas pendentes de conteúdo';
-            
             $target.html(
               '<strong>' + label + ':</strong><br>' +
               (dates.length > 0 ? dates.join(', ') : 'Nenhuma')

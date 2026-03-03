@@ -1,5 +1,5 @@
 class PendingRecordsCalculator
-  def initialize(unity_id: nil, classroom_id: nil, teacher_id: nil, discipline_id: nil, start_date: nil, end_date: nil, school_year: nil, count_only: false)
+  def initialize(unity_id: nil, classroom_id: nil, teacher_id: nil, discipline_id: nil, start_date: nil, end_date: nil, school_year: nil, count_only: false, include_dates: false)
     @unity_id = unity_id
     @classroom_id = classroom_id
     @teacher_id = teacher_id
@@ -8,6 +8,7 @@ class PendingRecordsCalculator
     @end_date = end_date || Date.current
     @school_year = school_year || Date.current.year
     @count_only = count_only
+    @include_dates = include_dates
   end
 
   def calculate
@@ -522,8 +523,8 @@ class PendingRecordsCalculator
           pending_content_count: pending_content_count
         }
         
-        # Só incluir as datas se não estiver em modo count_only
-        unless @count_only
+        # Incluir datas quando não for count_only ou quando include_dates (evita chamada /dates no frontend)
+        if !@count_only || @include_dates
           result[:pending_frequency_dates] = pending_frequency_dates.sort
           result[:pending_content_dates] = pending_content_dates.sort
         end
@@ -1513,7 +1514,7 @@ class PendingRecordsCalculator
         pending_content_count: pending_content_count
       }
       
-      unless @count_only
+      if !@count_only || @include_dates
         result[:pending_frequency_dates] = pending_frequency_dates.sort
         # Se o professor iniciou preenchimento por disciplina, verificar se há registro por disciplina nas datas pendentes
         if started_as_discipline

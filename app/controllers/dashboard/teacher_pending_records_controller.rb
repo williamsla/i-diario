@@ -47,22 +47,38 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
           start_date: step.start_at,
           end_date: step.end_at,
           school_year: current_school_year,
-          count_only: true
+          count_only: true,
+          include_dates: true # evita chamadas /dates ao expandir: datas já vêm na resposta
         )
 
         results = calculator.calculate
 
-        # Formatar os resultados para o dashboard (sem as datas para otimizar)
+        # Formatar os resultados para o dashboard (com datas para exibir sem nova requisição)
         # Ordenar por nome da disciplina em ordem alfabética
         pending_records = results.map do |result|
-          {
+          record = {
             discipline: result[:discipline_name],
             discipline_id: result[:discipline_id] || result[:knowledge_area_id], # Usar knowledge_area_id se discipline_id for nil
             knowledge_area_id: result[:knowledge_area_id], # Para áreas de conhecimento
             pending_frequency_count: result[:pending_frequency_count],
             pending_content_count: result[:pending_content_count]
           }
+          if result[:pending_frequency_dates].present? || result[:pending_content_dates].present?
+            record[:pending_frequency_dates] = result[:pending_frequency_dates]&.map { |d| d.strftime('%d/%m/%Y') } || []
+            record[:pending_content_dates] = result[:pending_content_dates]&.map { |d| d.strftime('%d/%m/%Y') } || []
+          end
+          record
         end.sort_by { |record| record[:discipline] }
+
+        # Frequência por disciplina: quando false, a coluna de frequências deve ser mesclada (um único valor para todas as linhas)
+        frequency_type_definer = FrequencyTypeDefiner.new(
+          current_user_classroom,
+          current_teacher.id,
+          nil,
+          year: current_school_year
+        )
+        frequency_type_definer.define!
+        frequency_by_discipline = frequency_type_definer.frequency_type == FrequencyTypes::BY_DISCIPLINE
 
         step_data = {
           step_id: step.id,
@@ -70,6 +86,7 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
           step_number: step.step_number,
           start_at: step.start_at.strftime('%d/%m/%Y'),
           end_at: step.end_at.strftime('%d/%m/%Y'),
+          frequency_by_discipline: frequency_by_discipline,
           pending_records: pending_records
         }
       end
