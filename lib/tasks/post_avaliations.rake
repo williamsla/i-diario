@@ -1,6 +1,6 @@
 namespace :post_avaliations do
 
-  desc "Posting changed avaliations"
+  desc "Posting changed avaliations (obrigatório: DOMAIN= ou TENANT=)"
   task init: :environment do
 
     def get_last_post_date(connection, post_type, teacher_id, step_number)
@@ -106,8 +106,18 @@ namespace :post_avaliations do
     def start(order)
       has_change = false
 
-      entity = Entity.active.last
-        
+      entity = if ENV["DOMAIN"].present?
+                 e = Entity.find_by(domain: ENV["DOMAIN"])
+                 raise "Entidade não encontrada para DOMAIN=#{ENV['DOMAIN']}" unless e
+                 e
+               elsif ENV["TENANT"].present?
+                 e = Entity.find_by(name: ENV["TENANT"])
+                 raise "Entidade não encontrada para TENANT=#{ENV['TENANT']}" unless e
+                 e
+               else
+                 raise "Via rake é obrigatório informar DOMAIN= ou TENANT=. Ex: DOMAIN=escola.gov.br rake post_avaliations:init"
+               end
+
       entity.using_connection do
         connection = ActiveRecord::Base.connection
 

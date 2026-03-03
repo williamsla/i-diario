@@ -219,10 +219,8 @@ module ApplicationHelper
   end
 
   def logo_url
-    if Rails.env.production?
-      current_entity_configuration.try(:logo_url) || DEFAULT_LOGO
-    else
-      DEFAULT_LOGO
-    end
+    # Sempre usa a logo da entidade atual (por domínio), em todos os ambientes,
+    # para que cada município/tenant exiba sua própria logo.
+    current_entity_configuration.try(:logo_url) || DEFAULT_LOGO
   end
 end

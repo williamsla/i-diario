@@ -106,6 +106,24 @@ class IeducarApiSynchronization < ApplicationRecord
     end
   end
 
+  # Cancela esta sincronização mesmo que o job ainda esteja rodando (ex.: travada há muito tempo).
+  # Marca como erro e tenta remover o job das filas do Sidekiq.
+  def cancel_running!(message = 'Sincronização cancelada manualmente.')
+    return unless started?
+
+    mark_as_error!(message, message)
+    remove_job_from_sidekiq if job_id.present?
+  end
+
+  def remove_job_from_sidekiq
+    %w[synchronizer default].each do |queue_name|
+      queue = Sidekiq::Queue.new(queue_name)
+      queue.each { |job| job.delete if job.jid == job_id }
+    end
+    Sidekiq::ScheduledSet.new.each { |job| job.delete if job.jid == job_id }
+    Sidekiq::RetrySet.new.each { |job| job.delete if job.jid == job_id }
+  end
+
   def update_last_synchronization_date
     IeducarApiConfiguration.current.update_synchronized_at!(started_at)
   end

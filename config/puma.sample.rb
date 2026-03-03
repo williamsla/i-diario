@@ -1,8 +1,9 @@
 #!/usr/bin/env puma
 
 # Min and Max threads per worker
-threads 2, 5
+# Workers = núcleos físicos (ou núcleos - 1 para deixar margem ao SO)
 workers 2
+threads 2, 5
 
 preload_app!
 
