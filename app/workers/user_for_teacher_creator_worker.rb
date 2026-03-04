@@ -3,9 +3,9 @@ class UserForTeacherCreatorWorker
 
   sidekiq_options unique: :until_and_while_executing, queue: :low
 
-  def perform(entity_id, teacher_id, cpf, school_id)
+  def perform(entity_id, teacher_id, cpf, school_id, function_name = nil)
     Entity.find(entity_id).using_connection do
-      UserForTeacherCreator.create!(teacher_id, cpf, school_id)
+      UserForTeacherCreator.create!(teacher_id, cpf, school_id, function_name)
     end
   end
 end

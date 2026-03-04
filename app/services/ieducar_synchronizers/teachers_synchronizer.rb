@@ -31,7 +31,7 @@ class TeachersSynchronizer < BaseSynchronizer
         teacher.save! if teacher.changed?
 
 
-
+        
         if CPF.valid?(teacher_record.cpf)
           
           user = User.by_cpf(teacher_record.cpf)
@@ -41,6 +41,16 @@ class TeachersSynchronizer < BaseSynchronizer
           else
             create_users(teacher.id, teacher_record.cpf, teacher_record.escola_id, teacher_record.nm_funcao)
           end
+        else
+          Rails.logger.info("CPF inválido: #{teacher_record.cpf}")
+          Rails.logger.info("Teacher: #{teacher.id}")
+          Rails.logger.info("Teacher name: #{teacher.name}")
+          Rails.logger.info("Teacher active: #{teacher.active}")
+          Rails.logger.info("Teacher api_code: #{teacher.api_code}")
+          Rails.logger.info("Teacher created_at: #{teacher.created_at}")
+          Rails.logger.info("Teacher updated_at: #{teacher.updated_at}")
+          Rails.logger.info("Teacher discarded_at: #{teacher.discarded_at}")
+          Rails.logger.info("-------------------------------------------")
         end
 
       end
