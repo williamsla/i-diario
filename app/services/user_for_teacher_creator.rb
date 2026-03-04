@@ -25,16 +25,11 @@ class UserForTeacherCreator
   private
 
   def create_user(teacher, cpf, unity, function_name)
-    function_name = function_name.to_s.downcase
-    if function_name.include?('professor')
-      role_id = Role.find_by(access_level: AccessLevel::TEACHER)&.id
-    elsif function_name.include?('coordenador')
-      role_id = Role.find_by(access_level: AccessLevel::EMPLOYEE)&.id
-    end
+    function_name = function_name.to_s.strip
+    role_id = Role.where("name ILIKE ?", "%#{function_name}%").first&.id if function_name.present?
 
-    # Quando função não é professor/coordenador ou não veio na API
     if role_id.blank?
-      Rails.logger.warn("[UserForTeacherCreator] Nenhuma permissão (professor/coordenador) encontrada no sistema para servidor_id=#{teacher.id}")
+      Rails.logger.warn("[UserForTeacherCreator] Nenhum role encontrado para função '#{function_name}' (servidor_id=#{teacher.id})")
       return
     end
 
