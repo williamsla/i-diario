@@ -1,6 +1,13 @@
 class DocUploader < CarrierWave::Uploader::Base
+  # Sempre usa pasta por entidade (entity_X) para não misturar anexos de cada domínio/município.
+  # Após migrar os arquivos antigos manualmente para o novo diretório, a leitura usa este caminho.
   def store_dir
-    "#{Rails.env}/#{model.class.to_s.underscore.pluralize}/#{model.id}"
+    base = "#{Rails.env}/#{model.class.to_s.underscore.pluralize}"
+    if Entity.current.present?
+      "#{base}/entity_#{Entity.current.id}/#{model.id}"
+    else
+      "#{base}/#{model.id}"
+    end
   end
 
   def extension_white_list
