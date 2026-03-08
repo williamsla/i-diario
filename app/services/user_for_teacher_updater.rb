@@ -19,14 +19,10 @@ class UserForTeacherUpdater
   private
 
   def update_user(teacher, cpf, unity, function_name)
-    function_name = function_name.downcase
-    if function_name.include?('professor')
-      role_id = Role.find_by(access_level: AccessLevel::TEACHER)&.id
-    elsif function_name.include?('coordenador')
-      role_id = Role.find_by(access_level: AccessLevel::EMPLOYEE)&.id
-    end
+    function_name = function_name.to_s.strip
 
-    raise 'Permissão de professor não encontrada.' if role_id.blank?
+    role_id = Role.where("name ILIKE ?", "%#{function_name}%").first&.id
+    raise 'Permissão não encontrada.' if role_id.blank?
 
     user = User.find_by(teacher_id: teacher.id, kind: RoleKind::EMPLOYEE)
     return unless user
