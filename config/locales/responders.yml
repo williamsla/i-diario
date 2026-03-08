@@ -146,6 +146,15 @@ pt-BR:
       destroy:
         alert: 'Não é possível apagar registros fora das datas de lançamento da etapa'
 
+    teacher_absences:
+      create:
+        notice: 'Falta do professor registrada com sucesso. A aula será considerada não realizada e a data de reposição aparecerá como pendência quando informada.'
+      update:
+        notice: 'Falta do professor alterada com sucesso.'
+      destroy:
+        notice: 'Registro de falta do professor excluído com sucesso.'
+      <<: *male
+
     observation_diary_records:
       <<: *male
       destroy:

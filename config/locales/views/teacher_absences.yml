@@ -1,0 +1,11 @@
+pt-BR:
+  views:
+    teacher_absences:
+      professor_absent_button: "Professor faltou"
+      index:
+        title: "Faltas do professor"
+        no_records: "Nenhuma falta do professor registrada."
+      new:
+        title: "Registrar falta do professor"
+      show:
+        title: "Falta do professor"

@@ -1,0 +1,7 @@
+pt-BR:
+  enumerations:
+    teacher_absence_coverage:
+      whole_day: "Todas as turmas do dia"
+      all_classrooms: "Todas as turmas em um turno"
+      by_classroom: "Uma turma específica"
+      

@@ -90,6 +90,9 @@ navigation:
             type: "absence_justifications"
             path: "absence_justifications_path"
         - menu:
+            type: "teacher_absences"
+            path: "teacher_absences_path"
+        - menu:
             type: "infrequency_trackings"
             path: "infrequency_trackings_path"
   - menu:

@@ -49,6 +49,11 @@ class DailyFrequenciesController < ApplicationController
 
       return if @frequency_type == FrequencyTypes::BY_DISCIPLINE && !(validate_class_numbers && validate_discipline)
 
+      if teacher_absence_blocks_frequency?(@daily_frequency, @class_numbers)
+        redirect_to new_daily_frequency_path, alert: I18n.t('daily_frequencies.create.blocked_by_teacher_absence')
+        return
+      end
+
       redirect_to edit_multiple_daily_frequencies_path(
         daily_frequency: daily_frequency_params,
         class_numbers: @class_numbers
@@ -62,13 +67,18 @@ class DailyFrequenciesController < ApplicationController
 
         return if @frequency_type == FrequencyTypes::BY_DISCIPLINE && !(validate_class_numbers && validate_discipline)
 
+        if teacher_absence_blocks_frequency?(@daily_frequency, @class_numbers)
+          redirect_to new_daily_frequency_path, alert: I18n.t('daily_frequencies.create.blocked_by_teacher_absence')
+          return
+        end
+
         redirect_to edit_multiple_daily_frequencies_path(
           daily_frequency: daily_frequency_params,
           class_numbers: @class_numbers
         )
         return
       end
-      
+
       render :new
     end
   end
@@ -78,6 +88,10 @@ class DailyFrequenciesController < ApplicationController
     @daily_frequencies = find_or_initialize_daily_frequencies(params[:class_numbers])
       .sort { |a, b| a.class_number <=> b.class_number }
     @daily_frequency = @daily_frequencies.first
+    @teacher_absence_blocks_date = teacher_absence_blocks_frequency?(
+      @daily_frequency,
+      params[:class_numbers].to_s.split(',').map(&:strip)
+    )
     @period = @admin_or_teacher ? current_teacher_period : set_options_by_classroom
 
     @period = @period != Periods::FULL.to_i ? @period : nil
@@ -219,9 +233,16 @@ class DailyFrequenciesController < ApplicationController
       daily_frequency_record = nil
       daily_frequency_attributes = daily_frequency_params
       daily_frequencies_attributes = daily_frequencies_params
+
+      frequency_for_check = DailyFrequency.new(daily_frequency_attributes)
+      if teacher_absence_blocks_frequency?(frequency_for_check, class_numbers_from_params)
+        redirect_to new_daily_frequency_path, alert: I18n.t('daily_frequencies.create.blocked_by_teacher_absence')
+        return
+      end
+
       receive_email_confirmation = ActiveRecord::Type::Boolean.new.cast(
         params[:daily_frequency][:receive_email_confirmation]
-      )      
+      )
 
       edit_multiple_daily_frequencies_path = edit_multiple_daily_frequencies_path(
         daily_frequency: daily_frequency_attributes.slice(
@@ -654,6 +675,20 @@ class DailyFrequenciesController < ApplicationController
     @daily_schedule_discipline.count { |d| d == discipline_id }
   end
   helper_method :count_classes_of_the_day
+
+  def teacher_absence_blocks_frequency?(daily_frequency, class_numbers = nil)
+    return false if current_teacher.blank? || daily_frequency.blank?
+
+    TeacherAbsence.blocks_frequency?(
+      classroom_id: daily_frequency.classroom_id,
+      teacher_id: current_teacher.id,
+      absence_date: daily_frequency.frequency_date,
+      discipline_id: daily_frequency.discipline_id.presence,
+      class_numbers: class_numbers.presence,
+      unity_id: daily_frequency.classroom&.unity_id,
+      period: daily_frequency.period
+    )
+  end
 
   def existing_frequencies_for_date?
     return false unless daily_frequency_params[:classroom_id].present? && daily_frequency_params[:frequency_date].present?

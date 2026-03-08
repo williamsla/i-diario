@@ -153,14 +153,58 @@ $(function () {
     loadContents();
   });
 
+  function checkTeacherAbsenceForContent() {
+    var classroom_id = $classroom.val();
+    var discipline_id = $discipline.val();
+    var date = $recordDate.val();
+    var class_number = $class_number.val();
+
+    if (_.isEmpty(classroom_id) || _.isEmpty(date) || !date.match(dateRegex)) {
+      $('#teacher_absence_blocks_content_alert').hide();
+      return;
+    }
+
+    $.ajax({
+      url: Routes.check_teacher_absence_discipline_content_records_pt_br_path({
+        record_date: date,
+        classroom_id: classroom_id,
+        discipline_id: discipline_id || '',
+        class_number: class_number || '',
+        format: 'json'
+      }),
+      success: function (data) {
+        if (data && data.blocked) {
+          $('#teacher_absence_blocks_content_alert').show();
+        } else {
+          $('#teacher_absence_blocks_content_alert').hide();
+        }
+      },
+      error: function () {
+        $('#teacher_absence_blocks_content_alert').hide();
+      }
+    });
+  }
+
   // Sempre recarrega conteúdos e objetivos quando a data mudar
   $recordDate.on('change', function () {
     loadContents();
     countLessons();
+    checkTeacherAbsenceForContent();
   });
+
+  $discipline.on('change', function () {
+    checkTeacherAbsenceForContent();
+  });
+
+  $class_number.on('change', function () {
+    checkTeacherAbsenceForContent();
+  });
+
   if (!$("#contents-list li").length) {
     loadContents();
   }
+
+  checkTeacherAbsenceForContent();
 
   function fetchDisciplines(classroom_id) {
     $.ajax({

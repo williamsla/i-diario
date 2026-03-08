@@ -232,6 +232,7 @@ Rails.application.routes.draw do
     resources :discipline_content_records, concerns: :history do
       collection do
         post :clone
+        get :check_teacher_absence
       end
     end
     resources :knowledge_area_content_records, concerns: :history do
@@ -362,6 +363,7 @@ Rails.application.routes.draw do
         get :valid_teacher_period_in_classroom
       end
     end
+    resources :teacher_absences, concerns: :history
     resources :observation_diary_records, concerns: :history
     resources :ieducar_api_exam_postings do
       member do

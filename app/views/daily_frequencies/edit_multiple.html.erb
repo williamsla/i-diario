@@ -3,6 +3,12 @@
 <% end %>
 
 <div class="widget-body no-padding">
+  <% if @teacher_absence_blocks_date %>
+    <div class="alert alert-warning alert-block">
+      <i class="fa-fw fa fa-warning"></i>
+      <%= t('daily_frequencies.create.blocked_by_teacher_absence') %>
+    </div>
+  <% end %>
   <table class="table table-bordered table-only-inner-bordered">
     <thead>
       <th><%= DailyFrequency.human_attribute_name :unity %></th>

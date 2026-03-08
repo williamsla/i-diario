@@ -6,6 +6,11 @@
 <%= simple_form_for @discipline_content_record, url: polymorphic_path(@discipline_content_record, params.permit(:modal).to_h), html: { class: 'smart-form' } do |f| %>
   <%= f.error_notification %>
 
+  <div id="teacher_absence_blocks_content_alert" class="alert alert-warning fade in" style="<%= 'display:none' unless @teacher_absence_blocks_date %>">
+    <i class="fa-fw fa fa-warning"></i>
+    <span id="teacher_absence_blocks_content_message"><%= t('discipline_content_records.create.blocked_by_teacher_absence') %></span>
+  </div>
+
   <%= f.simple_fields_for :content_record, @discipline_content_record.content_record.localized do |content_record| %>
     <%= content_record.hidden_field :id %>
 

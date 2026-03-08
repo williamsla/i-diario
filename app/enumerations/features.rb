@@ -53,8 +53,8 @@ class Features < EnumerateIt::Base
                    :avaliation_recovery_lowest_notes,
                    :attendance_record_report_by_students,
                    :diary_report,
-                   :descriptive_report
-
+                   :descriptive_report,
+                   :teacher_absences
 
   sort_by :translation
 end

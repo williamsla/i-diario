@@ -1,0 +1,65 @@
+<div class="widget-body no-padding">
+  <table class="table table-bordered table-only-inner-bordered">
+    <tbody>
+      <tr>
+        <th style="width: 200px;"><%= TeacherAbsence.human_attribute_name :absence_date %></th>
+        <td><%= l(@teacher_absence.absence_date) %></td>
+      </tr>
+      <tr>
+        <th><%= TeacherAbsence.human_attribute_name :coverage %></th>
+        <td><%= @teacher_absence.coverage_humanize %></td>
+      </tr>
+      <% if @teacher_absence.classroom.present? %>
+        <tr>
+          <th><%= TeacherAbsence.human_attribute_name :classroom %></th>
+          <td><%= @teacher_absence.classroom.description %></td>
+        </tr>
+      <% end %>
+      <tr>
+        <th><%= TeacherAbsence.human_attribute_name :periods %></th>
+        <td><%= @teacher_absence.effective_periods.any? ? @teacher_absence.effective_periods.map { |p| Periods.translate(Periods.key_for(p.to_s)) }.join(', ') : '-' %></td>
+      </tr>
+      <tr>
+        <th><%= TeacherAbsence.human_attribute_name :discipline %></th>
+        <td><%= @teacher_absence.discipline&.description || '-' %></td>
+      </tr>
+      <tr>
+        <th><%= TeacherAbsence.human_attribute_name :teacher %></th>
+        <td><%= @teacher_absence.teacher.name %></td>
+      </tr>
+      <tr>
+        <th><%= TeacherAbsence.human_attribute_name :reason %></th>
+        <td><%= @teacher_absence.reason %></td>
+      </tr>
+      <tr>
+        <th><%= TeacherAbsence.human_attribute_name :will_make_up %></th>
+        <td><%= @teacher_absence.will_make_up? ? t('boolean.yes') : t('boolean.no') %></td>
+      </tr>
+      <% if @teacher_absence.will_make_up? %>
+        <tr>
+          <th><%= TeacherAbsence.human_attribute_name :make_up_date %></th>
+          <td><%= l(@teacher_absence.make_up_date) %></td>
+        </tr>
+      <% end %>
+      <% if @teacher_absence.teacher_absence_attachments.any? %>
+        <tr>
+          <th><%= TeacherAbsence.human_attribute_name :attachment %></th>
+          <td>
+            <% @teacher_absence.teacher_absence_attachments.each do |att| %>
+              <% if att.attachment.present? %>
+                <%= link_to att.filename, att.attachment.url, target: '_blank' %><br>
+              <% end %>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+  <footer class="margin-top-10">
+    <%= link_to 'Voltar', teacher_absences_path, class: 'btn btn-default' %>
+    <%= link_to 'Editar', edit_teacher_absence_path(@teacher_absence), class: 'btn btn-primary' %>
+    <%= link_to 'Excluir', teacher_absence_path(@teacher_absence), method: :delete, class: 'btn btn-danger',
+      data: { confirm: 'Tem certeza que deseja excluir este registro de falta do professor?' } %>
+    <%= link_to 'Histórico', history_teacher_absence_path(@teacher_absence), class: 'btn btn-info' %>
+  </footer>
+</div>

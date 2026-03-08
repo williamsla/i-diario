@@ -1,5 +1,9 @@
 pt-BR:
   discipline_content_records:
+    create:
+      blocked_by_teacher_absence: "Esta data foi bloqueada pela coordenação devido à falta do professor. O registro de conteúdo não pode ser realizado."
+    update:
+      blocked_by_teacher_absence: "Esta data foi bloqueada pela coordenação devido à falta do professor. O registro de conteúdo não pode ser atualizado."
     index:
       by_classroom_description: "Filtrar turma"
       by_discipline_description: "Filtrar disciplina"

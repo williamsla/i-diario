@@ -17,6 +17,8 @@ pt-BR:
             lessons_boards_types:
 
   lessons_boards:
+    show:
+      no_item_found: "Nenhuma aula informada"
     index:
       new_html: "<i class='fa fa-plus'></i>&nbsp Novo quadro de aula"
       by_year: "Filtrar ano"

@@ -1,0 +1,42 @@
+pt-BR:
+  activerecord:
+    models:
+      teacher_absence:
+        one: "Falta do professor"
+        other: "Faltas do professor"
+
+    attributes:
+      teacher_absence:
+        unity: "Escola"
+        unity_id: "Escola"
+        classroom: "Turma"
+        classroom_id: "Turma"
+        discipline: "Disciplina"
+        discipline_id: "Disciplina"
+        discipline_hint: "Deixe em branco para considerar todas as disciplinas que o professor leciona na data especificada naquela turma."
+        school_calendar: "Calendário escolar"
+        teacher: "Professor"
+        user: "Usuário"
+        absence_date: "Data da falta"
+        reason: "Motivo"
+        will_make_up: "Aula será reposta?"
+        will_make_up_label: "Sim, a aula será reposta"
+        make_up_date: "Data da reposição"
+        period: "Turno"
+        periods: "Turnos"
+        coverage: "Abrangência"
+        class_number: "Número da aula"
+        class_number_hint: "Opcional. Deixe em branco para vincular a todas as aulas do dia."
+        attachments_legend: "Anexar atestado"
+        attachments_hint: "Somente arquivos nos formatos jpeg, jpg, png, gif, pdf, odt, doc, docx, ods, xls, xlsx, odp, ppt, pptx, odg, xml, csv. Tamanho máximo por arquivo: 3MB"
+        attachment: "Anexo"
+        add_attachment: "Adicionar anexo"
+
+    errors:
+      models:
+        teacher_absence:
+          attributes:
+            make_up_date:
+              must_be_after_absence_date: "deve ser posterior à data da falta"
+            periods:
+              blank: "selecione ao menos um turno para a opção Todas as turmas em um turno"

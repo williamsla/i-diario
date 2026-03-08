@@ -1,0 +1,56 @@
+<div class="widget-body no-padding">
+  <div class="table-responsive">
+    <table class="table table-bordered table-only-inner-bordered table-striped table-condensed table-hover" id="resources">
+      <thead>
+        <tr>
+          <th><%= TeacherAbsence.human_attribute_name :absence_date %></th>
+          <th><%= TeacherAbsence.human_attribute_name :coverage %></th>
+          <th><%= TeacherAbsence.human_attribute_name :classroom %></th>
+          <th><%= TeacherAbsence.human_attribute_name :periods %></th>
+          <th><%= TeacherAbsence.human_attribute_name :discipline %></th>
+          <th><%= TeacherAbsence.human_attribute_name :reason %></th>
+          <th><%= TeacherAbsence.human_attribute_name :will_make_up %></th>
+          <th><%= TeacherAbsence.human_attribute_name :make_up_date %></th>
+          <td class="actions" style="width: 180px;">
+            <%= link_to 'Novo(a)', new_teacher_absence_path, class: 'btn btn-primary' %>
+          </td>
+        </tr>
+      </thead>
+      <tbody>
+        <% @teacher_absences.each do |teacher_absence| %>
+          <tr>
+            <td><%= l(teacher_absence.absence_date) %></td>
+            <td><%= teacher_absence.coverage_humanize %></td>
+            <td><%= teacher_absence.classroom&.description || '-' %></td>
+            <td><%= teacher_absence.effective_periods.any? ? teacher_absence.effective_periods.map { |p| Periods.translate(Periods.key_for(p.to_s)) }.join(', ') : '-' %></td>
+            <td><%= teacher_absence.discipline&.description || '-' %></td>
+            <td><%= truncate(teacher_absence.reason, length: 40) %></td>
+            <td><%= teacher_absence.will_make_up? ? t('boolean.yes') : t('boolean.no') %></td>
+            <td><%= teacher_absence.make_up_date.present? ? l(teacher_absence.make_up_date) : '-' %></td>
+            <td class="actions">
+              <%= link_to 'Visualizar', teacher_absence_path(teacher_absence), class: 'btn btn-info btn-sm' %>
+              <%= link_to 'Editar', edit_teacher_absence_path(teacher_absence), class: 'btn btn-primary btn-sm' %>
+              <%= link_to 'Excluir', teacher_absence_path(teacher_absence), method: :delete, class: 'btn btn-danger btn-sm',
+                data: { confirm: 'Tem certeza que deseja excluir este registro de falta do professor?' } %>
+            </td>
+          </tr>
+        <% end %>
+        <% if @teacher_absences.empty? %>
+          <tr>
+            <td colspan="9"><%= t('views.teacher_absences.index.no_records') %></td>
+          </tr>
+        <% end %>
+      </tbody>
+      <tfoot id="paginator" class="remote">
+        <td colspan="9">
+          <div id="page_entries_info" class="pull-left hidden-xs">
+            <%= page_entries_info @teacher_absences %>
+          </div>
+          <div class="pull-right">
+            <%= paginate @teacher_absences %>
+          </div>
+        </td>
+      </tfoot>
+    </table>
+  </div>
+</div>

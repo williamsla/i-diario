@@ -410,7 +410,13 @@ class PendingRecordsCalculator
           # Filtrar sábados pendentes baseado em eventos cadastrados
           pending_frequency_dates = filter_saturdays_by_events(pending_frequency_dates, classroom, school_calendar)
           pending_content_dates = filter_saturdays_by_events(pending_content_dates, classroom, school_calendar)
-     
+
+          # Excluir datas de falta do professor (aula não realizada) e incluir datas de reposição
+          apply_teacher_absences!(
+            pending_frequency_dates, pending_content_dates,
+            classroom, discipline, teacher, start_date, end_date, today
+          )
+
           pending_frequency_count = pending_frequency_dates.count
           pending_content_count = pending_content_dates.count
         else
@@ -495,7 +501,13 @@ class PendingRecordsCalculator
           # Filtrar sábados pendentes baseado em eventos cadastrados
           pending_frequency_dates = filter_saturdays_by_events(pending_frequency_dates, classroom, school_calendar)
           pending_content_dates = filter_saturdays_by_events(pending_content_dates, classroom, school_calendar)
-          
+
+          # Excluir datas de falta do professor (aula não realizada) e incluir datas de reposição
+          apply_teacher_absences!(
+            pending_frequency_dates, pending_content_dates,
+            classroom, discipline, teacher, start_date, end_date, today
+          )
+
           pending_frequency_count = pending_frequency_dates.count
           pending_content_count = pending_content_dates.count
         end
@@ -537,6 +549,40 @@ class PendingRecordsCalculator
   end
 
   private
+
+  # Remove das pendências as datas em que o professor faltou (aula não realizada)
+  # e adiciona as datas de reposição como pendência
+  def apply_teacher_absences!(pending_frequency_dates, pending_content_dates,
+                              classroom, discipline, teacher, start_date, end_date, today)
+    absence_dates = TeacherAbsence.absence_dates_for(
+      classroom_id: classroom.id,
+      discipline_id: discipline.id,
+      teacher_id: teacher.id,
+      start_date: start_date,
+      end_date: end_date,
+      class_number: nil,
+      unity_id: classroom.unity_id
+    )
+    make_up_dates = TeacherAbsence.make_up_dates_for(
+      classroom_id: classroom.id,
+      discipline_id: discipline.id,
+      teacher_id: teacher.id,
+      start_date: start_date,
+      end_date: end_date,
+      class_number: nil,
+      unity_id: classroom.unity_id
+    )
+    make_up_to_add = make_up_dates.select { |d| d <= today }
+
+    pending_frequency_dates.reject! { |d| absence_dates.include?(d) }
+    pending_content_dates.reject! { |d| absence_dates.include?(d) }
+    make_up_to_add.each do |d|
+      pending_frequency_dates << d unless pending_frequency_dates.include?(d)
+      pending_content_dates << d unless pending_content_dates.include?(d)
+    end
+    pending_frequency_dates.sort!
+    pending_content_dates.sort!
+  end
 
   def teacher_discipline_classrooms
     relation = TeacherDisciplineClassroom

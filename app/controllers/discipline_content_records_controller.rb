@@ -9,6 +9,26 @@ class DisciplineContentRecordsController < ApplicationController
   before_action :set_number_of_classes, only: [:new, :create, :edit, :update, :show]
   before_action :allow_class_number, only: [:index, :new, :edit, :show]
 
+  def check_teacher_absence
+    record_date = parse_record_date(params[:record_date])
+    classroom_id = params[:classroom_id].presence || current_user_classroom&.id
+    discipline_id = params[:discipline_id].presence
+    class_number = params[:class_number].presence
+
+    blocked = if record_date.blank? || classroom_id.blank?
+                false
+              else
+                classroom = Classroom.find_by(id: classroom_id)
+                cr = ContentRecord.new(record_date: record_date, classroom_id: classroom_id)
+                cr.classroom = classroom
+                dcr = DisciplineContentRecord.new(discipline_id: discipline_id, class_number: class_number)
+                dcr.content_record = cr
+                teacher_absence_blocks_content_record?(dcr, class_number.present? ? [class_number] : nil)
+              end
+
+    render json: { blocked: blocked }
+  end
+
   def index
     params[:filter] ||= {}
     author_type = PlansAuthors::ALL.to_s if params[:filter].empty?
@@ -74,6 +94,8 @@ class DisciplineContentRecordsController < ApplicationController
     end
  
     @class_numbers = []
+
+    @teacher_absence_blocks_date = teacher_absence_blocks_content_record?(@discipline_content_record)
      
     authorize @discipline_content_record
   end
@@ -94,6 +116,12 @@ class DisciplineContentRecordsController < ApplicationController
     @discipline_content_record.teacher_id = current_teacher_id
     
     authorize @discipline_content_record
+
+    if teacher_absence_blocks_content_record?(@discipline_content_record)
+      set_options_by_user
+      flash.now[:alert] = I18n.t('discipline_content_records.create.blocked_by_teacher_absence')
+      return render :new
+    end
 
     @class_numbers = resource_params[:class_number]
     
@@ -185,6 +213,8 @@ class DisciplineContentRecordsController < ApplicationController
     else      
       @class_number_qtd = qtd || 0
     end
+
+    @teacher_absence_blocks_date = teacher_absence_blocks_content_record?(@discipline_content_record)
  
     authorize @discipline_content_record
   end
@@ -206,6 +236,12 @@ class DisciplineContentRecordsController < ApplicationController
     @discipline_content_record.content_record.creator_type = 'discipline_content_record'
     
     authorize @discipline_content_record
+
+    if teacher_absence_blocks_content_record?(@discipline_content_record)
+      set_options_by_user
+      flash.now[:alert] = I18n.t('discipline_content_records.update.blocked_by_teacher_absence')
+      return render :edit
+    end
 
     if @discipline_content_record.save
       if params[:modal] == 'true'
@@ -251,8 +287,14 @@ class DisciplineContentRecordsController < ApplicationController
   private
 
   def render_content_with_multiple_class_numbers
-    @class_numbers = resource_params[:class_number].split(',').sort
+    @class_numbers = resource_params[:class_number].split(',').map(&:strip).sort
     @discipline_content_record.class_number = @class_numbers.first
+
+    if teacher_absence_blocks_content_record?(@discipline_content_record, @class_numbers)
+      set_options_by_user
+      flash.now[:alert] = I18n.t('discipline_content_records.create.blocked_by_teacher_absence')
+      return render :new
+    end
 
     @class_numbers.each do |class_number|
       @discipline_content_record.class_number = class_number
@@ -275,10 +317,44 @@ class DisciplineContentRecordsController < ApplicationController
     end
   end
 
+  def parse_record_date(value)
+    return nil if value.blank?
+    return value.to_date if value.respond_to?(:to_date)
+    return Date.parse(value) if value.to_s.match?(/\A\d{4}-\d{2}-\d{2}\z/)
+    return Date.strptime(value.to_s, '%d/%m/%Y') if value.to_s.match?(%r{\A\d{1,2}/\d{1,2}/\d{4}\z})
+    nil
+  rescue ArgumentError, TypeError
+    nil
+  end
+
+  def teacher_absence_blocks_content_record?(discipline_content_record, class_numbers_param = nil)
+    return false if current_teacher.blank? || discipline_content_record.blank?
+
+    cr = discipline_content_record.content_record
+    return false if cr.blank? || cr.record_date.blank? || cr.classroom_id.blank?
+
+    record_date = cr.record_date.respond_to?(:to_date) ? cr.record_date.to_date : cr.record_date
+    class_numbers = if class_numbers_param.present?
+                      class_numbers_param.is_a?(String) ? class_numbers_param.split(',').map(&:strip).reject(&:blank?) : Array(class_numbers_param).compact
+                    else
+                      discipline_content_record.class_number.present? ? [discipline_content_record.class_number] : nil
+                    end
+
+    TeacherAbsence.blocks_frequency?(
+      classroom_id: cr.classroom_id,
+      teacher_id: current_teacher.id,
+      absence_date: record_date,
+      discipline_id: discipline_content_record.discipline_id.presence,
+      class_numbers: class_numbers,
+      unity_id: cr.classroom&.unity_id,
+      period: nil
+    )
+  end
+
   def fetch_discipline_content_records_by_user
     @discipline_content_records =
       apply_scopes(DisciplineContentRecord
-        .includes(:discipline, content_record: [:classroom])
+        .includes(:discipline, content_record: [:classroom, :teacher])
         .by_unity_id(current_unity.id)
         .by_classroom_id(@classrooms.map(&:id))
         .by_discipline_id(@disciplines.map(&:id))

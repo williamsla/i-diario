@@ -1,0 +1,157 @@
+<%= simple_form_for @teacher_absence, html: { class: 'smart-form' } do |f| %>
+  <%= f.error_notification %>
+
+  <fieldset>
+    <div class="row">
+      <div class="col col-sm-4">
+        <%= f.input :coverage, as: :select,
+          collection: TeacherAbsenceCoverage.to_a,
+          label_method: :first,
+          value_method: :last,
+          label: TeacherAbsence.human_attribute_name(:coverage),
+          input_html: { id: 'teacher_absence_coverage', style: 'max-width: 100%;' } %>
+      </div>
+      <div class="col col-sm-4" id="teacher_absence_classroom_row" style="<%= 'display:none' unless @teacher_absence.coverage_by_classroom? %>">
+        <%= f.association :classroom, as: :select2, elements: @classrooms || [],
+          user: current_user,
+          label: TeacherAbsence.human_attribute_name(:classroom_id),
+          input_html: { id: 'teacher_absence_classroom_id', style: 'max-width: 100%;' } %>
+      </div>
+      <div class="col col-sm-4" id="teacher_absence_periods_row" style="<%= 'display:none' unless @teacher_absence.coverage_all_classrooms? %>">
+        <%= f.input :periods, as: :select2, elements: Periods.to_select_specific_values(false, %w[1 2 3]).to_json,
+          label: TeacherAbsence.human_attribute_name(:periods),
+          input_html: { multiple: true, data: { without_json_parser: true }, value: (@teacher_absence.effective_periods.join(',') if @teacher_absence.effective_periods.present?) } %>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-sm-4">
+        <%= f.input :absence_date, as: :date,
+          input_html: { value: (@teacher_absence.absence_date.present? ? l(@teacher_absence.absence_date) : nil) } %>
+      </div>
+    </div>
+
+    <div class="row" id="teacher_absence_class_number_row" style="<%= 'display:none' unless @teacher_absence.coverage_by_classroom? %>">
+      <div class="col col-sm-4">
+        <%= f.input :class_number, label: TeacherAbsence.human_attribute_name(:class_number),
+          hint: t('activerecord.attributes.teacher_absence.class_number_hint') %>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-sm-12">
+        <%= f.input :reason, as: :text, label: TeacherAbsence.human_attribute_name(:reason),
+          input_html: { rows: 3 } %>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-sm-4">
+        <%= f.input :will_make_up, as: :boolean, label: TeacherAbsence.human_attribute_name(:will_make_up),
+          inline_label: t('activerecord.attributes.teacher_absence.will_make_up_label') %>
+      </div>
+      <div class="col col-sm-4" id="teacher_absence_make_up_date_wrapper" style="<%= 'display:none' unless @teacher_absence.will_make_up? %>">
+        <%= f.input :make_up_date, as: :date, label: TeacherAbsence.human_attribute_name(:make_up_date),
+          input_html: { value: (@teacher_absence.make_up_date.present? ? l(@teacher_absence.make_up_date) : nil) } %>
+      </div>
+    </div>
+
+    <div class="row textarea">
+      <div class="col col-sm-12">
+        <legend><%= t('activerecord.attributes.teacher_absence.attachments_legend') %></legend>
+        <div class="alert alert-info fade in">
+          <i class="fa-fw fa fa-info"></i>
+          <%= t('activerecord.attributes.teacher_absence.attachments_hint') %>
+        </div>
+        <table class="table table-striped table-bordered table-condensed records">
+          <thead>
+            <tr>
+              <th><%= t('activerecord.attributes.teacher_absence.attachment') %></th>
+              <td width="73px"></td>
+            </tr>
+          </thead>
+          <tbody id="teacher-absence-attachments">
+            <%= f.simple_fields_for :teacher_absence_attachments do |attachment| %>
+              <%= render 'teacher_absence_attachment_fields', f: attachment %>
+            <% end %>
+          </tbody>
+          <tfoot class="links">
+            <tr>
+              <td colspan="2">
+                <%= link_to_add_association t('activerecord.attributes.teacher_absence.add_attachment'), f, :teacher_absence_attachments,
+                  class: 'btn btn-success btn-sm',
+                  data: { association_insertion_method: 'append', association_insertion_node: '#teacher-absence-attachments' } %>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </fieldset>
+
+  <footer>
+    <%= link_to 'Voltar', teacher_absences_path, class: 'btn btn-default' %>
+    <%= f.submit 'Salvar', class: 'btn btn-primary' %>
+  </footer>
+<% end %>
+
+<% content_for :js do %>
+  <script>
+    (function() {
+      var BY_CLASSROOM = 'by_classroom';
+      var ALL_CLASSROOMS = 'all_classrooms';
+
+      function getCoverageValue() {
+        var el = document.getElementById('teacher_absence_coverage');
+        if (!el) return '';
+        return (el.value || '').trim();
+      }
+
+      function toggleCoverageFields() {
+        var value = getCoverageValue();
+        var classroomRow = document.getElementById('teacher_absence_classroom_row');
+        var periodsRow = document.getElementById('teacher_absence_periods_row');
+        var classNumberRow = document.getElementById('teacher_absence_class_number_row');
+
+        if (classroomRow) {
+          classroomRow.style.display = (value === BY_CLASSROOM) ? '' : 'none';
+        }
+        if (periodsRow) {
+          periodsRow.style.display = (value === ALL_CLASSROOMS) ? '' : 'none';
+        }
+        if (classNumberRow) {
+          classNumberRow.style.display = (value === BY_CLASSROOM) ? '' : 'none';
+        }
+      }
+
+      function toggleMakeUpDate() {
+        var wrapper = document.getElementById('teacher_absence_make_up_date_wrapper');
+        var checkbox = document.querySelector('input[type="checkbox"][name="teacher_absence[will_make_up]"]');
+        if (wrapper && checkbox) {
+          wrapper.style.display = checkbox.checked ? '' : 'none';
+          checkbox.addEventListener('change', function() {
+            wrapper.style.display = this.checked ? '' : 'none';
+          });
+        }
+      }
+
+      function init() {
+        toggleMakeUpDate();
+        toggleCoverageFields();
+
+        var coverageSelect = document.getElementById('teacher_absence_coverage');
+        if (coverageSelect) {
+          coverageSelect.addEventListener('change', function() {
+            toggleCoverageFields();
+          });
+        }
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+<% end %>
