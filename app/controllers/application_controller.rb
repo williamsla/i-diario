@@ -196,7 +196,7 @@ class ApplicationController < ActionController::Base
 
   def current_classroom_grades
     return nil if current_user_classroom.blank?
-    ClassroomsGrade.by_classroom_id(current_user_classroom.id).first.grade
+    ClassroomsGrade.by_classroom_id(current_user_classroom.id).first&.grade
   end
   helper_method :current_classroom_grades
 
