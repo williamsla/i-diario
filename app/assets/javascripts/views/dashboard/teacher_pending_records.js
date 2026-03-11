@@ -144,7 +144,7 @@ $(function(){
             '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
             record.pending_frequency_count + ' datas' +
           '</button>' :
-          '<span class="btn btn-success" style="border-radius: 20px; padding: 6px 15px; cursor: default;" title="Tudo certo com a frequência nessa disciplina na etapa selecionada.">' +
+          '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: green; font-size: 30px;" title="Tudo certo com a frequência nessa disciplina na etapa selecionada.">' +
             '<i class="fa fa-check-circle"></i>' +
           '</span>';
       } else {
@@ -155,7 +155,7 @@ $(function(){
               '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
               firstRecord.pending_frequency_count + ' datas' +
             '</button>' :
-            '<span class="btn btn-success" style="border-radius: 20px; padding: 6px 15px; cursor: default;" title="Tudo certo com a frequência nessa etapa.">' +
+            '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: green; font-size: 30px;" title="Tudo certo com a frequência nessa etapa.">' +
               '<i class="fa fa-check-circle"></i>' +
             '</span>';
         }
@@ -167,7 +167,7 @@ $(function(){
           '<i class="fa fa-file-text" style="margin-right: 5px;"></i>' +
           record.pending_content_count + ' datas' +
         '</button>' :
-        '<span class="btn btn-success" style="border-radius: 20px; padding: 6px 15px; cursor: default;" title="Tudo certo com o conteúdo nessa disciplina na etapa selecionada.">' +
+        '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: green; font-size: 30px;" title="Tudo certo com o conteúdo nessa disciplina na etapa selecionada.">' +
           '<i class="fa fa-check-circle" style="margin-right: 5px;"></i>' +
         '</span>';
 

@@ -3,6 +3,7 @@ pt-BR:
     create:
       blocked_by_teacher_absence: "Esta data foi bloqueada pela coordenação devido à falta do professor. O lançamento de frequência não pode ser realizado."
     edit_multiple:
+      not_saved_yet: "Aula ainda não foi salva"
       destroy: "Excluir"
       confirm: "Essa operação irá excluir este registro do diário de frequência. Você tem certeza?"
       dependence_students_legend: "* Alunos cursando dependência"

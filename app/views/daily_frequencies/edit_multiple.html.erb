@@ -27,7 +27,14 @@
   <%= simple_form_for @daily_frequency, url: create_or_update_multiple_daily_frequencies_path, method: :put,
     html: { class: 'smart-form daily_frequency' } do |f| %>
     
-    <div class="frequency-legend">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; padding-left: 1rem; padding-top: 0.5rem;">
+      <% if @new_record %>
+        <div class="alert alert-warning alert-block" role="status" style="display: inline-block; width: auto; max-width: 100%; margin-bottom: 0; background-color: #f0ed73; border-color: #f5c6cb; color: #721c24;">
+          <i class="fa-fw fa fa-exclamation-triangle" aria-hidden="true"></i>
+          <%= t('daily_frequencies.edit_multiple.not_saved_yet') %>
+        </div>
+      <% end %>
+      <div class="frequency-legend">
       <strong>Legenda:</strong>
 
       <div class="frequency-legend-item">
@@ -59,6 +66,7 @@
           Inserir falta justificada por período
         </a>
       <% end %>
+    </div>
     </div>
 
     <table class="table table-bordered table-only-inner-bordered table-striped table-hover">
