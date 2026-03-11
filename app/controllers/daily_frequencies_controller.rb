@@ -94,7 +94,10 @@ class DailyFrequenciesController < ApplicationController
     )
     @period = @admin_or_teacher ? current_teacher_period : set_options_by_classroom
 
-    @period = @period != Periods::FULL.to_i ? @period : nil
+    # Em turma de turno integral (FULL), manter o período real do professor (matutino/vespertino)
+    # para filtrar faltas justificadas e matrículas por turno. Evita que falta justificada da
+    # manhã apareça no registro da tarde (e vice-versa).
+    @period = nil if @period == Periods::FULL.to_i && !current_teacher_has_specific_period?
 
     @general_configuration = GeneralConfiguration.current
 
@@ -432,6 +435,7 @@ class DailyFrequenciesController < ApplicationController
     params = daily_frequency_params
     params[:discipline_id] = nil
     params[:class_number] = nil
+    params[:period] = current_teacher_period if params[:period].blank? && current_teacher_has_specific_period?
 
     [find_or_initialize_daily_frequency_by(params)]
   end
@@ -442,6 +446,8 @@ class DailyFrequenciesController < ApplicationController
     class_numbers.each do |class_number|
       params = daily_frequency_params
       params[:class_number] = class_number
+      # Em turma integral, garantir período do professor na busca para não reutilizar registro de outro turno
+      params[:period] = current_teacher_period if params[:period].blank? && current_teacher_has_specific_period?
 
       daily_frequencies << find_or_initialize_daily_frequency_by(params)
     end
@@ -476,6 +482,13 @@ class DailyFrequenciesController < ApplicationController
       current_user.current_classroom_id,
       current_user.current_discipline_id
     ).teacher_period
+  end
+
+  # Em turma integral, o professor pode ter período específico (matutino/vespertino) na alocação.
+  # Retorna true nesse caso, para que filtros (falta justificada, matrículas) usem o turno correto.
+  def current_teacher_has_specific_period?
+    period = current_teacher_period
+    period.present? && period != Periods::FULL.to_i
   end
 
   def current_teacher_period_by_classroom(classroom, discipline)
@@ -632,7 +645,7 @@ class DailyFrequenciesController < ApplicationController
     weekday = date.strftime("%A").downcase
 
     disciplines = LessonsBoardLessonWeekday.by_classroom(current_user_classroom.id).by_weekday(weekday)
-                                                          .includes(teacher_discipline_classroom: :discipline)
+                                                          .includes(:teacher_discipline_classroom)
                                                           .map { |w| w.teacher_discipline_classroom.discipline_id }
     
     return disciplines

@@ -414,7 +414,9 @@ class PendingRecordsCalculator
           # Excluir datas de falta do professor (aula não realizada) e incluir datas de reposição
           apply_teacher_absences!(
             pending_frequency_dates, pending_content_dates,
-            classroom, discipline, teacher, start_date, end_date, today
+            classroom, discipline, teacher, start_date, end_date, today,
+            frequency_dates_set: frequency_dates_set,
+            content_dates_set: content_dates_set
           )
 
           pending_frequency_count = pending_frequency_dates.count
@@ -505,7 +507,9 @@ class PendingRecordsCalculator
           # Excluir datas de falta do professor (aula não realizada) e incluir datas de reposição
           apply_teacher_absences!(
             pending_frequency_dates, pending_content_dates,
-            classroom, discipline, teacher, start_date, end_date, today
+            classroom, discipline, teacher, start_date, end_date, today,
+            frequency_dates_set: frequencies,
+            content_dates_set: content_records
           )
 
           pending_frequency_count = pending_frequency_dates.count
@@ -551,9 +555,10 @@ class PendingRecordsCalculator
   private
 
   # Remove das pendências as datas em que o professor faltou (aula não realizada)
-  # e adiciona as datas de reposição como pendência
+  # e adiciona as datas de reposição como pendência (apenas as que ainda não têm frequência/conteúdo registrados)
   def apply_teacher_absences!(pending_frequency_dates, pending_content_dates,
-                              classroom, discipline, teacher, start_date, end_date, today)
+                              classroom, discipline, teacher, start_date, end_date, today,
+                              frequency_dates_set: nil, content_dates_set: nil)
     absence_dates = TeacherAbsence.absence_dates_for(
       classroom_id: classroom.id,
       discipline_id: discipline.id,
@@ -576,9 +581,13 @@ class PendingRecordsCalculator
 
     pending_frequency_dates.reject! { |d| absence_dates.include?(d) }
     pending_content_dates.reject! { |d| absence_dates.include?(d) }
+
+    # Só inclui data de reposição como pendente se ainda não tiver frequência/conteúdo registrados
+    freq_set = frequency_dates_set || []
+    content_set = content_dates_set || []
     make_up_to_add.each do |d|
-      pending_frequency_dates << d unless pending_frequency_dates.include?(d)
-      pending_content_dates << d unless pending_content_dates.include?(d)
+      pending_frequency_dates << d unless pending_frequency_dates.include?(d) || freq_set.include?(d)
+      pending_content_dates << d unless pending_content_dates.include?(d) || content_set.include?(d)
     end
     pending_frequency_dates.sort!
     pending_content_dates.sort!

@@ -144,10 +144,9 @@ $(function(){
             '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
             record.pending_frequency_count + ' datas' +
           '</button>' :
-          '<button type="button" class="btn btn-success" style="border-radius: 20px; padding: 6px 15px;" disabled>' +
-            '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
-            '0 datas' +
-          '</button>';
+          '<span class="btn btn-success" style="border-radius: 20px; padding: 6px 15px; cursor: default;" title="Tudo certo com a frequência nessa disciplina na etapa selecionada.">' +
+            '<i class="fa fa-check-circle"></i>' +
+          '</span>';
       } else {
         // Frequência única para todas as disciplinas: só na primeira linha
         if (recordIndex === 0) {
@@ -156,10 +155,9 @@ $(function(){
               '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
               firstRecord.pending_frequency_count + ' datas' +
             '</button>' :
-            '<button type="button" class="btn btn-success" style="border-radius: 20px; padding: 6px 15px;" disabled>' +
-              '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
-              '0 datas' +
-            '</button>';
+            '<span class="btn btn-success" style="border-radius: 20px; padding: 6px 15px; cursor: default;" title="Tudo certo com a frequência nessa etapa.">' +
+              '<i class="fa fa-check-circle"></i>' +
+            '</span>';
         }
       }
 
@@ -169,10 +167,9 @@ $(function(){
           '<i class="fa fa-file-text" style="margin-right: 5px;"></i>' +
           record.pending_content_count + ' datas' +
         '</button>' :
-        '<button type="button" class="btn btn-success" style="border-radius: 20px; padding: 6px 15px;" disabled>' +
-          '<i class="fa fa-file-text" style="margin-right: 5px;"></i>' +
-          '0 datas' +
-        '</button>';
+        '<span class="btn btn-success" style="border-radius: 20px; padding: 6px 15px; cursor: default;" title="Tudo certo com o conteúdo nessa disciplina na etapa selecionada.">' +
+          '<i class="fa fa-check-circle" style="margin-right: 5px;"></i>' +
+        '</span>';
 
       if (frequencyByDiscipline) {
         stepHtml += '<tr>' +

@@ -139,6 +139,7 @@ fi
 
 echo "===> RODANDO MIGRATIONS"    
 RAILS_ENV=production bundle exec rake db:migrate
+# TENANT=nome_da_entidade RAILS_ENV=production bundle exec rake db:migrate:run_specific_tenant
 
 echo "===> COMPILANDO ASSETS (Sprockets + Webpacker)"
 RAILS_ENV=production bundle exec rake assets:precompile
