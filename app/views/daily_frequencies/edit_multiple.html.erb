@@ -194,7 +194,7 @@
         <%= f.submit t('.save'), class: 'btn new-save-style', data: { disable_with: 'Salvando...' } %>
       </div>
       
-      <% if daily_frequency_ids.present? && !request.original_url.include?('belem') %>
+      <% if daily_frequency_ids.present? %>
             <div class="clearfix"></div>
             <div id="register-content-frame-modal" style="display: grid; gap: 8px; justify-content: flex-end; padding-top: 20px;">
               <% if is_infantil == false %>
