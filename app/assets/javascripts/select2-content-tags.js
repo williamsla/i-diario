@@ -1,6 +1,14 @@
 $(function() {
   'use strict';
 
+  // Impede que Enter no Select2 (conteúdos/habilidades) submeta o formulário
+  $(document).on('keydown', 'form', function(e) {
+    if ((e.which === 13 || e.keyCode === 13) && $(e.target).closest('.select2-container').length) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  });
+
   const getObjectiveCode = (term) => {
     if (!term.length) {
       return;
@@ -65,11 +73,13 @@ $(function() {
         },
         results: function (data, page) {
           page = page || 1;
-          var results = []
-          $.each(data.contents, function(k, content){
+          var results = [];
+          // API de objectives retorna "objectives", outras podem retornar "contents"
+          var items = (data && (data.contents || data.objectives)) ? (data.contents || data.objectives) : [];
+          $.each(items, function(k, item){
             results.push({
-              id: content.description,
-              text: content.description
+              id: item.description,
+              text: item.description
             })
           });
 
