@@ -1,11 +1,14 @@
 $(function() {
   'use strict';
 
-  // Impede que Enter no Select2 (conteúdos/habilidades) submeta o formulário
+  // Impede que Enter no Select2 submeta o formulário (sem bloquear a lógica do Select2)
   $(document).on('keydown', 'form', function(e) {
-    if ((e.which === 13 || e.keyCode === 13) && $(e.target).closest('.select2-container').length) {
+    const $target = $(e.target);
+
+    if ((e.key === 'Enter' || e.which === 13) &&
+        $target.closest('.select2-container').length &&
+        $target.is('input.select2-search__field')) {
       e.preventDefault();
-      e.stopPropagation();
     }
   });
 
