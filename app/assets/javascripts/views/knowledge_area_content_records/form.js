@@ -29,17 +29,9 @@ $(function () {
 
 
   var handleFetchContentsSuccess = function(data){
-    
-    // Remove TODOS os conteúdos não manuais antes de adicionar os novos
-    // Isso garante que quando a data muda, os conteúdos antigos sejam removidos
-    // IMPORTANTE: Remove novamente aqui para garantir que não há itens residuais
-    var itemsBefore = $('#contents-list .list-group-item').length;
-    
-    $('#contents-list .list-group-item').each(function() {
-      $(this).remove();
-    });
-    
-    var itemsAfter = $('#contents-list .list-group-item').length;
+    // Remove só itens vindos do AJAX (sem .manual). Itens .manual vêm do servidor ou foram
+    // adicionados pelo usuário — não apagar aqui, senão a tela de edição perde conteúdos salvos.
+    $('#contents-list .list-group-item:not(.manual)').remove();
     
     // Adiciona os novos conteúdos retornados pelo servidor
     if (!_.isEmpty(data.contents)) {
@@ -84,11 +76,7 @@ $(function () {
   }
 
   var handleFetchObjectivesSuccess = function(data){
-    
-    // Remove TODOS os objetivos não manuais antes de adicionar os novos
-    // Isso garante que quando a data muda, os objetivos antigos sejam removidos
-    // IMPORTANTE: Remove novamente aqui para garantir que não há itens residuais
-    $('#objectives-list .list-group-item').remove();
+    $('#objectives-list .list-group-item:not(.manual)').remove();
 
     // Adiciona os novos objetivos retornados pelo servidor
     if (!_.isEmpty(data.objectives)) {
@@ -151,24 +139,7 @@ $(function () {
         knowledge_area_ids = hiddenKnowledgeArea.val();
       }
     }
-    
-    // Remove TODOS os conteúdos e objetivos não manuais ANTES de fazer a requisição
-    // Isso garante que quando a data muda, os itens antigos sejam removidos imediatamente
-    var contentsBefore = $('#contents-list .list-group-item').length;
-    var objectivesBefore = $('#objectives-list .list-group-item').length;
-        
-    // Remove os elementos do DOM de forma mais agressiva
-    $('#contents-list .list-group-item').each(function() {
-      $(this).remove();
-    });
-    $('#objectives-list .list-group-item').each(function() {
-      $(this).remove();
-    });
-    
-    // Verifica se realmente foram removidos
-    var contentsAfter = $('#contents-list .list-group-item').length;
-    var objectivesAfter = $('#objectives-list .list-group-item').length;
-    
+
     // Se knowledge_area_ids é um array, converte para string separada por vírgula
     if (_.isArray(knowledge_area_ids)) {
       knowledge_area_ids = knowledge_area_ids.join(',');
@@ -178,19 +149,28 @@ $(function () {
         !_.isEmpty(knowledge_area_ids) &&
         !_.isEmpty(date) &&
         !_.isEmpty(date.match(dateRegex))) {
-      // Se knowledge_area_ids é string, converte para array
+      // Só remove itens vindos dos planos (AJAX); preserva linhas .manual (servidor / usuário).
+      $('#contents-list .list-group-item:not(.manual)').remove();
+      $('#objectives-list .list-group-item:not(.manual)').remove();
+
       var knowledge_area_ids_array = _.isArray(knowledge_area_ids) ? knowledge_area_ids : knowledge_area_ids.split(',').filter(function(id) { return id.trim() !== ''; });
 
-      // Faz as requisições para buscar novos conteúdos e objetivos baseados na nova data
-      // As funções de sucesso também removem itens não manuais como segurança extra
       fetchContents(classroom_id, knowledge_area_ids_array, date);
       fetchObjectives(classroom_id, knowledge_area_ids_array, date);
-    } else {
-      // Se os campos não estão preenchidos, limpa a lista completamente
-      $('#contents-list .list-group-item').remove();
-      $('#objectives-list .list-group-item').remove();
     }
+    // Se filtros inválidos: não limpar a lista (evita apagar HTML renderizado na edição).
   }
+
+  // Só busca conteúdos via AJAX quando as listas ainda estão vazias (ex.: novo registro).
+  // Na edição, o servidor já envia conteúdos/habilidades; chamar loadContents apagaria tudo.
+  var loadContentsAfterKnowledgeAreasIfNeeded = function() {
+    var hasContents = $('#contents-list .list-group-item').length > 0;
+    var hasObjectives = $('#objectives-list .list-group-item').length > 0;
+    if (hasContents || hasObjectives) {
+      return;
+    }
+    loadContents();
+  };
 
   $knowledgeArea.on('change', function(){
     loadContents();
@@ -319,9 +299,8 @@ $(function () {
               $knowledgeArea.val(ids);
               $knowledgeArea.select2('val', ids);
               $knowledgeArea.trigger('change');
-              // Carrega os conteúdos após selecionar as áreas de conhecimento
               setTimeout(function() {
-                loadContents();
+                loadContentsAfterKnowledgeAreasIfNeeded();
               }, 200);
             }
           } else if (validSelectedKnowledgeAreas.length > 0) {
@@ -356,9 +335,8 @@ $(function () {
             // Dispara o evento change
             $knowledgeArea.trigger('change');
             
-            // Carrega os conteúdos após selecionar
             setTimeout(function() {
-              loadContents();
+              loadContentsAfterKnowledgeAreasIfNeeded();
             }, 500);
           } 
         }, 400);
