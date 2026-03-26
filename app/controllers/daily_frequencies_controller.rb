@@ -135,7 +135,8 @@ class DailyFrequenciesController < ApplicationController
       date: frequency_date,
       end_date: frequency_date,
       classroom: @daily_frequency.classroom_id,
-      period: @period
+      period: @period,
+      class_numbers: @daily_frequencies.map(&:class_number).compact
     )
 
     @students_as_justified = []

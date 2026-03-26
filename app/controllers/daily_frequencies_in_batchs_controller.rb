@@ -340,7 +340,8 @@ class DailyFrequenciesInBatchsController < ApplicationController
       date: dates.first,
       end_date: dates.last,
       classroom: current_user_classroom.id,
-      period: @period
+      period: @period,
+      class_numbers: params['dates'].flat_map { |entry| Array(entry['lesson_numbers']) }.uniq
     )
 
     @additional_data = additional_data(dates, student_ids, dependences,

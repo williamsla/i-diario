@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class AbsenceJustifiedOnDate
-  attr_reader :date, :end_date, :classroom, :students, :period
+  attr_reader :date, :end_date, :classroom, :students, :period, :class_numbers
 
   def self.call(params)
     new(params).call
@@ -13,6 +13,7 @@ class AbsenceJustifiedOnDate
     @end_date = params.fetch(:end_date)
     @classroom = params.fetch(:classroom)
     @period = params.fetch(:period)
+    @class_numbers = Array(params[:class_numbers]).reject(&:blank?).map(&:to_i).uniq
   end
 
   def call
@@ -27,6 +28,7 @@ class AbsenceJustifiedOnDate
                                                  .by_student_id(students)
                                                  .by_classroom(classroom)
                                                  .by_period(periods)
+    absence_justifications = by_class_number(absence_justifications)
 
     absence_justified = {}
 
@@ -44,5 +46,11 @@ class AbsenceJustifiedOnDate
     end
 
     absence_justified
+  end
+
+  def by_class_number(rel)
+    return rel if class_numbers.blank?
+
+    rel.where(class_number: [nil] + class_numbers)
   end
 end
