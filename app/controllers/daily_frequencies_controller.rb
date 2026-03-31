@@ -32,6 +32,35 @@ class DailyFrequenciesController < ApplicationController
     )
   end
 
+  def class_numbers_by_discipline
+    classroom_id = params[:classroom_id].presence
+    discipline_id = params[:discipline_id].presence
+    frequency_date = parse_frequency_date(params[:frequency_date])
+
+    if classroom_id.blank? || discipline_id.blank? || frequency_date.blank?
+      render json: []
+      return
+    end
+
+    weekday = frequency_date.strftime("%A").downcase
+    period = params[:period].presence || current_teacher_period
+
+    allocations = LessonsBoardLessonWeekday.includes(:lessons_board_lesson)
+                                           .by_classroom(classroom_id)
+                                           .by_teacher(current_teacher.id)
+                                           .by_discipline(discipline_id)
+                                           .by_weekday(weekday)
+                                           .order('lessons_board_lessons.lesson_number')
+
+    allocations = allocations.by_period(period) if period.present?
+
+    class_numbers = allocations.map { |allocation|
+      allocation.lessons_board_lesson&.lesson_number&.to_i
+    }.compact.uniq.sort
+
+    render json: class_numbers
+  end
+
   def create
     set_options_by_user
 
@@ -795,5 +824,17 @@ class DailyFrequenciesController < ApplicationController
     result.count >= 1 ? result.first : 0 
   end
   helper_method :get_knowledge_area_content_record_id_by_date
+
+  def parse_frequency_date(date_str)
+    return if date_str.blank?
+
+    if date_str.include?('/')
+      Date.strptime(date_str, "%d/%m/%Y")
+    else
+      Date.strptime(date_str, "%Y-%m-%d")
+    end
+  rescue ArgumentError
+    nil
+  end
 
 end

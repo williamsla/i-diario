@@ -339,6 +339,7 @@ Rails.application.routes.draw do
     end
     resources :daily_frequencies, only: [:new, :create], concerns: :history do
       collection do
+        get :class_numbers_by_discipline
         get :edit_multiple
         get :form
         put :create_or_update_multiple

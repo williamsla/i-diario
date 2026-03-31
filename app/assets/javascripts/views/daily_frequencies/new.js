@@ -49,7 +49,95 @@ $(function () {
   var $classroom  = $('#daily_frequency_classroom_id');
   var $discipline = $('#daily_frequency_discipline_id');
   var $avaliation = $('#daily_frequency_avaliation_id');
+  var $classNumbers = $('#class_numbers');
+  var $frequencyDate = $('#daily_frequency_frequency_date');
+  var autoFillTimeout = null;
 
+  var getInputValue = function ($input) {
+    if (!$input || !$input.length) {
+      return '';
+    }
+
+    try {
+      if ($input.data('select2')) {
+        return $input.select2('val');
+      }
+    } catch (e) {}
+
+    return $input.val();
+  };
+
+  var setClassNumbersOnField = function (classNumbers) {
+    var normalizedNumbers = _.chain(classNumbers || [])
+      .map(function (number) { return parseInt(number, 10); })
+      .filter(function (number) { return !isNaN(number); })
+      .uniq()
+      .sortBy(function (number) { return number; })
+      .value();
+
+    var selectedElements = _.map(normalizedNumbers, function (number) {
+      var numberAsString = number.toString();
+      return { id: numberAsString, name: numberAsString, text: numberAsString };
+    });
+    var selectedIds = _.map(selectedElements, function (element) { return element.id; });
+
+    // Select2 legado: popular opções selecionadas e valor atual explicitamente.
+    $classNumbers.select2('data', selectedElements);
+    $classNumbers.select2('val', selectedIds);
+    $classNumbers.val(selectedIds.join(','));
+    $classNumbers.trigger('change');
+  };
+
+  var extractClassNumbersFromResponse = function (response) {
+    if (_.isArray(response)) {
+      return response;
+    }
+
+    if (!response || !_.isObject(response)) {
+      return [];
+    }
+
+    if (_.isArray(response.class_numbers)) {
+      return response.class_numbers;
+    }
+
+    if (_.isArray(response.daily_frequencies)) {
+      return response.daily_frequencies;
+    }
+
+    return [];
+  };
+
+  var autoFillClassNumbersBySchedule = function () {
+    var disciplineId = getInputValue($discipline);
+    var classroomId = getInputValue($classroom);
+    var frequencyDate = getInputValue($frequencyDate);
+
+    if (_.isEmpty(disciplineId) || _.isEmpty(classroomId) || _.isEmpty(frequencyDate)) {
+      setClassNumbersOnField([]);
+      return;
+    }
+
+    $.getJSON('/daily_frequencies/class_numbers_by_discipline', {
+      classroom_id: classroomId,
+      discipline_id: disciplineId,
+      frequency_date: frequencyDate
+    }).done(function (data) {
+      setClassNumbersOnField(extractClassNumbersFromResponse(data));
+    }).fail(function () {
+      setClassNumbersOnField([]);
+    });
+  };
+
+  var scheduleAutoFillClassNumbers = function () {
+    if (autoFillTimeout) {
+      clearTimeout(autoFillTimeout);
+    }
+
+    autoFillTimeout = setTimeout(function () {
+      autoFillClassNumbersBySchedule();
+    }, 150);
+  };
 
   $('#daily_frequency_unity_id').on('change', function (e) {
     var params = {
@@ -132,6 +220,8 @@ $(function () {
         });
       });
     }
+
+    scheduleAutoFillClassNumbers();
   });
 
   $('#daily_frequency_discipline_id').on('change', function (e) {
@@ -154,11 +244,21 @@ $(function () {
         });
       });
     }
+
+    scheduleAutoFillClassNumbers();
+  });
+
+  $frequencyDate.on('change changeDate valid-date', function () {
+    scheduleAutoFillClassNumbers();
   });
 
   $disciplineAbsenceFields.hide();
 
   if($classroom.length && $classroom.val().length){
     checkExamRule({classroom_id: $classroom.val()});
+  }
+
+  if ($discipline.length && $discipline.val().length && $frequencyDate.length && $frequencyDate.val().length) {
+    scheduleAutoFillClassNumbers();
   }
 });
