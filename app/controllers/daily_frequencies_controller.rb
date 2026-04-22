@@ -44,7 +44,8 @@ class DailyFrequenciesController < ApplicationController
     end
 
     weekday = frequency_date.strftime("%A").downcase
-    period = params[:period].presence || current_teacher_period
+    period = params[:period].presence
+    period ||= current_teacher_period_by_classroom(classroom_id, discipline_id)
 
     allocations = LessonsBoardLessonWeekday.includes(:lessons_board_lesson)
                                            .by_classroom(classroom_id)
@@ -66,11 +67,12 @@ class DailyFrequenciesController < ApplicationController
     @daily_frequency = DailyFrequency.new(daily_frequency_params)
     @daily_frequency.school_calendar = current_school_calendar
     @daily_frequency.teacher_id = current_teacher_id
-    @class_numbers = params[:class_numbers].split(',').sort
-    @daily_frequency.class_number = @class_numbers.first
-    @discipline = params[:daily_frequency][:discipline_id]
+    @class_numbers = parsed_class_numbers_from_request
+    @discipline = params.dig(:daily_frequency, :discipline_id).presence
 
     set_options_by_user
+
+    apply_frequency_type_to_daily_frequency!
 
     @period = @admin_or_teacher ? params[:daily_frequency][:period] : set_options_by_classroom
 
@@ -85,7 +87,7 @@ class DailyFrequenciesController < ApplicationController
       end
 
       redirect_to edit_multiple_daily_frequencies_path(
-        daily_frequency: daily_frequency_params,
+        daily_frequency: daily_frequency_params_for_redirect,
         class_numbers: @class_numbers
       )
     else
@@ -103,7 +105,7 @@ class DailyFrequenciesController < ApplicationController
         end
 
         redirect_to edit_multiple_daily_frequencies_path(
-          daily_frequency: daily_frequency_params,
+          daily_frequency: daily_frequency_params_for_redirect,
           class_numbers: @class_numbers
         )
         return
@@ -427,6 +429,14 @@ class DailyFrequenciesController < ApplicationController
     )
   end
 
+  def daily_frequency_params_for_redirect
+    attrs = daily_frequency_params.to_h.stringify_keys
+    if current_frequency_type(@daily_frequency) == FrequencyTypes::GENERAL
+      attrs['discipline_id'] = nil
+    end
+    attrs
+  end
+
   def daily_frequencies_params
     params.require(:daily_frequency).permit(
       daily_frequencies: [
@@ -439,6 +449,16 @@ class DailyFrequenciesController < ApplicationController
   end
 
   def current_frequency_type(daily_frequency)
+    exam_rule_frequency_type = daily_frequency.classroom
+                                            &.classrooms_grades
+                                            &.first
+                                            &.exam_rule
+                                            &.frequency_type
+
+    # No fluxo de diário de frequência, a regra de avaliação da turma deve prevalecer.
+    # Se a regra estiver configurada como geral, não exigir componente/aula para o professor.
+    return FrequencyTypes::GENERAL if exam_rule_frequency_type == FrequencyTypes::GENERAL
+
     absence_type_definer = FrequencyTypeDefiner.new(
       daily_frequency.classroom,
       current_teacher,
@@ -676,20 +696,15 @@ class DailyFrequenciesController < ApplicationController
   end
 
   def fetch_disciplines_by_day
-    date_str = params.dig(:daily_frequency, :frequency_date)
-    if date_str.blank? && @daily_frequency&.frequency_date.present?
-      date_str = @daily_frequency.frequency_date.strftime("%d/%m/%Y")
+    date = parse_frequency_date(params.dig(:daily_frequency, :frequency_date))
+    if date.blank? && @daily_frequency&.frequency_date.present?
+      date = @daily_frequency.frequency_date.to_date
     end
-    return [] if date_str.blank?
+    return [] if date.blank?
 
     classroom_id = resolved_classroom_id_for_lessons_board
     return [] if classroom_id.blank?
 
-    if date_str.include?('/')
-      date = Date.strptime(date_str, "%d/%m/%Y")
-    else
-      date = Date.strptime(date_str, "%Y-%m-%d")
-    end
     weekday = date.strftime("%A").downcase
 
     LessonsBoardLessonWeekday.by_classroom(classroom_id).by_weekday(weekday)
@@ -855,6 +870,33 @@ class DailyFrequenciesController < ApplicationController
     end
   rescue ArgumentError
     nil
+  end
+
+  def parsed_class_numbers_from_request
+    raw = params[:class_numbers]
+    return [] if raw.blank?
+
+    raw.to_s.split(',').map(&:strip).reject(&:blank?).sort
+  end
+
+  # Falta geral: o JS ainda pode enviar números de aula sem disciplina; o modelo exige
+  # (discipline + class_number) ou (nenhum dos dois). Alinhamos antes da validação.
+  def apply_frequency_type_to_daily_frequency!
+    if @daily_frequency.discipline_id.blank?
+      @daily_frequency.discipline = nil
+      @daily_frequency.discipline_id = nil
+    end
+
+    if current_frequency_type(@daily_frequency) == FrequencyTypes::GENERAL
+      @daily_frequency.discipline_id = nil
+      @daily_frequency.class_number = nil
+      @class_numbers = []
+      @discipline = nil
+    elsif @class_numbers.present?
+      @daily_frequency.class_number = @class_numbers.first
+    else
+      @daily_frequency.class_number = nil
+    end
   end
 
 end

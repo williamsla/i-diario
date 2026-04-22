@@ -89,6 +89,27 @@ RSpec.describe DailyFrequenciesController, type: :controller do
         expect(response).to redirect_to /#{edit_multiple_daily_frequencies_path}/
       end
     end
+
+    context 'when exam rule is general but the client sends class_numbers without discipline' do
+      let(:params_general_mixed) do
+        {
+          locale: 'pt-BR',
+          class_numbers: '1,2,3,4',
+          daily_frequency: {
+            classroom_id: classroom.id,
+            unity_id: unity.id,
+            discipline_id: '',
+            frequency_date: '2017-02-28',
+            period: 1
+          }
+        }
+      end
+
+      it 'normalizes to global frequency and redirects (no frequency_type_must_be_valid)' do
+        post :create, params: params_general_mixed
+        expect(response).to redirect_to(/#{edit_multiple_daily_frequencies_path}/)
+      end
+    end
   end
 
   describe 'GET #edit_multiple' do
@@ -200,6 +221,16 @@ RSpec.describe DailyFrequenciesController, type: :controller do
       controller.instance_variable_set(:@daily_frequency, DailyFrequency.new)
 
       expect(controller.send(:resolved_classroom_id_for_lessons_board)).to eq(classroom.id)
+    end
+  end
+
+  describe '#current_frequency_type' do
+    let(:daily_frequency) { DailyFrequency.new(classroom: classroom) }
+
+    it 'retorna frequência geral quando a exam_rule da turma é geral' do
+      allow(classroom.classrooms_grades.first.exam_rule).to receive(:frequency_type).and_return(FrequencyTypes::GENERAL)
+
+      expect(controller.send(:current_frequency_type, daily_frequency)).to eq(FrequencyTypes::GENERAL)
     end
   end
 end
