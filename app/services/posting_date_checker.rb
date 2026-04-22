@@ -19,7 +19,7 @@ class PostingDateChecker
   end
 
   def current_between_step?
-    (step.start_date_for_posting..step.end_date_for_posting) === Date.current
+    (step.start_date_for_posting..step.end_date_for_posting) === Time.zone.today
   end
 
   def step

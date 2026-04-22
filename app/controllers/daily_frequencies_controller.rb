@@ -6,16 +6,17 @@ class DailyFrequenciesController < ApplicationController
   before_action :require_valid_daily_frequency_classroom
 
   def new
-    set_options_by_user
-
     @daily_frequency = DailyFrequency.new.localized
     @daily_frequency.unity = current_unity
     @daily_frequency.classroom = current_user_classroom
     @daily_frequency.discipline = current_user_discipline
-    @daily_frequency.frequency_date = Date.current
+    @daily_frequency.frequency_date = Time.zone.today
+
+    set_options_by_user
+
     @period = @admin_or_teacher ? current_teacher_period : set_options_by_classroom
     @class_numbers = []
-    
+
     authorize @daily_frequency
   end
 
@@ -62,14 +63,14 @@ class DailyFrequenciesController < ApplicationController
   end
 
   def create
-    set_options_by_user
-
     @daily_frequency = DailyFrequency.new(daily_frequency_params)
     @daily_frequency.school_calendar = current_school_calendar
     @daily_frequency.teacher_id = current_teacher_id
     @class_numbers = params[:class_numbers].split(',').sort
     @daily_frequency.class_number = @class_numbers.first
     @discipline = params[:daily_frequency][:discipline_id]
+
+    set_options_by_user
 
     @period = @admin_or_teacher ? params[:daily_frequency][:period] : set_options_by_classroom
 
@@ -113,10 +114,11 @@ class DailyFrequenciesController < ApplicationController
   end
 
   def edit_multiple
-    set_options_by_user
     @daily_frequencies = find_or_initialize_daily_frequencies(params[:class_numbers])
       .sort { |a, b| a.class_number <=> b.class_number }
     @daily_frequency = @daily_frequencies.first
+
+    set_options_by_user
     @teacher_absence_blocks_date = teacher_absence_blocks_frequency?(
       @daily_frequency,
       params[:class_numbers].to_s.split(',').map(&:strip)
@@ -409,6 +411,16 @@ class DailyFrequenciesController < ApplicationController
 
   private
 
+  # Turma do formulário (params) ou do registro em edição — evita usar só a turma da sessão,
+  # que pode divergir e montar o quadro de aulas do dia com a turma errada (sem aulas "hoje").
+  def resolved_classroom_id_for_lessons_board
+    cid = params.dig(:daily_frequency, :classroom_id).presence
+    cid = cid.to_i if cid.present?
+    return cid if cid.present? && cid.positive?
+
+    @daily_frequency&.classroom_id.presence || current_user_classroom&.id
+  end
+
   def daily_frequency_params
     params.require(:daily_frequency).permit(
       :unity_id, :classroom_id, :frequency_date, :discipline_id, :period
@@ -664,21 +676,25 @@ class DailyFrequenciesController < ApplicationController
   end
 
   def fetch_disciplines_by_day
-    return [] unless params.dig(:daily_frequency, :frequency_date)
+    date_str = params.dig(:daily_frequency, :frequency_date)
+    if date_str.blank? && @daily_frequency&.frequency_date.present?
+      date_str = @daily_frequency.frequency_date.strftime("%d/%m/%Y")
+    end
+    return [] if date_str.blank?
 
-    date_str = params[:daily_frequency][:frequency_date]
+    classroom_id = resolved_classroom_id_for_lessons_board
+    return [] if classroom_id.blank?
+
     if date_str.include?('/')
-      date = Date.strptime(params[:daily_frequency][:frequency_date], "%d/%m/%Y")
+      date = Date.strptime(date_str, "%d/%m/%Y")
     else
-      date = Date.strptime(params[:daily_frequency][:frequency_date], "%Y-%m-%d")
+      date = Date.strptime(date_str, "%Y-%m-%d")
     end
     weekday = date.strftime("%A").downcase
 
-    disciplines = LessonsBoardLessonWeekday.by_classroom(current_user_classroom.id).by_weekday(weekday)
-                                                          .includes(:teacher_discipline_classroom)
-                                                          .map { |w| w.teacher_discipline_classroom.discipline_id }
-    
-    return disciplines
+    LessonsBoardLessonWeekday.by_classroom(classroom_id).by_weekday(weekday)
+                             .includes(:teacher_discipline_classroom)
+                             .map { |w| w.teacher_discipline_classroom.discipline_id }
   end
 
   def fetch_disciplines_with_contents_by_day
@@ -691,8 +707,11 @@ class DailyFrequenciesController < ApplicationController
       date = Date.strptime(date_str, "%Y-%m-%d")
     end
     
-    disciplines_with_content = DisciplineContentRecord.by_classroom_id(current_user_classroom.id)
-                                      .by_date(date)
+    classroom_id = resolved_classroom_id_for_lessons_board
+    return [] if classroom_id.blank?
+
+    DisciplineContentRecord.by_classroom_id(classroom_id)
+                           .by_date(date)
   end
 
   def fetch_knowledge_areas_with_contents_by_day
@@ -705,11 +724,12 @@ class DailyFrequenciesController < ApplicationController
       date = Date.strptime(date_str, "%Y-%m-%d")
     end
     
-    knowledge_areas_with_content = KnowledgeAreaContentRecord.by_classroom_id(current_user_classroom.id)
-                                      .by_date(date)
-                                      .includes(:knowledge_areas)
+    classroom_id = resolved_classroom_id_for_lessons_board
+    return [] if classroom_id.blank?
 
-    knowledge_areas_with_content
+    KnowledgeAreaContentRecord.by_classroom_id(classroom_id)
+                              .by_date(date)
+                              .includes(:knowledge_areas)
   end
 
   def count_classes_of_the_day(discipline_id)

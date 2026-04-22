@@ -158,4 +158,48 @@ RSpec.describe DailyFrequenciesController, type: :controller do
       it_behaves_like 'delete_all_frequencies'
     end
   end
+
+  describe 'GET #new' do
+    it 'monta @daily_frequency com turma e data antes de carregar opções (evita quadro errado para o professor)' do
+      get :new, params: { locale: 'pt-BR' }
+
+      expect(assigns(:daily_frequency)).to be_a(DailyFrequency)
+      expect(assigns(:daily_frequency).classroom_id).to eq(classroom.id)
+      expect(assigns(:daily_frequency).frequency_date).to eq(Time.zone.today)
+    end
+  end
+
+  describe '#resolved_classroom_id_for_lessons_board (turma do formulário vs sessão)' do
+    let(:other_classroom) { create(:classroom, unity: unity, year: classroom.year) }
+
+    before do
+      allow(controller).to receive(:current_user_classroom).and_return(classroom)
+    end
+
+    it 'prioriza classroom_id enviado no daily_frequency (caso típico do administrador no formulário)' do
+      controller.params = ActionController::Parameters.new(
+        locale: 'pt-BR',
+        daily_frequency: { classroom_id: other_classroom.id }
+      ).permit!
+
+      expect(controller.send(:resolved_classroom_id_for_lessons_board)).to eq(other_classroom.id)
+    end
+
+    it 'usa a turma do @daily_frequency quando o param não traz classroom_id' do
+      controller.params = ActionController::Parameters.new(locale: 'pt-BR', daily_frequency: {}).permit!
+      controller.instance_variable_set(
+        :@daily_frequency,
+        DailyFrequency.new(classroom_id: other_classroom.id)
+      )
+
+      expect(controller.send(:resolved_classroom_id_for_lessons_board)).to eq(other_classroom.id)
+    end
+
+    it 'usa current_user_classroom quando não há turma no param nem no registro' do
+      controller.params = ActionController::Parameters.new(locale: 'pt-BR', daily_frequency: {}).permit!
+      controller.instance_variable_set(:@daily_frequency, DailyFrequency.new)
+
+      expect(controller.send(:resolved_classroom_id_for_lessons_board)).to eq(classroom.id)
+    end
+  end
 end
