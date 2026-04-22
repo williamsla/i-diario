@@ -1,6 +1,9 @@
 namespace :post_avaliations do
 
-  desc "Posting changed avaliations (obrigatório: DOMAIN= ou TENANT=)"
+  desc "Posting changed avaliations (obrigatório: DOMAIN= ou TENANT=) \
+            nohup env RAILS_ENV=production DOMAIN=diario.municipio.ensino.site \
+                                        bundle exec rake post_avaliations:init \
+                                        > log/post_avaliations_municipio.log 2>&1 &"
   task init: :environment do
 
     def get_last_post_date(connection, post_type, teacher_id, step_number)
@@ -115,7 +118,10 @@ namespace :post_avaliations do
                  raise "Entidade não encontrada para TENANT=#{ENV['TENANT']}" unless e
                  e
                else
-                 raise "Via rake é obrigatório informar DOMAIN= ou TENANT=. Ex: DOMAIN=escola.gov.br rake post_avaliations:init"
+                 raise "Via rake é obrigatório informar DOMAIN= ou TENANT=. Ex: DOMAIN=escola.gov.br rake post_avaliations:init \
+                        nohup env RAILS_ENV=production DOMAIN=diario.municipio.ensino.site \
+                              bundle exec rake post_avaliations:init \
+                              > log/post_avaliations_municipio.log 2>&1 &"                
                end
 
       entity.using_connection do
