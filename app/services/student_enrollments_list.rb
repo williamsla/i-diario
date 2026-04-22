@@ -117,6 +117,8 @@ class StudentEnrollmentsList
 
     students_enrollments = remove_not_displayable_students(students_enrollments)
 
+    students_enrollments = filter_enrollments_by_conceptual_exam_rule(students_enrollments) if conceptual_exam_score_type_filter?
+
     students_enrollments = remove_duplicate_student_enrollments(students_enrollments) if @remove_duplicate_student
 
     students_enrollments = order_by_sequence_and_name(students_enrollments, as_relation)
@@ -270,5 +272,30 @@ class StudentEnrollmentsList
 
   def remove_duplicate_student_enrollments(students_enrollments)
     students_enrollments.sort_by { |s| s.changed_at }.reverse.group_by { |s| s.student_id }.values.map(&:first)
+  end
+
+  def conceptual_exam_score_type_filter?
+    score_type == StudentEnrollmentScoreTypeFilters::CONCEPT
+  end
+
+  # Alinha com ConceptualExam#student_must_have_conceptual_exam_score_type: só séries com
+  # avaliação conceituais (tipo conceito ou numérico e conceitual).
+  def filter_enrollments_by_conceptual_exam_rule(student_enrollments)
+    cid = classroom.is_a?(Classroom) ? classroom.id : classroom
+    student_enrollments.select { |enrollment| conceptual_exam_score_type_permitted?(enrollment.student, cid) }
+  end
+
+  def conceptual_exam_score_type_permitted?(student, classroom_id)
+    classroom_grade = ClassroomsGrade.by_student_id(student.id).by_classroom_id(classroom_id).first
+    return false if classroom_grade.blank?
+
+    exam_rule = classroom_grade.exam_rule
+    if student.uses_differentiated_exam_rule
+      exam_rule = exam_rule.differentiated_exam_rule || exam_rule
+    end
+
+    return false if exam_rule.blank?
+
+    [ScoreTypes::CONCEPT, ScoreTypes::NUMERIC_AND_CONCEPT].include?(exam_rule.score_type)
   end
 end
