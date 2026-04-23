@@ -3,7 +3,11 @@ $(function () {
   const flashMessages = new FlashMessages();
   const period_div = $('#period');
   const PERIOD_FULL = 4;
+  const multiGradeOptions = $('#multi-grade-options');
+  const selectedGradeIdsField = $('#selected_grade_ids');
   let errors = {};
+  let classroomGrades = [];
+  let multiGradeClassroom = false;
 
   $(document).ready( function() {
     clearFields();
@@ -39,11 +43,7 @@ $(function () {
     flashMessages.pop('');
     $('#lessons_board_period').select2('val', '');
     await getPeriod();
-    let period = $('#lessons_number_classroom_id').val();
-
-    if (period != PERIOD_FULL) {
-      checkMultiGrade();
-    }
+    await updateClassroomGrades();
 
     period_div.show();
 
@@ -79,6 +79,8 @@ $(function () {
 
   $('#btn-submit').on('click', function (e) {
     e.preventDefault();
+    populateSelectedGradeIds();
+
     clearEmptyTeachers();
     for (let prop in errors) {
       if (errors[prop]) {
@@ -126,6 +128,24 @@ $(function () {
         $(teacher_discipline_classroom_id).val('')
       }
     })
+  }
+
+  function populateSelectedGradeIds() {
+    if (selectedGradeIdsField.length === 0) {
+      return;
+    }
+
+    if (!multiGradeClassroom) {
+      let currentGradeId = $('#lessons_board_grade').select2('val');
+      selectedGradeIdsField.select2('val', currentGradeId ? [currentGradeId] : []);
+      return;
+    }
+
+    let selected = selectedGradeIdsField.select2('val') || [];
+    if (_.isEmpty(selected)) {
+      let fallbackGradeId = $('#lessons_board_grade').select2('val');
+      selectedGradeIdsField.select2('val', fallbackGradeId ? [fallbackGradeId] : []);
+    }
   }
 
 
@@ -214,33 +234,78 @@ $(function () {
     flashMessages.error('Ocorreu um erro ao buscar o período da turma.');
   };
 
-  function checkMultiGrade() {
+  function updateClassroomGrades() {
     let classroom_id = $('#lessons_board_classroom_id').select2('val');
+    let grade_id = $('#lessons_board_grade').select2('val');
 
-    if (!_.isEmpty(classroom_id)) {
-      $.ajax({
-        url: Routes.classroom_multi_grade_lessons_boards_pt_br_path({
-          classroom_id: classroom_id,
-          format: 'json'
-        }),
-        success: handleMultiGradeSuccess,
-        error: handleMultiGradeError
-      });
+    if (_.isEmpty(classroom_id)) {
+      hideMultiGradeOptions();
+      return;
     }
+
+    let gradesByClassroomRoute = null;
+    if (Routes.grades_by_classroom_lessons_boards_pt_br_path) {
+      gradesByClassroomRoute = Routes.grades_by_classroom_lessons_boards_pt_br_path;
+    } else if (Routes.grades_by_classroom_lessons_boards_path) {
+      gradesByClassroomRoute = Routes.grades_by_classroom_lessons_boards_path;
+    }
+
+    if (!gradesByClassroomRoute) {
+      flashMessages.error('Não foi possível carregar as séries da turma.');
+      hideMultiGradeOptions();
+      return;
+    }
+
+    return $.ajax({
+      url: gradesByClassroomRoute({
+        classroom_id: classroom_id,
+        grade_id: grade_id,
+        format: 'json'
+      }),
+      success: handleClassroomGradesSuccess,
+      error: function() {
+        hideMultiGradeOptions();
+        checkNotExistsLessonsBoard();
+        flashMessages.error('Ocorreu um erro ao buscar as séries da turma.');
+      }
+    });
   }
 
-  function handleMultiGradeSuccess(data) {
-    if (data) {
+  function handleClassroomGradesSuccess(data) {
+    classroomGrades = _.map(data.lessons_boards || data, function(grade) {
+      return {
+        id: String(grade.table ? grade.table.id : grade.id),
+        text: grade.table ? grade.table.text : grade.text
+      };
+    });
+
+    selectedGradeIdsField.select2({ data: classroomGrades });
+
+    let defaultSelected = $('#lessons_board_grade').select2('val');
+    if (defaultSelected) {
+      selectedGradeIdsField.select2('val', [String(defaultSelected)]);
+    }
+
+    multiGradeClassroom = classroomGrades.length > 1;
+
+    if (multiGradeClassroom) {
+      multiGradeOptions.show();
+      $('#multi-grade-select-wrapper').show();
       checkNotExistsLessonsBoardByClassroomGrade();
     } else {
-      checkNotExistsLessonsBoard()
+      hideMultiGradeOptions();
+      checkNotExistsLessonsBoard();
     }
   }
 
-  function handleMultiGradeError() {
-    flashMessages.error('Ocorreu um erro ao buscar a turma.');
-  };
-
+  function hideMultiGradeOptions() {
+    multiGradeClassroom = false;
+    classroomGrades = [];
+    if (selectedGradeIdsField.length > 0) {
+      selectedGradeIdsField.select2('val', []);
+    }
+    multiGradeOptions.hide();
+  }
 
   function checkNotExistsLessonsBoardByClassroomGrade() {
     let classroom_id = $('#lessons_board_classroom_id').select2('val');
@@ -292,12 +357,14 @@ $(function () {
   function checkNotExistsLessonsBoardOnPeriod() {
     let classroom_id = $('#lessons_board_classroom_id').select2('val');
     let period = $('#lessons_board_period').select2('val');
+    let grade_id = $('#lessons_board_grade').select2('val');
 
     if (!_.isEmpty(classroom_id)) {
       $.ajax({
         url: Routes.not_exists_by_classroom_and_period_lessons_boards_pt_br_path({
           classroom_id: classroom_id,
           period: period,
+          grade_id: grade_id,
           format: 'json'
         }),
         success: handleNotExistsLessonsBoardOnPeriodSuccess,

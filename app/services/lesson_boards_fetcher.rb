@@ -71,18 +71,22 @@ class LessonBoardsFetcher
     end
 
     sql = <<-SQL
-      SELECT COUNT(lbl.id) AS total_aulas
-      FROM lessons_boards lb
-      INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id
-      INNER JOIN lessons_board_lessons lbl ON lbl.lessons_board_id = lb.id
-      INNER JOIN lessons_board_lesson_weekdays lblw ON lblw.lessons_board_lesson_id = lbl.id
-      INNER JOIN teacher_discipline_classrooms tdc ON tdc.classroom_id = cg.classroom_id
-        AND tdc.id = lblw.teacher_discipline_classroom_id
-        AND tdc.discarded_at IS NULL
-      WHERE cg.classroom_id = #{turma_id}
-        AND lblw.weekday = '#{dia_semana_nome}'
-        AND tdc.discipline_id = #{disciplina_id}
-        #{ativo_condicao}
+      SELECT COALESCE(MAX(quadros.total_aulas), 0) AS total_aulas
+      FROM (
+        SELECT lb.id, COUNT(lbl.id) AS total_aulas
+        FROM lessons_boards lb
+        INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id
+        INNER JOIN lessons_board_lessons lbl ON lbl.lessons_board_id = lb.id
+        INNER JOIN lessons_board_lesson_weekdays lblw ON lblw.lessons_board_lesson_id = lbl.id
+        INNER JOIN teacher_discipline_classrooms tdc ON tdc.classroom_id = cg.classroom_id
+          AND tdc.id = lblw.teacher_discipline_classroom_id
+          AND tdc.discarded_at IS NULL
+        WHERE cg.classroom_id = #{turma_id}
+          AND lblw.weekday = '#{dia_semana_nome}'
+          AND tdc.discipline_id = #{disciplina_id}
+          #{ativo_condicao}
+        GROUP BY lb.id
+      ) AS quadros
     SQL
 
     total_aulas = ActiveRecord::Base.connection.exec_query(sql).first&.dig("total_aulas") || 0

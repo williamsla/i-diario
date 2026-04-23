@@ -31,11 +31,12 @@ class LessonsBoardsController < ApplicationController
   end
 
   def create
-    resource.assign_attributes(resource_params.to_h)
-
     authorize resource
 
-    if resource.save
+    selected_grade_ids = selected_grade_ids_param
+    return create_single_lessons_board if selected_grade_ids.blank?
+
+    if create_multiple_lessons_boards(selected_grade_ids)
       respond_with resource, location: lessons_boards_path
     else
       render :new
@@ -210,6 +211,25 @@ class LessonsBoardsController < ApplicationController
     render json: grades_by_unity_to_select2(params[:unity_id])
   end
 
+  def grades_by_classroom
+    return if params[:classroom_id].blank?
+
+    classroom = Classroom.find(params[:classroom_id])
+    grades = Grade.includes(:course)
+                 .joins(:classrooms_grades)
+                 .where(classrooms_grades: { classroom_id: params[:classroom_id] })
+                 .ordered
+
+    render json: grades.map do |grade|
+      OpenStruct.new(
+        id: grade.id,
+        name: grade.description.to_s,
+        text: grade.description.to_s,
+        selected: grade.id == params[:grade_id].to_i || (classroom.multi_grade? && grades.one?)
+      )
+    end
+  end
+
   def not_exists_by_classroom
     return if params[:classroom_id].blank?
 
@@ -228,9 +248,11 @@ class LessonsBoardsController < ApplicationController
   def not_exists_by_classroom_and_period
     return if params[:classroom_id].blank?
 
-    render json: LessonsBoard.by_classroom(params[:classroom_id])
-                             .by_period(params[:period])
-                             .empty?
+    lessons_boards = LessonsBoard.by_classroom(params[:classroom_id])
+                                 .by_period(params[:period])
+    lessons_boards = lessons_boards.by_grade(params[:grade_id]) if params[:grade_id].present?
+
+    render json: lessons_boards.empty?
   end
 
   def classroom_multi_grade
@@ -266,6 +288,53 @@ class LessonsBoardsController < ApplicationController
   end
 
   private
+
+  def create_single_lessons_board
+    resource.assign_attributes(resource_params.to_h)
+
+    if resource.save
+      respond_with resource, location: lessons_boards_path
+    else
+      render :new
+    end
+  end
+
+  def create_multiple_lessons_boards(grade_ids)
+    classroom_id = params.dig(:lessons_board, :classroom_id)
+    period = params.dig(:lessons_board, :period)
+    payload = resource_params.to_h.except('classrooms_grade_id')
+
+    ActiveRecord::Base.transaction do
+      grade_ids.each do |grade_id|
+        classrooms_grade_id = ClassroomsGrade.find_by(classroom_id: classroom_id, grade_id: grade_id)&.id
+        raise ActiveRecord::Rollback if classrooms_grade_id.blank?
+
+        lessons_board = LessonsBoard.new(payload.merge(
+          classrooms_grade_id: classrooms_grade_id,
+          period: period
+        ))
+
+        unless lessons_board.save
+          copy_errors_to_resource(lessons_board)
+          raise ActiveRecord::Rollback
+        end
+      end
+    end
+
+    resource.errors.blank?
+  end
+
+  def copy_errors_to_resource(lessons_board)
+    lessons_board.errors.full_messages.each do |message|
+      resource.errors.add(:base, message)
+    end
+  end
+
+  def selected_grade_ids_param
+    return [] if params[:selected_grade_ids].blank?
+
+    params[:selected_grade_ids].select(&:present?).map(&:to_i).uniq
+  end
 
   def validate_lessons_number
     classroom_lessons = resource.classroom.number_of_classes

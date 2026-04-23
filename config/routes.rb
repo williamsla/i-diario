@@ -284,6 +284,8 @@ Rails.application.routes.draw do
       collection do
         get :search
         get :fetch_classrooms
+        get :spreadsheet
+        patch :update_spreadsheet
       end
       member do
         post :exempt_students
@@ -395,6 +397,7 @@ Rails.application.routes.draw do
         get :number_of_lessons
         get :classrooms_filter
         get :grades_by_unity
+        get :grades_by_classroom
         get :teachers_classroom
         get :teachers_classroom_period
         get :not_exists_by_classroom
