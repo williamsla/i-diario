@@ -689,7 +689,10 @@ class DailyFrequenciesController < ApplicationController
     @disciplines = @disciplines.select { |d| d.grouper == false && d.descriptor == false }
 
     @daily_schedule_discipline ||= fetch_disciplines_by_day
-    @disciplines = @disciplines.select { |d| @daily_schedule_discipline.include?(d.id) } if @daily_schedule_discipline.present?
+    @disciplines_filtered = @disciplines.select { |d| @daily_schedule_discipline.include?(d.id) } if @daily_schedule_discipline.present?
+    unless @disciplines_filtered.blank?
+      @disciplines = @disciplines_filtered
+    end
 
     @knowledge_areas = []
     @knowledge_areas = [@disciplines.first&.knowledge_area] if @disciplines.first&.knowledge_area.present?
