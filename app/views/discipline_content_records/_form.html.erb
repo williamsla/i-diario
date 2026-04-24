@@ -14,6 +14,20 @@
   <%= f.simple_fields_for :content_record, @discipline_content_record.content_record.localized do |content_record| %>
     <%= content_record.hidden_field :id %>
 
+    <% unless params[:modal] == 'true' %>
+      <fieldset style="padding: 2px; padding-bottom: 15px;">
+        <div class="row">
+          <div class="col col-sm-12">
+            <small class="text-muted">
+              Ano letivo: <strong><%= (defined?(current_school_year) && current_school_year) || (defined?(current_school_calendar) && current_school_calendar&.year) || Time.zone.today.year %></strong>
+              | Escola: <strong><%= @discipline_content_record.content_record.unity || current_unity %></strong>
+              | Turma: <strong><%= @discipline_content_record.content_record.classroom || current_user_classroom %></strong>
+            </small>
+          </div>
+        </div>
+      </fieldset>
+    <% end %>
+
     <fieldset>
       <div class="row">
         <%= content_record.input :unity_id, as: :hidden, input_html: { value: current_user.current_unity_id } %>

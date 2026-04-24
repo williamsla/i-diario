@@ -98,22 +98,28 @@ label.checkbox-frequency.justified input[type="checkbox"] + i::after {
   margin-left: 15px;
 }
 
+.register-content-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 12px;
+}
+
 .btn-register-content {
-  background-color: #460aae;
+  background-color: #c2185b;
+  border-color: #8f1243;
   color: #fff;
-  border: none;
-  padding: 10px 20px;
-  font-weight: bold;
-  border-radius: 4px;
-  cursor: pointer;
-  text-align: center;
-  display: inline-block;
-  font-size: 14px;
+  border-radius: 2px;
+  font-weight: 600;
+  min-height: 34px;
+  line-height: 1.2;
 }
 
 .btn-register-content:hover {
-  background-color: #7e63af;  /* tom mais escuro no hover */
-  color: white;
+  background-color: #a3154d;
+  border-color: #8f1243;
+  color: #fff;
 }
 
 .smart-form .modal-body {
