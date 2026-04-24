@@ -9,23 +9,56 @@ $(function () {
   let $step = $('#school_term_recovery_diary_record_step_id');
   let $recorded_at = $('#school_term_recovery_diary_record_recorded_at');
   let $submitButton = $('input[type=submit]');
+  /** Evita limpar data ao hidratar select2 de disciplina/etapa no carregamento (edição). */
+  var suppressRecordedAtOnDisciplineChange = false;
 
-  $classroom.on('change', async function () {
-    var classroom_id = $classroom.select2('val');
+  function getUnityId() {
+    if (!$unity.length) return null;
+    if ($unity.is('select') && $unity.data('select2')) return $unity.select2('val');
+    return $unity.val();
+  }
 
-    if (!_.isEmpty(classroom_id)) {
+  function getClassroomId() {
+    if (!$classroom.length) return null;
+    if ($classroom.is('select') && $classroom.data('select2')) return $classroom.select2('val');
+    return $classroom.val();
+  }
+
+  function getDisciplineId() {
+    if (!$discipline.length) return null;
+    if ($discipline.is('select') && $discipline.data('select2')) return $discipline.select2('val');
+    return $discipline.val();
+  }
+
+  async function loadClassroomDependencies(classroom_id, clearRecordedAt) {
+    if (_.isEmpty(classroom_id)) {
+      $discipline.select2({ data: [] }).trigger('change');
+      $step.select2({ data: [] }).trigger('change');
+      return;
+    }
+
+    suppressRecordedAtOnDisciplineChange = true;
+    try {
       await getStep(classroom_id);
       await getNumberOfDecimalPlaces(classroom_id);
       await fetchDisciplines(classroom_id);
-
-      $recorded_at.val(null).trigger('change');
-    } else {
-      $discipline.select2({ data: [] }).trigger('change');
-      $step.select2({ data: [] }).trigger('change');
+    } finally {
+      suppressRecordedAtOnDisciplineChange = false;
     }
+
+    if (clearRecordedAt) {
+      $recorded_at.val(null).trigger('change');
+    }
+  }
+
+  $classroom.on('change', async function () {
+    await loadClassroomDependencies(getClassroomId(), true);
   });
 
   $discipline.on('change', async function () {
+    if (suppressRecordedAtOnDisciplineChange) {
+      return;
+    }
     $recorded_at.val(null).trigger('change');
   });
 
@@ -42,11 +75,18 @@ $(function () {
   }
 
   function handleFetchStepByClassroomSuccess(data) {
+    var preservedStepId = $step.val();
     let selectedSteps = data.map(function (step) {
       return { id: step['id'], text: step['description'] };
     });
 
     $step.select2({ data: selectedSteps });
+
+    if (preservedStepId && _.find(selectedSteps, function (s) { return String(s.id) === String(preservedStepId); })) {
+      $step.val(preservedStepId).trigger('change');
+    } else if (selectedSteps.length === 1) {
+      $step.val(selectedSteps[0].id).trigger('change');
+    }
   };
 
   function handleFetchStepByClassroomError() {
@@ -72,22 +112,30 @@ $(function () {
   };
 
   async function fetchDisciplines(classroom_id) {
-    $.ajax({
+    var preservedDisciplineId = getDisciplineId();
+    return $.ajax({
       url: Routes.disciplines_pt_br_path({ classroom_id: classroom_id, format: 'json' }),
-      success: handleFetchDisciplinesSuccess,
+      success: function (disciplines) {
+        handleFetchDisciplinesSuccess(disciplines, preservedDisciplineId);
+      },
       error: handleFetchDisciplinesError
     });
   };
 
-  function handleFetchDisciplinesSuccess(disciplines) {
+  function handleFetchDisciplinesSuccess(disciplines, preservedDisciplineId) {
     var selectedDisciplines = disciplines.map(function (discipline) {
       return { id: discipline['id'], text: discipline['description'] };
     });
 
     $discipline.select2({ data: selectedDisciplines });
 
-    // Define a primeira opção como selecionada por padrão
-    $discipline.val(selectedDisciplines[0].id).trigger('change');
+    var chosenId = preservedDisciplineId;
+    if (!chosenId || !_.find(selectedDisciplines, function (d) { return String(d.id) === String(chosenId); })) {
+      chosenId = selectedDisciplines[0] && selectedDisciplines[0].id;
+    }
+    if (chosenId) {
+      $discipline.val(chosenId).trigger('change');
+    }
   };
 
   function handleFetchDisciplinesError() {
@@ -96,7 +144,7 @@ $(function () {
 
 
   function fetchExamRule() {
-    let classroom_id = $classroom.select2('val');
+    let classroom_id = getClassroomId();
 
     if (!_.isEmpty(classroom_id)) {
       $.ajax({
@@ -129,12 +177,12 @@ $(function () {
 
   function checkPersistedDailyNote() {
     let step_id = $step.select2('val');
-    let classroom_id = $classroom.select2('val');
+    let classroom_id = getClassroomId();
 
     let filter = {
-      by_classroom_id: $classroom.select2('val'),
-      by_unity_id: $unity.select2('val'),
-      by_discipline_id: $discipline.select2('val'),
+      by_classroom_id: getClassroomId(),
+      by_unity_id: getUnityId(),
+      by_discipline_id: getDisciplineId(),
       by_step_id: step_id,
       with_daily_note_students: true
     };
@@ -155,7 +203,7 @@ $(function () {
       flashMessages.pop('');
       let step_id = $step.select2('val');
       let recorded_at = $recorded_at.val();
-      fetchStudentsInRecovery($classroom.select2('val'), $discipline.select2('val'), examRule, step_id, recorded_at, studentInStepRecovery);
+      fetchStudentsInRecovery(getClassroomId(), getDisciplineId(), examRule, step_id, recorded_at, studentInStepRecovery);
     }
   }
 
@@ -278,6 +326,14 @@ $(function () {
     $recorded_at.unbind();
   });
 
-  fetchExamRule();
+  async function initializeFixedClassroom() {
+    var classroom_id = getClassroomId();
+    if (_.isEmpty(classroom_id)) return;
+
+    await loadClassroomDependencies(classroom_id, false);
+    fetchExamRule();
+  }
+
+  initializeFixedClassroom();
   loadDecimalMasks();
 });

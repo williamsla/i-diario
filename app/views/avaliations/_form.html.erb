@@ -3,8 +3,23 @@
 <% end %>
 <%= simple_form_for @avaliation, html: { class: "smart-form" } do |f| %>
   <%= f.error_notification %>
+  <% unity_label = @avaliation.unity || current_unity %>
+  <% classroom_label = @avaliation.classroom || current_user_classroom %>
   
-  <fieldset>
+  <fieldset style="padding: 2px; padding-bottom: 15px;">
+      <%= f.hidden_field :unity_id, value: (@avaliation.unity_id || current_unity.id) %>
+      <%= f.hidden_field :classroom_id, value: (@avaliation.classroom_id || current_user_classroom.id) %>
+
+      <div class="row">
+        <div class="col col-sm-12">
+          <small class="text-muted">
+            Ano letivo: <strong><%= (defined?(current_school_year) && current_school_year) || (defined?(current_school_calendar) && current_school_calendar&.year) || Time.zone.today.year %></strong>
+            | Escola: <strong><%= unity_label %></strong>
+            | Turma: <strong><%= classroom_label %></strong>
+          </small>
+        </div>
+      </div>
+
       <div class="row">
         <div class="col col-sm-4">
           <%= f.association :test_setting, as: :select2, elements: @test_settings, hide_empty_element: true,
@@ -21,13 +36,7 @@
       </div>
 
     <div class="row">
-      <div class="col col-sm-4">
-        <%= f.input :unity, as: :select2_unity, user: current_user %>
-      </div>
 
-      <div class="col col-sm-4">
-        <%= f.association :classroom, as: :select2_classroom, user: current_user, record: f.object %>        
-      </div>
 
       <div class="col col-sm-4">
         <% if current_user.current_role_is_admin_or_employee? %>
