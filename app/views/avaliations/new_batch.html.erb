@@ -423,7 +423,7 @@
                 <% if @batch[:weighted_sum_mode] %>
                   <span class="batch-average-value"><%= student[:normalized_average].present? ? number_with_precision(student[:normalized_average], precision: 2, separator: ',') : '—' %></span>
                 <% else %>
-                  <span class="batch-average-value"><%= student[:average].present? ? number_with_precision(student[:average], precision: 2, separator: ',') : '—' %></span>
+                  <span class="batch-average-value"><%= student[:average].present? ? number_with_precision(student[:average], precision: decimal_places, separator: ',') : '—' %></span>
                 <% end %>
               </td>
             </tr>

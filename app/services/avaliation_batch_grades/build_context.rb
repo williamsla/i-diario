@@ -243,14 +243,17 @@ module AvaliationBatchGrades
       enrollments.map do |enrollment|
         student = enrollment.student
         notes = cols.map { |col| note_for(student.id, col) }
-        {
+        row = {
           id: student.id,
           name: student.name,
           notes: notes,
           average: preview_average(student.id, cols),
-          total_points: preview_weighted_total(student.id, cols),
-          normalized_average: preview_weighted_normalized_average(student.id, cols)
+          total_points: preview_weighted_total(student.id, cols)
         }
+        if batch_mode == :weighted_sum
+          row[:normalized_average] = preview_weighted_normalized_average(student.id, cols)
+        end
+        row
       end
     end
 
@@ -265,13 +268,29 @@ module AvaliationBatchGrades
     end
 
     def preview_average(student_id, cols)
-      values = cols.map { |col| note_for(student_id, col) }.compact.map(&:to_f)
-      return nil if values.empty?
+      if batch_mode == :instrument_sum
+        # Mesma regra de StudentAverageCalculator (sum): soma das notas ÷ default_division_weight.
+        # Com "Gerar média das avaliações?" desmarcado o formulário grava peso 1 → exibe só o somatório.
+        sum = sum_of_entered_notes(student_id, cols)
+        return nil if sum.blank?
 
-      (values.sum / values.size).round(2)
+        divisor = test_setting.default_division_weight.to_i
+        divisor = 1 if divisor < 1
+        (sum / divisor.to_d).round(batch_preview_decimal_places)
+      else
+        values = cols.map { |col| note_for(student_id, col) }.compact.map(&:to_f)
+        return nil if values.empty?
+
+        (values.sum / values.size).round(batch_preview_decimal_places)
+      end
     end
 
     def preview_weighted_total(student_id, cols)
+      s = sum_of_entered_notes(student_id, cols)
+      s ? s.round(batch_preview_decimal_places) : nil
+    end
+
+    def sum_of_entered_notes(student_id, cols)
       total = 0.to_d
       any = false
       cols.each do |col|
@@ -281,15 +300,23 @@ module AvaliationBatchGrades
         any = true
         total += n.to_d
       end
-      any ? total.round(2) : nil
+      any ? total : nil
     end
 
-    # Para regra mista (somatório + aritmética), exibe média normalizada para escala 0..10.
+    def batch_preview_decimal_places
+      d = test_setting.number_of_decimal_places.to_i
+      d = 2 if d.negative?
+      d
+    end
+
+    # Média na escala 0..10 para somatório com pesos livres (colunas com :weight).
     def preview_weighted_normalized_average(student_id, cols)
+      return nil unless batch_mode == :weighted_sum
+
       total = preview_weighted_total(student_id, cols)
       return nil if total.blank?
 
-      weight_sum = cols.sum { |c| c[:weight].to_d }
+      weight_sum = cols.sum { |c| (c[:weight].presence || 0).to_d }
       return nil if weight_sum <= 0
 
       # Primeiro normaliza para a nota máxima configurada e depois converte para escala 0..10.
