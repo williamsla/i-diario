@@ -150,8 +150,10 @@ class StudentAverageCalculator
       score_sum / test_setting.default_division_weight
     elsif test_setting.arithmetic_and_sum_calculation_type?
       return if weight_sum.blank?
+      return if weight_sum.to_d <= 0
 
-      calculate_average(score_sum, calculate_average(weight_sum, test_setting.maximum_score))
+      # Regra mista: considera somatório com pesos livres, normalizando a média final para escala 0..10.
+      score_sum / (weight_sum / 10.to_d)
     else
       calculate_average(score_sum, @scores.size)
     end

@@ -1,0 +1,58 @@
+<div class="avaliations-by-step-index">
+  <div class="well well-sm">
+    <div class="clearfix">
+      <div class="pull-right">
+        <%= link_to t('avaliations.index.new_multiple'), multiple_classrooms_avaliations_path, class: 'btn btn-default btn-sm' %>
+      </div>
+      <h4><%= t('avaliations.by_step.title') %></h4>
+    </div>
+    <p class="text-muted"><%= t('avaliations.by_step.subtitle') %></p>
+    <% if @classroom.present? %>
+      <p>
+        <strong><%= t('avaliations.by_step.classroom_label') %>:</strong> <%= @classroom.description %>
+      </p>
+    <% end %>
+  </div>
+
+  <% if @steps_for_picker.present? %>
+    <div class="list-group">
+      <% @steps_for_picker.each do |step| %>
+        <div class="list-group-item">
+          <div class="row">
+            <div class="col-sm-8 col-md-9">
+              <h5 class="list-group-item-heading"><%= step.to_s %></h5>
+              <p class="list-group-item-text text-muted small">
+                <%= l(step.start_at) %> a <%= l(step.end_at) %>
+              </p>
+            </div>
+            <div class="col-sm-4 col-md-3">
+              <div class="pull-right">
+                <%= link_to new_batch_avaliations_path(step_id: step.id), class: 'btn btn-primary' do %>
+                  <i class="fa fa-edit"></i> <%= t('avaliations.by_step.fill_button') %>
+                <% end %>
+                <%= form_tag exam_record_report_path, method: :post, target: '_blank', style: 'display: inline; margin-left: 8px;' do %>
+                  <%= hidden_field_tag 'exam_record_report_form[unity_id]', @classroom.unity_id %>
+                  <%= hidden_field_tag 'exam_record_report_form[classroom_id]', @classroom.id %>
+                  <%= hidden_field_tag 'exam_record_report_form[discipline_id]', current_user_discipline.id %>
+                  <%= hidden_field_tag 'exam_record_report_form[report_type]', 'step_evaluations' %>
+                  <% if @exam_report_use_classroom_step_field %>
+                    <%= hidden_field_tag 'exam_record_report_form[school_calendar_classroom_step_id]', step.id %>
+                  <% else %>
+                    <%= hidden_field_tag 'exam_record_report_form[school_calendar_step_id]', step.id %>
+                  <% end %>
+                  <%= button_tag type: 'submit', class: 'btn btn-default' do %>
+                    <i class="fa fa-file-pdf-o"></i> <%= t('conceptual_exam_report.form.generate') %> relatório
+                  <% end %>
+                <% end %>
+              </div>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <div class="alert alert-info">
+      <i class="fa fa-info-circle"></i> <%= t('avaliations.by_step.no_steps') %>
+    </div>
+  <% end %>
+</div>

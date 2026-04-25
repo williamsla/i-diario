@@ -2,6 +2,7 @@
   <%= javascript_include_tag 'views/avaliations/form' %>
 <% end %>
 <%= simple_form_for @avaliation, html: { class: "smart-form" } do |f| %>
+  <%= hidden_field_tag :step_id, params[:step_id] if params[:step_id].present? %>
   <%= f.error_notification %>
   <% unity_label = @avaliation.unity || current_unity %>
   <% classroom_label = @avaliation.classroom || current_user_classroom %>
@@ -89,6 +90,9 @@
   </fieldset>
 
   <footer>
+    <% if params[:step_id].present? %>
+      <%= link_to t('avaliations.by_step.back_to_list'), avaliations_path, class: 'btn btn-default' %>
+    <% end %>
     <%= link_to(t('views.form.back'), avaliations_path, class: 'btn btn-default') %>
 
     <%= link_to(t('views.form.history'), history_avaliation_path(@avaliation), class: 'btn btn-info') if @avaliation.persisted? %>
