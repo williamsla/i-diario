@@ -180,6 +180,12 @@
     background: #fff5db;
     border-top: 2px solid #f1d28a;
   }
+  .avaliation-batch-grades-table .batch-weights-sum-cell {
+    text-align: right;
+    white-space: nowrap;
+    color: #7a5a14;
+    font-weight: 700;
+  }
   .avaliation-batch-grades-table .batch-col-weight-label {
     display: inline-block;
     margin-bottom: 0;
@@ -239,6 +245,32 @@
   .avaliation-batch-inline-field .form-control {
     flex: 1;
   }
+  .avaliation-batch-quantity-highlight {
+    background: #fff7e6;
+    border: 1px solid #f0d89a;
+    border-left: 4px solid #e3b341;
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .avaliation-batch-quantity-highlight .label {
+    color: #7a5a14;
+    font-weight: 700;
+  }
+  .avaliation-batch-quantity-highlight .form-control {
+    border-color: #d7b55d;
+    background: #fffdfa;
+    font-weight: 600;
+  }
+  .avaliation-batch-quantity-highlight .batch-assessments-select {
+    width: 35%;
+    min-width: 140px;
+    margin-left: auto;
+    text-align: center;
+    text-align-last: center;
+  }
+  .avaliation-batch-quantity-highlight .batch-assessments-select option {
+    text-align: center;
+  }
 </style>
 
 <div class="widget-body no-padding">
@@ -246,20 +278,20 @@
   <% decimal_places = 2 if decimal_places.negative? %>
   <div class="well well-sm">
     <p>
-      <strong><%= Unity.model_name.human %>:</strong> <%= @batch[:unity_label] %>
+      <strong>Ano letivo:</strong> <%= @batch[:year] %>
       &nbsp;|&nbsp;
-      <strong><%= Classroom.model_name.human %>:</strong> <%= @batch[:classroom_label] %>
+      <strong>Turma:</strong> <%= @batch[:classroom_label] %>
       &nbsp;|&nbsp;
       <strong><%= Avaliation.human_attribute_name(:step) %>:</strong> <%= @batch[:step_label] %>
     </p>
     <p style="margin-bottom: 0;">
-      <strong><%= Discipline.model_name.human %>:</strong> <%= @batch[:discipline_label] %>
+      <strong>Disciplina:</strong> <%= @batch[:discipline_label] %>
     </p>
   </div>
 
   <% show_batch_config_panel = @batch[:show_calculation_type_select] || %w[arithmetic weighted_sum].include?(@batch[:mode].to_s) %>
   <% if show_batch_config_panel %>
-  <div class="avaliation-batch-config" style="background-color: #faf8f6; padding: 16px 20px; border-radius: 6px; margin: 0 12px 20px 12px; border: 1px solid #e8e4df;">
+  <div class="avaliation-batch-config">
     <%= form_tag new_batch_avaliations_path, method: :get, class: 'smart-form', id: 'avaliation_batch_config_form' do %>
       <%= hidden_field_tag :step_id, @batch[:step_id] %>
 
@@ -287,12 +319,12 @@
         <% if %w[arithmetic weighted_sum].include?(@batch[:mode].to_s) %>
           <% col_class = @batch[:show_calculation_type_select] ? 'col col-sm-6' : 'col col-sm-12' %>
           <div class="<%= col_class %>">
-            <div class="form-group" style="margin-bottom: 0;">
+            <div class="form-group avaliation-batch-quantity-highlight" style="margin-bottom: 0;">
               <div class="avaliation-batch-inline-field">
                 <label class="label"><%= t('avaliations.batch.assessments_label') %></label>
                 <%= select_tag :assessments_count,
                       options_for_select((1..AvaliationBatchGrades::BuildContext::MAX_ARITHMETIC_COLUMNS).map { |i| [i, i] }, @batch[:columns].size),
-                      class: 'form-control',
+                      class: 'form-control batch-assessments-select',
                       data: { min: @batch[:minimum_assessments_count] },
                       onchange: 'this.form.submit()' %>
               </div>
@@ -315,13 +347,6 @@
     <% if @batch[:weighted_sum_mode] %>
       <% wsum_init = @batch[:columns].sum { |c| c[:weight].to_f } %>
       <% max_init = @batch[:selected_max_score].to_f %>
-      
-      <div style="margin: 0 12px 12px 12px;">
-        <p style="margin-bottom: 6px;">
-          <strong><%= t('avaliations.batch.weights_sum_label') %>:</strong>
-          <span id="batch-weights-sum-readout"><%= number_with_precision(wsum_init, precision: decimal_places, separator: ',') %></span>
-        </p>
-      </div>
     <% end %>
 
     <div class="table-responsive" style="margin: 0 12px;">
@@ -361,7 +386,10 @@
           </tr>
           <% if @batch[:weighted_sum_mode] %>
             <tr class="batch-col-weight-row">
-              <th class="avaliation-batch-th-sub"></th>
+              <th class="avaliation-batch-th-sub batch-weights-sum-cell">
+                <%= t('avaliations.batch.weights_sum_label') %>:
+                <span id="batch-weights-sum-readout"><%= number_with_precision(wsum_init, precision: decimal_places, separator: ',') %></span>
+              </th>
               <% @batch[:columns].each do |col| %>
                 <th class="avaliation-batch-th-sub" style="font-weight: normal; font-size: 12px;">
                   <div class="batch-col-weight-inline">

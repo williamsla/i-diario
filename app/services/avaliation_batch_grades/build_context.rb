@@ -69,7 +69,8 @@ module AvaliationBatchGrades
         step_label: step.to_s,
         classroom_label: classroom.description,
         unity_label: classroom.unity.to_s,
-        discipline_label: discipline.to_s
+        discipline_label: discipline.to_s,
+        year: classroom.year
       }
     end
 
