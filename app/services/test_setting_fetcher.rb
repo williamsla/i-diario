@@ -64,6 +64,18 @@ class TestSettingFetcher
   end
 
   def by_school_term_test_setting
-    TestSetting.find_by(year: @year, school_term_type_step: school_term_type_step)
+    return if @step.blank?
+
+    # Prioriza a configuração por número da etapa na própria tabela de configurações,
+    # evitando depender de inferência por SchoolTermType quando existir mais de um tipo com
+    # a mesma quantidade de etapas.
+    TestSetting.joins(:school_term_type_step)
+               .where(
+                 year: @year,
+                 exam_setting_type: ExamSettingTypes::BY_SCHOOL_TERM,
+                 school_term_type_steps: { step_number: @step.step_number }
+               )
+               .first ||
+      TestSetting.find_by(year: @year, school_term_type_step: school_term_type_step)
   end
 end
