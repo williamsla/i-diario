@@ -18,17 +18,6 @@ $(function () {
     }
   };
 
-  var fetchDisciplines = function (params, callback) {
-    if (_.isEmpty(window.disciplines)) {
-      $.getJSON('/disciplinas?' + $.param(params)).always(function (data) {
-        window.disciplines = data;
-        callback(window.disciplines);
-      });
-    } else {
-      callback(window.disciplines);
-    }
-  };
-
   var fetchAvaliations = function (params, callback) {
     if (_.isEmpty(window.avaliations)) {
       $.getJSON('/teacher_avaliations?' + $.param(params)).always(function (data) {
@@ -53,6 +42,26 @@ $(function () {
   var $frequencyDate = $('#daily_frequency_frequency_date');
   var autoFillTimeout = null;
 
+  var periodParam = function () {
+    var $period = $('#daily_frequency_period');
+    return $period.length ? $period.val() : '';
+  };
+
+  // AMS / responders podem envolver a lista (ex.: { daily_frequencies: [...] }).
+  var normalizeDisciplinesPayload = function (raw) {
+    var data = raw && raw.responseJSON != null ? raw.responseJSON : raw;
+    if (_.isArray(data)) {
+      return data;
+    }
+    if (data && _.isArray(data.daily_frequencies)) {
+      return data.daily_frequencies;
+    }
+    if (data && _.isArray(data.disciplines)) {
+      return data.disciplines;
+    }
+    return [];
+  };
+
   var getInputValue = function ($input) {
     if (!$input || !$input.length) {
       return '';
@@ -65,6 +74,30 @@ $(function () {
     } catch (e) {}
 
     return $input.val();
+  };
+
+  var fetchDisciplines = function (params, callback) {
+    var frequencyDate = getInputValue($frequencyDate);
+    if (!_.isEmpty(params.classroom_id) && !_.isEmpty(frequencyDate)) {
+      $.getJSON('/daily_frequencies/disciplines_for_frequency_date', {
+        classroom_id: params.classroom_id,
+        frequency_date: frequencyDate,
+        period: periodParam()
+      }).always(function (raw) {
+        callback(normalizeDisciplinesPayload(raw));
+      });
+      return;
+    }
+
+    if (_.isEmpty(window.disciplines)) {
+      $.getJSON('/disciplinas?' + $.param(params)).always(function (raw) {
+        var list = normalizeDisciplinesPayload(raw);
+        window.disciplines = list;
+        callback(list);
+      });
+    } else {
+      callback(window.disciplines);
+    }
   };
 
   var setClassNumbersOnField = function (classNumbers) {
@@ -121,7 +154,8 @@ $(function () {
     $.getJSON('/daily_frequencies/class_numbers_by_discipline', {
       classroom_id: classroomId,
       discipline_id: disciplineId,
-      frequency_date: frequencyDate
+      frequency_date: frequencyDate,
+      period: periodParam()
     }).done(function (data) {
       setClassNumbersOnField(extractClassNumbersFromResponse(data));
     }).fail(function () {
@@ -137,6 +171,39 @@ $(function () {
     autoFillTimeout = setTimeout(function () {
       autoFillClassNumbersBySchedule();
     }, 150);
+  };
+
+  var applyDisciplinesToSelect = function (disciplines) {
+    var selectedDisciplines = _.map(disciplines, function (discipline) {
+      var label = discipline.description || discipline.name || discipline.text || '';
+      return { id: discipline.id, text: label, name: label };
+    });
+    var previousDiscipline = getInputValue($discipline);
+    $discipline.select2({ data: selectedDisciplines });
+    if (previousDiscipline && _.find(selectedDisciplines, function (d) { return String(d.id) === String(previousDiscipline); })) {
+      $discipline.select2('val', previousDiscipline);
+    } else {
+      $discipline.val('').trigger('change');
+    }
+  };
+
+  var reloadDisciplinesForSelectedDate = function () {
+    if (!$disciplineAbsenceFields.is(':visible')) {
+      scheduleAutoFillClassNumbers();
+      return;
+    }
+
+    var classroomId = getInputValue($classroom);
+    var frequencyDate = getInputValue($frequencyDate);
+    if (_.isEmpty(classroomId) || _.isEmpty(frequencyDate)) {
+      scheduleAutoFillClassNumbers();
+      return;
+    }
+
+    fetchDisciplines({ classroom_id: classroomId }, function (disciplines) {
+      applyDisciplinesToSelect(disciplines);
+      scheduleAutoFillClassNumbers();
+    });
   };
 
   $('#daily_frequency_unity_id').on('change', function (e) {
@@ -177,6 +244,7 @@ $(function () {
         if(examRule.frequency_type == 2 || examRule.allow_frequency_by_discipline){
           $globalAbsence.val(0);
           $disciplineAbsenceFields.show();
+          reloadDisciplinesForSelectedDate();
         }else{
           $globalAbsence.val(1);
           $disciplineAbsenceFields.hide();
@@ -211,13 +279,7 @@ $(function () {
       checkExamRule(params);
 
       fetchDisciplines(params, function (disciplines) {
-        var selectedDisciplines = _.map(disciplines, function (discipline) {
-          return { id:discipline['id'], text: discipline['description'] };
-        });
-
-        $discipline.select2({
-          data: selectedDisciplines
-        });
+        applyDisciplinesToSelect(disciplines);
       });
     }
 
@@ -249,7 +311,7 @@ $(function () {
   });
 
   $frequencyDate.on('change changeDate valid-date', function () {
-    scheduleAutoFillClassNumbers();
+    reloadDisciplinesForSelectedDate();
   });
 
   $disciplineAbsenceFields.hide();
