@@ -6,7 +6,9 @@ class Select2StepInput < Select2Input
   end
 
   def parse_collection
-    options[:elements] = StepsFetcher.new(options[:classroom]).steps
+    if options[:elements].nil?
+      options[:elements] = StepsFetcher.new(options[:classroom]).steps
+    end
 
     super
   end

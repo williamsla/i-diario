@@ -39,8 +39,14 @@
           <% end %>
         </div>
         <div class="col col-sm-4 hidden" data-descriptive-exam-step-container>
-          <%= f.input :step_id, as: :select2_step, classroom: current_user_classroom,
-            readonly: @descriptive_exam.persisted?, required: true %>
+          <% step_input_options = {
+            as: :select2_step,
+            classroom: current_user_classroom,
+            readonly: @descriptive_exam.persisted?,
+            required: true
+          } %>
+          <% step_input_options[:elements] = @descriptive_exam_step_select_elements if @descriptive_exam_step_select_elements %>
+          <%= f.input :step_id, step_input_options %>
         </div>
       </div>
 
