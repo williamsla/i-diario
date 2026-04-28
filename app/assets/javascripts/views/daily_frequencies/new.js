@@ -47,6 +47,21 @@ $(function () {
     return $period.length ? $period.val() : '';
   };
 
+  // AMS / responders podem envolver a lista (ex.: { daily_frequencies: [...] }).
+  var normalizeDisciplinesPayload = function (raw) {
+    var data = raw && raw.responseJSON != null ? raw.responseJSON : raw;
+    if (_.isArray(data)) {
+      return data;
+    }
+    if (data && _.isArray(data.daily_frequencies)) {
+      return data.daily_frequencies;
+    }
+    if (data && _.isArray(data.disciplines)) {
+      return data.disciplines;
+    }
+    return [];
+  };
+
   var getInputValue = function ($input) {
     if (!$input || !$input.length) {
       return '';
@@ -68,16 +83,17 @@ $(function () {
         classroom_id: params.classroom_id,
         frequency_date: frequencyDate,
         period: periodParam()
-      }).always(function (data) {
-        callback(_.isArray(data) ? data : []);
+      }).always(function (raw) {
+        callback(normalizeDisciplinesPayload(raw));
       });
       return;
     }
 
     if (_.isEmpty(window.disciplines)) {
-      $.getJSON('/disciplinas?' + $.param(params)).always(function (data) {
-        window.disciplines = data;
-        callback(window.disciplines);
+      $.getJSON('/disciplinas?' + $.param(params)).always(function (raw) {
+        var list = normalizeDisciplinesPayload(raw);
+        window.disciplines = list;
+        callback(list);
       });
     } else {
       callback(window.disciplines);
@@ -159,7 +175,8 @@ $(function () {
 
   var applyDisciplinesToSelect = function (disciplines) {
     var selectedDisciplines = _.map(disciplines, function (discipline) {
-      return { id: discipline['id'], text: discipline['description'] };
+      var label = discipline.description || discipline.name || discipline.text || '';
+      return { id: discipline.id, text: label, name: label };
     });
     var previousDiscipline = getInputValue($discipline);
     $discipline.select2({ data: selectedDisciplines });

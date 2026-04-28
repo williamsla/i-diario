@@ -68,7 +68,7 @@ class DailyFrequenciesController < ApplicationController
     frequency_date = parse_frequency_date(params[:frequency_date])
 
     if classroom_id.blank? || frequency_date.blank?
-      render json: []
+      render_disciplines_for_frequency_json([])
       return
     end
 
@@ -76,7 +76,7 @@ class DailyFrequenciesController < ApplicationController
 
     classroom = Classroom.find_by(id: classroom_id)
     if classroom.blank?
-      render json: []
+      render_disciplines_for_frequency_json([])
       return
     end
 
@@ -86,7 +86,9 @@ class DailyFrequenciesController < ApplicationController
       period: params[:period].presence&.to_i
     )
 
-    render json: disciplines.map { |d| { id: d.id, description: d.description } }
+    render_disciplines_for_frequency_json(
+      disciplines.map { |d| { id: d.id, description: d.description } }
+    )
   end
 
   def create
@@ -438,6 +440,11 @@ class DailyFrequenciesController < ApplicationController
   end
 
   private
+
+  # JSON array literal — evita ActiveModel::Serializers envolver em { daily_frequencies: ... }.
+  def render_disciplines_for_frequency_json(payload)
+    render plain: payload.to_json, content_type: 'application/json'
+  end
 
   # Turma do formulário (params) ou do registro em edição — evita usar só a turma da sessão,
   # que pode divergir e montar o quadro de aulas do dia com a turma errada (sem aulas "hoje").
