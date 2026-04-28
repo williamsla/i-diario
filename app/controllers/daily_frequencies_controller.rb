@@ -63,6 +63,32 @@ class DailyFrequenciesController < ApplicationController
     render json: class_numbers
   end
 
+  def disciplines_for_frequency_date
+    classroom_id = params[:classroom_id].presence
+    frequency_date = parse_frequency_date(params[:frequency_date])
+
+    if classroom_id.blank? || frequency_date.blank?
+      render json: []
+      return
+    end
+
+    authorize DailyFrequency.new, :new?
+
+    classroom = Classroom.find_by(id: classroom_id)
+    if classroom.blank?
+      render json: []
+      return
+    end
+
+    disciplines = disciplines_for_classroom_and_frequency(
+      classroom: classroom,
+      frequency_date: frequency_date,
+      period: params[:period].presence&.to_i
+    )
+
+    render json: disciplines.map { |d| { id: d.id, description: d.description } }
+  end
+
   def create
     @daily_frequency = DailyFrequency.new(daily_frequency_params)
     @daily_frequency.school_calendar = current_school_calendar
@@ -678,24 +704,80 @@ class DailyFrequenciesController < ApplicationController
   def fetch_linked_by_teacher
     @fetch_linked_by_teacher ||= TeacherClassroomAndDisciplineFetcher.fetch!(current_teacher.id, current_unity, current_school_year, current_user_classroom)
     @classrooms ||= @fetch_linked_by_teacher[:classrooms]
-    
-    if params[:discipline_id].nil? || params[:discipline_id].empty? # geral
-      @disciplines = @fetch_linked_by_teacher[:disciplines]      
-    else # por disciplina
+
+    if params[:discipline_id].present?
       @disciplines ||= [current_user_discipline]
+    elsif (ctx = discipline_options_context)
+      @disciplines = disciplines_for_classroom_and_frequency(
+        classroom: ctx[:classroom],
+        frequency_date: ctx[:date],
+        period: ctx[:period]
+      )
+    else
+      @disciplines = (@fetch_linked_by_teacher[:disciplines] || []).select { |d| d.grouper == false && d.descriptor == false }
+      schedule_ids = fetch_disciplines_by_day
+      @disciplines = @disciplines.select { |d| schedule_ids.include?(d.id) } if schedule_ids.present?
     end
 
-    #filtrando apenas as disciplines que não são ficha individual
-    @disciplines = @disciplines.select { |d| d.grouper == false && d.descriptor == false }
+    @disciplines = (@disciplines || []).select { |d| d.grouper == false && d.descriptor == false }
 
     @daily_schedule_discipline ||= fetch_disciplines_by_day
-    @disciplines_filtered = @disciplines.select { |d| @daily_schedule_discipline.include?(d.id) } if @daily_schedule_discipline.present?
-    unless @disciplines_filtered.blank?
-      @disciplines = @disciplines_filtered
-    end
 
     @knowledge_areas = []
     @knowledge_areas = [@disciplines.first&.knowledge_area] if @disciplines.first&.knowledge_area.present?
+  end
+
+  def discipline_options_context
+    classroom_id = resolved_classroom_id_for_lessons_board
+    return nil if classroom_id.blank?
+
+    classroom = Classroom.find_by(id: classroom_id)
+    return nil unless classroom
+
+    date = parse_frequency_date(params.dig(:daily_frequency, :frequency_date))
+    date ||= @daily_frequency&.frequency_date&.to_date
+    return nil if date.blank?
+
+    period = params.dig(:daily_frequency, :period).presence
+    period = period.to_i if period.present?
+
+    { classroom: classroom, date: date, period: period }
+  end
+
+  def disciplines_for_classroom_and_frequency(classroom:, frequency_date:, period: nil)
+    linked = TeacherClassroomAndDisciplineFetcher.fetch!(
+      current_teacher.id,
+      current_unity,
+      current_school_year,
+      classroom
+    )
+    disciplines = (linked[:disciplines] || []).select { |d| d.grouper == false && d.descriptor == false }
+
+    return disciplines if classroom_without_lessons_board?(classroom.id)
+
+    schedule_ids = schedule_discipline_ids_for_classroom_weekday(
+      classroom_id: classroom.id,
+      date: frequency_date,
+      period: period
+    )
+    return disciplines if schedule_ids.blank?
+
+    disciplines.select { |d| schedule_ids.include?(d.id) }
+  end
+
+  def classroom_without_lessons_board?(classroom_id)
+    !LessonsBoard.joins(:classrooms_grade)
+                 .where(classrooms_grades: { classroom_id: classroom_id })
+                 .exists?
+  end
+
+  def schedule_discipline_ids_for_classroom_weekday(classroom_id:, date:, period: nil)
+    weekday = date.strftime("%A").downcase
+    scope = LessonsBoardLessonWeekday.by_classroom(classroom_id).by_weekday(weekday)
+    scope = scope.by_period(period) if period.present?
+    scope.includes(:teacher_discipline_classroom)
+         .map { |w| w.teacher_discipline_classroom.discipline_id }
+         .uniq
   end
 
   def fetch_disciplines_by_day
@@ -708,11 +790,11 @@ class DailyFrequenciesController < ApplicationController
     classroom_id = resolved_classroom_id_for_lessons_board
     return [] if classroom_id.blank?
 
-    weekday = date.strftime("%A").downcase
-
-    LessonsBoardLessonWeekday.by_classroom(classroom_id).by_weekday(weekday)
-                             .includes(:teacher_discipline_classroom)
-                             .map { |w| w.teacher_discipline_classroom.discipline_id }
+    schedule_discipline_ids_for_classroom_weekday(
+      classroom_id: classroom_id,
+      date: date,
+      period: nil
+    )
   end
 
   def fetch_disciplines_with_contents_by_day
