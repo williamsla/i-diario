@@ -38,7 +38,24 @@ $(function () {
       return { id: discipline.id, text: discipline.description };
     });
 
+    var schoolTermTypes = _.reject(data.school_term_types || [], function (schoolTermType) {
+      return schoolTermType.id === 'empty';
+    });
+    var selectedSchoolTermTypeId = $('#yearly_school_term_type_id').val();
+    var availableSchoolTermTypeIds = _.map(schoolTermTypes, function (schoolTermType) {
+      return String(schoolTermType.id);
+    });
+
     $discipline.select2({ data: disciplines });
+    $schoolTermType.select2('val', '');
+    $schoolTermType.select2({ data: schoolTermTypes });
+
+    if (_.contains(availableSchoolTermTypeIds, selectedSchoolTermTypeId)) {
+      $schoolTermType.select2('val', selectedSchoolTermTypeId).trigger('change');
+    } else {
+      $schoolTerm.val('');
+      $schoolTermContainer.hide();
+    }
   };
 
   function handleFetchDisciplinesError() {
