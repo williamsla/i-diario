@@ -43,5 +43,25 @@ FactoryGirl.define do
         end
       end
     end
+
+    trait :school_calendar_classroom_with_four_bimester_steps do
+      after(:build) do |school_calendar_classroom|
+        year = school_calendar_classroom.school_calendar.year
+
+        (1..4).each do |bimester|
+          start_month = bimester * 2
+          school_calendar_classroom.classroom_steps.build(
+            attributes_for(
+              :school_calendar_classroom_step,
+              step_number: bimester,
+              start_at: Date.new(year, start_month, 1),
+              end_at: Date.new(year, start_month + 1, -1),
+              start_date_for_posting: Date.new(year, start_month, 1),
+              end_date_for_posting: Date.new(year, start_month + 1, -1)
+            )
+          )
+        end
+      end
+    end
   end
 end

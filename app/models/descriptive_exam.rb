@@ -49,6 +49,20 @@ class DescriptiveExam < ApplicationRecord
     opinion_type_by_year?
   end
 
+  def enrollment_period_start_at
+    pair = DescriptiveExamSemesterCalendar.semester_pair_containing(classroom, step_number)
+    return pair.first.start_at if pair
+
+    step.try(:start_at)
+  end
+
+  def enrollment_period_end_at
+    pair = DescriptiveExamSemesterCalendar.semester_pair_containing(classroom, step_number)
+    return pair.last.end_at if pair
+
+    step.try(:end_at)
+  end
+
   private
 
   def should_validate_presence_of_discipline

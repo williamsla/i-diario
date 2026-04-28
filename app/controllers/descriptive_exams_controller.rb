@@ -19,6 +19,7 @@ class DescriptiveExamsController < ApplicationController
     end
 
     authorize @descriptive_exam
+    assign_descriptive_exam_step_select_elements
   end
 
   def create
@@ -36,6 +37,7 @@ class DescriptiveExamsController < ApplicationController
     else
       select_options_by_user(@descriptive_exam.classroom_id)
       select_opinion_types
+      assign_descriptive_exam_step_select_elements
 
       render :new
     end
@@ -114,8 +116,7 @@ class DescriptiveExamsController < ApplicationController
     return if params[:classroom_id].blank?
 
     classroom = Classroom.find(params[:classroom_id])
-    step_numbers = StepsFetcher.new(classroom)&.steps
-    steps = step_numbers.map { |step| { id: step.id, description: step.to_s } }
+    steps = DescriptiveExamSemesterCalendar.step_select_options(classroom)
 
     render json: steps.to_json
   end
@@ -202,12 +203,15 @@ class DescriptiveExamsController < ApplicationController
   def enrollment_classrooms_list
     fetch_dates_for_opinion_type_by_year
 
+    list_start_at = @start_at || @descriptive_exam.enrollment_period_start_at
+    list_end_at = @end_at || @descriptive_exam.enrollment_period_end_at
+
     @enrollment_classrooms_list ||= StudentEnrollmentClassroomsRetriever.call(
       classrooms: @descriptive_exam.classroom,
       disciplines: @descriptive_exam.discipline,
       opinion_type: @descriptive_exam.opinion_type,
-      start_at: @start_at || @descriptive_exam.step.try(:start_at),
-      end_at: @end_at || @descriptive_exam.step.try(:end_at),
+      start_at: list_start_at,
+      end_at: list_end_at,
       show_inactive_outside_step: false,
       search_type: :by_date_range,
       period: @period,
@@ -224,7 +228,8 @@ class DescriptiveExamsController < ApplicationController
       student_enrollment = enrollment_classroom[:student_enrollment]
 
       left_at = enrollment_classroom[:student_enrollment_classroom].left_at.to_date
-      is_active = !(left_at.present? && left_at < @descriptive_exam.step.try(:start_at))
+      enrollment_start = @descriptive_exam.enrollment_period_start_at
+      is_active = !(left_at.present? && enrollment_start.present? && left_at < enrollment_start)
 
       # Verifica se já existe um exam_student para este aluno na lista atual
       existing_exam_student = @students_by_student_id[student.id]
@@ -257,7 +262,7 @@ class DescriptiveExamsController < ApplicationController
       exam_student.value = exam_student.value.gsub(regular_expression, '') if exam_student.value.present?
 
       exam_student.left_at = left_at
-      exam_student.active_student = left_at.present? && left_at < @descriptive_exam.step.try(:start_at)
+      exam_student.active_student = enrollment_start.present? && left_at.present? && left_at < enrollment_start
       
       classroom_grade = current_user_classroom.classrooms_grades.by_id(enrollment_classroom[:student_enrollment_classroom].classrooms_grade_id).first
       exam_student.grade_description = classroom_grade.grade.description
@@ -344,15 +349,24 @@ class DescriptiveExamsController < ApplicationController
   end
 
   def student_exempted_from_discipline?(student_enrollment)
-    if discipline_id = @descriptive_exam.discipline.try(:id)
-      step_number = @descriptive_exam.step.to_number
+    discipline_id = @descriptive_exam.discipline.try(:id)
+    return false unless discipline_id
 
-      return student_enrollment.exempted_disciplines.by_discipline(discipline_id)
+    descriptive_exemption_step_numbers.any? do |step_number|
+      student_enrollment.exempted_disciplines.by_discipline(discipline_id)
         .by_step_number(step_number)
         .any?
     end
+  end
 
-    false
+  def descriptive_exemption_step_numbers
+    pair = DescriptiveExamSemesterCalendar.semester_pair_containing(
+      @descriptive_exam.classroom,
+      @descriptive_exam.step_number
+    )
+    return pair.map(&:step_number) if pair
+
+    [@descriptive_exam.step_number].compact
   end
 
   def any_student_exempted_from_discipline?
@@ -382,6 +396,16 @@ class DescriptiveExamsController < ApplicationController
   end
 
   private
+
+  def assign_descriptive_exam_step_select_elements
+    @descriptive_exam_step_select_elements = nil
+    return unless DescriptiveExamSemesterCalendar.enabled?(current_user_classroom)
+
+    @descriptive_exam_step_select_elements =
+      DescriptiveExamSemesterCalendar.step_select_options(current_user_classroom).map do |h|
+        OpenStruct.new(id: h[:id], name: h[:description], text: h[:description])
+      end
+  end
 
   def fetch_linked_by_teacher
     @fetch_linked_by_teacher ||= TeacherClassroomAndDisciplineFetcher.fetch!(
