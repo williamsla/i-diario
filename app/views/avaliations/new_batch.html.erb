@@ -1,0 +1,446 @@
+<% if @batch[:weighted_sum_mode] %>
+  <% content_for :js do %>
+    <script>
+      (function () {
+        function parseBr(s) {
+          if (s === undefined || s === null || s === '') return 0;
+          var str = String(s).trim();
+          if (str.indexOf(',') >= 0 && str.indexOf('.') >= 0) str = str.replace(/\./g, '');
+          return parseFloat(str.replace(',', '.')) || 0;
+        }
+        function updateBatchWeightsUi() {
+          var meta = document.getElementById('batch-max-score-meta');
+          if (!meta) return;
+          var max = parseFloat(meta.getAttribute('data-max')) || 10;
+          var decimals = parseInt(meta.getAttribute('data-decimals'), 10);
+          if (isNaN(decimals) || decimals < 0) decimals = 2;
+          var inputs = document.querySelectorAll('input.batch-col-weight');
+          var sum = 0;
+          for (var i = 0; i < inputs.length; i++) sum += parseBr(inputs[i].value);
+          var pct = max > 0 ? Math.min(100, (sum / max) * 100) : 0;
+          var bar = document.getElementById('batch-weights-progress-bar');
+          if (bar) {
+            bar.style.width = pct + '%';
+            bar.className = 'progress-bar ' + (Math.abs(sum - max) < 0.02 ? 'progress-bar-success' : 'progress-bar-warning');
+          }
+          var sumEl = document.getElementById('batch-weights-sum-readout');
+          if (sumEl) sumEl.textContent = sum.toFixed(decimals).replace('.', ',');
+          var warn = document.getElementById('batch-weights-adjust-warning');
+          if (warn) warn.style.display = Math.abs(sum - max) < 0.02 ? 'none' : 'inline';
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+          document.querySelectorAll('input.batch-col-weight').forEach(function (el) {
+            el.addEventListener('input', updateBatchWeightsUi);
+            el.addEventListener('change', updateBatchWeightsUi);
+          });
+          updateBatchWeightsUi();
+
+          var table = document.querySelector('.avaliation-batch-grades-table');
+          if (!table) return;
+
+          table.addEventListener('keydown', function (evt) {
+            if (evt.key !== 'Enter') return;
+            var current = evt.target;
+            if (!current || current.tagName !== 'INPUT') return;
+
+            evt.preventDefault();
+
+            var cell = current.closest('th, td');
+            var row = current.closest('tr');
+            if (!cell || !row) return;
+
+            var cellIndex = cell.cellIndex;
+            var section = row.parentElement; // thead/tbody
+            var nextRow = row.nextElementSibling;
+
+            function focusInputAt(targetRow, index) {
+              if (!targetRow) return false;
+              var targetCell = targetRow.cells[index];
+              if (!targetCell) return false;
+              var targetInput = targetCell.querySelector('input:not([type=\"hidden\"])');
+              if (!targetInput) return false;
+              targetInput.focus();
+              targetInput.select && targetInput.select();
+              return true;
+            }
+
+            if (focusInputAt(nextRow, cellIndex)) return;
+
+            // Se estiver no thead sem próxima linha, tenta cair para a primeira linha de alunos.
+            if (section && section.tagName === 'THEAD') {
+              var firstBodyRow = table.querySelector('tbody tr');
+              focusInputAt(firstBodyRow, cellIndex);
+            }
+          });
+        });
+      })();
+    </script>
+  <% end %>
+<% end %>
+
+<style>
+  .avaliation-batch-grades-table thead th.avaliation-batch-th-head {
+    vertical-align: middle;
+    padding: 14px 12px;
+    line-height: 1.4;
+  }
+  .avaliation-batch-grades-table thead th.avaliation-batch-th-sub {
+    padding: 10px 12px;
+    vertical-align: middle;
+  }
+  .avaliation-batch-th-head-with-actions {
+    position: relative;
+    padding-top: 18px !important;
+  }
+  .avaliation-batch-delete-btn {
+    color: #b30000;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    padding: 0 4px;
+    font-weight: 700;
+    text-decoration: none;
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    z-index: 2;
+  }
+  .avaliation-batch-delete-btn:hover,
+  .avaliation-batch-delete-btn:focus {
+    color: #7d0000;
+    background: transparent;
+    text-decoration: none;
+  }
+  .avaliation-batch-delete-btn .avaliation-batch-delete-x {
+    font-size: 28px;
+    line-height: 1;
+    width: 1em;
+    text-align: center;
+    display: inline-block;
+  }
+  .avaliation-batch-editable-label {
+    min-width: 140px;
+    width: 100%;
+    margin-bottom: 0;
+    height: 30px;
+    font-weight: 600;
+  }
+  .avaliation-batch-col-label {
+    vertical-align: middle;
+  }
+  .avaliation-batch-grades-table th,
+  .avaliation-batch-grades-table td {
+    padding-left: 10px;
+    padding-right: 10px;
+    vertical-align: middle;
+  }
+  .avaliation-batch-grades-table th:first-child,
+  .avaliation-batch-grades-table td:first-child {
+    min-width: 230px;
+  }
+  .avaliation-batch-grades-table .batch-student-name {
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+    display: block;
+    width: 100%;
+  }
+  .avaliation-batch-grades-table .batch-note-cell {
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+    text-align: center;
+  }
+  .avaliation-batch-grades-table .batch-average-cell {
+    width: 110px;
+    min-width: 110px;
+    max-width: 110px;
+    text-align: center;
+  }
+  .avaliation-batch-grades-table .batch-note-input,
+  .avaliation-batch-grades-table .batch-average-value {
+    text-align: center;
+  }
+  @media (max-width: 767px) {
+    .avaliation-batch-grades-table th:first-child,
+    .avaliation-batch-grades-table td:first-child {
+      min-width: 115px;
+      max-width: 115px;
+      width: 115px;
+      white-space: normal !important;
+    }
+  }
+  .avaliation-batch-grades-table .form-control {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .avaliation-batch-grades-table .batch-col-weight-row th {
+    background: #fff5db;
+    border-top: 2px solid #f1d28a;
+  }
+  .avaliation-batch-grades-table .batch-weights-sum-cell {
+    text-align: right;
+    white-space: nowrap;
+    color: #7a5a14;
+    font-weight: 700;
+  }
+  .avaliation-batch-grades-table .batch-col-weight-label {
+    display: inline-block;
+    margin-bottom: 0;
+    margin-right: 8px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #f7e5b8;
+    color: #7a5a14;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .avaliation-batch-grades-table .batch-col-weight {
+    border: 2px solid #e0b95f;
+    background: #fffaf0;
+    font-weight: 700;
+  }
+  .avaliation-batch-grades-table .batch-col-weight:focus {
+    border-color: #c8921f;
+    box-shadow: 0 0 0 2px rgba(200, 146, 31, 0.15);
+    background: #fffdf7;
+  }
+  .batch-col-weight-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .batch-col-weight-inline .batch-col-weight {
+    flex: 1;
+    min-width: 72px;
+  }
+  .avaliation-batch-config .row {
+    display: grid;
+    grid-template-columns: minmax(0, 620px);
+    justify-content: center;
+    gap: 10px;
+    margin-left: 0;
+    margin-right: 0;
+  }
+  .avaliation-batch-config .row > [class*='col-'] {
+    float: none;
+    width: auto;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .avaliation-batch-inline-field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .avaliation-batch-inline-field .label {
+    margin: 0;
+    min-width: 130px;
+    white-space: nowrap;
+  }
+  .avaliation-batch-inline-field .form-control {
+    flex: 1;
+  }
+  .avaliation-batch-quantity-highlight {
+    background: #fff7e6;
+    border: 1px solid #f0d89a;
+    border-left: 4px solid #e3b341;
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .avaliation-batch-quantity-highlight .label {
+    color: #7a5a14;
+    font-weight: 700;
+  }
+  .avaliation-batch-quantity-highlight .form-control {
+    border-color: #d7b55d;
+    background: #fffdfa;
+    font-weight: 600;
+  }
+  .avaliation-batch-quantity-highlight .batch-assessments-select {
+    width: 35%;
+    min-width: 140px;
+    margin-left: auto;
+    text-align: center;
+    text-align-last: center;
+  }
+  .avaliation-batch-quantity-highlight .batch-assessments-select option {
+    text-align: center;
+  }
+</style>
+
+<div class="widget-body no-padding">
+  <% decimal_places = @batch.dig(:test_setting, :number_of_decimal_places).to_i %>
+  <% decimal_places = 2 if decimal_places.negative? %>
+  <div class="well well-sm">
+    <p>
+      <strong>Ano letivo:</strong> <%= @batch[:year] %>
+      &nbsp;|&nbsp;
+      <strong>Turma:</strong> <%= @batch[:classroom_label] %>
+      &nbsp;|&nbsp;
+      <strong><%= Avaliation.human_attribute_name(:step) %>:</strong> <%= @batch[:step_label] %>
+    </p>
+    <p style="margin-bottom: 0;">
+      <strong>Disciplina:</strong> <%= @batch[:discipline_label] %>
+    </p>
+  </div>
+
+  <% show_batch_config_panel = @batch[:show_calculation_type_select] || %w[arithmetic weighted_sum].include?(@batch[:mode].to_s) %>
+  <% if show_batch_config_panel %>
+  <div class="avaliation-batch-config">
+    <%= form_tag new_batch_avaliations_path, method: :get, class: 'smart-form', id: 'avaliation_batch_config_form' do %>
+      <%= hidden_field_tag :step_id, @batch[:step_id] %>
+
+      <div class="row">
+        <% if @batch[:show_calculation_type_select] %>
+          <div class="col col-sm-6">
+            <div class="form-group" style="margin-bottom: 0;">
+              <div class="avaliation-batch-inline-field">
+                <label class="label"><%= t('avaliations.batch.calculation_type_label') %></label>
+                <%= select_tag :batch_calculation,
+                      options_for_select(
+                        [
+                          [t('enumerations.average_calculation_types.arithmetic'), 'arithmetic'],
+                          [t('avaliations.batch.sum_with_weights_label'), 'sum']
+                        ],
+                        @batch[:teacher_calculation]
+                      ),
+                      class: 'form-control',
+                      onchange: 'this.form.submit()' %>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
+        <% if %w[arithmetic weighted_sum].include?(@batch[:mode].to_s) %>
+          <% col_class = @batch[:show_calculation_type_select] ? 'col col-sm-6' : 'col col-sm-12' %>
+          <div class="<%= col_class %>">
+            <div class="form-group avaliation-batch-quantity-highlight" style="margin-bottom: 0;">
+              <div class="avaliation-batch-inline-field">
+                <label class="label"><%= t('avaliations.batch.assessments_label') %></label>
+                <%= select_tag :assessments_count,
+                      options_for_select((1..AvaliationBatchGrades::BuildContext::MAX_ARITHMETIC_COLUMNS).map { |i| [i, i] }, @batch[:columns].size),
+                      class: 'form-control batch-assessments-select',
+                      data: { min: @batch[:minimum_assessments_count] },
+                      onchange: 'this.form.submit()' %>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+  <% end %>
+
+  <%= form_tag create_batch_avaliations_path, method: :post, class: 'smart-form' do %>
+    <%= hidden_field_tag 'avaliation_batch[step_id]', @batch[:step_id] %>
+    <%= hidden_field_tag 'avaliation_batch[batch_calculation]', @batch[:teacher_calculation] %>
+    <% if %w[arithmetic weighted_sum].include?(@batch[:mode].to_s) %>
+      <%= hidden_field_tag 'avaliation_batch[assessments_count]', @batch[:columns].size %>
+    <% end %>
+    <span id="batch-max-score-meta" class="hidden" data-max="<%= @batch[:selected_max_score] %>" data-decimals="<%= decimal_places %>"></span>
+
+    <% if @batch[:weighted_sum_mode] %>
+      <% wsum_init = @batch[:columns].sum { |c| c[:weight].to_f } %>
+      <% max_init = @batch[:selected_max_score].to_f %>
+    <% end %>
+
+    <div class="table-responsive" style="margin: 0 12px;">
+      <table class="table table-bordered table-only-inner-bordered table-striped avaliation-batch-grades-table">
+        <thead>
+          <tr>
+            <th class="avaliation-batch-th-head"><%= t('avaliations.batch.student_column') %></th>
+            <% @batch[:columns].each do |col| %>
+              <th class="avaliation-batch-th-head <%= 'avaliation-batch-th-head-with-actions' if col[:avaliation_id].present? %>">
+                <% if col[:editable_label] %>
+                  <%= text_field_tag 'avaliation_batch[column_labels][]',
+                        col[:label],
+                        class: 'form-control input-sm avaliation-batch-editable-label',
+                        autocomplete: 'off' %>
+                <% else %>
+                  <span class="avaliation-batch-col-label"><%= col[:label] %></span>
+                  <%= hidden_field_tag 'avaliation_batch[column_labels][]', col[:label] %>
+                <% end %>
+                <% if col[:avaliation_id].present? %>
+                  <%= link_to avaliation_path(col[:avaliation_id], step_id: @batch[:step_id]),
+                        method: :delete,
+                        class: 'avaliation-batch-delete-btn',
+                        title: t('avaliations.batch.destroy_column_title'),
+                        data: { confirm: t('avaliations.batch.confirm_destroy_column') } do %>
+                    <span class="avaliation-batch-delete-x" aria-hidden="true">×</span>
+                  <% end %>
+                <% end %>
+              </th>
+            <% end %>
+            <th class="avaliation-batch-th-head">
+              <% if @batch[:weighted_sum_mode] %>
+                <%= t('avaliations.batch.average_column') %> (0-10)
+              <% else %>
+                <%= t('avaliations.batch.average_column') %>
+              <% end %>
+            </th>
+          </tr>
+          <% if @batch[:weighted_sum_mode] %>
+            <tr class="batch-col-weight-row">
+              <th class="avaliation-batch-th-sub batch-weights-sum-cell">
+                <%= t('avaliations.batch.weights_sum_label') %>:
+                <span id="batch-weights-sum-readout"><%= number_with_precision(wsum_init, precision: decimal_places, separator: ',') %></span>
+              </th>
+              <% @batch[:columns].each do |col| %>
+                <th class="avaliation-batch-th-sub" style="font-weight: normal; font-size: 12px;">
+                  <div class="batch-col-weight-inline">
+                    <label class="batch-col-weight-label"><%= t('avaliations.batch.weight_field_label') %></label>
+                    <%= text_field_tag 'avaliation_batch[column_weights][]',
+                          number_with_precision(col[:weight], precision: decimal_places, separator: ','),
+                          class: 'form-control input-sm batch-col-weight',
+                          data: { inputmask: "'digits': #{decimal_places}" },
+                          autocomplete: 'off' %>
+                  </div>
+                </th>
+              <% end %>
+              <th class="avaliation-batch-th-sub"></th>
+            </tr>
+          <% end %>
+        </thead>
+        <tbody>
+          <% @batch[:students].each do |student| %>
+            <tr>
+              <td class="batch-student-name"><%= student[:name] %></td>
+              <% student[:notes].each_with_index do |note, idx| %>
+                <td class="batch-note-cell">
+                  <%= text_field_tag "avaliation_batch[notes][#{student[:id]}][]",
+                        note.present? ? number_with_precision(note, precision: decimal_places, separator: ',') : '',
+                        class: 'form-control input-sm batch-note-input',
+                        data: { inputmask: "'digits': #{decimal_places}" },
+                        autocomplete: 'off' %>
+                </td>
+              <% end %>
+              <td class="batch-average-cell">
+                <% if @batch[:weighted_sum_mode] %>
+                  <span class="batch-average-value"><%= student[:normalized_average].present? ? number_with_precision(student[:normalized_average], precision: 2, separator: ',') : '—' %></span>
+                <% else %>
+                  <span class="batch-average-value"><%= student[:average].present? ? number_with_precision(student[:average], precision: decimal_places, separator: ',') : '—' %></span>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+
+    <footer style="padding: 12px 16px; border-top: 1px solid #eee; background: #fafafa;">
+      <div class="clearfix">
+        <div class="pull-left">
+          <%= link_to t('avaliations.by_step.back_to_list'), avaliations_path, class: 'btn btn-default' %>
+        </div>
+        <div class="pull-right">
+          <%= submit_tag t('avaliations.batch.save'), class: 'btn btn-primary', data: { disable_with: 'Salvando...' } %>
+        </div>
+      </div>
+    </footer>
+  <% end %>
+</div>

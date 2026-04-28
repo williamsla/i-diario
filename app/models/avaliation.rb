@@ -47,6 +47,7 @@ class Avaliation < ApplicationRecord
   validate :classroom_score_type_must_be_numeric, if: :should_validate_classroom_score_type?
   validate :is_school_term_day?
   validate :weight_not_greater_than_test_setting_maximum_score, if: :arithmetic_and_sum_calculation_type?
+  validate :weight_must_be_positive_for_mixed_rule, if: :arithmetic_and_sum_weight_column?
   validate :grades_belongs_to_test_setting
   validate :discipline_in_grade?
 
@@ -152,6 +153,10 @@ class Avaliation < ApplicationRecord
 
   def should_validate_weight?
     allow_break_up? || arithmetic_and_sum_calculation_type?
+  end
+
+  def arithmetic_and_sum_weight_column?
+    arithmetic_and_sum_calculation_type? && should_validate_weight? && !allow_break_up?
   end
 
   def classroom_description
@@ -260,11 +265,17 @@ class Avaliation < ApplicationRecord
   end
 
   def weight_not_greater_than_test_setting_maximum_score
-    return unless test_setting && weight
+    return unless test_setting && !weight.nil?
 
     if weight > test_setting.maximum_score
       errors.add(:weight, :cant_be_greater_than, value: test_setting.maximum_score)
     end
+  end
+
+  def weight_must_be_positive_for_mixed_rule
+    return if weight.nil?
+
+    errors.add(:weight, :greater_than, count: 0) if weight.to_f <= 0
   end
 
   def grades_belongs_to_test_setting

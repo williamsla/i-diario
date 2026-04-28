@@ -10,27 +10,22 @@ class AvaliationsController < ApplicationController
     :new, :create, :edit, :update, :multiple_classrooms, :create_multiple_classrooms
   ]
   before_action :require_allow_to_modify_prev_years, only: [
-    :create, :update, :destroy, :create_multiple_classrooms
+    :create, :update, :destroy, :create_multiple_classrooms, :create_batch
   ]
 
   def index
-    ## EXIBINDO SOMENTE AVALIAÇÃO DA TURMA ATUAL SELECIONADA NO PERFIL
-    # if current_user.current_role_is_admin_or_employee?
-      @classrooms = [current_user_classroom]
-      @disciplines = [current_user_discipline]
-    # else
-    #   fetch_linked_by_teacher
-    # end
+    @classrooms = [current_user_classroom]
+    @disciplines = [current_user_discipline]
 
-    if params[:filter].present? && params[:filter][:by_step_id].present?
-      step_id = params[:filter].delete(:by_step_id)
-      params[:filter][school_calendar_step] = step_id
+    @classroom = current_user_classroom
+    @steps_for_picker = StepsFetcher.new(@classroom).steps.to_a
+    @exam_report_use_classroom_step_field = SchoolCalendarClassroomStep.by_classroom(@classroom.id).ordered.any?
+
+    authorize Avaliation.new(classroom: @classroom, discipline: current_user_discipline), :index?
+    respond_to do |format|
+      format.html
+      format.js { head :no_content }
     end
-
-    fetch_avaliations_by_user
-
-    authorize @avaliations
-    respond_with @avaliations
   end
 
   def new
@@ -39,10 +34,10 @@ class AvaliationsController < ApplicationController
     return if not_allow_numerical_exam
 
     fetch_linked_by_teacher unless current_user.current_role_is_admin_or_employee?
-                          
+
     @numeric_grades = current_user_classroom.classrooms_grades.by_score_type(ScoreTypes::NUMERIC)
     @numeric_and_concept_grades = current_user_classroom.classrooms_grades.by_score_type(ScoreTypes::NUMERIC_AND_CONCEPT)
-    
+
     @grades ||= (@numeric_grades + @numeric_and_concept_grades).map(&:grade)
 
     @avaliation = resource
@@ -51,9 +46,133 @@ class AvaliationsController < ApplicationController
     @avaliation.discipline = current_user_discipline
     @avaliation.test_date = Time.zone.today
 
+    if params[:step_id].present?
+      step = StepsFetcher.new(current_user_classroom).step_by_id(params[:step_id])
+      if step
+        today = Time.zone.today
+        start_d = step.start_at.to_date
+        end_d = step.end_at.to_date
+        @avaliation.test_date = [[today, end_d].min, start_d].max
+      else
+        flash[:alert] = t('avaliations.by_step.invalid_step')
+        redirect_to avaliations_path and return
+      end
+    end
+
     fetch_disciplines_by_classroom
 
     authorize resource
+  end
+
+  def new_batch
+    return if test_settings_redirect
+    return if score_types_redirect
+    return if not_allow_numerical_exam
+
+    @step = StepsFetcher.new(current_user_classroom).step_by_id(params[:step_id])
+    unless @step
+      flash[:alert] = t('avaliations.by_step.invalid_step')
+      redirect_to avaliations_path and return
+    end
+
+    @test_setting = TestSettingFetcher.current(current_user_classroom, @step)
+    unless @test_setting
+      flash[:error] = t('errors.avaliations.require_setting')
+      redirect_to avaliations_path and return
+    end
+
+    @recorded_at = batch_step_end_date(@step)
+    @assessments_count = params[:assessments_count].presence
+    @batch_calculation = params[:batch_calculation].presence || 'arithmetic'
+
+    ctx = AvaliationBatchGrades::BuildContext.new(
+      classroom: current_user_classroom,
+      discipline: current_user_discipline,
+      step: @step,
+      test_setting: @test_setting,
+      recorded_at: @recorded_at,
+      assessments_count: @assessments_count,
+      teacher_calculation: @batch_calculation,
+      column_labels: batch_column_labels_param
+    )
+
+    unless ctx.supported?
+      flash[:alert] = ctx.errors.join('; ')
+      redirect_to avaliations_path and return
+    end
+
+    @batch = ctx.to_h
+    requested_count = @assessments_count.to_i
+    min_allowed = @batch[:minimum_assessments_count].to_i
+    if @assessments_count.present? && requested_count < min_allowed
+      flash.now[:alert] = t('avaliations.batch.assessments_count_reduction_blocked', min: min_allowed)
+    end
+
+    authorize Avaliation.new(classroom: current_user_classroom, discipline: current_user_discipline), :new?
+  end
+
+  def create_batch
+    return if test_settings_redirect
+    return if score_types_redirect
+    return if not_allow_numerical_exam
+
+    unless params[:avaliation_batch].present?
+      flash[:alert] = t('avaliations.batch.invalid_form')
+      redirect_to avaliations_path and return
+    end
+
+    authorize Avaliation.new(classroom: current_user_classroom, discipline: current_user_discipline), :create?
+
+    @step = StepsFetcher.new(current_user_classroom).step_by_id(batch_step_id)
+    unless @step
+      flash[:alert] = t('avaliations.by_step.invalid_step')
+      redirect_to avaliations_path and return
+    end
+
+    test_setting = TestSettingFetcher.current(current_user_classroom, @step)
+    unless test_setting
+      flash[:error] = t('errors.avaliations.require_setting')
+      redirect_to avaliations_path and return
+    end
+
+    recorded_at = batch_step_end_date(@step)
+
+    service = AvaliationBatchGrades::SaveService.new(
+      classroom: current_user_classroom,
+      discipline: current_user_discipline,
+      step: @step,
+      teacher: current_teacher,
+      current_user: current_user,
+      school_calendar: current_school_calendar,
+      test_setting: test_setting,
+      recorded_at: recorded_at,
+      assessments_count: batch_params[:assessments_count],
+      notes_params: batch_notes_params,
+      teacher_calculation: batch_params[:batch_calculation],
+      column_weights: batch_column_weights_param,
+      column_labels: batch_column_labels_param
+    )
+
+    if service.call
+      redirect_to avaliations_path, notice: t('avaliations.batch.saved')
+    else
+      flash.now[:alert] = service.errors.join('; ')
+      @test_setting = test_setting
+      @recorded_at = recorded_at
+      @assessments_count = batch_params[:assessments_count]
+      ctx = AvaliationBatchGrades::BuildContext.new(
+        classroom: current_user_classroom,
+        discipline: current_user_discipline,
+        step: @step,
+        test_setting: test_setting,
+        recorded_at: @recorded_at,
+        assessments_count: @assessments_count,
+        teacher_calculation: batch_params[:batch_calculation],
+        column_labels: batch_column_labels_param
+      )
+      @batch = ctx.supported? ? ctx.to_h : {}
+      render :new_batch
+    end
   end
 
   def multiple_classrooms
@@ -159,6 +278,24 @@ class AvaliationsController < ApplicationController
   def destroy
     authorize resource
 
+    if params[:step_id].present?
+      step = StepsFetcher.new(current_user_classroom).step_by_id(params[:step_id])
+      unless step && batch_destroy_allowed_for_step?(resource, step)
+        flash[:alert] = t('avaliations.batch.destroy_forbidden')
+        redirect_to avaliations_path
+        return
+      end
+
+      svc = AvaliationBatchGrades::DestroyColumnService.new(avaliation: resource)
+      if svc.call
+        flash[:notice] = t('avaliations.batch.column_destroyed')
+      else
+        flash[:alert] = svc.error.presence || t('avaliations.batch.destroy_failed')
+      end
+      redirect_to new_batch_avaliations_path(step_id: step.id)
+      return
+    end
+
     resource.destroy
 
     respond_with resource, location: avaliations_path
@@ -262,33 +399,57 @@ class AvaliationsController < ApplicationController
 
   private
 
-  def school_calendar_step
-    return :by_school_calendar_classroom_step if school_calendar_by_classroom?
-
-    :by_school_calendar_step
+  def batch_step_id
+    params.dig(:avaliation_batch, :step_id).presence || params[:step_id]
   end
 
-  def school_calendar_by_classroom?
-    classroom_ids = @classrooms.map(&:id)
-
-    current_school_calendar.classrooms.where(classroom_id: classroom_ids).present?
-  end
-
-  def fetch_avaliations_by_user
-    current_unity_id = current_unity.id if current_unity
-    @avaliations = apply_scopes(Avaliation
-      .includes(:classroom, :discipline, :test_setting_test)
-      .by_unity_id(current_unity_id)
-      .teacher_avaliations(
-        current_teacher.id,
-        @classrooms.map(&:id),
-        @disciplines.map(&:id)
-      )
-      .order_by_classroom
-      .ordered
+  def batch_params
+    params.fetch(:avaliation_batch, ActionController::Parameters.new).permit(
+      :step_id, :assessments_count, :batch_calculation, column_weights: [], column_labels: []
     )
+  end
 
-    @steps = SchoolCalendarDecorator.current_steps_for_select2_by_classrooms(current_school_calendar, @classrooms)
+  def batch_column_weights_param
+    raw = params.to_unsafe_h.dig(:avaliation_batch, :column_weights) ||
+          params.to_unsafe_h.dig('avaliation_batch', 'column_weights')
+    return [] if raw.blank?
+
+    Array(raw).map(&:presence)
+  end
+
+  def batch_column_labels_param
+    raw = params.to_unsafe_h.dig(:avaliation_batch, :column_labels) ||
+          params.to_unsafe_h.dig('avaliation_batch', 'column_labels')
+    return [] if raw.blank?
+
+    Array(raw).map { |v| v.to_s.strip.presence }
+  end
+
+  def batch_notes_params
+    raw = params.dig(:avaliation_batch, :notes)
+    return {} if raw.blank?
+
+    raw.respond_to?(:permit!) ? raw.permit!.to_h : raw.to_h
+  end
+
+  def batch_step_end_date(step)
+    (step.end_at.presence || step.start_at).to_date
+  end
+
+  def batch_destroy_allowed_for_step?(avaliation, step)
+    return false unless avaliation.classroom_id == current_user_classroom.id
+    return false unless avaliation.discipline_id == current_user_discipline.id
+
+    td = avaliation.test_date.to_date
+    return false unless td >= step.start_at.to_date && td <= step.end_at.to_date
+
+    return true if current_user.current_role_is_admin_or_employee?
+
+    Avaliation.teacher_avaliations(
+      current_teacher.id,
+      current_user_classroom.id,
+      current_user_discipline.id
+    ).where(id: avaliation.id).exists?
   end
 
   def fetch_linked_by_teacher

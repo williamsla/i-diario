@@ -67,4 +67,32 @@ RSpec.describe TestSettingFetcher, type: :service do
       end
     end
   end
+
+  context 'when there are settings for all school terms' do
+    let!(:school_term_type_with_four_steps) { create(:school_term_type, steps_number: 4) }
+    let!(:school_term_steps) do
+      (1..4).map do |n|
+        create(:school_term_type_step, school_term_type: school_term_type_with_four_steps, step_number: n)
+      end
+    end
+    let!(:step_settings) do
+      school_term_steps.map do |term_step|
+        create(
+          :test_setting,
+          exam_setting_type: ExamSettingTypes::BY_SCHOOL_TERM,
+          school_term_type_step: term_step,
+          year: classroom.year
+        )
+      end
+    end
+
+    it 'returns the setting matching each classroom step number' do
+      classroom_steps = classroom.calendar.classroom_steps.order(:step_number).to_a
+
+      classroom_steps.each_with_index do |classroom_step, idx|
+        fetched = described_class.current(classroom, classroom_step)
+        expect(fetched).to eq(step_settings[idx])
+      end
+    end
+  end
 end
