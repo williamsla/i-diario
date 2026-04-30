@@ -69,10 +69,10 @@ RSpec.describe TestSettingFetcher, type: :service do
   end
 
   context 'when there are settings for all school terms' do
-    let!(:school_term_type_with_four_steps) { create(:school_term_type, steps_number: 4) }
+    let!(:school_term_type_with_three_steps) { create(:school_term_type, steps_number: 3) }
     let!(:school_term_steps) do
-      (1..4).map do |n|
-        create(:school_term_type_step, school_term_type: school_term_type_with_four_steps, step_number: n)
+      (1..3).map do |n|
+        create(:school_term_type_step, school_term_type: school_term_type_with_three_steps, step_number: n)
       end
     end
     let!(:step_settings) do

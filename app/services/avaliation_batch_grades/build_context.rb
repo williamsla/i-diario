@@ -99,6 +99,8 @@ module AvaliationBatchGrades
 
     def sum_columns
       test_setting.tests.order(:id).map.with_index do |tst, idx|
+        # Notas são por etapa do calendário (intervalo de test_date). Não reutilizar avaliação de
+        # outra sub-etapa senão o lote repetiria as mesmas notas em step_ids diferentes.
         av = avaliations_in_step.find_by(test_setting_test_id: tst.id)
         {
           index: idx,
