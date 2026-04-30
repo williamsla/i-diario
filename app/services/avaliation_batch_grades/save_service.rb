@@ -171,6 +171,13 @@ module AvaliationBatchGrades
         .by_test_date_between(@step.start_at, @step.end_at)
     end
 
+    def instrument_avaliations_scope
+      Avaliation
+        .by_classroom_id(@classroom.id)
+        .by_discipline_id(@discipline.id)
+        .by_test_setting_instruments(@test_setting.id)
+    end
+
     def resolve_avaliation!(col)
       case batch_mode
       when :instrument_sum
@@ -243,6 +250,7 @@ module AvaliationBatchGrades
     def resolve_sum_avaliation!(col)
       tst = TestSettingTest.find(col[:test_setting_test_id])
       av = find_scoped_avaliation(col[:avaliation_id])
+      av ||= instrument_avaliations_scope.find_by(test_setting_test_id: tst.id)
       av ||= avaliations_scope.find_by(test_setting_test_id: tst.id)
       av ||= Avaliation.new(
         classroom: @classroom,
