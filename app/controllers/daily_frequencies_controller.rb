@@ -100,28 +100,10 @@ class DailyFrequenciesController < ApplicationController
 
     classroom = Classroom.find_by(id: classroom_id)
     return render json: FrequencyTypes::GENERAL if classroom.blank?
-
-    exam_rule_frequency_type = classroom.classrooms_grades
-                                      .first
-                                      &.exam_rule
-                                      &.frequency_type
-
-    if exam_rule_frequency_type == FrequencyTypes::BY_DISCIPLINE
-      return render json: FrequencyTypes::BY_DISCIPLINE
-    end
-
-    grade_ids = classroom.classrooms_grades.pluck(:grade_id)
-    linked_by_discipline = TeacherDisciplineClassroom.where(
-      teacher_id: current_teacher.id,
-      classroom_id: classroom.id,
-      discipline_id: discipline_id,
-      year: classroom.year,
-      grade_id: grade_ids,
-      allow_absence_by_discipline: 1,
-      active: true
-    ).exists?
-
-    render json: (linked_by_discipline ? FrequencyTypes::BY_DISCIPLINE : FrequencyTypes::GENERAL)
+    render json: frequency_type_for_classroom_and_discipline(
+      classroom: classroom,
+      discipline_id: discipline_id
+    )
   end
 
   def create
@@ -515,24 +497,14 @@ class DailyFrequenciesController < ApplicationController
   end
 
   def current_frequency_type(daily_frequency)
-    exam_rule_frequency_type = daily_frequency.classroom
-                                            &.classrooms_grades
-                                            &.first
-                                            &.exam_rule
-                                            &.frequency_type
+    discipline_id = daily_frequency.discipline_id.presence ||
+                    params.dig(:daily_frequency, :discipline_id).presence ||
+                    @discipline
 
-    # No fluxo de diário de frequência, a regra de avaliação da turma deve prevalecer.
-    # Se a regra estiver configurada como geral, não exigir componente/aula para o professor.
-    return FrequencyTypes::GENERAL if exam_rule_frequency_type == FrequencyTypes::GENERAL
-
-    absence_type_definer = FrequencyTypeDefiner.new(
-      daily_frequency.classroom,
-      current_teacher,
-      year: daily_frequency.classroom.year
+    frequency_type_for_classroom_and_discipline(
+      classroom: daily_frequency.classroom,
+      discipline_id: discipline_id
     )
-    absence_type_definer.define!
-
-    absence_type_definer.frequency_type
   end
 
   def validate_class_numbers
@@ -659,18 +631,43 @@ class DailyFrequenciesController < ApplicationController
   end
 
   def frequency_discipline_id_for_link_validation(classroom)
-    frequency_type = current_frequency_type(
-      DailyFrequency.new(classroom: classroom, discipline_id: params.dig(:daily_frequency, :discipline_id))
-    )
-
     selected_discipline_id = params.dig(:daily_frequency, :discipline_id).presence&.to_i
     profile_discipline_id = current_user.current_discipline_id
+    effective_discipline_id = selected_discipline_id || profile_discipline_id
+    frequency_type = frequency_type_for_classroom_and_discipline(
+      classroom: classroom,
+      discipline_id: effective_discipline_id
+    )
 
     if frequency_type == FrequencyTypes::GENERAL
       profile_discipline_id
     else
       selected_discipline_id || profile_discipline_id
     end
+  end
+
+  def frequency_type_for_classroom_and_discipline(classroom:, discipline_id:)
+    return FrequencyTypes::GENERAL if classroom.blank?
+
+    exam_rule_frequency_type = classroom.classrooms_grades
+                                      .first
+                                      &.exam_rule
+                                      &.frequency_type
+    return FrequencyTypes::BY_DISCIPLINE if exam_rule_frequency_type == FrequencyTypes::BY_DISCIPLINE
+    return FrequencyTypes::GENERAL if discipline_id.blank?
+
+    grade_ids = classroom.classrooms_grades.pluck(:grade_id)
+    linked_by_discipline = TeacherDisciplineClassroom.where(
+      teacher_id: current_teacher.id,
+      classroom_id: classroom.id,
+      discipline_id: discipline_id,
+      year: classroom.year,
+      grade_id: grade_ids,
+      allow_absence_by_discipline: 1,
+      active: true
+    ).exists?
+
+    linked_by_discipline ? FrequencyTypes::BY_DISCIPLINE : FrequencyTypes::GENERAL
   end
 
   def build_daily_frequency_students
