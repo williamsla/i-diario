@@ -57,10 +57,19 @@ class TestSettingFetcher
   # TODO - Entender o porquê algumas vezes @classroom.grade_ids está vindo vazio
   # TODO - Está fazendo essa consulta muitas vezes no banco
   def general_by_school_test_setting
+    grade_ids = classroom_grade_ids
+
     @general_by_school_test_setting ||= TestSetting.where(year: @year, exam_setting_type: ExamSettingTypes::GENERAL_BY_SCHOOL)
                .by_unities(@classroom.unity)
-               .where("grades && ARRAY[?]::integer[] OR grades = '{}'", @classroom.grades.pluck(:id))
+               .where("grades && ARRAY[?]::integer[] OR grades = '{}'", grade_ids)
                .first
+  end
+
+  def classroom_grade_ids
+    ids = @classroom.grade_ids
+    ids = @classroom.classrooms_grades.pluck(:grade_id) if ids.blank?
+
+    ids.compact.uniq
   end
 
   def by_school_term_test_setting

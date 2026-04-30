@@ -577,12 +577,14 @@ class AvaliationsController < ApplicationController
 
   def general_by_school_test_setting(year_test_setting, classroom = nil)
     classroom ||= classroom || current_user_classroom
+    grade_ids = classroom.grade_ids
+    grade_ids = classroom.classrooms_grades.pluck(:grade_id) if grade_ids.blank?
 
     year_test_setting.where(exam_setting_type: ExamSettingTypes::GENERAL_BY_SCHOOL)
                      .by_unities(classroom.unity)
                      .where(
                        "grades && ARRAY[?]::integer[] OR grades = '{}'",
-                       classroom.grade_ids
+                       grade_ids.compact.uniq
                      )
                      .presence
   end
