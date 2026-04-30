@@ -344,6 +344,7 @@ Rails.application.routes.draw do
     resources :daily_frequencies, only: [:new, :create], concerns: :history do
       collection do
         get :class_numbers_by_discipline
+        get :fetch_frequency_type
         get :disciplines_for_frequency_date
         get :edit_multiple
         get :form

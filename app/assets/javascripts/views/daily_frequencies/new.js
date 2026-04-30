@@ -3,7 +3,8 @@ $(function () {
   window.disciplines = [];
   window.avaliations = [];
 
-  var $disciplineAbsenceFields = $(".discipline_absence_fields"),
+  var $disciplineField = $(".discipline_field"),
+      $classNumbersField = $(".class_numbers_field"),
       $globalAbsence = $("#daily_frequency_global_absence"),
       $examRuleNotFoundAlert = $('#exam-rule-not-found-alert');
 
@@ -31,6 +32,12 @@ $(function () {
 
   var fetchExamRule = function (params, callback) {
     $.getJSON('/exam_rules?' + $.param(params)).always(function (data) {
+      callback(data);
+    });
+  };
+
+  var fetchFrequencyType = function (params, callback) {
+    $.getJSON('/daily_frequencies/fetch_frequency_type?' + $.param(params)).always(function (data) {
       callback(data);
     });
   };
@@ -188,7 +195,7 @@ $(function () {
   };
 
   var reloadDisciplinesForSelectedDate = function () {
-    if (!$disciplineAbsenceFields.is(':visible')) {
+    if (!$disciplineField.is(':visible')) {
       scheduleAutoFillClassNumbers();
       return;
     }
@@ -243,17 +250,20 @@ $(function () {
 
         if(examRule.frequency_type == 2 || examRule.allow_frequency_by_discipline){
           $globalAbsence.val(0);
-          $disciplineAbsenceFields.show();
+          $disciplineField.show();
           reloadDisciplinesForSelectedDate();
         }else{
           $globalAbsence.val(1);
-          $disciplineAbsenceFields.hide();
+          $disciplineField.show();
+          $classNumbersField.hide();
+          $classNumbers.val('').trigger('change');
           $discipline.val('').select2({ data: [] })
         }
 
       }else{
         $globalAbsence.val(0);
-        $disciplineAbsenceFields.hide();
+        $disciplineField.hide();
+        $classNumbersField.hide();
 
         // Display alert
         $examRuleNotFoundAlert.removeClass('hidden');
@@ -263,6 +273,32 @@ $(function () {
       }
     });
   }
+
+  var toggleClassNumbersByFrequencyType = function () {
+    var classroomId = getInputValue($classroom);
+    var disciplineId = getInputValue($discipline);
+
+    if (_.isEmpty(classroomId) || _.isEmpty(disciplineId)) {
+      $classNumbersField.hide();
+      $classNumbers.val('').trigger('change');
+      return;
+    }
+
+    fetchFrequencyType({
+      classroom_id: classroomId,
+      discipline_id: disciplineId
+    }, function (frequencyType) {
+      var normalizedFrequencyType = parseInt(frequencyType, 10);
+
+      if (normalizedFrequencyType === 2) {
+        $classNumbersField.show();
+        scheduleAutoFillClassNumbers();
+      } else {
+        $classNumbersField.hide();
+        $classNumbers.val('').trigger('change');
+      }
+    });
+  };
 
   $classroom.on('change', function (e) {
     var params = {
@@ -283,7 +319,7 @@ $(function () {
       });
     }
 
-    scheduleAutoFillClassNumbers();
+    toggleClassNumbersByFrequencyType();
   });
 
   $('#daily_frequency_discipline_id').on('change', function (e) {
@@ -307,20 +343,21 @@ $(function () {
       });
     }
 
-    scheduleAutoFillClassNumbers();
+    toggleClassNumbersByFrequencyType();
   });
 
   $frequencyDate.on('change changeDate valid-date', function () {
     reloadDisciplinesForSelectedDate();
   });
 
-  $disciplineAbsenceFields.hide();
+  $disciplineField.hide();
+  $classNumbersField.hide();
 
   if($classroom.length && $classroom.val().length){
     checkExamRule({classroom_id: $classroom.val()});
   }
 
   if ($discipline.length && $discipline.val().length && $frequencyDate.length && $frequencyDate.val().length) {
-    scheduleAutoFillClassNumbers();
+    toggleClassNumbersByFrequencyType();
   }
 });
