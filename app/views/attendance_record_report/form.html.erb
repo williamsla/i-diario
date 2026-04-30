@@ -28,7 +28,7 @@
         </div>
       </div>
 
-      <div class="row hide-when-global-absence">
+      <div class="row discipline-field">
         <%= f.input :current_teacher_id, as: :hidden, input_html: { value: current_teacher.try(:id) } %>
 
         <div class="col col-sm-4">
@@ -36,7 +36,9 @@
                 classroom_id: @attendance_record_report_form.classroom_id,
                 required: true, input_html: { value: @attendance_record_report_form.discipline_id } %>
         </div>
+      </div>
 
+      <div class="row class-numbers-field">
         <div class="col col-sm-4">
           <div style="float:right;">
             <a href="#" style="text-decoration:none;" id="select-all-classes"><%= t('.select_all') %></a>

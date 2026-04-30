@@ -85,6 +85,21 @@ class AttendanceRecordReportController < ApplicationController
     render json: school_calendar.number_of_classes
   end
 
+  def frequency_type
+    classroom_id = params[:classroom_id].presence
+    discipline_id = params[:discipline_id].presence
+
+    return render json: FrequencyTypes::GENERAL if classroom_id.blank? || discipline_id.blank?
+
+    classroom = Classroom.find_by(id: classroom_id)
+    return render json: FrequencyTypes::GENERAL if classroom.blank?
+
+    render json: frequency_type_for_classroom_and_discipline(
+      classroom: classroom,
+      discipline_id: discipline_id
+    )
+  end
+
   private
 
   def fetch_collections
@@ -167,5 +182,29 @@ class AttendanceRecordReportController < ApplicationController
     classroom_id = @attendance_record_report_form.classroom_id
     @disciplines = @fetch_linked_by_teacher[:disciplines].by_classroom_id(classroom_id)
                                                          .not_descriptor
+  end
+
+  def frequency_type_for_classroom_and_discipline(classroom:, discipline_id:)
+    return FrequencyTypes::GENERAL if classroom.blank?
+
+    exam_rule_frequency_type = classroom.classrooms_grades
+                                      .first
+                                      &.exam_rule
+                                      &.frequency_type
+    return FrequencyTypes::BY_DISCIPLINE if exam_rule_frequency_type == FrequencyTypes::BY_DISCIPLINE
+    return FrequencyTypes::GENERAL if discipline_id.blank?
+
+    grade_ids = classroom.classrooms_grades.pluck(:grade_id)
+    linked_by_discipline = TeacherDisciplineClassroom.where(
+      teacher_id: current_teacher.id,
+      classroom_id: classroom.id,
+      discipline_id: discipline_id,
+      year: classroom.year,
+      grade_id: grade_ids,
+      allow_absence_by_discipline: 1,
+      active: true
+    ).exists?
+
+    linked_by_discipline ? FrequencyTypes::BY_DISCIPLINE : FrequencyTypes::GENERAL
   end
 end
