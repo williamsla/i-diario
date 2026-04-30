@@ -75,7 +75,11 @@ class AvaliationsController < ApplicationController
       redirect_to avaliations_path and return
     end
 
-    @test_setting = TestSettingFetcher.current(current_user_classroom, @step)
+    @test_setting = TestSettingFetcher.current(
+      current_user_classroom,
+      @step,
+      discipline: current_user_discipline
+    )
     unless @test_setting
       flash[:error] = t('errors.avaliations.require_setting')
       redirect_to avaliations_path and return
@@ -129,7 +133,11 @@ class AvaliationsController < ApplicationController
       redirect_to avaliations_path and return
     end
 
-    test_setting = TestSettingFetcher.current(current_user_classroom, @step)
+    test_setting = TestSettingFetcher.current(
+      current_user_classroom,
+      @step,
+      discipline: current_user_discipline
+    )
     unless test_setting
       flash[:error] = t('errors.avaliations.require_setting')
       redirect_to avaliations_path and return
