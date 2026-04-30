@@ -65,10 +65,6 @@ class Avaliation < ApplicationRecord
   scope :exclude_discipline_ids, lambda { |discipline_ids| where.not(discipline_id: discipline_ids) }
   scope :by_test_date, lambda { |test_date| where(test_date: test_date.try(:to_date)) }
   scope :by_test_date_between, lambda { |start_at, end_at| where(test_date: start_at.to_date..end_at.to_date) }
-  # Avaliações do somatório por instrumento (ligadas à configuração), independente da sub-etapa do calendário.
-  scope :by_test_setting_instruments, lambda { |test_setting_id|
-    where(test_setting_id: test_setting_id).where.not(test_setting_test_id: nil)
-  }
   scope :by_description, lambda { |description| joins(arel_table.join(TestSettingTest.arel_table, Arel::Nodes::OuterJoin)
                                                                 .on(TestSettingTest.arel_table[:id]
                                                                 .eq(arel_table[:test_setting_test_id])).join_sources)

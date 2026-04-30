@@ -99,10 +99,9 @@ module AvaliationBatchGrades
 
     def sum_columns
       test_setting.tests.order(:id).map.with_index do |tst, idx|
-        # EJA e calendários com mais de uma etapa no mesmo período: as notas podem ter test_date na
-        # primeira sub-etapa; o lote pode ser aberto na segunda. Prioriza vínculo pela config + instrumento.
-        av = instrument_avaliations_for_batch.find_by(test_setting_test_id: tst.id)
-        av ||= avaliations_in_step.find_by(test_setting_test_id: tst.id)
+        # Notas são por etapa do calendário (intervalo de test_date). Não reutilizar avaliação de
+        # outra sub-etapa senão o lote repetiria as mesmas notas em step_ids diferentes.
+        av = avaliations_in_step.find_by(test_setting_test_id: tst.id)
         {
           index: idx,
           label: tst.description,
@@ -189,13 +188,6 @@ module AvaliationBatchGrades
         .by_classroom_id(classroom.id)
         .by_discipline_id(discipline.id)
         .by_test_date_between(step.start_at, step.end_at)
-    end
-
-    def instrument_avaliations_for_batch
-      Avaliation
-        .by_classroom_id(classroom.id)
-        .by_discipline_id(discipline.id)
-        .by_test_setting_instruments(test_setting.id)
     end
 
     # Avaliações “livres” (sem instrumento da config somatória) na etapa, na ordem do lançamento.
