@@ -1,0 +1,84 @@
+# Stack da VM de aplicação (Rails + Sidekiq + Redis).
+# PostgreSQL roda fora deste compose (VM/serviço de banco já existente). Aponte DATABASE_HOST para esse host.
+#
+# Pré-requisitos na VM da aplicação:
+#   - Build com Dockerfile.production (código na imagem). Monte secrets em runtime, ex.:
+#       volumes: [ "./config/secrets.yml:/app/config/secrets.yml:ro" ]
+#   - database.yml na imagem vem do sample (ENV); ou sobrescreva com volume se precisar.
+#
+# Exemplo:
+#   docker compose -f docker-compose.production.yml --env-file .env.production up -d
+#
+# Variáveis esperadas no .env.production (ou no ambiente):
+#   DATABASE_HOST  DATABASE_USERNAME  DATABASE_PASSWORD  DATABASE_NAME
+#   Opcional: DATABASE_PORT (padrão 5432), DATABASE_POOL (importante para o cálculo do Puma),
+#   APP_PORT (host → container :3000). RAILS_MAX_THREADS e WEB_CONCURRENCY: omita para o Puma
+#   calcular a partir de CPUs e DATABASE_POOL; PUMA_LOG_CONCURRENCY=1 loga os valores escolhidos.
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: idiario-redis-prod
+    volumes:
+      - redis_data_prod:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - idiario_prod
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: idiario-web-prod
+    command: bundle exec puma -C config/puma.rb
+    volumes:
+      - ./config/secrets.yml:/app/config/secrets.yml:ro
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      RAILS_ENV: production
+      NODE_ENV: production
+      RAILS_LOG_TO_STDOUT: "1"
+      RAILS_SERVE_STATIC_FILES: "1"
+      DATABASE_HOST: ${DATABASE_HOST:?defina DATABASE_HOST}
+      DATABASE_USERNAME: ${DATABASE_USERNAME:?defina DATABASE_USERNAME}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?defina DATABASE_PASSWORD}
+      DATABASE_NAME: ${DATABASE_NAME:?defina DATABASE_NAME}
+      DATABASE_PORT: ${DATABASE_PORT:-5432}
+      DATABASE_POOL: ${DATABASE_POOL:-10}
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - idiario_prod
+
+  sidekiq:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: idiario-sidekiq-prod
+    command: bundle exec sidekiq -C config/sidekiq.yml -e production
+    volumes:
+      - ./config/secrets.yml:/app/config/secrets.yml:ro
+    environment:
+      RAILS_ENV: production
+      RAILS_LOG_TO_STDOUT: "1"
+      DATABASE_HOST: ${DATABASE_HOST:?defina DATABASE_HOST}
+      DATABASE_USERNAME: ${DATABASE_USERNAME:?defina DATABASE_USERNAME}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?defina DATABASE_PASSWORD}
+      DATABASE_NAME: ${DATABASE_NAME:?defina DATABASE_NAME}
+      DATABASE_PORT: ${DATABASE_PORT:-5432}
+      DATABASE_POOL: ${DATABASE_POOL:-10}
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - idiario_prod
+
+volumes:
+  redis_data_prod:
+
+networks:
+  idiario_prod:
+    driver: bridge
