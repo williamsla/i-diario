@@ -1,6 +1,7 @@
 # Imagem de produção (multi-stage: build + runtime).
 # Build: docker build -f Dockerfile.production -t idiario:prod .
 # Runtime: monte config/secrets.yml (obrigatório). database.yml vem do sample na imagem (usa ENV).
+# ENTRYPOINT: roda db:migrate quando RUN_DB_MIGRATE_ON_START!=0, depois CMD (Puma por padrão).
 
 FROM ruby:2.4.10-slim-buster AS builder
 
@@ -86,6 +87,10 @@ COPY --from=builder /app /app
 
 RUN cp config/database.sample.yml config/database.yml
 
+COPY docker/docker-entrypoint-production.sh /usr/local/bin/docker-entrypoint-production.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint-production.sh
+
 EXPOSE 3000
 
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint-production.sh"]
 CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]

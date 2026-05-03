@@ -14,6 +14,7 @@
 #   Opcional: DATABASE_PORT (padrão 5432), DATABASE_POOL (importante para o cálculo do Puma),
 #   APP_PORT (host → container :3000). RAILS_MAX_THREADS e WEB_CONCURRENCY: omita para o Puma
 #   calcular a partir de CPUs e DATABASE_POOL; PUMA_LOG_CONCURRENCY=1 loga os valores escolhidos.
+#   RUN_DB_MIGRATE_ON_START: no app roda db:migrate antes do Puma (padrão 1). Sidekiq usa 0 e espera o app saudável.
 
 services:
   redis:
@@ -31,7 +32,6 @@ services:
       context: .
       dockerfile: Dockerfile.production
     container_name: idiario-web-prod
-    command: bundle exec puma -C config/puma.rb
     volumes:
       - ./config/secrets.yml:/app/config/secrets.yml:ro
     ports:
@@ -41,12 +41,27 @@ services:
       NODE_ENV: production
       RAILS_LOG_TO_STDOUT: "1"
       RAILS_SERVE_STATIC_FILES: "1"
+      RUN_DB_MIGRATE_ON_START: ${RUN_DB_MIGRATE_ON_START:-1}
       DATABASE_HOST: ${DATABASE_HOST:?defina DATABASE_HOST}
       DATABASE_USERNAME: ${DATABASE_USERNAME:?defina DATABASE_USERNAME}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD:?defina DATABASE_PASSWORD}
       DATABASE_NAME: ${DATABASE_NAME:?defina DATABASE_NAME}
       DATABASE_PORT: ${DATABASE_PORT:-5432}
       DATABASE_POOL: ${DATABASE_POOL:-10}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "ruby",
+          "-r",
+          "socket",
+          "-e",
+          "TCPSocket.new('127.0.0.1',3000).close",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 300s
     depends_on:
       - redis
     restart: unless-stopped
@@ -58,12 +73,14 @@ services:
       context: .
       dockerfile: Dockerfile.production
     container_name: idiario-sidekiq-prod
-    command: bundle exec sidekiq -C config/sidekiq.yml -e production
+    command:
+      ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml", "-e", "production"]
     volumes:
       - ./config/secrets.yml:/app/config/secrets.yml:ro
     environment:
       RAILS_ENV: production
       RAILS_LOG_TO_STDOUT: "1"
+      RUN_DB_MIGRATE_ON_START: "0"
       DATABASE_HOST: ${DATABASE_HOST:?defina DATABASE_HOST}
       DATABASE_USERNAME: ${DATABASE_USERNAME:?defina DATABASE_USERNAME}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD:?defina DATABASE_PASSWORD}
@@ -71,7 +88,10 @@ services:
       DATABASE_PORT: ${DATABASE_PORT:-5432}
       DATABASE_POOL: ${DATABASE_POOL:-10}
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      app:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - idiario_prod
