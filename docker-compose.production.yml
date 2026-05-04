@@ -3,7 +3,8 @@
 #
 # Pré-requisitos na VM da aplicação:
 #   - Imagem já publicada no registry (defina APP_IMAGE no .env.production)
-#   - Monte secrets em runtime, ex.:
+#   - Monte secrets em runtime (tem que ser um ARQUIVO YAML real no host). Se não existir,
+#     o Docker pode criar secrets.yml como PASTA e o Rails falha com EISDIR.
 #       volumes: [ "./config/secrets.yml:/app/config/secrets.yml:ro" ]
 #   - database.yml na imagem vem do sample (ENV); ou sobrescreva com volume se precisar.
 #
