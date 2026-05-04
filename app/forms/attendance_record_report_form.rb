@@ -225,9 +225,10 @@ class AttendanceRecordReportForm
   end
 
   def global_absence?
-    frequency_type_definer = FrequencyTypeDefiner.new(classroom, teacher, year: classroom.year)
-    frequency_type_definer.define!
-    frequency_type_definer.frequency_type == FrequencyTypes::GENERAL
+    return true if classroom_id.blank?
+    return false if frequency_type_for_classroom_and_discipline == FrequencyTypes::BY_DISCIPLINE
+
+    true
   end
 
   def is_infantil?
@@ -254,6 +255,32 @@ class AttendanceRecordReportForm
 
   def teacher
     Teacher.find(@current_teacher_id)
+  end
+
+  def frequency_type_for_classroom_and_discipline
+    return FrequencyTypes::GENERAL if classroom.blank?
+
+    exam_rule_frequency_type = classroom.classrooms_grades
+                                      .first
+                                      &.exam_rule
+                                      &.frequency_type
+    return FrequencyTypes::BY_DISCIPLINE if exam_rule_frequency_type == FrequencyTypes::BY_DISCIPLINE
+    return FrequencyTypes::GENERAL if discipline_id.blank?
+    return FrequencyTypes::GENERAL if @current_teacher_id.blank?
+
+    grade_ids = classroom.classrooms_grades.pluck(:grade_id)
+    linked_by_discipline = TeacherDisciplineClassroom.where(
+      teacher_id: @current_teacher_id,
+      classroom_id: classroom_id,
+      discipline_id: discipline_id,
+      year: classroom.year,
+      grade_id: grade_ids,
+      allow_absence_by_discipline: 1,
+      active: true,
+      discarded_at: nil
+    ).exists?
+
+    linked_by_discipline ? FrequencyTypes::BY_DISCIPLINE : FrequencyTypes::GENERAL
   end
 
   def absences_students

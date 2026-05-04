@@ -3,7 +3,8 @@ $(function () {
   window.disciplines = [];
   const PERIOD_FULL = 4;
 
-  var $hideWhenGlobalAbsence = $(".hide-when-global-absence"),
+  var $disciplineField = $(".discipline-field"),
+    $classNumbersField = $(".class-numbers-field"),
     $globalAbsence = $("#attendance_record_report_form_global_absence"),
     $unity = $("#attendance_record_report_form_unity_id"),
     $examRuleNotFoundAlert = $('#exam-rule-not-found-alert'),
@@ -12,7 +13,11 @@ $(function () {
     $classroom = $('#attendance_record_report_form_classroom_id'),
     $discipline = $('#attendance_record_report_form_discipline_id'),
     $class_numbers = $('#attendance_record_report_form_class_numbers'),
+    $showOnlyDisciplineDaysLabel = $('label[for="attendance_record_report_form_show_only_discipline_days"]'),
     flashMessages = new FlashMessages();
+
+  var SHOW_DAYS_DISCIPLINE_LABEL = 'Exibir somente os dias de aulas da disciplina';
+  var SHOW_DAYS_TEACHER_LABEL = 'Exibir somente os dias de aulas do professor';
 
   $unity.on('change', function () {
     clearFields();
@@ -68,10 +73,18 @@ $(function () {
       checkExamRule(params);
       fetchDisciplines(classroom_id);
     }
+
+    toggleClassNumbersByFrequencyType();
   });
 
   var fetchExamRule = function (params, callback) {
     $.getJSON('/exam_rules?' + $.param(params)).always(function (data) {
+      callback(data);
+    });
+  };
+
+  var fetchFrequencyType = function (params, callback) {
+    $.getJSON(Routes.frequency_type_attendance_record_report_pt_br_path(params)).always(function (data) {
       callback(data);
     });
   };
@@ -84,15 +97,19 @@ $(function () {
         $examRuleNotFoundAlert.addClass('hidden');
         if (examRule.frequency_type == 2 || examRule.allow_frequency_by_discipline) {
           $globalAbsence.val(0);
-          $hideWhenGlobalAbsence.show();
+          $disciplineField.show();
         } else {
           $globalAbsence.val(1);
-          $hideWhenGlobalAbsence.hide();
+          $disciplineField.show();
+          $classNumbersField.hide();
+          $class_numbers.val("");
+          $class_numbers.trigger("change");
         }
 
       } else {
         $globalAbsence.val(0);
-        $hideWhenGlobalAbsence.hide();
+        $disciplineField.hide();
+        $classNumbersField.hide();
 
         // Display alert
         $examRuleNotFoundAlert.removeClass('hidden');
@@ -102,6 +119,40 @@ $(function () {
       }
     });
   }
+
+  var toggleClassNumbersByFrequencyType = function () {
+    var classroomId = $classroom.select2('val');
+    var disciplineId = $discipline.select2('val');
+
+    if (_.isEmpty(classroomId) || _.isEmpty(disciplineId)) {
+      $classNumbersField.hide();
+      $class_numbers.val("");
+      $class_numbers.trigger("change");
+      $selectAllClasses.show();
+      $deselectAllClasses.hide();
+      $showOnlyDisciplineDaysLabel.text(SHOW_DAYS_TEACHER_LABEL);
+      return;
+    }
+
+    fetchFrequencyType({
+      classroom_id: classroomId,
+      discipline_id: disciplineId
+    }, function (frequencyType) {
+      var normalizedFrequencyType = parseInt(frequencyType, 10);
+
+      if (normalizedFrequencyType === 2) {
+        $classNumbersField.show();
+        $showOnlyDisciplineDaysLabel.text(SHOW_DAYS_DISCIPLINE_LABEL);
+      } else {
+        $classNumbersField.hide();
+        $class_numbers.val("");
+        $class_numbers.trigger("change");
+        $selectAllClasses.show();
+        $deselectAllClasses.hide();
+        $showOnlyDisciplineDaysLabel.text(SHOW_DAYS_TEACHER_LABEL);
+      }
+    });
+  };
 
   function fetchDisciplines(classroom_id) {
     if (_.isEmpty(window.disciplines)) {
@@ -146,6 +197,7 @@ $(function () {
   $discipline.on('change', async function () {
     $('#attendance_record_report_form_period').select2('val', '');
     await getPeriod();
+    toggleClassNumbersByFrequencyType();
   });
 
   async function getPeriod() {
@@ -232,7 +284,8 @@ $(function () {
     $deselectAllClasses.hide();
   });
 
-  $hideWhenGlobalAbsence.hide();
+  $disciplineField.hide();
+  $classNumbersField.hide();
 
   // Se houver valor inicial em class_numbers, seleciona automaticamente
   if ($class_numbers.length && $class_numbers.val() && $class_numbers.val().length > 0) {
@@ -245,6 +298,10 @@ $(function () {
 
   if ($classroom.length && $classroom.val().length) {
     checkExamRule({ classroom_id: $classroom.val() });
+  }
+
+  if ($discipline.length && $discipline.val().length) {
+    toggleClassNumbersByFrequencyType();
   }
 
   $('form').submit(function (event) {

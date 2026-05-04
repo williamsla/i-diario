@@ -344,6 +344,7 @@ Rails.application.routes.draw do
     resources :daily_frequencies, only: [:new, :create], concerns: :history do
       collection do
         get :class_numbers_by_discipline
+        get :fetch_frequency_type
         get :disciplines_for_frequency_date
         get :edit_multiple
         get :form
@@ -416,6 +417,7 @@ Rails.application.routes.draw do
     get '/reports/attendance_record', to: 'attendance_record_report#form', as: 'attendance_record_report'
     get '/reports/attendance_record/period', to: 'attendance_record_report#period', as: 'period_attendance_record_report'
     get '/reports/attendance_record/number_of_classes', to: 'attendance_record_report#number_of_classes', as: 'number_of_classes_attendance_record_report'
+    get '/reports/attendance_record/frequency_type', to: 'attendance_record_report#frequency_type', as: 'frequency_type_attendance_record_report'
     post '/reports/attendance_record', to: 'attendance_record_report#report', as: 'attendance_record_report'
 
     get '/reports/attendance_record_report_by_students',
