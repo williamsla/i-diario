@@ -5,6 +5,14 @@
 
 FROM ruby:2.4.10-slim-buster AS builder
 
+# Buster está arquivado: mirrors ativos não publicam mais Release válido.
+RUN set -eux \
+  && printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99archive \
+  && sed -i \
+    -e 's|deb.debian.org/debian|archive.debian.org/debian|g' \
+    -e 's|security.debian.org/debian-security|archive.debian.org/debian-security|g' \
+    /etc/apt/sources.list
+
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
@@ -61,6 +69,13 @@ RUN rm -f config/secrets.yml \
 # --- runtime ---
 
 FROM ruby:2.4.10-slim-buster
+
+RUN set -eux \
+  && printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99archive \
+  && sed -i \
+    -e 's|deb.debian.org/debian|archive.debian.org/debian|g' \
+    -e 's|security.debian.org/debian-security|archive.debian.org/debian-security|g' \
+    /etc/apt/sources.list
 
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     curl \
