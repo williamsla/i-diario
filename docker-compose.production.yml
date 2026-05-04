@@ -30,7 +30,7 @@ services:
       - idiario_prod
 
   app:
-    image: ${APP_IMAGE:?defina APP_IMAGE (imagem no registry)}
+    image: container-registry.br-ne1.magalu.cloud/idiario/idiario:${TAG:?defina TAG}
     container_name: idiario-web-prod
     volumes:
       - ./config/secrets.yml:/app/config/secrets.yml:ro
@@ -69,7 +69,7 @@ services:
       - idiario_prod
 
   sidekiq:
-    image: ${APP_IMAGE:?defina APP_IMAGE (imagem no registry)}
+    image: container-registry.br-ne1.magalu.cloud/idiario/idiario:${TAG:?defina TAG}
     container_name: idiario-sidekiq-prod
     command:
       ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml", "-e", "production"]
