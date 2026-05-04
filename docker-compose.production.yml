@@ -2,7 +2,8 @@
 # PostgreSQL roda fora deste compose (VM/serviço de banco já existente). Aponte DATABASE_HOST para esse host.
 #
 # Pré-requisitos na VM da aplicação:
-#   - Build com Dockerfile.production (código na imagem). Monte secrets em runtime, ex.:
+#   - Imagem já publicada no registry (defina APP_IMAGE no .env.production)
+#   - Monte secrets em runtime, ex.:
 #       volumes: [ "./config/secrets.yml:/app/config/secrets.yml:ro" ]
 #   - database.yml na imagem vem do sample (ENV); ou sobrescreva com volume se precisar.
 #
@@ -10,6 +11,7 @@
 #   docker compose -f docker-compose.production.yml --env-file .env.production up -d
 #
 # Variáveis esperadas no .env.production (ou no ambiente):
+#   APP_IMAGE
 #   DATABASE_HOST  DATABASE_USERNAME  DATABASE_PASSWORD  DATABASE_NAME
 #   Opcional: DATABASE_PORT (padrão 5432), DATABASE_POOL (importante para o cálculo do Puma),
 #   APP_PORT (host → container :3000). RAILS_MAX_THREADS e WEB_CONCURRENCY: omita para o Puma
@@ -28,9 +30,7 @@ services:
       - idiario_prod
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile.production
+    image: ${APP_IMAGE:?defina APP_IMAGE (imagem no registry)}
     container_name: idiario-web-prod
     volumes:
       - ./config/secrets.yml:/app/config/secrets.yml:ro
@@ -69,9 +69,7 @@ services:
       - idiario_prod
 
   sidekiq:
-    build:
-      context: .
-      dockerfile: Dockerfile.production
+    image: ${APP_IMAGE:?defina APP_IMAGE (imagem no registry)}
     container_name: idiario-sidekiq-prod
     command:
       ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml", "-e", "production"]
