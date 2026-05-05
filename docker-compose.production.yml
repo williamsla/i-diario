@@ -1,0 +1,103 @@
+# Stack da VM de aplicação (Rails + Sidekiq + Redis).
+# PostgreSQL roda fora deste compose (VM/serviço de banco já existente). Aponte DATABASE_HOST para esse host.
+#
+# Pré-requisitos na VM da aplicação:
+#   - Imagem já publicada no registry (defina APP_IMAGE no .env.production)
+#   - Monte secrets em runtime (tem que ser um ARQUIVO YAML real no host). Se não existir,
+#     o Docker pode criar secrets.yml como PASTA e o Rails falha com EISDIR.
+#       volumes: [ "./config/secrets.yml:/app/config/secrets.yml:ro" ]
+#   - database.yml na imagem vem do sample (ENV); ou sobrescreva com volume se precisar.
+#
+# Exemplo:
+#   docker compose -f docker-compose.production.yml --env-file .env.production up -d
+#
+# Variáveis esperadas no .env.production (ou no ambiente):
+#   APP_IMAGE
+#   DATABASE_HOST  DATABASE_USERNAME  DATABASE_PASSWORD  DATABASE_NAME
+#   Opcional: DATABASE_PORT (padrão 5432), DATABASE_POOL (importante para o cálculo do Puma),
+#   APP_PORT (host → container :3000). RAILS_MAX_THREADS e WEB_CONCURRENCY: omita para o Puma
+#   calcular a partir de CPUs e DATABASE_POOL; PUMA_LOG_CONCURRENCY=1 loga os valores escolhidos.
+#   RUN_DB_MIGRATE_ON_START: no app roda db:migrate antes do Puma (padrão 1). Sidekiq usa 0 e espera o app saudável.
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: idiario-redis-prod
+    volumes:
+      - redis_data_prod:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - idiario_prod
+
+  app:
+    image: container-registry.br-ne1.magalu.cloud/idiario/idiario-app:${TAG:?defina TAG}
+    container_name: idiario-web-prod
+    volumes:
+      - ./config/secrets.yml:/app/config/secrets.yml:ro
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      RAILS_ENV: production
+      NODE_ENV: production
+      RAILS_LOG_TO_STDOUT: "1"
+      RAILS_SERVE_STATIC_FILES: "1"
+      RUN_DB_MIGRATE_ON_START: ${RUN_DB_MIGRATE_ON_START:-1}
+      DATABASE_HOST: ${DATABASE_HOST:?defina DATABASE_HOST}
+      DATABASE_USERNAME: ${DATABASE_USERNAME:?defina DATABASE_USERNAME}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?defina DATABASE_PASSWORD}
+      DATABASE_NAME: ${DATABASE_NAME:?defina DATABASE_NAME}
+      DATABASE_PORT: ${DATABASE_PORT:-5432}
+      DATABASE_POOL: ${DATABASE_POOL:-10}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "ruby",
+          "-r",
+          "socket",
+          "-e",
+          "TCPSocket.new('127.0.0.1',3000).close",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 300s
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - idiario_prod
+
+  sidekiq:
+    image: container-registry.br-ne1.magalu.cloud/idiario/idiario-app:${TAG:?defina TAG}
+    container_name: idiario-sidekiq-prod
+    command:
+      ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml", "-e", "production"]
+    volumes:
+      - ./config/secrets.yml:/app/config/secrets.yml:ro
+    environment:
+      RAILS_ENV: production
+      RAILS_LOG_TO_STDOUT: "1"
+      RUN_DB_MIGRATE_ON_START: "0"
+      DATABASE_HOST: ${DATABASE_HOST:?defina DATABASE_HOST}
+      DATABASE_USERNAME: ${DATABASE_USERNAME:?defina DATABASE_USERNAME}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?defina DATABASE_PASSWORD}
+      DATABASE_NAME: ${DATABASE_NAME:?defina DATABASE_NAME}
+      DATABASE_PORT: ${DATABASE_PORT:-5432}
+      DATABASE_POOL: ${DATABASE_POOL:-10}
+    depends_on:
+      redis:
+        condition: service_started
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - idiario_prod
+
+volumes:
+  redis_data_prod:
+
+networks:
+  idiario_prod:
+    driver: bridge

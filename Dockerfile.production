@@ -1,0 +1,112 @@
+# Imagem de produção (multi-stage: build + runtime).
+# Build: docker build -f Dockerfile.production -t idiario:prod .
+# Runtime: monte config/secrets.yml (obrigatório). database.yml vem do sample na imagem (usa ENV).
+# ENTRYPOINT: roda db:migrate quando RUN_DB_MIGRATE_ON_START!=0, depois CMD (Puma por padrão).
+
+FROM ruby:2.4.10-slim-buster AS builder
+
+# Buster está arquivado: mirrors ativos não publicam mais Release válido.
+RUN set -eux \
+  && printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99archive \
+  && sed -i \
+    -e 's|deb.debian.org/debian|archive.debian.org/debian|g' \
+    -e 's|security.debian.org/debian-security|archive.debian.org/debian-security|g' \
+    /etc/apt/sources.list
+
+RUN apt-get update -qq && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    git \
+    curl \
+    ca-certificates \
+    nodejs \
+    npm \
+    libxslt-dev \
+    libxml2-dev \
+    zlib1g-dev \
+    redis-server \
+    shared-mime-info \
+  && npm i -g yarn@1 \
+  && rm -rf /var/lib/apt/lists/*
+
+ENV LANG=C.UTF-8 \
+    BUNDLE_SILENCE_ROOT_WARNING=1 \
+    GEM_HOME=/usr/local/bundle \
+    BUNDLE_PATH=/usr/local/bundle \
+    BUNDLE_APP_CONFIG=/usr/local/bundle
+
+WORKDIR /app
+
+RUN gem install bundler:1.17.3
+
+COPY Gemfile Gemfile.lock ./
+
+RUN bundle install --without development test --jobs 4 --retry 3
+
+COPY package.json yarn.lock ./
+
+RUN yarn install --frozen-lockfile --network-timeout 100000
+
+COPY . .
+
+RUN cp config/database.sample.yml config/database.yml \
+  && cp docker/secrets.build.yml config/secrets.yml
+
+ENV RAILS_ENV=production \
+    NODE_ENV=production
+
+# Redis local só para initializers conectarem durante o assets:precompile
+RUN set -eux \
+  && redis-server --daemonize yes \
+  && sleep 1 \
+  && bundle exec rake assets:precompile \
+  && redis-cli shutdown save || redis-cli shutdown nodata || true
+
+RUN rm -f config/secrets.yml \
+  && rm -f config/database.yml \
+  && rm -rf node_modules /usr/local/bundle/cache
+
+# --- runtime ---
+
+FROM ruby:2.4.10-slim-buster
+
+RUN set -eux \
+  && printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99archive \
+  && sed -i \
+    -e 's|deb.debian.org/debian|archive.debian.org/debian|g' \
+    -e 's|security.debian.org/debian-security|archive.debian.org/debian-security|g' \
+    /etc/apt/sources.list
+
+RUN apt-get update -qq && apt-get install -y --no-install-recommends \
+    curl \
+    nodejs \
+    libpq5 \
+    shared-mime-info \
+    ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+ENV LANG=C.UTF-8 \
+    RAILS_ENV=production \
+    BUNDLE_SILENCE_ROOT_WARNING=1 \
+    GEM_HOME=/usr/local/bundle \
+    BUNDLE_PATH=/usr/local/bundle \
+    BUNDLE_APP_CONFIG=/usr/local/bundle \
+    RAILS_LOG_TO_STDOUT=1 \
+    RAILS_SERVE_STATIC_FILES=1
+
+WORKDIR /app
+
+RUN gem install bundler:1.17.3
+
+COPY --from=builder /usr/local/bundle /usr/local/bundle
+COPY --from=builder /app /app
+
+RUN cp config/database.sample.yml config/database.yml
+
+COPY docker/docker-entrypoint-production.sh /usr/local/bin/docker-entrypoint-production.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint-production.sh
+
+EXPOSE 3000
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint-production.sh"]
+CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]

@@ -1,5 +1,12 @@
 FROM ruby:2.4.10-slim-buster
 
+RUN set -eux \
+  && printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99archive \
+  && sed -i \
+    -e 's|deb.debian.org/debian|archive.debian.org/debian|g' \
+    -e 's|security.debian.org/debian-security|archive.debian.org/debian-security|g' \
+    /etc/apt/sources.list
+
 RUN apt-get update -qq
 RUN apt-get install -y \
     build-essential \

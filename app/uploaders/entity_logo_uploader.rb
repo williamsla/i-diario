@@ -5,7 +5,7 @@ class EntityLogoUploader < CarrierWave::Uploader::Base
   def store_dir
     base = "uploads/#{model.class.to_s.underscore}/#{mounted_as}"
     if Entity.current.present?
-      "#{base}/entity_#{Entity.current.id}/#{model.id}"
+      "#{base}/entity_#{Entity.current.name}/#{model.id}"
     else
       "#{base}/#{model.id}"
     end

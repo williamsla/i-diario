@@ -699,9 +699,9 @@ class ConceptualExamsController < ApplicationController
   end
 
   def allow_teacher_modify_prev_years
-    return if current_user.current_role_is_admin_or_employee?
-
-    @classroom ||= Classroom.find(params[:conceptual_exam][:classroom_id])
+    # create/update usam conceptual_exam; create_batch usa conceptual_exam_batch
+    nested_params = params[:conceptual_exam].presence || params[:conceptual_exam_batch]
+    @classroom ||= Classroom.find((nested_params || {})[:classroom_id])
     start_date = current_year_steps.first.start_date_for_posting
     end_date = current_year_steps.last.end_date_for_posting
 
