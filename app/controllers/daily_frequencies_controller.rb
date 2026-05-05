@@ -813,6 +813,14 @@ class DailyFrequenciesController < ApplicationController
 
     @daily_schedule_discipline ||= fetch_disciplines_by_day
 
+    linked_disciplines = (@fetch_linked_by_teacher[:disciplines] || []).select { |d| d.grouper == false && d.descriptor == false }
+    @disciplines_for_content = if @daily_schedule_discipline.present?
+                                 linked_disciplines.select { |d| @daily_schedule_discipline.include?(d.id) }
+                               else
+                                 linked_disciplines
+                               end
+
+    @knowledge_areas_for_content = @disciplines_for_content.map(&:knowledge_area).compact.uniq(&:id)
     @knowledge_areas = []
     @knowledge_areas = [@disciplines.first&.knowledge_area] if @disciplines.first&.knowledge_area.present?
   end

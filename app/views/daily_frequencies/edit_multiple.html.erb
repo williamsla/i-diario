@@ -206,7 +206,7 @@
             <div class="clearfix"></div>
             <div id="register-content-frame-modal" class="register-content-actions">
               <% if is_infantil == false %>
-                <% @disciplines.each do |discipline| %>
+                <% (@disciplines_for_content || []).each do |discipline| %>
                   <button type="button"
                           class="btn btn-register-content btn-sm"
                           data-toggle="modal"
@@ -220,7 +220,7 @@
                   </button>
                 <% end %>
               <% else %>
-                  <% @knowledge_areas.each do |knowledge_area| %>
+                  <% (@knowledge_areas_for_content || []).each do |knowledge_area| %>
                     <button type="button"
                             class="btn btn-register-content btn-sm"
                             data-toggle="modal"
