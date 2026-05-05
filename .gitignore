@@ -16,7 +16,6 @@ config/initializers/better_errors.rb
 config/database.yml
 config/secrets.yml
 config/google_drive.json
-config/puma.rb
 /public/uploads
 /public/404.html
 /public/500.html
