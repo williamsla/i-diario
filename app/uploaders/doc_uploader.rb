@@ -4,7 +4,7 @@ class DocUploader < CarrierWave::Uploader::Base
   def store_dir
     base = "#{Rails.env}/#{model.class.to_s.underscore.pluralize}"
     if Entity.current.present?
-      "#{base}/entity_#{Entity.current.id}/#{model.id}"
+      "#{base}/entity_#{Entity.current.name}/#{model.id}"
     else
       "#{base}/#{model.id}"
     end
