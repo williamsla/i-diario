@@ -254,10 +254,11 @@ $(function () {
           reloadDisciplinesForSelectedDate();
         }else{
           $globalAbsence.val(1);
-          $disciplineField.show();
+          $disciplineField.hide();
           $classNumbersField.hide();
+          $discipline.val('').trigger('change');
           $classNumbers.val('').trigger('change');
-          $discipline.val('').select2({ data: [] })
+          $discipline.select2({ data: [] });
         }
 
       }else{

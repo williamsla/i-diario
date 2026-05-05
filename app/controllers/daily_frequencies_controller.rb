@@ -94,7 +94,7 @@ class DailyFrequenciesController < ApplicationController
 
   def fetch_frequency_type
     classroom_id = params[:classroom_id].presence
-    discipline_id = params[:discipline_id].presence
+    discipline_id = params[:discipline_id].presence || current_user.current_discipline_id
 
     return render json: FrequencyTypes::GENERAL if classroom_id.blank? || discipline_id.blank?
 
@@ -633,6 +633,11 @@ class DailyFrequenciesController < ApplicationController
   def frequency_discipline_id_for_link_validation(classroom)
     selected_discipline_id = params.dig(:daily_frequency, :discipline_id).presence&.to_i
     profile_discipline_id = current_user.current_discipline_id
+
+    # Quando o professor escolhe uma disciplina no formulário, o vínculo validado
+    # precisa ser exatamente o da disciplina selecionada.
+    return selected_discipline_id if selected_discipline_id.present?
+
     effective_discipline_id = selected_discipline_id || profile_discipline_id
     frequency_type = frequency_type_for_classroom_and_discipline(
       classroom: classroom,
@@ -654,6 +659,8 @@ class DailyFrequenciesController < ApplicationController
                                       &.exam_rule
                                       &.frequency_type
     return FrequencyTypes::BY_DISCIPLINE if exam_rule_frequency_type == FrequencyTypes::BY_DISCIPLINE
+
+    discipline_id = discipline_id.presence || current_user.current_discipline_id
     return FrequencyTypes::GENERAL if discipline_id.blank?
 
     grade_ids = classroom.classrooms_grades.pluck(:grade_id)
@@ -835,6 +842,10 @@ class DailyFrequenciesController < ApplicationController
       classroom
     )
     disciplines = (linked[:disciplines] || []).select { |d| d.grouper == false && d.descriptor == false }
+    disciplines = filter_disciplines_for_teacher_frequency_type(
+      disciplines: disciplines,
+      classroom: classroom
+    )
 
     return disciplines if classroom_without_lessons_board?(classroom.id)
 
@@ -846,6 +857,28 @@ class DailyFrequenciesController < ApplicationController
     return disciplines if schedule_ids.blank?
 
     disciplines.select { |d| schedule_ids.include?(d.id) }
+  end
+
+  def filter_disciplines_for_teacher_frequency_type(disciplines:, classroom:)
+    return disciplines if disciplines.blank?
+
+    exam_rule_frequency_type = classroom.classrooms_grades
+                                  .first
+                                  &.exam_rule
+                                  &.frequency_type
+    return disciplines if exam_rule_frequency_type == FrequencyTypes::BY_DISCIPLINE
+
+    grade_ids = classroom.classrooms_grades.pluck(:grade_id)
+    allowed_discipline_ids = TeacherDisciplineClassroom.where(
+      teacher_id: current_teacher.id,
+      classroom_id: classroom.id,
+      year: classroom.year,
+      grade_id: grade_ids,
+      allow_absence_by_discipline: 1,
+      active: true
+    ).pluck(:discipline_id).uniq
+
+    disciplines.select { |discipline| allowed_discipline_ids.include?(discipline.id) }
   end
 
   def classroom_without_lessons_board?(classroom_id)

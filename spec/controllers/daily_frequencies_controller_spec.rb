@@ -190,6 +190,38 @@ RSpec.describe DailyFrequenciesController, type: :controller do
     end
   end
 
+  describe 'GET #disciplines_for_frequency_date' do
+    let(:other_discipline) { create(:discipline) }
+
+    before do
+      create(
+        :teacher_discipline_classroom,
+        teacher: current_teacher,
+        classroom: classroom,
+        discipline: other_discipline,
+        grade: grade,
+        year: classroom.year,
+        allow_absence_by_discipline: 0,
+        active: true
+      )
+      allow(classroom.classrooms_grades.first.exam_rule).to receive(:frequency_type).and_return(FrequencyTypes::GENERAL)
+    end
+
+    it 'retorna apenas disciplinas com vínculo por disciplina quando a regra da turma é geral' do
+      get :disciplines_for_frequency_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        frequency_date: '2017-02-28'
+      }
+
+      payload = JSON.parse(response.body)
+      discipline_ids = payload.map { |item| item['id'] }
+
+      expect(discipline_ids).to include(discipline.id)
+      expect(discipline_ids).not_to include(other_discipline.id)
+    end
+  end
+
   describe '#resolved_classroom_id_for_lessons_board (turma do formulário vs sessão)' do
     let(:other_classroom) { create(:classroom, unity: unity, year: classroom.year) }
 
@@ -231,6 +263,84 @@ RSpec.describe DailyFrequenciesController, type: :controller do
       allow(classroom.classrooms_grades.first.exam_rule).to receive(:frequency_type).and_return(FrequencyTypes::GENERAL)
 
       expect(controller.send(:current_frequency_type, daily_frequency)).to eq(FrequencyTypes::GENERAL)
+    end
+  end
+
+  describe '#frequency_discipline_id_for_link_validation' do
+    let(:other_discipline) { create(:discipline) }
+
+    it 'prioriza a disciplina selecionada no formulário mesmo quando o tipo calculado é geral' do
+      controller.params = ActionController::Parameters.new(
+        locale: 'pt-BR',
+        daily_frequency: { discipline_id: other_discipline.id }
+      ).permit!
+      allow(controller).to receive(:frequency_type_for_classroom_and_discipline).and_return(FrequencyTypes::GENERAL)
+
+      result = controller.send(:frequency_discipline_id_for_link_validation, classroom)
+
+      expect(result).to eq(other_discipline.id)
+    end
+
+    it 'usa a disciplina do perfil quando a disciplina do formulário está em branco' do
+      controller.params = ActionController::Parameters.new(
+        locale: 'pt-BR',
+        daily_frequency: { discipline_id: '' }
+      ).permit!
+      allow(controller).to receive(:frequency_type_for_classroom_and_discipline).and_return(FrequencyTypes::GENERAL)
+
+      result = controller.send(:frequency_discipline_id_for_link_validation, classroom)
+
+      expect(result).to eq(discipline.id)
+    end
+  end
+
+  describe '#frequency_type_for_classroom_and_discipline' do
+    before do
+      allow(controller).to receive(:current_teacher).and_return(current_teacher)
+      allow(classroom.classrooms_grades.first.exam_rule).to receive(:frequency_type).and_return(FrequencyTypes::GENERAL)
+    end
+
+    it 'retorna por disciplina quando o vínculo da disciplina é de área específica' do
+      result = controller.send(
+        :frequency_type_for_classroom_and_discipline,
+        classroom: classroom,
+        discipline_id: discipline.id
+      )
+
+      expect(result).to eq(FrequencyTypes::BY_DISCIPLINE)
+    end
+
+    it 'retorna por disciplina quando regra da turma é por disciplina mesmo sem vínculo específico' do
+      TeacherDisciplineClassroom.where(
+        teacher_id: current_teacher.id,
+        classroom_id: classroom.id,
+        discipline_id: discipline.id
+      ).update_all(allow_absence_by_discipline: 0)
+      allow(classroom.classrooms_grades.first.exam_rule).to receive(:frequency_type).and_return(FrequencyTypes::BY_DISCIPLINE)
+
+      result = controller.send(
+        :frequency_type_for_classroom_and_discipline,
+        classroom: classroom,
+        discipline_id: discipline.id
+      )
+
+      expect(result).to eq(FrequencyTypes::BY_DISCIPLINE)
+    end
+
+    it 'retorna geral quando não há vínculo específico e regra da turma é geral' do
+      TeacherDisciplineClassroom.where(
+        teacher_id: current_teacher.id,
+        classroom_id: classroom.id,
+        discipline_id: discipline.id
+      ).update_all(allow_absence_by_discipline: 0)
+
+      result = controller.send(
+        :frequency_type_for_classroom_and_discipline,
+        classroom: classroom,
+        discipline_id: discipline.id
+      )
+
+      expect(result).to eq(FrequencyTypes::GENERAL)
     end
   end
 end
