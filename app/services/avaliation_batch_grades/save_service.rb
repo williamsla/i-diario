@@ -294,8 +294,6 @@ module AvaliationBatchGrades
         raise ActiveRecord::RecordInvalid.new(daily_note)
       end
 
-      ensure_students!(daily_note)
-
       @notes_params.each do |student_id_str, notes_array|
         sid = student_id_str.to_i
         next if sid.zero?
@@ -303,22 +301,20 @@ module AvaliationBatchGrades
         arr = Array(notes_array)
         raw = arr[column_index]
 
-        dns = daily_note.students.find_or_initialize_by(student_id: sid)
-        dns.active = true if dns.new_record?
+        dns = find_or_initialize_daily_note_student(daily_note, sid)
+        dns.active = true
         dns.note = parse_note(raw)
         dns.save!
       end
     end
 
-    def ensure_students!(daily_note)
-      @notes_params.each_key do |student_id_str|
-        sid = student_id_str.to_i
-        next if sid.zero?
-
-        next if daily_note.students.where(student_id: sid).exists?
-
-        daily_note.students.create!(student_id: sid, active: true)
-      end
+    def find_or_initialize_daily_note_student(daily_note, student_id)
+      DailyNoteStudent
+        .with_discarded
+        .find_or_initialize_by(daily_note_id: daily_note.id, student_id: student_id)
+        .tap do |dns|
+          dns.undiscard if dns.persisted? && dns.discarded?
+        end
     end
 
     def parse_note(val)
