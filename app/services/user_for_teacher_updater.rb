@@ -9,7 +9,7 @@ class UserForTeacherUpdater
 
   def update!(teacher_id, cpf, school_id, function_name)
     teacher = Teacher.find(teacher_id)
-    unity = Unity.find_by(api_code: school_id)
+    unity = Unity.find_by(api_code: school_id.to_s)
     
     return if teacher.blank?
 
@@ -21,8 +21,13 @@ class UserForTeacherUpdater
   def update_user(teacher, cpf, unity, function_name)
     function_name = function_name.to_s.strip
 
-    role_id = Role.where("name ILIKE ?", "%#{function_name}%").first&.id
-    raise 'Permissão não encontrada.' if role_id.blank?
+    role_id = Role.where("name ILIKE ?", "%#{function_name}%").first&.id if function_name.present?
+
+    if function_name.present? && role_id.blank?
+      Rails.logger.warn(
+        "[UserForTeacherUpdater] Nenhum role encontrado para função '#{function_name}' (teacher_id=#{teacher.id})"
+      )
+    end
 
     user = User.find_by(teacher_id: teacher.id, kind: RoleKind::EMPLOYEE)
     return unless user
@@ -48,13 +53,18 @@ class UserForTeacherUpdater
       user.status = new_status
     end
 
-    # Verifica se há um vínculo com o role e unity_id nulo
-    existing_role_without_unity = user.user_roles.find_by(role_id: role_id, unity_id: nil)
+    if role_id.present? && unity.present?
+      existing_role_without_unity = user.user_roles.find_by(role_id: role_id, unity_id: nil)
 
-    if existing_role_without_unity
-      existing_role_without_unity.update!(unity_id: unity.id)
-    else
-      user.user_roles.find_or_create_by!(role_id: role_id, unity_id: unity.id)
+      if existing_role_without_unity
+        existing_role_without_unity.update!(unity_id: unity.id)
+      else
+        user.user_roles.find_or_create_by!(role_id: role_id, unity_id: unity.id)
+      end
+    elsif role_id.present? && unity.blank?
+      Rails.logger.warn(
+        "[UserForTeacherUpdater] Unity não encontrada ao vincular role (teacher_id=#{teacher.id}, role_id=#{role_id})"
+      )
     end
 
     
