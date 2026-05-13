@@ -26,10 +26,22 @@ class UserForTeacherCreator
 
   def create_user(teacher, cpf, unity, function_name)
     function_name = function_name.to_s.strip
-    role_id = Role.where("name ILIKE ?", "%#{function_name}%").first&.id if function_name.present?
 
+    if function_name.blank?
+      Rails.logger.warn("[UserForTeacherCreator] function_name ausente ou vazio (servidor_id=#{teacher.id})")
+      return
+    end
+
+    role_id = Role.where("name ILIKE ?", "%#{function_name}%").first&.id
+    
     if role_id.blank?
       Rails.logger.warn("[UserForTeacherCreator] Nenhum role encontrado para função '#{function_name}' (servidor_id=#{teacher.id})")
+      return
+    end
+
+    role = Role.by_id(role_id)
+    if role.access_level == AccessLevel::ADMINISTRATOR
+      Rails.logger.warn("[UserForTeacherCreator] Role é administrador (servidor_id=#{teacher.id})")
       return
     end
 
