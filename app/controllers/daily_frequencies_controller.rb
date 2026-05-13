@@ -45,23 +45,25 @@ class DailyFrequenciesController < ApplicationController
     end
 
     weekday = frequency_date.strftime("%A").downcase
-    period = params[:period].presence
-    period ||= current_teacher_period_by_classroom(classroom_id, discipline_id)
-
-    allocations = LessonsBoardLessonWeekday.includes(:lessons_board_lesson)
+    # Mesma regra do select de disciplinas: aulas do dia no quadro, sem filtrar por turno.
+    allocations = LessonsBoardLessonWeekday.includes(lessons_board_lesson: :lessons_board)
                                            .by_classroom(classroom_id)
                                            .by_teacher(current_teacher.id)
                                            .by_discipline(discipline_id)
                                            .by_weekday(weekday)
                                            .order('lessons_board_lessons.lesson_number')
 
-    allocations = allocations.by_period(period) if period.present?
-
     class_numbers = allocations.map { |allocation|
       allocation.lessons_board_lesson&.lesson_number&.to_i
     }.compact.uniq.sort
 
-    render json: class_numbers
+    period = infer_daily_frequency_period_from_allocations(
+      allocations,
+      classroom_id: classroom_id,
+      discipline_id: discipline_id
+    )
+
+    render json: { class_numbers: class_numbers, period: period }
   end
 
   def disciplines_for_frequency_date
@@ -83,8 +85,7 @@ class DailyFrequenciesController < ApplicationController
 
     disciplines = disciplines_for_classroom_and_frequency(
       classroom: classroom,
-      frequency_date: frequency_date,
-      period: params[:period].presence&.to_i
+      frequency_date: frequency_date
     )
 
     render_disciplines_for_frequency_json(
@@ -800,8 +801,7 @@ class DailyFrequenciesController < ApplicationController
     elsif (ctx = discipline_options_context)
       @disciplines = disciplines_for_classroom_and_frequency(
         classroom: ctx[:classroom],
-        frequency_date: ctx[:date],
-        period: ctx[:period]
+        frequency_date: ctx[:date]
       )
     else
       @disciplines = (@fetch_linked_by_teacher[:disciplines] || []).select { |d| d.grouper == false && d.descriptor == false }
@@ -836,13 +836,10 @@ class DailyFrequenciesController < ApplicationController
     date ||= @daily_frequency&.frequency_date&.to_date
     return nil if date.blank?
 
-    period = params.dig(:daily_frequency, :period).presence
-    period = period.to_i if period.present?
-
-    { classroom: classroom, date: date, period: period }
+    { classroom: classroom, date: date }
   end
 
-  def disciplines_for_classroom_and_frequency(classroom:, frequency_date:, period: nil)
+  def disciplines_for_classroom_and_frequency(classroom:, frequency_date:)
     linked = TeacherClassroomAndDisciplineFetcher.fetch!(
       current_teacher.id,
       current_unity,
@@ -857,10 +854,12 @@ class DailyFrequenciesController < ApplicationController
 
     return disciplines if classroom_without_lessons_board?(classroom.id)
 
+    # Disciplinas do dia pela grade (dia da semana), sem filtrar por turno — o professor
+    # vê tudo que está no quadro daquele dia na turma.
     schedule_ids = schedule_discipline_ids_for_classroom_weekday(
       classroom_id: classroom.id,
       date: frequency_date,
-      period: period
+      period: nil
     )
     return disciplines if schedule_ids.blank?
 
@@ -902,6 +901,31 @@ class DailyFrequenciesController < ApplicationController
     scope.includes(:teacher_discipline_classroom)
          .map { |w| w.teacher_discipline_classroom.discipline_id }
          .uniq
+  end
+
+  # Turno do quadro de aulas para a disciplina/data (usado no form novo diário de frequência).
+  def infer_daily_frequency_period_from_allocations(allocations, classroom_id:, discipline_id:)
+    return nil if allocations.blank?
+
+    periods_on_board = allocations.map do |allocation|
+      allocation.lessons_board_lesson&.lessons_board&.period
+    end.compact.map(&:to_i).uniq
+
+    return nil if periods_on_board.empty?
+    return periods_on_board.first if periods_on_board.size == 1
+
+    teacher_p = current_teacher_period_by_classroom(classroom_id, discipline_id)
+    teacher_p = teacher_p.to_i if teacher_p.present?
+    return teacher_p if teacher_p.positive? && periods_on_board.include?(teacher_p)
+
+    first = allocations.min_by do |allocation|
+      lesson = allocation.lessons_board_lesson
+      [
+        lesson&.lesson_number.to_i,
+        lesson&.lessons_board&.period.to_i
+      ]
+    end
+    first&.lessons_board_lesson&.lessons_board&.period&.to_i
   end
 
   def fetch_disciplines_by_day

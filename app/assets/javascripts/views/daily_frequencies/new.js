@@ -148,6 +148,17 @@ $(function () {
     return [];
   };
 
+  var applyPeriodFromScheduleResponse = function (data) {
+    var $period = $('#daily_frequency_period');
+    if (!$period.length || !data || _.isArray(data)) {
+      return;
+    }
+    if (data.period === undefined || data.period === null || data.period === '') {
+      return;
+    }
+    $period.val(String(data.period));
+  };
+
   var autoFillClassNumbersBySchedule = function () {
     var disciplineId = getInputValue($discipline);
     var classroomId = getInputValue($classroom);
@@ -161,10 +172,10 @@ $(function () {
     $.getJSON('/daily_frequencies/class_numbers_by_discipline', {
       classroom_id: classroomId,
       discipline_id: disciplineId,
-      frequency_date: frequencyDate,
-      period: periodParam()
+      frequency_date: frequencyDate
     }).done(function (data) {
       setClassNumbersOnField(extractClassNumbersFromResponse(data));
+      applyPeriodFromScheduleResponse(data);
     }).fail(function () {
       setClassNumbersOnField([]);
     });
