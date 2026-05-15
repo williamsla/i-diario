@@ -1,0 +1,31 @@
+<div class="class-council-modal-content">
+  <p style="margin-bottom: 16px; color: #555;">
+    Selecione uma turma para gerar o relatório PDF do Conselho de Classe com notas e faltas por bimestre.
+  </p>
+
+  <div class="table-responsive">
+    <table class="table table-bordered table-striped table-condensed">
+      <thead>
+        <tr>
+          <th>Turma</th>
+          <th style="text-align: center; width: 180px;">Ação</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @classrooms.each do |classroom| %>
+          <tr>
+            <td><%= classroom.description %></td>
+            <td style="text-align: center;">
+              <a href="<%= class_council_pdf_pedagogical_trackings_path(unity_id: params[:unity_id], classroom_id: classroom.id) %>"
+                 class="btn btn-primary btn-sm"
+                 target="_blank"
+                 rel="noopener">
+                Gerar PDF
+              </a>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</div>

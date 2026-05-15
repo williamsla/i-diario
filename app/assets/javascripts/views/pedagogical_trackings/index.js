@@ -611,3 +611,44 @@ function closeFrequencyReportModal(event) {
   modal.style.display = "none";
   modalBody.innerHTML = "";
 }
+
+function openClassCouncilModal(unityId, classroomId) {
+  const modal = document.getElementById("classCouncilModal");
+  if (!modal) return;
+
+  modal.style.display = "flex";
+  document.getElementById("classCouncilModalBody").innerHTML = "<p>Carregando...</p>";
+
+  const params = new URLSearchParams({ unity_id: unityId });
+  if (classroomId && classroomId != 0) {
+    params.append('classroom_id', classroomId);
+  }
+
+  fetch('/pedagogical_trackings/class_council_modal?' + params.toString())
+    .then(response => {
+      if (!response.ok) {
+        return response.text().then(text => {
+          throw new Error(text || 'Erro ao carregar modal');
+        });
+      }
+      return response.text();
+    })
+    .then(html => {
+      document.getElementById("classCouncilModalBody").innerHTML = html;
+    })
+    .catch(err => {
+      console.error("Erro ao carregar modal do conselho de classe:", err);
+      document.getElementById("classCouncilModalBody").innerHTML =
+        '<p style="color:red;">Erro ao carregar o Conselho de Classe: ' + err.message + '</p>';
+    });
+}
+
+function closeClassCouncilModal(event) {
+  if (event) event.preventDefault();
+
+  const modal = document.getElementById("classCouncilModal");
+  if (!modal) return;
+
+  modal.style.display = "none";
+  document.getElementById("classCouncilModalBody").innerHTML = "";
+}

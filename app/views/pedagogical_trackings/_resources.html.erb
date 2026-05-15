@@ -46,6 +46,13 @@
           Alunos faltosos
         </button>
 
+        <button onclick="openClassCouncilModal(<%= record.unity_id %>, <%= record.classroom_id || 0 %>); return false;"
+                style="background-color: #059669; color: white; padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer; margin-right: 8px; transition: background-color 0.3s;"
+                onmouseover="this.style.backgroundColor='#047857'"
+                onmouseout="this.style.backgroundColor='#059669'">
+          Conselho de classe
+        </button>
+
         <%= render_details_link(record) %>
       </td>
     </tr>
@@ -83,5 +90,19 @@
       <!-- Conteúdo do relatório será injetado aqui -->
     </div>
 
+  </div>
+</div>
+
+<div id="classCouncilModal" style="display:none; position:fixed; inset:0; background-color:rgba(0,0,0,0.7);
+                                   justify-content:center; align-items:center; z-index:9999;">
+  <div style="background:white; padding:20px; border-radius:15px; height:95vh; overflow:auto; width:90%; max-width: 720px; box-shadow:0 5px 15px rgba(0,0,0,0.3);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+      <h2 style="margin:0; font-size:1.5em;">Conselho de Classe</h2>
+      <button onclick="closeClassCouncilModal(event)" style="background:none; border:none; font-size:3.5em; cursor:pointer;">&times;</button>
+    </div>
+
+    <div id="classCouncilModalBody" style="margin-bottom:15px;">
+      <!-- Conteúdo do modal será injetado aqui -->
+    </div>
   </div>
 </div>

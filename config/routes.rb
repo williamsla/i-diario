@@ -208,6 +208,8 @@ Rails.application.routes.draw do
         get :resume_modal
         get :frequency_report
         get :frequency_report_modal
+        get :class_council_modal
+        get :class_council_pdf
       end
     end
 
