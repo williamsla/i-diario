@@ -67,8 +67,10 @@ navigation:
             visible: "only-when-active"
   - menu:
       type: "pedagogical_trackings"
-      icon: "fa-pie-chart"
+      icon: "fa-solid fa-line-chart"
       path: "pedagogical_trackings_path"
+      shortcut: true
+      shortcut_highlight: true
   - menu:
       type: "lessons_boards"
       icon: "fa fa-table"

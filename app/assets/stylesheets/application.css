@@ -404,6 +404,21 @@ span.multiline {
   height: 150px;
 }
 
+.shortcut.shortcut--highlight a,
+.shortcut.shortcut--highlight a:hover,
+.shortcut.shortcut--highlight a:focus {
+  color: #059669;
+}
+
+.shortcut.shortcut--highlight .shortcut-icon {
+  color: #059669;
+}
+
+.shortcut.shortcut--highlight:hover {
+  background-color: #ecfdf5;
+  border-radius: 8px;
+}
+
 #header .select2-arrow {
   background-color: #4c4f53;
   color: white;
