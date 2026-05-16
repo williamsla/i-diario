@@ -13,9 +13,13 @@ module Navigation
       css_classes << 'shortcut--highlight' if menu[:shortcut_highlight]
 
       content_tag :div, class: css_classes.join(' ') do
-        link_to(path_method(menu[:path])) do
-          text = content_tag(:i, '', class: "shortcut-icon fa fa-lg fa-fw #{menu[:icon]}")
-          text + content_tag(:span, menu_text(menu[:type]), class: '')
+        link_to(path_method(menu[:path]), class: menu[:shortcut_highlight] ? 'shortcut-link--highlight' : nil) do
+          icon_classes = "shortcut-icon fa fa-lg fa-fw #{menu[:icon]}"
+          icon_classes += ' shortcut-icon--highlight' if menu[:shortcut_highlight]
+
+          text = content_tag(:i, '', class: icon_classes)
+          label_class = menu[:shortcut_highlight] ? 'shortcut-label shortcut-label--highlight' : ''
+          text + content_tag(:span, menu_text(menu[:type]), class: label_class)
         end
       end
     end
