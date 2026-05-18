@@ -99,15 +99,16 @@ class ClassCouncilReport < BaseReport
   end
 
   def content
+    font_size = content_font_size
+
     table(
       [column_headers] + student_rows,
       width: bounds.width,
       column_widths: column_widths_array,
       header: true,
-      cell_style: { overflow: :shrink_to_fit, min_font_size: 4 }
+      cell_style: { overflow: :shrink_to_fit, min_font_size: 4, size: font_size }
     ) do
       cells.border_width = 0.25
-      cells.size = content_font_size
       row(0).font_style = :bold
       row(0).background_color = HEADER_BG
       row(0).align = :center
