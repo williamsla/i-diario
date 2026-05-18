@@ -2,6 +2,9 @@ class ClassCouncilReport < BaseReport
   ROWS_PER_STUDENT = 5
   FONT_SIZE = 6
   HEADER_BG = 'DEDEDE'
+  MIN_STUDENT_WIDTH = 55
+  MIN_SCORE_WIDTH = 11
+  MIN_ABSENCE_WIDTH = 8
 
   def self.build(entity_configuration, report_data)
     new(:landscape).build(entity_configuration, report_data)
@@ -60,7 +63,9 @@ class ClassCouncilReport < BaseReport
       align: :center,
       valign: :center,
       rowspan: 2,
-      padding: [4, 4, 8, 4]
+      padding: [4, 4, 8, 4],
+      overflow: :shrink_to_fit,
+      min_font_size: 6
     )
 
     header_table_data = [
@@ -74,10 +79,10 @@ class ClassCouncilReport < BaseReport
         make_cell(content: 'Turma', size: 8, font_style: :bold, align: :center, borders: [:top, :left, :right], padding: [2, 2, 4, 4])
       ],
       [
-        make_cell(content: @report_data[:course_name].to_s, size: 9, align: :center, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4]),
-        make_cell(content: @report_data[:period_name].to_s, size: 9, align: :center, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4]),
-        make_cell(content: @report_data[:grade_name].to_s, size: 9, align: :center, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4]),
-        make_cell(content: @classroom.description.to_s, size: 9, align: :center, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4])
+        make_cell(content: @report_data[:course_name].to_s, size: 9, align: :center, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], overflow: :shrink_to_fit, min_font_size: 6),
+        make_cell(content: @report_data[:period_name].to_s, size: 9, align: :center, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], overflow: :shrink_to_fit, min_font_size: 6),
+        make_cell(content: @report_data[:grade_name].to_s, size: 9, align: :center, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], overflow: :shrink_to_fit, min_font_size: 6),
+        make_cell(content: @classroom.description.to_s, size: 9, align: :center, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], overflow: :shrink_to_fit, min_font_size: 6)
       ]
     ]
 
@@ -94,9 +99,15 @@ class ClassCouncilReport < BaseReport
   end
 
   def content
-    table([column_headers] + student_rows, width: bounds.width, header: true) do
+    table(
+      [column_headers] + student_rows,
+      width: bounds.width,
+      column_widths: column_widths_array,
+      header: true,
+      cell_style: { overflow: :shrink_to_fit, min_font_size: 4 }
+    ) do
       cells.border_width = 0.25
-      cells.size = FONT_SIZE
+      cells.size = content_font_size
       row(0).font_style = :bold
       row(0).background_color = HEADER_BG
       row(0).align = :center
@@ -105,14 +116,14 @@ class ClassCouncilReport < BaseReport
 
   def column_headers
     row = [
-      make_cell(content: 'Ord.', size: FONT_SIZE, font_style: :bold, align: :center, width: 18),
-      make_cell(content: 'Aluno', size: FONT_SIZE, font_style: :bold, align: :center, width: 95),
-      make_cell(content: 'Sit.', size: FONT_SIZE, font_style: :bold, align: :center, width: 18),
-      make_cell(content: 'Freq. - Falta', size: FONT_SIZE, font_style: :bold, align: :center, width: 52)
+      table_cell('Ord.', font_style: :bold, align: :center),
+      table_cell('Aluno', font_style: :bold, align: :center),
+      table_cell('Sit.', font_style: :bold, align: :center),
+      table_cell('Freq. - Falta', font_style: :bold, align: :center)
     ]
 
     @disciplines.each do |discipline|
-      row << make_cell(content: discipline[:abbreviation], size: FONT_SIZE, font_style: :bold, align: :center, colspan: 2)
+      row << table_cell(discipline[:abbreviation], font_style: :bold, align: :center, colspan: 2)
     end
 
     row
@@ -130,29 +141,25 @@ class ClassCouncilReport < BaseReport
 
   def student_block_rows(student)
     first_row = [
-      make_cell(content: student[:order].to_s, rowspan: ROWS_PER_STUDENT, align: :center, valign: :center, width: 18),
-      make_cell(content: student[:name].to_s.upcase, rowspan: ROWS_PER_STUDENT, align: :left, valign: :center, width: 95),
-      make_cell(content: student[:situation].to_s, rowspan: ROWS_PER_STUDENT, align: :center, valign: :center, width: 18),
-      make_cell(
-        content: format_frequency(student[:frequency_percentage], student[:total_absences]),
-        align: :center,
-        width: 52
-      )
+      table_cell(student[:order].to_s, rowspan: ROWS_PER_STUDENT, align: :center, valign: :center),
+      table_cell(truncate_student_name(student[:name]), rowspan: ROWS_PER_STUDENT, align: :left, valign: :center),
+      table_cell(student[:situation].to_s, rowspan: ROWS_PER_STUDENT, align: :center, valign: :center),
+      table_cell(format_frequency(student[:frequency_percentage], student[:total_absences]), align: :center)
     ]
 
     @disciplines.each do |_discipline|
-      first_row << make_cell(content: 'Notas', align: :center, width: 20)
-      first_row << make_cell(content: 'F', align: :center, width: 12)
+      first_row << table_cell('Notas', align: :center)
+      first_row << table_cell('F', align: :center)
     end
 
     step_rows = student[:steps].first(ROWS_PER_STUDENT - 1).map do |step|
       row = [
-        make_cell(content: step[:label], align: :center, width: 52)
+        table_cell(step[:label], align: :center)
       ]
 
       step[:disciplines].each do |discipline_data|
-        row << make_cell(content: format_score(discipline_data[:score]), align: :center, width: 20)
-        row << make_cell(content: discipline_data[:absences].to_s, align: :center, width: 12)
+        row << table_cell(format_score(discipline_data[:score]), align: :center)
+        row << table_cell(discipline_data[:absences].to_s, align: :center)
       end
 
       row
@@ -166,18 +173,84 @@ class ClassCouncilReport < BaseReport
   end
 
   def empty_step_row
-    row = [make_cell(content: '', width: 52)]
+    row = [table_cell('', align: :center)]
 
     @disciplines.each do |_discipline|
-      row << make_cell(content: '', width: 20)
-      row << make_cell(content: '', width: 12)
+      row << table_cell('', align: :center)
+      row << table_cell('', align: :center)
     end
 
     row
   end
 
-  def table_width_columns
-    4 + (@disciplines.size * 2)
+  def layout_widths
+    @layout_widths ||= calculate_layout_widths
+  end
+
+  def calculate_layout_widths
+    order_w = 16
+    situation_w = 16
+    frequency_w = 46
+    student_w = 95
+    discipline_columns = @disciplines.size * 2
+    min_pair_width = MIN_SCORE_WIDTH + MIN_ABSENCE_WIDTH
+
+    if discipline_columns.positive?
+      available = bounds.width - order_w - situation_w - frequency_w - student_w
+
+      if available < discipline_columns * min_pair_width
+        student_w = bounds.width - order_w - situation_w - frequency_w - (discipline_columns * min_pair_width)
+        student_w = [student_w, MIN_STUDENT_WIDTH].max
+        available = bounds.width - order_w - situation_w - frequency_w - student_w
+      end
+
+      per_col = available / discipline_columns.to_f
+      score_w = [per_col * 0.65, MIN_SCORE_WIDTH].max
+      absence_w = [per_col - score_w, MIN_ABSENCE_WIDTH].max
+    else
+      score_w = MIN_SCORE_WIDTH
+      absence_w = MIN_ABSENCE_WIDTH
+    end
+
+    {
+      order: order_w,
+      student: student_w,
+      situation: situation_w,
+      frequency: frequency_w,
+      score: score_w,
+      absence: absence_w
+    }
+  end
+
+  def column_widths_array
+    widths = layout_widths
+
+    [widths[:order], widths[:student], widths[:situation], widths[:frequency]] +
+      @disciplines.flat_map { [widths[:score], widths[:absence]] }
+  end
+
+  def content_font_size
+    @content_font_size ||= if @disciplines.size > 18
+                             5
+                           elsif @disciplines.size > 14
+                             5.5
+                           else
+                             FONT_SIZE
+                           end
+  end
+
+  def table_cell(content, options = {})
+    make_cell({ content: content.to_s, size: content_font_size }.merge(options))
+  end
+
+  def truncate_student_name(name)
+    max_chars = (layout_widths[:student] / 2.8).floor
+    max_chars = [[max_chars, 20].max, 60].min
+    normalized_name = name.to_s.upcase
+
+    return normalized_name if normalized_name.length <= max_chars
+
+    "#{normalized_name[0, max_chars - 3]}..."
   end
 
   def format_frequency(percentage, absences)
