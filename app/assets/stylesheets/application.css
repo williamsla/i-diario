@@ -404,6 +404,28 @@ span.multiline {
   height: 150px;
 }
 
+.shortcut.shortcut--highlight .shortcut-link--highlight,
+.shortcut.shortcut--highlight .shortcut-link--highlight:hover,
+.shortcut.shortcut--highlight .shortcut-link--highlight:focus {
+  color: #00B48A;
+  text-decoration: none;
+}
+
+.shortcut.shortcut--highlight .shortcut-link--highlight:hover .shortcut-label--highlight,
+.shortcut.shortcut--highlight .shortcut-link--highlight:focus .shortcut-label--highlight {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.shortcut.shortcut--highlight .shortcut-icon--highlight {
+  color: #00B48A;
+}
+
+.shortcut.shortcut--highlight .shortcut-label--highlight {
+  display: block;
+  font-weight: 700;
+}
+
 #header .select2-arrow {
   background-color: #4c4f53;
   color: white;

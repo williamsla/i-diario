@@ -11,6 +11,8 @@ module Navigation
 
     def build
       shortcuts = amount_nodes(navigation).compact.flatten
+      highlighted, regular = shortcuts.partition { |shortcut| shortcut['shortcut_highlight'] }
+      shortcuts = highlighted + regular
       navigation_render.render(shortcuts)
     end
 
@@ -34,7 +36,7 @@ module Navigation
           submenu['menu'].merge(node.slice('icon'))
         }.compact
       else
-        node.slice('type', 'icon', 'path')
+        node.slice('type', 'icon', 'path', 'shortcut_highlight')
       end
     end
   end

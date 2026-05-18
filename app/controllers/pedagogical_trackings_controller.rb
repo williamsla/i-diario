@@ -344,6 +344,49 @@ class PedagogicalTrackingsController < ApplicationController
     end
   end
 
+  def class_council_modal
+    unity_id = params[:unity_id]
+    classroom_id = params[:classroom_id].to_i
+
+    return render plain: 'Parâmetros inválidos', status: :bad_request if unity_id.blank?
+
+    classrooms = if classroom_id.positive?
+                   Classroom.where(id: classroom_id, unity_id: unity_id, year: current_user_school_year)
+                 else
+                   Classroom.where(unity_id: unity_id, year: current_user_school_year).ordered
+                 end
+
+    return render plain: 'Nenhuma turma encontrada', status: :not_found if classrooms.empty?
+
+    @classrooms = classrooms
+
+    render partial: 'pedagogical_trackings/class_council_modal', layout: false
+  rescue StandardError => e
+    Rails.logger.error "Erro no class_council_modal: #{e.message}"
+    Rails.logger.error e.backtrace.join("\n")
+    render plain: "Erro ao carregar relatório: #{e.message}", status: :internal_server_error
+  end
+
+  def class_council_pdf
+    classroom = Classroom.find_by(
+      id: params[:classroom_id],
+      unity_id: params[:unity_id],
+      year: current_user_school_year
+    )
+
+    return render plain: 'Turma não encontrada', status: :not_found if classroom.blank?
+
+    report_data = ClassCouncilReportDataService.new(classroom).build
+    report = ClassCouncilReport.build(current_entity_configuration, report_data)
+
+    filename = "conselho-de-classe-#{classroom.description.parameterize}-#{Date.current.strftime('%Y%m%d')}.pdf"
+    send_pdf(filename, report.render)
+  rescue StandardError => e
+    Rails.logger.error "Erro no class_council_pdf: #{e.message}"
+    Rails.logger.error e.backtrace.join("\n")
+    render plain: "Erro ao gerar PDF: #{e.message}", status: :internal_server_error
+  end
+
   def frequency_report_modal
     begin
       unity_id = params[:unity_id]
