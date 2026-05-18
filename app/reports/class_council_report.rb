@@ -5,6 +5,9 @@ class ClassCouncilReport < BaseReport
   MIN_STUDENT_WIDTH = 55
   MIN_SCORE_WIDTH = 11
   MIN_ABSENCE_WIDTH = 8
+  STUDENT_COLUMN_WIDTH_FACTOR = 0.9
+  SCORE_COLUMN_WIDTH_FACTOR = 0.8
+  ABSENCE_COLUMN_WIDTH_FACTOR = 0.7
 
   def self.build(entity_configuration, report_data)
     new(:landscape).build(entity_configuration, report_data)
@@ -39,7 +42,7 @@ class ClassCouncilReport < BaseReport
       font_style: :bold,
       background_color: HEADER_BG,
       align: :center,
-      colspan: 6,
+      colspan: 7,
       padding: [4, 4, 4, 4]
     )
 
@@ -73,12 +76,14 @@ class ClassCouncilReport < BaseReport
       [
         logo_cell,
         entity_organ_and_unity_cell,
+        make_cell(content: 'Ano letivo', size: 8, font_style: :bold, align: :center, borders: [:top, :left, :right], padding: [2, 2, 4, 4]),
         make_cell(content: 'Curso', size: 8, font_style: :bold, align: :center, borders: [:top, :left, :right], padding: [2, 2, 4, 4]),
         make_cell(content: 'Turno', size: 8, font_style: :bold, align: :center, borders: [:top, :left, :right], padding: [2, 2, 4, 4]),
         make_cell(content: 'Série', size: 8, font_style: :bold, align: :center, borders: [:top, :left, :right], padding: [2, 2, 4, 4]),
         make_cell(content: 'Turma', size: 8, font_style: :bold, align: :center, borders: [:top, :left, :right], padding: [2, 2, 4, 4])
       ],
       [
+        make_cell(content: @report_data[:school_year].to_s, size: 9, align: :center, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], overflow: :shrink_to_fit, min_font_size: 6),
         make_cell(content: @report_data[:course_name].to_s, size: 9, align: :center, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], overflow: :shrink_to_fit, min_font_size: 6),
         make_cell(content: @report_data[:period_name].to_s, size: 9, align: :center, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], overflow: :shrink_to_fit, min_font_size: 6),
         make_cell(content: @report_data[:grade_name].to_s, size: 9, align: :center, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], overflow: :shrink_to_fit, min_font_size: 6),
@@ -193,25 +198,41 @@ class ClassCouncilReport < BaseReport
     situation_w = 16
     frequency_w = 46
     student_w = 95
-    discipline_columns = @disciplines.size * 2
+    discipline_pairs = @disciplines.size
     min_pair_width = MIN_SCORE_WIDTH + MIN_ABSENCE_WIDTH
 
-    if discipline_columns.positive?
+    if discipline_pairs.positive?
       available = bounds.width - order_w - situation_w - frequency_w - student_w
 
-      if available < discipline_columns * min_pair_width
-        student_w = bounds.width - order_w - situation_w - frequency_w - (discipline_columns * min_pair_width)
+      if available < discipline_pairs * min_pair_width
+        student_w = bounds.width - order_w - situation_w - frequency_w - (discipline_pairs * min_pair_width)
         student_w = [student_w, MIN_STUDENT_WIDTH].max
         available = bounds.width - order_w - situation_w - frequency_w - student_w
       end
 
-      per_col = available / discipline_columns.to_f
-      score_w = [per_col * 0.65, MIN_SCORE_WIDTH].max
-      absence_w = [per_col - score_w, MIN_ABSENCE_WIDTH].max
+      pair_width = available / discipline_pairs.to_f
+      score_w = pair_width * 0.65
+      absence_w = pair_width * 0.35
+
+      if score_w < MIN_SCORE_WIDTH || absence_w < MIN_ABSENCE_WIDTH
+        score_w = [score_w, MIN_SCORE_WIDTH].max
+        absence_w = [absence_w, MIN_ABSENCE_WIDTH].max
+        pair_total = score_w + absence_w
+
+        if pair_total > pair_width
+          scale = pair_width / pair_total
+          score_w *= scale
+          absence_w *= scale
+        end
+      end
     else
       score_w = MIN_SCORE_WIDTH
       absence_w = MIN_ABSENCE_WIDTH
     end
+
+    student_w *= STUDENT_COLUMN_WIDTH_FACTOR
+    score_w *= SCORE_COLUMN_WIDTH_FACTOR
+    absence_w *= ABSENCE_COLUMN_WIDTH_FACTOR
 
     {
       order: order_w,
@@ -225,9 +246,23 @@ class ClassCouncilReport < BaseReport
 
   def column_widths_array
     widths = layout_widths
+    columns = [widths[:order], widths[:student], widths[:situation], widths[:frequency]] +
+              @disciplines.flat_map { [widths[:score], widths[:absence]] }
 
-    [widths[:order], widths[:student], widths[:situation], widths[:frequency]] +
-      @disciplines.flat_map { [widths[:score], widths[:absence]] }
+    normalize_column_widths(columns)
+  end
+
+  def normalize_column_widths(columns)
+    total = columns.sum
+    return columns if total.zero?
+
+    scale = bounds.width / total
+    normalized = columns.map { |width| width * scale }
+
+    width_gap = bounds.width - normalized.sum
+    normalized[-1] += width_gap if width_gap.abs > 0.01
+
+    normalized
   end
 
   def content_font_size

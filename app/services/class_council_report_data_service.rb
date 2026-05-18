@@ -41,6 +41,7 @@ class ClassCouncilReportDataService
 
     {
       classroom: @classroom,
+      school_year: @classroom.year,
       course_name: @classroom.course&.description,
       period_name: period_label,
       grade_name: grade_name_for_header,
