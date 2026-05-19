@@ -24,6 +24,7 @@ class ExamRulesSynchronizer < BaseSynchronizer
         exam_rule.frequency_type = exam_rule_record.tipo_presenca
         exam_rule.recovery_type = exam_rule_record.tipo_recuperacao
         exam_rule.parallel_recovery_average = exam_rule_record.media_recuperacao_paralela
+        exam_rule.average_for_promotion = exam_rule_record.media
         exam_rule.opinion_type = exam_rule_record.parecer_descritivo
         exam_rule.final_recovery_maximum_score = exam_rule_record.nota_maxima_exame
         exam_rule.rounding_table_id = rounding_table(exam_rule_record.tabela_arredondamento_id).try(:id)

@@ -6,6 +6,7 @@ FactoryGirl.define do
     opinion_type OpinionTypes::DONT_USE
     recovery_type RecoveryTypes::DONT_USE
     final_recovery_maximum_score 10
+    average_for_promotion 6.0
 
     trait :frequency_type_by_discipline do
       frequency_type FrequencyTypes::BY_DISCIPLINE
