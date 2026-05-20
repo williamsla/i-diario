@@ -60,6 +60,7 @@ COPY app/assets app/assets/
 COPY app/javascript app/javascript/
 COPY vendor/assets vendor/assets/
 COPY public public/
+COPY docker/secrets.build.yml docker/secrets.build.yml
 
 RUN cp config/database.sample.yml config/database.yml \
   && cp docker/secrets.build.yml config/secrets.yml
