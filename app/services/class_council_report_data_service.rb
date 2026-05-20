@@ -173,6 +173,7 @@ class ClassCouncilReportDataService
     @test_settings_by_step = @steps.each_with_object({}) do |step, hash|
       hash[step] = TestSettingFetcher.current(@classroom, step)
     end
+    preload_minimum_scores_by_step!
     @exemptions_by_student = load_exemptions_by_student
     @daily_notes_index = load_daily_notes_index
     @recovery_scores_index = load_recovery_scores_index
@@ -295,13 +296,34 @@ class ClassCouncilReportDataService
       number: step.step_number,
       label: "#{step.step_number}º Bimestre",
       disciplines: @disciplines.map { |discipline|
+        score = @scores_cache[score_cache_key(student.id, discipline.id, step.step_number)]
+
         {
           discipline_id: discipline.id,
-          score: @scores_cache[score_cache_key(student.id, discipline.id, step.step_number)],
-          absences: discipline_absences(student.id, discipline.id, step.step_number)
+          score: score,
+          absences: discipline_absences(student.id, discipline.id, step.step_number),
+          below_minimum: score_below_minimum?(score, step)
         }
       }
     }
+  end
+
+  def preload_minimum_scores_by_step!
+    minimum = @classroom.first_exam_rule&.average_for_promotion
+
+    @minimum_scores_by_step = @steps.each_with_object({}) do |step, hash|
+      hash[step.step_number] = minimum.presence
+    end
+  end
+
+  def score_below_minimum?(score, step)
+    numeric_score = score.to_f if score.present?
+    return false if numeric_score.nil? || score.blank?
+
+    minimum_score = @minimum_scores_by_step[step.step_number]
+    return false if minimum_score.blank?
+
+    numeric_score < minimum_score.to_f
   end
 
   def discipline_absences(student_id, discipline_id, step_number)

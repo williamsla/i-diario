@@ -52,6 +52,16 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
         )
 
         results = calculator.calculate
+        show_avaliations_summary = has_numeric_avaliation
+
+        if show_avaliations_summary
+          PendingRecordsAvaliationsSummary.new(
+            classroom: current_user_classroom,
+            start_date: step.start_at,
+            end_date: step.end_at,
+            pending_records: results
+          ).apply!
+        end
 
         # Formatar os resultados para o dashboard (com datas para exibir sem nova requisição)
         # Ordenar por nome da disciplina em ordem alfabética
@@ -63,6 +73,11 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
             pending_frequency_count: result[:pending_frequency_count],
             pending_content_count: result[:pending_content_count]
           }
+          if show_avaliations_summary
+            record[:pending_avaliations_count] = result[:pending_avaliations_count] || 0
+            record[:students_without_note_count] = result[:students_without_note_count] || 0
+            record[:students_without_note_from_classroom_total] = result[:students_without_note_from_classroom_total] == true
+          end
           if result[:pending_frequency_dates].present? || result[:pending_content_dates].present?
             record[:pending_frequency_dates] = result[:pending_frequency_dates]&.map { |d| d.strftime('%d/%m/%Y') } || []
             record[:pending_content_dates] = result[:pending_content_dates]&.map { |d| d.strftime('%d/%m/%Y') } || []
@@ -87,6 +102,7 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
           start_at: step.start_at.strftime('%d/%m/%Y'),
           end_at: step.end_at.strftime('%d/%m/%Y'),
           frequency_by_discipline: frequency_by_discipline,
+          has_numeric_avaliation: show_avaliations_summary,
           pending_records: pending_records
         }
       end

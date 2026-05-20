@@ -2,6 +2,8 @@ class ClassCouncilReport < BaseReport
   ROWS_PER_STUDENT = 5
   FONT_SIZE = 6
   HEADER_BG = 'DEDEDE'
+  BELOW_MINIMUM_COLOR = 'FF0000'
+  BELOW_MINIMUM_BACKGROUND = 'FFE5E5'
   MIN_STUDENT_WIDTH = 55
   MIN_SCORE_WIDTH = 11
   MIN_ABSENCE_WIDTH = 8
@@ -146,9 +148,19 @@ class ClassCouncilReport < BaseReport
   end
 
   def student_block_rows(student)
+    student_below_minimum = student_below_minimum?(student)
+    student_name = truncate_student_name(student[:name])
+
     first_row = [
       table_cell(student[:order].to_s, rowspan: ROWS_PER_STUDENT, align: :center, valign: :center),
-      table_cell(truncate_student_name(student[:name]), rowspan: ROWS_PER_STUDENT, align: :left, valign: :center),
+      table_cell(
+        highlighted_content(student_name, student_below_minimum),
+        rowspan: ROWS_PER_STUDENT,
+        align: :left,
+        valign: :center,
+        inline_format: student_below_minimum,
+        background_color: student_below_minimum ? BELOW_MINIMUM_BACKGROUND : nil
+      ),
       table_cell(student[:situation].to_s, rowspan: ROWS_PER_STUDENT, align: :center, valign: :center),
       table_cell(format_frequency(student[:frequency_percentage], student[:total_absences]), align: :center)
     ]
@@ -164,7 +176,7 @@ class ClassCouncilReport < BaseReport
       ]
 
       step[:disciplines].each do |discipline_data|
-        row << table_cell(format_score(discipline_data[:score]), align: :center)
+        row << score_cell(discipline_data)
         row << table_cell(discipline_data[:absences].to_s, align: :center)
       end
 
@@ -276,7 +288,34 @@ class ClassCouncilReport < BaseReport
   end
 
   def table_cell(content, options = {})
-    make_cell({ content: content.to_s, size: content_font_size }.merge(options))
+    cell_options = { content: content.to_s, size: content_font_size }.merge(options)
+    cell_options.reject! { |_key, value| value.nil? }
+
+    make_cell(cell_options)
+  end
+
+  def score_cell(discipline_data)
+    below_minimum = discipline_data[:below_minimum]
+    formatted_score = format_score(discipline_data[:score])
+
+    table_cell(
+      highlighted_content(formatted_score, below_minimum),
+      align: :center,
+      inline_format: below_minimum,
+      background_color: below_minimum ? BELOW_MINIMUM_BACKGROUND : nil
+    )
+  end
+
+  def highlighted_content(text, highlight)
+    return text unless highlight
+
+    "<color rgb='#{BELOW_MINIMUM_COLOR}'><b>#{text}</b></color>"
+  end
+
+  def student_below_minimum?(student)
+    student[:steps].any? do |step|
+      step[:disciplines].any? { |discipline_data| discipline_data[:below_minimum] }
+    end
   end
 
   def truncate_student_name(name)

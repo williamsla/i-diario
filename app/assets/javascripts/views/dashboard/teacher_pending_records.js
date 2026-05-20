@@ -114,8 +114,13 @@ $(function(){
     }
 
     var frequencyByDiscipline = stepData.frequency_by_discipline !== false;
+    var showAvaliationsColumns = stepData.has_numeric_avaliation === true;
     var totalRows = stepData.pending_records.length;
     var firstRecord = stepData.pending_records[0];
+    var avaliationsHeaderHtml = showAvaliationsColumns ?
+      '<th style="width: 160px; text-align: center;">Avaliações Pendentes</th>' +
+      '<th style="width: 160px; text-align: center;">Alunos sem Nota</th>' :
+      '';
 
     var stepHtml = '<div class="panel panel-default" style="margin-top: 20px;">' +
       '<div class="panel-body">' +
@@ -126,6 +131,7 @@ $(function(){
                 '<th>Disciplina</th>' +
                 '<th style="width: 200px; text-align: center;">Frequências Pendentes</th>' +
                 '<th style="width: 200px; text-align: center;">Conteúdos Pendentes</th>' +
+                avaliationsHeaderHtml +
               '</tr>' +
             '</thead>' +
             '<tbody>';
@@ -161,6 +167,41 @@ $(function(){
         }
       }
 
+      var avaliationsColumnsHtml = '';
+
+      if (showAvaliationsColumns) {
+        var pendingAvaliationsCount = record.pending_avaliations_count || 0;
+        var avaliationsBadge = pendingAvaliationsCount > 0 ?
+          '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; background-color: #ff9800; color: white;" title="Avaliações numéricas da configuração ainda não cadastradas na etapa.">' +
+            pendingAvaliationsCount + ' avaliação(ões)' +
+          '</span>' :
+          '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: green; font-size: 30px;" title="Todas as avaliações da configuração foram cadastradas na etapa.">' +
+            '<i class="fa fa-check-circle"></i>' +
+          '</span>';
+
+        var studentsWithoutNoteCount = record.students_without_note_count || 0;
+        var showingClassroomTotal = record.students_without_note_from_classroom_total === true;
+        var studentsWithoutNoteBadge;
+
+        if (showingClassroomTotal) {
+          studentsWithoutNoteBadge = '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; background-color: #ff9800; color: white;" title="Nenhuma avaliação criada na etapa. Total de alunos da turma com nota numérica.">' +
+            studentsWithoutNoteCount + ' aluno(s)' +
+          '</span>';
+        } else if (studentsWithoutNoteCount > 0) {
+          studentsWithoutNoteBadge = '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; background-color: #ff9800; color: white;" title="Alunos com nota pendente em avaliações numéricas da etapa.">' +
+            studentsWithoutNoteCount + ' aluno(s)' +
+          '</span>';
+        } else {
+          studentsWithoutNoteBadge = '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: green; font-size: 30px;" title="Todas as notas lançadas nas avaliações da etapa.">' +
+            '<i class="fa fa-check-circle"></i>' +
+          '</span>';
+        }
+
+        avaliationsColumnsHtml =
+          '<td style="text-align: center;">' + avaliationsBadge + '</td>' +
+          '<td style="text-align: center;">' + studentsWithoutNoteBadge + '</td>';
+      }
+
       // Conteúdos: laranja quando há pendências; verde quando está ok (0 datas)
       var contentButton = record.pending_content_count > 0 ?
         '<button type="button" class="btn toggle-dates" style="background-color: #ff9800; color: white; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#cont-' + recordId + '" data-record-index="' + recordIndex + '">' +
@@ -186,6 +227,7 @@ $(function(){
               '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
             '</div>' +
           '</td>' +
+          avaliationsColumnsHtml +
           '</tr>';
       } else {
         // Frequência não por disciplina: coluna de frequência só na primeira linha (rowspan)
@@ -204,6 +246,7 @@ $(function(){
                 '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
               '</div>' +
             '</td>' +
+            avaliationsColumnsHtml +
             '</tr>';
         } else {
           stepHtml += '<tr>' +
@@ -214,6 +257,7 @@ $(function(){
                 '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
               '</div>' +
             '</td>' +
+            avaliationsColumnsHtml +
             '</tr>';
         }
       }
