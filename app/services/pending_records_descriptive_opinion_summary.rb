@@ -59,33 +59,45 @@ class PendingRecordsDescriptiveOpinionSummary
 
   def count_students_without_opinion(discipline_id:)
     enrolled_ids = enrolled_student_ids(discipline_id: discipline_id)
-    return 0 if enrolled_ids.blank?
-
     filled_ids = students_with_filled_opinion_ids(discipline_id: discipline_id)
+
     (enrolled_ids - filled_ids).size
   end
 
   def enrolled_student_ids(discipline_id:)
-    ids = enrolled_student_ids_from_retriever(discipline_id: discipline_id)
+    ids = enrollment_classrooms_student_ids(discipline_id: discipline_id, period: teacher_period_for(discipline_id), opinion_type: @exam_rule.opinion_type)
     return ids if ids.present?
 
-    student_ids_from_descriptive_exams_in_scope(discipline_id: discipline_id)
+    ids = enrollment_classrooms_student_ids(discipline_id: discipline_id, period: nil, opinion_type: @exam_rule.opinion_type)
+    return ids if ids.present?
+
+    ids = enrollment_classrooms_student_ids(discipline_id: discipline_id, period: nil, opinion_type: nil)
+    return ids if ids.present?
+
+    ids = student_enrollments_list_ids(discipline_id: discipline_id, period: teacher_period_for(discipline_id))
+    return ids if ids.present?
+
+    student_enrollments_list_ids(discipline_id: discipline_id, period: nil)
   end
 
-  def enrolled_student_ids_from_retriever(discipline_id:)
+  def enrollment_classrooms_student_ids(discipline_id:, period:, opinion_type:)
     period_start, period_end = enrollment_period_bounds
     discipline = opinion_by_discipline? ? Discipline.find_by(id: discipline_id) : nil
     enrollment_start = period_start
 
-    StudentEnrollmentClassroomsRetriever.call(
-      classrooms: @classroom,
-      disciplines: discipline,
-      opinion_type: @exam_rule.opinion_type,
-      start_at: period_start,
-      end_at: period_end,
-      search_type: :by_date_range,
-      period: teacher_period_for(discipline_id)
-    ).map do |enrollment|
+    enrollments = Array(
+      StudentEnrollmentClassroomsRetriever.call(
+        classrooms: @classroom,
+        disciplines: discipline,
+        opinion_type: opinion_type,
+        start_at: period_start,
+        end_at: period_end,
+        search_type: :by_date_range,
+        period: period
+      )
+    )
+
+    enrollments.filter_map do |enrollment|
       student = enrollment[:student]
       student_enrollment = enrollment[:student_enrollment]
       left_at = enrollment[:student_enrollment_classroom].left_at
@@ -94,15 +106,26 @@ class PendingRecordsDescriptiveOpinionSummary
       next if exempted_from_discipline?(student_enrollment, discipline_id)
 
       student.id
-    end.compact.uniq
+    end.uniq
   end
 
-  def student_ids_from_descriptive_exams_in_scope(discipline_id:)
-    DescriptiveExamStudent
-      .joins(:descriptive_exam)
-      .merge(descriptive_exams_scope(discipline_id: discipline_id))
-      .distinct
-      .pluck(:student_id)
+  def student_enrollments_list_ids(discipline_id:, period: nil)
+    period_start, period_end = enrollment_period_bounds
+
+    StudentEnrollmentsList.new(
+      classroom: @classroom.id,
+      discipline: opinion_by_discipline? ? discipline_id : nil,
+      start_at: period_start,
+      end_at: period_end,
+      search_type: :by_date_range,
+      show_inactive: false,
+      opinion_type: @exam_rule.opinion_type,
+      period: period
+    ).student_enrollments.filter_map do |enrollment|
+      next if exempted_from_discipline?(enrollment, discipline_id)
+
+      enrollment.student_id
+    end.uniq
   end
 
   def students_with_filled_opinion_ids(discipline_id:)
