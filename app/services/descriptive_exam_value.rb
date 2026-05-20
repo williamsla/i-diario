@@ -1,4 +1,4 @@
-class DescriptiveExamValue
+module DescriptiveExamValue
   module_function
 
   def present?(value)
