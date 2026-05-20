@@ -85,7 +85,7 @@ class PendingRecordsDescriptiveOpinionSummary
       end_at: period_end,
       search_type: :by_date_range,
       period: teacher_period_for(discipline_id)
-    ).filter_map do |enrollment|
+    ).map do |enrollment|
       student = enrollment[:student]
       student_enrollment = enrollment[:student_enrollment]
       left_at = enrollment[:student_enrollment_classroom].left_at
@@ -94,7 +94,7 @@ class PendingRecordsDescriptiveOpinionSummary
       next if exempted_from_discipline?(student_enrollment, discipline_id)
 
       student.id
-    end.uniq
+    end.compact.uniq
   end
 
   def student_ids_from_descriptive_exams_in_scope(discipline_id:)
