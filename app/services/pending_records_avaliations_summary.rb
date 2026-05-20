@@ -19,7 +19,6 @@ class PendingRecordsAvaliationsSummary
       next unless discipline_id
 
       created_count = created_avaliations_by_discipline[discipline_id] || 0
-      record[:pending_avaliations_count] = count_pending_avaliations(discipline_id, created_count)
 
       if created_count.zero?
         record[:students_without_note_count] = classroom_students_count
@@ -57,27 +56,6 @@ class PendingRecordsAvaliationsSummary
       .count
   end
 
-  def count_pending_avaliations(discipline_id, created_count)
-    discipline = Discipline.find_by(id: discipline_id)
-    test_setting = TestSettingFetcher.current(@classroom, step, discipline: discipline)
-
-    return created_count.zero? ? 1 : 0 if test_setting.blank?
-
-    if test_setting.sum_calculation_type?
-      created_test_setting_test_ids = Avaliation
-        .by_classroom_id(@classroom.id)
-        .by_discipline_id(discipline_id)
-        .by_test_date_between(@start_date, @end_date)
-        .where.not(test_setting_test_id: nil)
-        .distinct
-        .pluck(:test_setting_test_id)
-
-      return test_setting.tests.where.not(id: created_test_setting_test_ids).count
-    end
-
-    created_count.zero? ? 1 : 0
-  end
-
   def count_classroom_students
     enrollments = StudentEnrollmentsList.new(
       classroom: @classroom.id,
@@ -90,10 +68,5 @@ class PendingRecordsAvaliationsSummary
     ).student_enrollments
 
     enrollments.map(&:student_id).uniq.count
-  end
-
-  def step
-    @step ||= StepsFetcher.new(@classroom).steps_by_date_range(@start_date, @end_date).first ||
-              StepsFetcher.new(@classroom).step_by_date(@start_date)
   end
 end

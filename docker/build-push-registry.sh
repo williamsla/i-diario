@@ -34,8 +34,18 @@ IMAGE_REF="container-registry.br-ne1.magalu.cloud/idiario/idiario-app:${MGC_IMAG
 echo "==> Imagem:   $IMAGE_REF"
 echo "==> Contexto: $ROOT"
 
-echo "==> docker build"
-docker build -f "Dockerfile.production" -t "$IMAGE_REF" "$ROOT"
+export DOCKER_BUILDKIT=1
+
+CACHE_FROM="${MGC_CACHE_FROM:-container-registry.br-ne1.magalu.cloud/idiario/idiario-app:latest}"
+docker pull "$CACHE_FROM" 2>/dev/null || true
+
+echo "==> docker build (BuildKit + cache-from)"
+docker build \
+  -f "Dockerfile.production" \
+  --build-arg BUILDKIT_INLINE_CACHE=1 \
+  --cache-from "$CACHE_FROM" \
+  -t "$IMAGE_REF" \
+  "$ROOT"
 
 echo "==> docker push"
 docker push "$IMAGE_REF"

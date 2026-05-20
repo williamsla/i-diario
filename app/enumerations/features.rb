@@ -54,7 +54,8 @@ class Features < EnumerateIt::Base
                    :attendance_record_report_by_students,
                    :diary_report,
                    :descriptive_report,
-                   :teacher_absences
+                   :teacher_absences,
+                   :record_audit_trails
 
   sort_by :translation
 end

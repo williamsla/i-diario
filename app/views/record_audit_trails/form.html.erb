@@ -1,0 +1,141 @@
+<div class="widget-body no-padding">
+  <%= simple_form_for @record_audit_trail_form, url: record_audit_trails_report_path, method: :post, html: { class: 'smart-form' } do |f| %>
+    <%= f.error_notification %>
+
+    <fieldset>
+      <div class="row">
+        <div class="col col-sm-4">
+          <%= f.input :unity_id, as: :select2, elements: @unities, user: current_user, readonly: !current_user.admin? %>
+        </div>
+        <div class="col col-sm-4">
+          <%= f.input :classroom_id, as: :select2, elements: @classrooms, user: current_user,
+                input_html: { value: @record_audit_trail_form.classroom_id } %>
+        </div>
+        <div class="col col-sm-4">
+          <%= f.input :teacher_id, as: :select2, elements: @teachers, user: current_user,
+                input_html: { value: @record_audit_trail_form.teacher_id } %>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col col-sm-4">
+          <%= f.input :discipline_id, as: :select2, elements: @disciplines, user: current_user,
+                input_html: { value: @record_audit_trail_form.discipline_id } %>
+        </div>
+        <div class="col col-sm-4">
+          <%= f.input :start_at, as: :date %>
+        </div>
+        <div class="col col-sm-4">
+          <%= f.input :end_at, as: :date %>
+        </div>
+      </div>
+
+      <div class="row">
+        <section class="col col-12">
+          <label class="label"><%= RecordAuditTrailForm.human_attribute_name(:record_types) %></label>
+          <div class="inline-group">
+            <% selected_types = @record_audit_trail_form.selected_record_types %>
+            <% RecordAuditTrailForm::RECORD_TYPES.each do |type| %>
+              <label class="checkbox">
+                <%= check_box_tag 'record_audit_trail_form[record_types][]',
+                      type,
+                      selected_types.include?(type),
+                      id: "record_audit_trail_form_record_types_#{type}" %>
+                <i></i><%= t("services.record_audit_trail_summary.record_types.#{type}") %>
+              </label>
+            <% end %>
+          </div>
+        </section>
+      </div>
+
+      <div class="row">
+        <%= f.input :school_calendar_year, as: :hidden %>
+      </div>
+    </fieldset>
+
+    <footer>
+      <div class="pull-right">
+        <%= f.submit t('record_audit_trails.form.submit'), class: 'btn btn-primary pull-right', id: 'send-form' %>
+      </div>
+    </footer>
+  <% end %>
+</div>
+
+<% content_for :js do %>
+  <script>
+    $(document).ready(function() {
+      var $classroom = $('#record_audit_trail_form_classroom_id');
+      var $teacher = $('#record_audit_trail_form_teacher_id');
+      var $discipline = $('#record_audit_trail_form_discipline_id');
+
+      function loadTeachers(classroomId, onComplete) {
+        if (!classroomId || classroomId === 'empty') {
+          $teacher.select2({ data: [], allowClear: true });
+          if (onComplete) onComplete(classroomId, null);
+          return;
+        }
+
+        var selectedTeacherId = $teacher.val();
+
+        $.ajax({
+          url: '<%= record_audit_trails_classroom_teachers_path %>',
+          data: { classroom_id: classroomId },
+          dataType: 'json',
+          success: function(data) {
+            var teachers = (data.teachers || []).map(function(teacher) {
+              return { id: teacher.id, name: teacher.name, text: teacher.name };
+            });
+            $teacher.select2({ data: teachers, allowClear: true });
+
+            if (selectedTeacherId && selectedTeacherId !== 'empty') {
+              $teacher.select2('val', selectedTeacherId);
+            } else {
+              selectedTeacherId = null;
+            }
+
+            if (onComplete) onComplete(classroomId, selectedTeacherId);
+          }
+        });
+      }
+
+      function loadDisciplines(classroomId, teacherId) {
+        if (!classroomId || classroomId === 'empty' || !teacherId || teacherId === 'empty') {
+          $discipline.select2({ data: [], allowClear: true });
+          return;
+        }
+
+        $.ajax({
+          url: '<%= record_audit_trails_classroom_disciplines_path %>',
+          data: { classroom_id: classroomId, teacher_id: teacherId },
+          dataType: 'json',
+          success: function(data) {
+            var disciplines = (data.disciplines || []).map(function(discipline) {
+              return { id: discipline.id, name: discipline.description, text: discipline.description };
+            });
+            $discipline.select2({ data: disciplines, allowClear: true });
+          }
+        });
+      }
+
+      $classroom.on('change', function() {
+        var classroomId = $(this).val();
+
+        loadTeachers(classroomId, function() {
+          $discipline.select2({ data: [], allowClear: true });
+        });
+      });
+
+      $teacher.on('change', function() {
+        loadDisciplines($classroom.val(), $(this).val());
+      });
+
+      if ($classroom.val() && $classroom.val() !== 'empty') {
+        loadTeachers($classroom.val(), function(classroomId, teacherId) {
+          if (teacherId) {
+            loadDisciplines(classroomId, teacherId);
+          }
+        });
+      }
+    });
+  </script>
+<% end %>

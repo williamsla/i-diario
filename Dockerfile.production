@@ -1,7 +1,13 @@
 # Imagem de produção (multi-stage: build + runtime).
-# Build: docker build -f Dockerfile.production -t idiario:prod .
+# Build (recomendado): DOCKER_BUILDKIT=1 docker build -f Dockerfile.production -t idiario:prod .
+#   ou: ./docker/build-push-registry.sh
 # Runtime: monte config/secrets.yml (obrigatório). database.yml vem do sample na imagem (usa ENV).
 # ENTRYPOINT: roda db:migrate quando RUN_DB_MIGRATE_ON_START!=0, depois CMD (Puma por padrão).
+#
+# Deploy rápido: assets são pré-compilados só quando Gemfile, yarn.lock ou arquivos de asset mudam.
+# Mudanças só em Ruby reutilizam a camada de assets:precompile (~30 min evitados).
+
+# syntax=docker/dockerfile:1
 
 FROM ruby:2.4.10-slim-buster AS builder
 
@@ -24,7 +30,6 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     libxslt-dev \
     libxml2-dev \
     zlib1g-dev \
-    redis-server \
     shared-mime-info \
   && npm i -g yarn@1 \
   && rm -rf /var/lib/apt/lists/*
@@ -47,20 +52,28 @@ COPY package.json yarn.lock ./
 
 RUN yarn install --frozen-lockfile --network-timeout 100000
 
-COPY . .
+# Só paths que afetam assets:precompile — mudanças em app/models etc. não invalidam esta camada.
+COPY Rakefile config.ru babel.config.js postcss.config.js ./
+COPY bin bin/
+COPY config config/
+COPY app/assets app/assets/
+COPY app/javascript app/javascript/
+COPY vendor/assets vendor/assets/
+COPY public public/
 
 RUN cp config/database.sample.yml config/database.yml \
   && cp docker/secrets.build.yml config/secrets.yml
 
 ENV RAILS_ENV=production \
-    NODE_ENV=production
+    NODE_ENV=production \
+    PRECOMPILING_ASSETS=1 \
+    EXECJS_RUNTIME=Node
 
-# Redis local só para initializers conectarem durante o assets:precompile
-RUN set -eux \
-  && redis-server --daemonize yes \
-  && sleep 1 \
-  && bundle exec rake assets:precompile \
-  && redis-cli shutdown save || redis-cli shutdown nodata || true
+RUN --mount=type=cache,target=/app/tmp/cache/webpacker \
+    --mount=type=cache,target=/usr/local/share/.cache/yarn \
+    bundle exec rake assets:precompile
+
+COPY . .
 
 RUN rm -f config/secrets.yml \
   && rm -f config/database.yml \

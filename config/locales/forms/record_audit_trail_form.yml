@@ -1,0 +1,11 @@
+pt-BR:
+  activemodel:
+    attributes:
+      record_audit_trail_form:
+        unity_id: "Unidade"
+        classroom_id: "Turma"
+        teacher_id: "Professor"
+        discipline_id: "Disciplina"
+        start_at: "Data inicial"
+        end_at: "Data final"
+        record_types: "Tipos de lançamento"

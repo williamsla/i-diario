@@ -19,6 +19,8 @@ class RolePermission < ApplicationRecord
 
   def access_level_has_feature?(access_level)
     return unless feature
-    FeaturesAccessLevels.send(access_level+'_features').include? feature.to_sym
+
+    features = FeaturesAccessLevels.send("#{access_level}_features").map(&:to_sym)
+    features.include?(feature.to_sym)
   end
 end

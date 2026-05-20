@@ -51,9 +51,9 @@ Rails.application.configure do
   # config.logger = ActiveSupport::TaggedLogging.new(SyslogLogger.new)
 
   # Use a different cache store in production.
-  config.cache_store = :dalli_store, Rails.application.secrets[:cache_store_url]
-
-  if (Rails.application.secrets[:REDIS_MODE] == 'sentinel')
+  if ENV['PRECOMPILING_ASSETS'] == '1'
+    config.cache_store = :memory_store
+  elsif (Rails.application.secrets[:REDIS_MODE] == 'sentinel')
     config.cache_store = :redis_store, {
       url: "#{Rails.application.secrets[:REDIS_URL]}#{Rails.application.secrets[:REDIS_DB_CACHE]}",
       role: "master",

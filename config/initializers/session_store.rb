@@ -1,4 +1,6 @@
-if (Rails.application.secrets[:REDIS_MODE] == 'sentinel')
+if ENV['PRECOMPILING_ASSETS'] == '1'
+  Rails.application.config.session_store :cookie_store, key: '_idiario_build_session'
+elsif (Rails.application.secrets[:REDIS_MODE] == 'sentinel')
   redis_config = {
     servers: [{
       url: "#{Rails.application.secrets[:REDIS_URL]}#{Rails.application.secrets[:REDIS_DB_SESSION]}",

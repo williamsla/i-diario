@@ -311,6 +311,15 @@ class ApplicationController < ActionController::Base
     redirect_to root_path
   end
 
+  def require_current_unity
+    return if current_unity
+    return if current_user.has_administrator_access_level?
+
+    flash[:alert] = t('errors.general.require_current_unity')
+
+    redirect_to root_path
+  end
+
   def require_allow_to_modify_prev_years
     return if can_change_school_year?
     return unless current_user.current_role_is_admin_or_employee?
@@ -579,6 +588,7 @@ class ApplicationController < ActionController::Base
   end
 
   def error_generic(expection)
+    Rails.logger.error "#{expection.class}: #{expection.message}"
     Rails.logger.error "#{expection.backtrace.join("\n")}"
     # binding.pry
     # set_honeybadger_error(expection)

@@ -1,3 +1,5 @@
+return if ENV['PRECOMPILING_ASSETS'] == '1'
+
 if Rails.application.secrets[:REDIS_MODE] == 'sentinel'
   # --- MODO SENTINEL ---
   config_redis_sidekiq = {

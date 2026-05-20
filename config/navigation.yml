@@ -235,6 +235,9 @@ navigation:
         - menu:
             type: "diary_report"
             path: "diary_report_path"
+        - menu:
+            type: "record_audit_trails"
+            path: "record_audit_trails_path"
 
   - menu:
       type: "ieducar_api_exam_postings"

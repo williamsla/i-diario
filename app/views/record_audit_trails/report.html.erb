@@ -1,0 +1,59 @@
+<div class="widget-body no-padding">
+  <div class="alert alert-info">
+    <%= t('record_audit_trails.report.help') %>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-bordered table-striped table-condensed table-hover">
+      <thead>
+        <tr>
+          <th><%= t('record_audit_trails.report.columns.record_type') %></th>
+          <th><%= t('record_audit_trails.report.columns.record') %></th>
+          <th><%= t('record_audit_trails.report.columns.status') %></th>
+          <th><%= t('record_audit_trails.report.columns.audit_trail') %></th>
+          <th><%= t('record_audit_trails.report.columns.verdict') %></th>
+          <th><%= t('record_audit_trails.report.columns.actions') %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if @results.present? %>
+          <% @results.each do |result| %>
+            <tr>
+              <td><%= result[:record_type_label] %></td>
+              <td><%= result[:label] %></td>
+              <td>
+                <% if result[:record_exists] %>
+                  <span class="badge badge-success"><%= t('record_audit_trails.report.status.active') %></span>
+                <% else %>
+                  <span class="badge badge-danger"><%= t('record_audit_trails.report.status.removed') %></span>
+                <% end %>
+              </td>
+              <td><small><%= result[:summary] %></small></td>
+              <td><%= result[:verdict] %></td>
+              <td>
+                <% if result[:record_exists] %>
+                  <%= link_to t('record_audit_trails.report.view_history'),
+                        record_audit_trail_history_path(result),
+                        class: 'btn btn-default btn-xs',
+                        target: '_blank' %>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        <% else %>
+          <tr>
+            <td colspan="6" class="text-center text-muted">
+              <%= t('record_audit_trails.report.empty') %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="widget-footer">
+    <div class="pull-left">
+      <%= link_to t('record_audit_trails.report.back'), record_audit_trails_path, class: 'btn btn-default' %>
+    </div>
+  </div>
+</div>

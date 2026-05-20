@@ -1,10 +1,10 @@
 class FeaturesAccessLevels
   def self.administrator_features
-    Features.keys
+    (Features.list.map(&:to_sym) + coordinator_features).uniq
   end
 
   def self.employee_features
-    administrator_features - admin_only_features
+    (administrator_features - admin_only_features.map(&:to_sym)).uniq
   end
 
   def self.teacher_features
@@ -65,6 +65,12 @@ class FeaturesAccessLevels
       :begin,
       :accounts,
       :dashboard
+    ]
+  end
+
+  def self.coordinator_features
+    [
+      :record_audit_trails
     ]
   end
 

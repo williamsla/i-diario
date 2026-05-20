@@ -41,7 +41,7 @@ class DescriptiveExam < ApplicationRecord
 
   def mark_students_for_removal
     students.each do |student|
-      student.mark_for_destruction if student.value.blank?
+      student.mark_for_destruction if DescriptiveExamValue.blank?(student.value)
     end
   end
 

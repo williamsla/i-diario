@@ -1,0 +1,21 @@
+pt-BR:
+  services:
+    record_audit_trail_summary:
+      system_user: "Sistema"
+      general_frequency: "Frequência geral"
+      removed: "excluído"
+      removed_record: "Registro excluído"
+      no_events: "Nenhum evento de auditoria registrado."
+      event_line: "%{action} em %{datetime} por %{user}"
+      record_types:
+        frequency: "Frequência"
+        content: "Conteúdo"
+        avaliation: "Avaliação"
+      verdict:
+        never_persisted: "Não há evidência de que este registro tenha sido salvo no sistema."
+        no_audit_trail: "Registro existe, mas sem histórico de auditoria (possível dado legado ou importado)."
+        destroyed_without_create: "Registro excluído em %{datetime} por %{user}, sem histórico de criação."
+        destroyed: "Registro excluído em %{datetime} por %{user}."
+        active: "Registro ativo. Última alteração em %{datetime} por %{user}."
+        created: "Registro criado em %{datetime} por %{user}."
+        unknown: "Histórico de auditoria inconclusivo."

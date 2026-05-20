@@ -432,6 +432,11 @@ Rails.application.routes.draw do
       to: 'attendance_record_report_by_students#report',
       as: 'attendance_record_report_by_students_report'
 
+    get '/reports/record_audit_trails', to: 'record_audit_trails#form', as: 'record_audit_trails'
+    post '/reports/record_audit_trails', to: 'record_audit_trails#report', as: 'record_audit_trails_report'
+    get '/reports/record_audit_trails/classroom_teachers', to: 'record_audit_trails#classroom_teachers', as: 'record_audit_trails_classroom_teachers'
+    get '/reports/record_audit_trails/classroom_disciplines', to: 'record_audit_trails#classroom_disciplines', as: 'record_audit_trails_classroom_disciplines'
+
     get '/reports/pending_records', to: 'pending_records_report#form', as: 'pending_records_report'
     post '/reports/pending_records', to: 'pending_records_report#report', as: 'pending_records_report'
     get '/reports/pending_records/classroom_teachers', to: 'pending_records_report#classroom_teachers', as: 'pending_records_report_classroom_teachers'

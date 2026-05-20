@@ -1,0 +1,19 @@
+pt-BR:
+  record_audit_trails:
+    form:
+      submit: "Consultar trilha de auditoria"
+    report:
+      help: "Esta consulta mostra o histórico de criação, alteração e exclusão dos lançamentos no período selecionado, com base nos registros de auditoria do sistema."
+      back: "Voltar"
+      empty: "Nenhum lançamento ou evento de auditoria encontrado para os filtros informados."
+      view_history: "Histórico completo"
+      status:
+        active: "Ativo"
+        removed: "Excluído"
+      columns:
+        record_type: "Tipo"
+        record: "Lançamento"
+        status: "Situação"
+        audit_trail: "Trilha resumida"
+        verdict: "Conclusão"
+        actions: "Ações"
