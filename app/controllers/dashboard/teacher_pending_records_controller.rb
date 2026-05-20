@@ -53,7 +53,6 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
 
         results = calculator.calculate
         show_avaliations_summary = has_numeric_avaliation
-        show_descriptive_opinion_summary = has_opinion
 
         if show_avaliations_summary
           PendingRecordsAvaliationsSummary.new(
@@ -62,20 +61,6 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
             end_date: step.end_at,
             pending_records: results
           ).apply!
-        end
-
-        descriptive_opinion_by_discipline = false
-        if show_descriptive_opinion_summary
-          opinion_summary = PendingRecordsDescriptiveOpinionSummary.new(
-            classroom: current_user_classroom,
-            step: step,
-            start_date: step.start_at,
-            end_date: step.end_at,
-            pending_records: results,
-            teacher_id: current_teacher.id
-          )
-          opinion_summary.apply!
-          descriptive_opinion_by_discipline = opinion_summary.opinion_by_discipline?
         end
 
         # Formatar os resultados para o dashboard (com datas para exibir sem nova requisição)
@@ -91,9 +76,6 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
           if show_avaliations_summary
             record[:students_without_note_count] = result[:students_without_note_count] || 0
             record[:students_without_note_from_classroom_total] = result[:students_without_note_from_classroom_total] == true
-          end
-          if show_descriptive_opinion_summary
-            record[:students_without_opinion_count] = result[:students_without_opinion_count] || 0
           end
           if result[:pending_frequency_dates].present? || result[:pending_content_dates].present?
             record[:pending_frequency_dates] = result[:pending_frequency_dates]&.map { |d| d.strftime('%d/%m/%Y') } || []
@@ -120,8 +102,6 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
           end_at: step.end_at.strftime('%d/%m/%Y'),
           frequency_by_discipline: frequency_by_discipline,
           has_numeric_avaliation: show_avaliations_summary,
-          has_descriptive_opinion: show_descriptive_opinion_summary,
-          descriptive_opinion_by_discipline: descriptive_opinion_by_discipline,
           pending_records: pending_records
         }
       end

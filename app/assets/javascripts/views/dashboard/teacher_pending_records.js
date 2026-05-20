@@ -115,15 +115,10 @@ $(function(){
 
     var frequencyByDiscipline = stepData.frequency_by_discipline !== false;
     var showAvaliationsColumns = stepData.has_numeric_avaliation === true;
-    var showDescriptiveOpinionColumn = stepData.has_descriptive_opinion === true;
-    var descriptiveOpinionByDiscipline = stepData.descriptive_opinion_by_discipline === true;
     var totalRows = stepData.pending_records.length;
     var firstRecord = stepData.pending_records[0];
     var avaliationsHeaderHtml = showAvaliationsColumns ?
       '<th style="width: 160px; text-align: center;">Alunos sem Nota</th>' :
-      '';
-    var descriptiveOpinionHeaderHtml = showDescriptiveOpinionColumn ?
-      '<th style="width: 160px; text-align: center;">Alunos sem Parecer</th>' :
       '';
 
     var stepHtml = '<div class="panel panel-default" style="margin-top: 20px;">' +
@@ -136,7 +131,6 @@ $(function(){
                 '<th style="width: 200px; text-align: center;">Frequências Pendentes</th>' +
                 '<th style="width: 200px; text-align: center;">Conteúdos Pendentes</th>' +
                 avaliationsHeaderHtml +
-                descriptiveOpinionHeaderHtml +
               '</tr>' +
             '</thead>' +
             '<tbody>';
@@ -197,29 +191,6 @@ $(function(){
           '<td style="text-align: center;">' + studentsWithoutNoteBadge + '</td>';
       }
 
-      var descriptiveOpinionColumnHtml = '';
-      if (showDescriptiveOpinionColumn) {
-        var showOpinionCell = descriptiveOpinionByDiscipline || recordIndex === 0;
-        if (showOpinionCell) {
-          var studentsWithoutOpinionCount = descriptiveOpinionByDiscipline ?
-            (record.students_without_opinion_count || 0) :
-            (firstRecord.students_without_opinion_count || 0);
-          var studentsWithoutOpinionBadge = studentsWithoutOpinionCount > 0 ?
-            '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; background-color: #ff9800; color: white;" title="Alunos sem parecer descritivo lançado na etapa.">' +
-              studentsWithoutOpinionCount + ' aluno(s)' +
-            '</span>' :
-            '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: green; font-size: 30px;" title="Todos os alunos possuem parecer descritivo na etapa.">' +
-              '<i class="fa fa-check-circle"></i>' +
-            '</span>';
-          if (descriptiveOpinionByDiscipline) {
-            descriptiveOpinionColumnHtml = '<td style="text-align: center;">' + studentsWithoutOpinionBadge + '</td>';
-          } else {
-            descriptiveOpinionColumnHtml = '<td rowspan="' + totalRows + '" style="text-align: center; vertical-align: middle;">' +
-              studentsWithoutOpinionBadge + '</td>';
-          }
-        }
-      }
-
       // Conteúdos: laranja quando há pendências; verde quando está ok (0 datas)
       var contentButton = record.pending_content_count > 0 ?
         '<button type="button" class="btn toggle-dates" style="background-color: #ff9800; color: white; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#cont-' + recordId + '" data-record-index="' + recordIndex + '">' +
@@ -246,7 +217,6 @@ $(function(){
             '</div>' +
           '</td>' +
           avaliationsColumnsHtml +
-          descriptiveOpinionColumnHtml +
           '</tr>';
       } else {
         // Frequência não por disciplina: coluna de frequência só na primeira linha (rowspan)
@@ -266,7 +236,6 @@ $(function(){
               '</div>' +
             '</td>' +
             avaliationsColumnsHtml +
-            descriptiveOpinionColumnHtml +
             '</tr>';
         } else {
           stepHtml += '<tr>' +
@@ -278,7 +247,6 @@ $(function(){
               '</div>' +
             '</td>' +
             avaliationsColumnsHtml +
-            descriptiveOpinionColumnHtml +
             '</tr>';
         }
       }
