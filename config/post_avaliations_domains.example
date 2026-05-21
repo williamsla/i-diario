@@ -1,0 +1,12 @@
+# Domínios (entities) com envio automático de avaliações para o i-Educar.
+# Um domínio por linha. Linhas em branco e linhas que começam com # são ignoradas.
+#
+# Copie para o arquivo ativo (não versionado em produção):
+#   cp config/post_avaliations_domains.example config/post_avaliations_domains
+#
+# Listar domínios habilitados no banco:
+#   docker compose -f docker-compose.production.yml --env-file .env.production exec -T idiario-web-prod \
+#     bundle exec rails runner "puts Entity.enable_to_sync.pluck(:domain)"
+
+diario.municipio1.ensino.site
+diario.municipio2.ensino.site

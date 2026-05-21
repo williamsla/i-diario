@@ -1,9 +1,7 @@
 namespace :post_avaliations do
 
-  desc "Posting changed avaliations (obrigatório: DOMAIN= ou TENANT=) \
-            nohup env RAILS_ENV=production DOMAIN=diario.municipio.ensino.site \
-                                        bundle exec rake post_avaliations:init \
-                                        > log/post_avaliations_municipio.log 2>&1 &"
+  desc "Envia avaliações alteradas ao i-Educar (obrigatório: DOMAIN= ou TENANT=). \
+        Execução única; reagende via cron (script/post_avaliations_start.sh)."
   task init: :environment do
 
     def get_last_post_date(connection, post_type, teacher_id, step_number)
@@ -37,11 +35,6 @@ namespace :post_avaliations do
                             SET status = '#{ApiSynchronizationStatus::ERROR}' 
                             WHERE status = '#{ApiSynchronizationStatus::STARTED}'")
       puts "\t\t\t cancelando envios que estão em andamento"
-    end
-
-    def is_the_weekend?
-      today = Date.current
-      today.saturday? || today.sunday?
     end
 
     def is_dawn?
@@ -118,18 +111,13 @@ namespace :post_avaliations do
                  raise "Entidade não encontrada para TENANT=#{ENV['TENANT']}" unless e
                  e
                else
-                 raise "Via rake é obrigatório informar DOMAIN= ou TENANT=. Ex: DOMAIN=escola.gov.br rake post_avaliations:init \
-                        nohup env RAILS_ENV=production DOMAIN=diario.municipio.ensino.site \
-                              bundle exec rake post_avaliations:init \
-                              > log/post_avaliations_municipio.log 2>&1 &"                
+                 raise "Via rake é obrigatório informar DOMAIN= ou TENANT=. Ex: DOMAIN=diario.municipio.ensino.site rake post_avaliations:init"
                end
 
       entity.using_connection do
         connection = ActiveRecord::Base.connection
 
         @admin_user = User.find_by(login: 'admin')
-
-        count_posting_active = 0
 
         # get schools
         if order == 'asc'
@@ -294,22 +282,13 @@ namespace :post_avaliations do
 
 
 
-    # init script
-    loop do
-      # cancel any ongoing synchronizations
-      Rake::Task["ieducar_api:cancel"].reenable
-      Rake::Task["ieducar_api:cancel"].invoke
-      
-      order = ENV['ORDER'] || 'asc'
+    Rake::Task["ieducar_api:cancel"].reenable
+    Rake::Task["ieducar_api:cancel"].invoke
 
-      was_changed = start(order)
+    order = ENV['ORDER'] || 'asc'
 
-      if was_changed == false
-        puts "\n\t não houve mudanças desde a última sincronização.\n\t Aguardando 10 minutos antes de fazer uma nova sincronização.\n"
-        sleep(10.minutes)
-      else
-        sleep(1.minutes)
-      end
+    unless start(order)
+      puts "\n\t não houve mudanças desde a última sincronização.\n"
     end
   end
 
