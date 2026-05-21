@@ -50,7 +50,7 @@ class AttendanceRecordReportForm
       discipline_id: !global_absence? && discipline_id,
       class_numbers: !global_absence? && class_numbers
     ).group_by(&:frequency_date).map do |frequency_date, frequencies_aux|
-      if frequencies_aux.map(&:class_number).uniq.size >= 1
+      if frequencies_aux.map(&:class_number).uniq.size > 1
         frequencies_aux
       else
         daily_frequency = frequencies_aux.find { |f| f.period == Periods::FULL.to_i }
