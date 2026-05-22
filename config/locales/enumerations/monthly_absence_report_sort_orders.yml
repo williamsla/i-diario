@@ -1,0 +1,5 @@
+pt-BR:
+  enumerations:
+    monthly_absence_report_sort_orders:
+      student_name: "Nome do aluno"
+      absences_count: "Quantidade de faltas"

@@ -1,0 +1,10 @@
+pt-BR:
+  activemodel:
+    attributes:
+      monthly_absence_by_student_report_form:
+        unity_id: "Escola"
+        year: "Ano letivo"
+        months: "Meses"
+        grade_id: "Série"
+        classroom_id: "Turma"
+        sort_by: "Ordenar por"

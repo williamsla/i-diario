@@ -33,6 +33,7 @@ pt-BR:
     disabled_entity: 'acesso-suspenso'
     reports: 'relatorios'
     attendance_record: 'registro-de-frequencia'
+    monthly_absence_by_student: 'faltas-mensais-por-aluno'
     observation_record: 'registro-de-observacoes'
     exam_record: 'registro-de-avaliacoes'
     exam_record_report: 'registro-de-avaliacao-numerica'

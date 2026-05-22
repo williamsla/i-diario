@@ -1,0 +1,59 @@
+<div class="widget-body no-padding">
+  <%= simple_form_for @monthly_absence_by_student_report_form,
+      url: monthly_absence_by_student_report_path,
+      method: :post,
+      html: { class: 'smart-form', target: '_blank' } do |f| %>
+    <%= f.error_notification unless @monthly_absence_by_student_report_form.errors[:base].any? %>
+
+    <div class="alert alert-danger <%= 'hidden' unless @monthly_absence_by_student_report_form.errors[:base].any? %>">
+      <i class="fa fa-exclamation-circle fa-fw"></i>
+      <%= @monthly_absence_by_student_report_form.errors[:base].first %>
+    </div>
+
+    <fieldset>
+      <div class="row">
+        <div class="col col-sm-4">
+          <%= f.input :unity_id, as: :select2, elements: @unities, user: current_user, readonly: !current_user.admin? %>
+        </div>
+
+        <div class="col col-sm-4">
+          <%= f.input :year, as: :integer, input_html: { value: @monthly_absence_by_student_report_form.year || current_school_year } %>
+        </div>
+
+        <div class="col col-sm-4">
+          <%= f.input :months, input_html: { placeholder: 'Ex: 2,3,4' } %>
+          <span class="note">Informe os números dos meses separados por vírgula (1 a 12).</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col col-sm-4">
+          <%= f.input :grade_id,
+              as: :select2,
+              elements: (@grades || []),
+              include_blank: true,
+              input_html: { value: @monthly_absence_by_student_report_form.grade_id } %>
+        </div>
+
+        <div class="col col-sm-4">
+          <%= f.input :classroom_id,
+              as: :select2,
+              elements: (@classrooms || []),
+              include_blank: true,
+              input_html: { value: @monthly_absence_by_student_report_form.classroom_id } %>
+        </div>
+
+        <div class="col col-sm-4">
+          <%= f.input :sort_by,
+              as: :select2,
+              elements: MonthlyAbsenceReportSortOrders.to_select.to_json,
+              input_html: { value: @monthly_absence_by_student_report_form.sort_by || MonthlyAbsenceReportSortOrders::STUDENT_NAME } %>
+        </div>
+      </div>
+    </fieldset>
+
+    <footer>
+      <%= f.submit 'Imprimir', class: 'btn btn-primary' %>
+    </footer>
+  <% end %>
+</div>

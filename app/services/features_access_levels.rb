@@ -48,7 +48,8 @@ class FeaturesAccessLevels
       :daily_frequencies_in_batchs,
       :learning_objectives_and_skills,
       :avaliation_recovery_lowest_notes,
-      :attendance_record_report_by_students
+      :attendance_record_report_by_students,
+      :monthly_absence_by_student_report
     ]
   end
 
