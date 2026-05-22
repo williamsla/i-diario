@@ -70,24 +70,37 @@ class SchoolCalendar < ApplicationRecord
   end
 
   def school_term_day?(school_term_type_step, date, classroom = nil)
-    step = calendar_step_by_date(date, classroom)
+    return false if school_term_type_step.blank?
+
+    expected_step_number = school_term_type_step.step_number
+    step = resolve_calendar_step_for_school_term(date, classroom, expected_step_number)
 
     return false if step.blank?
     if step.school_calendar_parent.steps.count != school_term_type_step.school_term_type.steps_number
       return true
     end
 
-    step.step_number == school_term_type_step.step_number
+    step.step_number == expected_step_number
   end
 
-  def calendar_step_by_date(date, classroom = nil)
-    return step(date) if classroom.blank?
+  def resolve_calendar_step_for_school_term(date, classroom, expected_step_number)
+    candidates = calendar_steps_covering_date(date, classroom)
+    return if candidates.blank?
+
+    candidates.find { |s| s.step_number == expected_step_number } || candidates.first
+  end
+
+  def calendar_steps_covering_date(date, classroom)
+    if classroom.blank?
+      step_record = step(date)
+      return step_record ? [step_record] : []
+    end
 
     school_calendar_classroom = classrooms.find_by(classroom_id: classroom.id)
     if school_calendar_classroom.present?
-      school_calendar_classroom.classroom_steps.started_after_and_before(date).first
+      school_calendar_classroom.classroom_steps.started_after_and_before(date).order(:step_number).to_a
     else
-      step(date)
+      steps.started_after_and_before(date).order(:step_number).to_a
     end
   end
 

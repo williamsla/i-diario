@@ -11,7 +11,8 @@ class Avaliation < ApplicationRecord
   audited
   has_associated_audits
 
-  attr_accessor :test_date_copy, :daily_notes_allow_destroy, :grades_allow_destroy, :recovery_allow_destroy
+  attr_accessor :test_date_copy, :daily_notes_allow_destroy, :grades_allow_destroy, :recovery_allow_destroy,
+                :calendar_step
 
   before_destroy :valid_for_destruction?
   before_destroy :try_destroy, if: :valid_for_destruction?
@@ -187,7 +188,21 @@ class Avaliation < ApplicationRecord
                ExamSettingTypes::GENERAL_BY_SCHOOL
               ].include?(test_setting.exam_setting_type)
 
-    return if school_calendar.school_term_day?(test_setting.school_term_type_step, test_date, classroom)
+    school_term_type_step = test_setting.school_term_type_step
+    if calendar_step.present? && school_term_type_step.present? && test_date.present?
+      date = test_date.to_date
+      in_step = date >= calendar_step.start_at.to_date && date <= calendar_step.end_at.to_date
+      if in_step
+        calendar_steps_count = calendar_step.school_calendar_parent.steps.count
+        term_steps_count = school_term_type_step.school_term_type.steps_number
+        if calendar_steps_count != term_steps_count
+          return
+        end
+        return if calendar_step.step_number == school_term_type_step.step_number
+      end
+    end
+
+    return if school_calendar.school_term_day?(school_term_type_step, test_date, classroom)
 
     errors.add(:test_date, :must_be_school_term_day)
   end

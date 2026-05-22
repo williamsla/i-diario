@@ -197,12 +197,11 @@ module AvaliationBatchGrades
         description: desc,
         teacher_id: @teacher.id
       )
+      apply_batch_attributes!(av)
       av.test_date = @recorded_at
       av.description = desc
       assign_grade_ids!(av)
       apply_equal_arithmetic_weights!(av, col)
-      av.teacher_id = @teacher.id
-      av.current_user = @current_user
       av.save!
       av
     end
@@ -230,12 +229,11 @@ module AvaliationBatchGrades
         description: desc,
         teacher_id: @teacher.id
       )
+      apply_batch_attributes!(av)
       av.test_date = @recorded_at
       av.description = desc
       av.weight = @resolved_weights[col[:index]]
       assign_grade_ids!(av)
-      av.teacher_id = @teacher.id
-      av.current_user = @current_user
       av.save!
       av
     end
@@ -254,12 +252,19 @@ module AvaliationBatchGrades
         weight: tst.weight,
         teacher_id: @teacher.id
       )
+      apply_batch_attributes!(av)
       av.test_date = @recorded_at
       assign_grade_ids!(av)
-      av.teacher_id = @teacher.id
-      av.current_user = @current_user
       av.save!
       av
+    end
+
+    def apply_batch_attributes!(av)
+      av.test_setting = @test_setting
+      av.school_calendar = @school_calendar
+      av.calendar_step = @step
+      av.teacher_id = @teacher.id
+      av.current_user = @current_user
     end
 
     def find_scoped_avaliation(id)

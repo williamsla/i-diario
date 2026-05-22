@@ -149,7 +149,17 @@ class TestSettingFetcher
       .joins(:test_setting)
       .where(test_settings: { exam_setting_type: ExamSettingTypes::BY_SCHOOL_TERM, year: @year })
       .order(:test_date, :id)
-      .first
-      &.test_setting
+      .each do |avaliation|
+        test_setting = avaliation.test_setting
+        return test_setting if test_setting_matches_calendar_steps?(test_setting)
+      end
+
+    nil
+  end
+
+  def test_setting_matches_calendar_steps?(test_setting)
+    return false if test_setting.blank? || test_setting.school_term_type_step.blank? || @step.blank?
+
+    @step.school_calendar_parent.steps.count == test_setting.school_term_type_step.school_term_type.steps_number
   end
 end
