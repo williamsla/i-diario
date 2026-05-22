@@ -16,22 +16,25 @@ class AvaliationMultipleCreatorClassroomForm
   end
 
   def school_calendar
-    @school_calendar ||= SchoolCalendar.find_by(id: school_calendar_id)
+    avaliation_multiple_creator_form.school_calendar
   end
 
   protected
 
   def is_school_term_day?
-    return if test_setting.nil? || test_setting.exam_setting_type == ExamSettingTypes::GENERAL
+    return if test_setting.nil? ||
+              [ExamSettingTypes::GENERAL,
+               ExamSettingTypes::GENERAL_BY_SCHOOL].include?(test_setting.exam_setting_type)
 
-    errors.add(:test_date, :must_be_school_term_day) if !school_calendar.school_term_day?(test_setting.school_term_type_step, test_date)
+    school_term_type_step = test_setting.school_term_type_step
+    return if school_term_type_step.blank?
+
+    return if school_calendar.school_term_day?(school_term_type_step, test_date, classroom)
+
+    errors.add(:test_date, :must_be_school_term_day)
   end
 
   def test_setting
     avaliation_multiple_creator_form.test_setting
-  end
-
-  def school_calendar
-    avaliation_multiple_creator_form.school_calendar
   end
 end
