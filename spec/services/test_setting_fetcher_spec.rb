@@ -128,5 +128,25 @@ RSpec.describe TestSettingFetcher, type: :service do
       expect(described_class.current(classroom_with_four_steps, calendar_step)).to eq(bimestral_setting)
       expect(described_class.current(classroom_with_four_steps, calendar_step)).not_to eq(semestral_setting)
     end
+
+    it 'does not reuse a test setting from another step when an avaliation exists in a neighbor step' do
+      first_step = classroom_with_four_steps.calendar.classroom_steps.find_by(step_number: 1)
+      first_bimestral_step = create(:school_term_type_step, school_term_type: bimestral_type, step_number: 1)
+      first_bimestral_setting = create(
+        :test_setting,
+        exam_setting_type: ExamSettingTypes::BY_SCHOOL_TERM,
+        school_term_type_step: first_bimestral_step,
+        year: classroom_with_four_steps.year
+      )
+      create(
+        :avaliation,
+        :with_teacher_discipline_classroom,
+        classroom: classroom_with_four_steps,
+        test_setting: first_bimestral_setting,
+        test_date: first_step.end_at
+      )
+
+      expect(described_class.current(classroom_with_four_steps, calendar_step)).to eq(bimestral_setting)
+    end
   end
 end

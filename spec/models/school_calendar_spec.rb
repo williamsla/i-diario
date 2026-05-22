@@ -80,9 +80,9 @@ RSpec.describe SchoolCalendar, type: :model do
       expect(school_calendar.school_term_day?(school_term_type_step, Date.new(2025, 1, 1))).to eq(false)
     end
 
-    it 'prioriza a etapa com o mesmo número do período escolar quando a data coincide com duas etapas' do
+    it 'valida a data pelo intervalo da etapa do período escolar, não por ambiguidade no último dia' do
       second_step = school_calendar.steps.find_by(step_number: 2)
-      third_step = school_calendar.steps.create!(
+      school_calendar.steps.create!(
         step_number: 3,
         start_at: second_step.end_at,
         end_at: second_step.end_at + 2.months,
@@ -93,7 +93,6 @@ RSpec.describe SchoolCalendar, type: :model do
       boundary_date = second_step.end_at.to_date
 
       expect(school_calendar.school_term_day?(school_term_type_step, boundary_date)).to eq(true)
-      expect(third_step.start_at.to_date).to eq(boundary_date)
     end
   end
 

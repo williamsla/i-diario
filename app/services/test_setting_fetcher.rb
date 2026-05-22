@@ -32,29 +32,18 @@ class TestSettingFetcher
     StepsFetcher.new(@classroom).step_by_date(Date.current)
   end
 
-  def school_term_type_step
-    return if @step.blank?
-
-    avaliation_school_term_type_step.presence || step_school_term_type_step
-  end
-
-  def avaliation_school_term_type_step
-    scope = Avaliation.by_classroom_id(@classroom.id)
-    scope = scope.by_discipline_id(@discipline.id) if @discipline.present?
-
-    scope.by_test_date_between(@step.start_at, @step.end_at)
-         .first
-         .try(:test_setting)
-         .try(:school_term_type_step)
-  end
-
   def step_school_term_type_step
     steps_number = @step.school_calendar_parent.steps.count
     step_number = @step.step_number
 
     SchoolTermTypeStep.joins(:school_term_type)
-                      .where(school_term_types: { steps_number: steps_number })
-                      .find_by(step_number: step_number)
+                      .joins('INNER JOIN test_settings ON test_settings.school_term_type_step_id = school_term_type_steps.id')
+                      .where(
+                        school_term_types: { steps_number: steps_number },
+                        school_term_type_steps: { step_number: step_number },
+                        test_settings: { year: @year, exam_setting_type: ExamSettingTypes::BY_SCHOOL_TERM }
+                      )
+                      .first
   end
 
   # TODO - Entender o porquê algumas vezes @classroom.grade_ids está vindo vazio
@@ -78,10 +67,10 @@ class TestSettingFetcher
   def by_school_term_test_setting
     return if @step.blank?
 
-    from_avaliations = test_setting_from_adjacent_calendar_steps
-    return from_avaliations if from_avaliations.present?
+    from_calendar = test_setting_by_step_number_and_calendar_steps_number
+    return from_calendar if from_calendar.present?
 
-    st = school_term_type_step
+    st = step_school_term_type_step
     if st.present?
       from_calendar_term = TestSetting.find_by(
         year: @year,
@@ -91,7 +80,7 @@ class TestSettingFetcher
       return from_calendar_term if from_calendar_term.present?
     end
 
-    test_setting_by_step_number_and_calendar_steps_number
+    test_setting_from_adjacent_calendar_steps
   end
 
   def test_setting_by_step_number_and_calendar_steps_number
@@ -112,21 +101,32 @@ class TestSettingFetcher
   def test_setting_from_adjacent_calendar_steps
     return if @discipline.blank?
 
+    ts = test_setting_from_avaliations_in_calendar_range(@step.start_at, @step.end_at)
+    return ts if ts.present? && test_setting_matches_step_number?(ts)
+
     ordered = ordered_calendar_steps_for_step_parent
     return if ordered.blank?
 
     idx = ordered.index { |s| s.id == @step.id }
     return if idx.nil?
 
-    [idx - 1, idx, idx + 1].each do |i|
+    [idx - 1, idx + 1].each do |i|
       next if i.negative? || i >= ordered.size
 
       cal_step = ordered[i]
       ts = test_setting_from_avaliations_in_calendar_range(cal_step.start_at, cal_step.end_at)
-      return ts if ts.present?
+      next unless ts.present? && test_setting_matches_calendar_steps?(ts) && test_setting_matches_step_number?(ts)
+
+      return ts
     end
 
     nil
+  end
+
+  def test_setting_matches_step_number?(test_setting)
+    return false if test_setting.blank? || test_setting.school_term_type_step.blank? || @step.blank?
+
+    test_setting.school_term_type_step.step_number == @step.step_number
   end
 
   def ordered_calendar_steps_for_step_parent
@@ -151,7 +151,10 @@ class TestSettingFetcher
       .order(:test_date, :id)
       .each do |avaliation|
         test_setting = avaliation.test_setting
-        return test_setting if test_setting_matches_calendar_steps?(test_setting)
+        next unless test_setting_matches_calendar_steps?(test_setting)
+        next unless test_setting_matches_step_number?(test_setting)
+
+        return test_setting
       end
 
     nil
