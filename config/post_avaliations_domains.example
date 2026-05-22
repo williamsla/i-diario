@@ -5,7 +5,7 @@
 #   cp config/post_avaliations_domains.example config/post_avaliations_domains
 #
 # Listar domínios habilitados no banco:
-#   docker compose -f docker-compose.production.yml --env-file .env.production exec -T idiario-web-prod \
+#   docker compose -f docker-compose.production.yml --env-file .env.production exec -T app \
 #     bundle exec rails runner "puts Entity.enable_to_sync.pluck(:domain)"
 
 diario.municipio1.ensino.site

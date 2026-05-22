@@ -1,14 +1,13 @@
 #!/bin/bash
-# Dispara post_avaliations:init por DOMAIN (execução única; não inicia se já estiver rodando).
+# Dispara post_avaliations:init por DOMAIN no container Docker (execução única por vez).
+#
+# Pré-requisito: stack em execução
+#   docker compose -f docker-compose.production.yml --env-file .env.production up -d
 #
 # Cron (a cada hora):
-#   0 * * * * TZ=America/Sao_Paulo /opt/idiario/script/post_avaliations_start.sh >> /opt/idiario/log/post_avaliations_cron.log 2>&1
-#  
-# Domínios: config/post_avaliations_domains (copie de post_avaliations_domains.example).
-# Sobrescreva com DOMAINS_FILE=/caminho/outro.txt se necessário.
-# Listar do banco:
-#   docker compose -f docker-compose.production.yml --env-file .env.production exec -T idiario-web-prod \
-#     bundle exec rails runner "puts Entity.enable_to_sync.pluck(:domain)"
+#   0 * * * * TZ=America/Sao_Paulo /var/www/idiario/script/post_avaliations_start.sh >> /var/www/idiario/log/post_avaliations_cron.log 2>&1
+#
+# Domínios: config/post_avaliations_domains
 
 set -euo pipefail
 
@@ -18,7 +17,8 @@ ROOT_DIR="${IDIARIO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$ROOT_DIR"
 
 COMPOSE="${COMPOSE:-docker compose -f docker-compose.production.yml --env-file .env.production}"
-CONTAINER="${CONTAINER:-idiario-web-prod}"
+COMPOSE_SERVICE="${COMPOSE_SERVICE:-app}"
+CONTAINER_NAME="${CONTAINER_NAME:-idiario-web-prod}"
 LOG_DIR="${LOG_DIR:-$ROOT_DIR/log/post_avaliations}"
 LOCK_DIR="${LOCK_DIR:-$ROOT_DIR/tmp/post_avaliations_locks}"
 
@@ -49,10 +49,32 @@ safe_name() {
   echo "$1" | tr '.' '_' | tr -cd '[:alnum:]_-'
 }
 
-# DOMAIN fica no ambiente do processo, não na linha de comando — checa /proc/PID/environ
+ensure_docker_running() {
+  if ! command -v docker >/dev/null 2>&1; then
+    log "[ERRO] Docker não instalado ou não está no PATH."
+    exit 1
+  fi
+
+  if [[ ! -f "$ROOT_DIR/docker-compose.production.yml" ]]; then
+    log "[ERRO] docker-compose.production.yml não encontrado em ${ROOT_DIR}"
+    exit 1
+  fi
+
+  if [[ ! -f "$ROOT_DIR/.env.production" ]]; then
+    log "[ERRO] .env.production não encontrado em ${ROOT_DIR}"
+    exit 1
+  fi
+
+  if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$CONTAINER_NAME"; then
+    log "[ERRO] Container ${CONTAINER_NAME} não está em execução."
+    log "[ERRO] Suba o stack: docker compose -f docker-compose.production.yml --env-file .env.production up -d"
+    exit 1
+  fi
+}
+
 domain_is_running() {
   local domain="$1"
-  $COMPOSE exec -T "$CONTAINER" bash -c '
+  $COMPOSE exec -T "$COMPOSE_SERVICE" bash -c '
     set -euo pipefail
     domain="$1"
     for pid in $(pgrep -f "post_avaliations:init" 2>/dev/null || true); do
@@ -80,14 +102,13 @@ start_domain() {
   fi
 
   if domain_is_running "$domain"; then
-    log "[SKIP] ${domain} — post_avaliations:init já em execução."
+    log "[SKIP] ${domain} — post_avaliations:init já em execução no container."
     return 0
   fi
 
   log "[START] ${domain} → ${log_file}"
 
-  # Processo no container; log no host (nohup mantém o exec após o cron sair).
-  nohup $COMPOSE exec -T "$CONTAINER" \
+  nohup $COMPOSE exec -T "$COMPOSE_SERVICE" \
     env RAILS_ENV=production DOMAIN="$domain" ORDER="${ORDER:-asc}" \
     bundle exec rake post_avaliations:init \
     >>"$log_file" 2>&1 &
@@ -95,7 +116,9 @@ start_domain() {
   disown || true
 }
 
-log "===== post_avaliations_start (${#DOMAINS[@]} domínio(s), ${DOMAINS_FILE}) ====="
+ensure_docker_running
+
+log "===== post_avaliations_start (${#DOMAINS[@]} domínio(s), docker/${COMPOSE_SERVICE}, ${DOMAINS_FILE}) ====="
 
 for domain in "${DOMAINS[@]}"; do
   [[ -n "$domain" ]] || continue
