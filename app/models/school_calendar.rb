@@ -70,12 +70,25 @@ class SchoolCalendar < ApplicationRecord
   end
 
   def school_term_day?(school_term_type_step, date, classroom = nil)
-    step = classroom.present? ? StepsFetcher.new(classroom).step_by_date(date) : step(date)
+    step = calendar_step_by_date(date, classroom)
 
-    return if step.blank?
-    return if step.school_calendar_parent.steps.count != school_term_type_step.school_term_type.steps_number
+    return false if step.blank?
+    if step.school_calendar_parent.steps.count != school_term_type_step.school_term_type.steps_number
+      return true
+    end
 
     step.step_number == school_term_type_step.step_number
+  end
+
+  def calendar_step_by_date(date, classroom = nil)
+    return step(date) if classroom.blank?
+
+    school_calendar_classroom = classrooms.find_by(classroom_id: classroom.id)
+    if school_calendar_classroom.present?
+      school_calendar_classroom.classroom_steps.started_after_and_before(date).first
+    else
+      step(date)
+    end
   end
 
   def first_day

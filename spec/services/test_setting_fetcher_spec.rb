@@ -95,4 +95,38 @@ RSpec.describe TestSettingFetcher, type: :service do
       end
     end
   end
+
+  context 'when multiple school term types share the same step number' do
+    let!(:classroom_with_four_steps) { create(:classroom, :with_classroom_four_bimester_steps, year: 2026) }
+    let!(:calendar_step) { classroom_with_four_steps.calendar.classroom_steps.find_by(step_number: 2) }
+    let!(:bimestral_type) { create(:school_term_type, steps_number: 4, description: 'Bimestre') }
+    let!(:semestral_type) { create(:school_term_type, steps_number: 2, description: 'Semestre') }
+    let!(:bimestral_step) do
+      create(:school_term_type_step, school_term_type: bimestral_type, step_number: 2)
+    end
+    let!(:semestral_step) do
+      create(:school_term_type_step, school_term_type: semestral_type, step_number: 2)
+    end
+    let!(:semestral_setting) do
+      create(
+        :test_setting,
+        exam_setting_type: ExamSettingTypes::BY_SCHOOL_TERM,
+        school_term_type_step: semestral_step,
+        year: classroom_with_four_steps.year
+      )
+    end
+    let!(:bimestral_setting) do
+      create(
+        :test_setting,
+        exam_setting_type: ExamSettingTypes::BY_SCHOOL_TERM,
+        school_term_type_step: bimestral_step,
+        year: classroom_with_four_steps.year
+      )
+    end
+
+    it 'prefers the setting whose school term has the same number of steps as the classroom calendar' do
+      expect(described_class.current(classroom_with_four_steps, calendar_step)).to eq(bimestral_setting)
+      expect(described_class.current(classroom_with_four_steps, calendar_step)).not_to eq(semestral_setting)
+    end
+  end
 end

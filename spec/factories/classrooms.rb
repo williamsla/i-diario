@@ -130,5 +130,18 @@ FactoryGirl.define do
         )
       end
     end
+
+    trait :with_classroom_four_bimester_steps do
+      after(:create) do |classroom, evaluator|
+        school_calendar = evaluator.school_calendar || create(:school_calendar, unity: classroom.unity)
+
+        create(
+          :school_calendar_classroom,
+          :school_calendar_classroom_with_four_bimester_steps,
+          classroom: classroom,
+          school_calendar: school_calendar
+        )
+      end
+    end
   end
 end

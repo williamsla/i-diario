@@ -81,25 +81,30 @@ class TestSettingFetcher
     from_avaliations = test_setting_from_adjacent_calendar_steps
     return from_avaliations if from_avaliations.present?
 
-    # Prioriza busca direta pelo número da etapa para evitar ambiguidades quando
-    # existirem múltiplos SchoolTermTypes com a mesma quantidade de etapas.
-    from_step_number = TestSetting.joins(:school_term_type_step)
-                                  .where(
-                                    year: @year,
-                                    exam_setting_type: ExamSettingTypes::BY_SCHOOL_TERM,
-                                    school_term_type_steps: { step_number: @step.step_number }
-                                  )
-                                  .first
-    return from_step_number if from_step_number.present?
-
     st = school_term_type_step
-    return if st.blank?
+    if st.present?
+      from_calendar_term = TestSetting.find_by(
+        year: @year,
+        exam_setting_type: ExamSettingTypes::BY_SCHOOL_TERM,
+        school_term_type_step: st
+      )
+      return from_calendar_term if from_calendar_term.present?
+    end
 
-    TestSetting.find_by(
-      year: @year,
-      exam_setting_type: ExamSettingTypes::BY_SCHOOL_TERM,
-      school_term_type_step: st
-    )
+    test_setting_by_step_number_and_calendar_steps_number
+  end
+
+  def test_setting_by_step_number_and_calendar_steps_number
+    steps_number = @step.school_calendar_parent.steps.count
+
+    TestSetting.joins(school_term_type_step: :school_term_type)
+               .where(
+                 year: @year,
+                 exam_setting_type: ExamSettingTypes::BY_SCHOOL_TERM,
+                 school_term_type_steps: { step_number: @step.step_number },
+                 school_term_types: { steps_number: steps_number }
+               )
+               .first
   end
 
   # EJA / calendários com várias etapas no mesmo período da config: as avaliações podem estar na
