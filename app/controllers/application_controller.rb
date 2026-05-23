@@ -207,7 +207,11 @@ class ApplicationController < ActionController::Base
 
   def is_infantil
     classroom_grades.each do |classroom_grade|
-      return true if classroom_grade.grade.description.match?(/creche|pre|pre-escola|pré|pré-escola|maternal|bercario|berçario|infantil|aee/i)
+      description = I18n.transliterate(classroom_grade.grade.description.downcase)
+
+      return true if description.match?(
+        /creche|pre i|pre ii|pre[- ]escola(r)?|maternal|bercario|jardim|infantil|aee/
+      )
     end
     return false
   end
