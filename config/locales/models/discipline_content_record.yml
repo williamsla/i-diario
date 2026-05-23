@@ -13,6 +13,7 @@ pt-BR:
         discipline_id: "Disciplina"
         author: "Autor"
         contents: "Conteúdos"
+        objectives: "Habilidades"
         class_number: "Número de aulas"
     errors:
       models:

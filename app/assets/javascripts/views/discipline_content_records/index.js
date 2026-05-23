@@ -21,8 +21,8 @@ $(function () {
     var grade_id = $(this).data('grade-id');
 
     $disciplineContentRecord.val(discipline_content_record_id);
-    var classroom = $row.find(".classroom").text();
-    var discipline = $row.find(".discipline").text();
+    var classroom = $(this).data('classroom');
+    var discipline = $(this).data('discipline');
     record_date = $row.find(".record_date").text();
 
     $("#copy-discipline-content-record-modal table tbody td.classroom").text(classroom);

@@ -7,23 +7,11 @@
       <table id="resources" class="table table-bordered table-only-inner-bordered table-striped table-condensed table-hover">
         <thead>
           <tr>
-           <td>
-              <%= f.input :by_classroom_id, as: :select2, elements: @classrooms,
-                    label: false, placeholder: t('.by_classroom_description') %>
-            </td>
-            <td>
-              <%= f.input :by_discipline_id, as: :select2, elements: @disciplines,
-                    label: false, placeholder: t('.by_discipline_description') %>
-            </td>
             <td><%= f.input :by_date, as: :date, label: false, placeholder: t('.by_date') %></td>
+            <td colspan="3"></td>
             <td>
               <%= f.input :by_author, as: :select2_plans, label: false %>
             </td>
-
-            <% if @allow_class_number %>
-              <td></td>
-            <% end %>
-
             <td>
               <%= link_to t('.new_html'), new_discipline_content_record_path,
                 class: 'btn btn-primary pull-right', style: 'width: 165px;' %>
@@ -31,19 +19,15 @@
           </tr>
 
           <tr>
-            <th><%= ContentRecord.human_attribute_name :classroom %></th>
-            <th><%= DisciplineContentRecord.human_attribute_name :discipline %>
             <th><%= ContentRecord.human_attribute_name :record_date %></th>
+            <th><%= DisciplineContentRecord.human_attribute_name :contents %></th>
+            <th><%= DisciplineContentRecord.human_attribute_name :objectives %></th>
+            <th style='width: 10%' scope='col'>
+              <%= DisciplineContentRecord.human_attribute_name :class_number %>
+            </th>
             <th style='width: 10%' id='author'>
               <%= DisciplineContentRecord.human_attribute_name :author %>
             </th>
-
-            <% if @allow_class_number %>
-              <th style='width: 10%' scope='col'>
-                <%= DisciplineContentRecord.human_attribute_name :class_number %>
-              </th>
-            <% end %>
-
             <td style='width: 160px'></td>
           </tr>
         </thead>

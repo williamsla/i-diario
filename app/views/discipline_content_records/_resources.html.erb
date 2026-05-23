@@ -1,19 +1,16 @@
 <tbody id="resources-tbody">
   <% if @discipline_content_records.empty? %>
     <tr>
-      <td class="no_record_found" colspan="5"><%= t('views.index.no_record_found')%></td>
+      <td class="no_record_found" colspan="6"><%= t('views.index.no_record_found')%></td>
     </tr>
   <% else %>
     <% @discipline_content_records.each do |discipline_content_record| %>
       <tr>
-        <td class="classroom"><%= discipline_content_record.content_record.classroom %></td>
-        <td class="discipline"><%= discipline_content_record.discipline %></td>
         <td class="record_date"><%= l(discipline_content_record.content_record.record_date) %></td>
+        <td class="contents"><%= discipline_content_record.content_record.contents_ordered.map(&:to_s).join(', ') %></td>
+        <td class="objectives"><%= discipline_content_record.content_record.objectives_ordered.map(&:to_s).join(', ') %></td>
+        <td class="class_number"><%= discipline_content_record.class_number %></td>
         <td><%= discipline_content_record.content_record.decorator.author(current_teacher) %></td>
-
-        <% if @allow_class_number %>
-          <td><%= discipline_content_record.class_number %></td>
-        <% end %>
 
         <td class="actions">
           <%= link_to(
@@ -24,6 +21,8 @@
                         discipline_content_record_id: discipline_content_record.id,
                         discipline_id: discipline_content_record.discipline_id,
                         classroom_id: discipline_content_record.content_record.classroom.id,
+                        classroom: discipline_content_record.content_record.classroom.to_s,
+                        discipline: discipline_content_record.discipline.to_s,
                         grade_id: discipline_content_record.content_record.classroom.grade_ids
                       }) %>
           <%= link_to(

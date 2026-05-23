@@ -354,7 +354,7 @@ class DisciplineContentRecordsController < ApplicationController
   def fetch_discipline_content_records_by_user
     @discipline_content_records =
       apply_scopes(DisciplineContentRecord
-        .includes(:discipline, content_record: [:classroom, :teacher])
+        .includes(content_record: [:classroom, :teacher, :contents, :objectives])
         .by_unity_id(current_unity.id)
         .by_classroom_id(@classrooms.map(&:id))
         .by_discipline_id(@disciplines.map(&:id))

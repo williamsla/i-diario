@@ -251,7 +251,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
 
   def fetch_knowledge_area_content_records_by_user
     apply_scopes(KnowledgeAreaContentRecord
-      .includes(:knowledge_areas, content_record: [:classroom, :teacher])
+      .includes(:knowledge_areas, content_record: [:classroom, :teacher, :contents, :objectives])
       .by_classroom_id(@classrooms.map(&:id))
       .order_by_classroom
       .ordered)

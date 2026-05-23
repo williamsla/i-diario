@@ -20,12 +20,12 @@ $(function () {
     var grade_id = $(this).data('grade-id');
 
     $knowledgeAreaContentRecord.val(knowledge_area_content_record_id);
-    var classroom = $row.find(".classroom").text();
-    var knowledge_area = $row.find(".knowledge_area").html();
+    var classroom = $(this).data('classroom');
+    var knowledge_area = $(this).data('knowledge-areas');
     record_date = $row.find(".record_date").text();
 
     $("#copy-knowledge-area-content-record-modal table tbody td.classroom").text(classroom);
-    $("#copy-knowledge-area-content-record-modal table tbody td.knowledge_area").html(knowledge_area);
+    $("#copy-knowledge-area-content-record-modal table tbody td.knowledge_area").text(knowledge_area);
     $("#copy-knowledge-area-content-record-modal table tbody td.record_date").text(record_date);
     $('.remove_fields').click();
     $("#copy-knowledge-area-content-record-modal").modal('show');
