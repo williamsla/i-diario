@@ -72,10 +72,6 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     @knowledge_area_content_record.content_record.teacher = current_teacher
     @knowledge_area_content_record.teacher_id = current_teacher_id
 
-    Rails.logger.info "=== Knowledge Area Content Record - Content IDs: #{@knowledge_area_content_record.content_record.content_ids.inspect} ==="
-    Rails.logger.info "=== Knowledge Area Content Record - Objective IDs: #{@knowledge_area_content_record.content_record.objective_ids.inspect} ==="
-    Rails.logger.info "=== Knowledge Area IDs: #{@knowledge_area_content_record.knowledge_area_ids.inspect} ==="
-
     authorize @knowledge_area_content_record
 
     # Usa transação para garantir atomicidade e evitar condições de corrida
@@ -98,8 +94,6 @@ class KnowledgeAreaContentRecordsController < ApplicationController
           Rails.logger.error "=== Content Record errors: #{@knowledge_area_content_record.content_record.errors.full_messages.inspect} ==="
           raise ActiveRecord::RecordInvalid.new(@knowledge_area_content_record)
         end
-
-        Rails.logger.info "=== Registro salvo com sucesso. ID: #{@knowledge_area_content_record.id} ==="
       end
     rescue ActiveRecord::RecordInvalid => e
       Rails.logger.error "=== Exceção ao salvar: #{e.message} ==="
@@ -156,10 +150,6 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     @knowledge_area_content_record.teacher_id = current_teacher_id
     @knowledge_area_content_record.content_record.current_user = current_user
 
-    Rails.logger.info "=== Knowledge Area Content Record Update - Content IDs: #{@knowledge_area_content_record.content_record.content_ids.inspect} ==="
-    Rails.logger.info "=== Knowledge Area Content Record Update - Objective IDs: #{@knowledge_area_content_record.content_record.objective_ids.inspect} ==="
-    Rails.logger.info "=== Knowledge Area IDs: #{@knowledge_area_content_record.knowledge_area_ids.inspect} ==="
-
     authorize @knowledge_area_content_record
 
     # Usa transação para garantir atomicidade e evitar condições de corrida
@@ -183,7 +173,6 @@ class KnowledgeAreaContentRecordsController < ApplicationController
           raise ActiveRecord::RecordInvalid.new(@knowledge_area_content_record)
         end
 
-        Rails.logger.info "=== Registro atualizado com sucesso. ID: #{@knowledge_area_content_record.id} ==="
       end
     rescue ActiveRecord::RecordInvalid => e
       Rails.logger.error "=== Exceção ao atualizar: #{e.message} ==="
