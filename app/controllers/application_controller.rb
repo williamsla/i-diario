@@ -210,7 +210,7 @@ class ApplicationController < ActionController::Base
       description = I18n.transliterate(classroom_grade.grade.description.downcase)
 
       return true if description.match?(
-        /creche|pre i|pre ii|pre[- ]escola(r)?|maternal|bercario|jardim|infantil|aee/
+        /creche|pre|pre i|pre ii|pre[- ]escola(r)?|maternal|bercario|jardim|infantil|aee/
       )
     end
     return false
