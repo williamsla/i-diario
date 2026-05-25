@@ -20,6 +20,10 @@ class User < ApplicationRecord
     super(new_password.present? ? new_password.downcase : new_password)
   end
 
+  def password_confirmation=(new_password_confirmation)
+    @password_confirmation = new_password_confirmation.present? ? new_password_confirmation.downcase : new_password_confirmation
+  end
+
   def valid_password?(password)
     super(password) || super(password.downcase)
   end
