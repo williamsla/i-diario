@@ -20,7 +20,10 @@ class TeachersSynchronizer < BaseSynchronizer
   def update_teachers(teachers)
     
     teachers.each do |teacher_record|
-      next if teacher_record.nome.blank?
+      if teacher_record.nome.blank?
+        Rails.logger.info("Nome do servidor não definido para o servidor ID: #{teacher_record.servidor_id}")
+        next
+      end
 
       teacher_record.cpf = teacher_record.cpf.strip if teacher_record.cpf
 
@@ -29,16 +32,16 @@ class TeachersSynchronizer < BaseSynchronizer
         teacher.name = teacher_record.nome
         teacher.active = teacher_record.ativo.to_s == IeducarBooleanState::ACTIVE
         teacher.save! if teacher.changed?
-
-
         
         if CPF.valid?(teacher_record.cpf)
-          
-          user = User.by_cpf(teacher_record.cpf)
-          
+          Rails.logger.info("==\nCPF válido: #{teacher_record.cpf}")
+
+          user = User.by_cpf(teacher_record.cpf)          
           if user.exists?
+            Rails.logger.info("==\nAtualizando usuário: #{user.id} Teacher ID: #{teacher.id} CPF: #{teacher_record.cpf} School ID: #{teacher_record.escola_id} Function Name: #{teacher_record.nm_funcao}")
             update_users(teacher.id, teacher_record.cpf, teacher_record.escola_id, teacher_record.nm_funcao)
           else
+            Rails.logger.info("==\nCriando usuário: Teacher ID: #{teacher.id} CPF: #{teacher_record.cpf} School ID: #{teacher_record.escola_id} Function Name: #{teacher_record.nm_funcao}")
             create_users(teacher.id, teacher_record.cpf, teacher_record.escola_id, teacher_record.nm_funcao)
           end
         else
