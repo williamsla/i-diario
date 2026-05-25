@@ -16,6 +16,14 @@ class User < ApplicationRecord
 
   attr_accessor :credentials, :has_to_validate_receive_news_fields
 
+  def password=(new_password)
+    super(new_password.present? ? new_password.downcase : new_password)
+  end
+
+  def valid_password?(password)
+    super(password) || super(password.downcase)
+  end
+
   has_enumeration_for :kind, with: RoleKind, create_helpers: true
   has_enumeration_for :status, with: UserStatus, create_helpers: true
 
