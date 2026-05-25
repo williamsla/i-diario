@@ -47,8 +47,9 @@ Rails.application.configure do
   # Prepend all log lines with the following tags.
   # config.log_tags = [ :subdomain, :uuid ]
 
-  # Use a different logger for distributed setups.
-  # config.logger = ActiveSupport::TaggedLogging.new(SyslogLogger.new)
+  # Log separado por domínio (tenant). Cada Entity gera seu próprio arquivo em log/{domain}.log
+  # Para desativar, comente a linha abaixo.
+  config.logger = PerDomainLogger.new
 
   # Use a different cache store in production.
   if ENV['PRECOMPILING_ASSETS'] == '1'
