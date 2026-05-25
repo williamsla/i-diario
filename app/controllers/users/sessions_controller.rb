@@ -3,8 +3,6 @@ class Users::SessionsController < Devise::SessionsController
     @time = 0
     if password_blank? && user_login_not_blank?
       flash.now[:alert] = I18n.t('devise.failure.password_blank')
-    elsif failed_login? && user_login_not_blank?
-      valid_failed_attempts
     end
 
     super
