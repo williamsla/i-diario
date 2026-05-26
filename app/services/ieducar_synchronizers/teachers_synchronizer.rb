@@ -61,11 +61,15 @@ class TeachersSynchronizer < BaseSynchronizer
   end
 
   def create_users(teacher_id, cpf, school_id, function_name)
-    UserForTeacherCreatorWorker.perform_in(1.second, entity_id, teacher_id, cpf, school_id, function_name)
+    UserForTeacherCreator.create!(teacher_id, cpf, school_id, function_name)
+  rescue => e
+    Rails.logger.error("[TeachersSynchronizer] Erro ao criar user: teacher_id=#{teacher_id} - #{e.message}")
   end
 
   def update_users(teacher_id, cpf, school_id, function_name)
-    UserForTeacherUpdaterWorker.perform_in(1.second, entity_id, teacher_id, cpf, school_id, function_name)
+    UserForTeacherUpdater.update!(teacher_id, cpf, school_id, function_name)
+  rescue => e
+    Rails.logger.error("[TeachersSynchronizer] Erro ao atualizar user: teacher_id=#{teacher_id} - #{e.message}")
   end
   
 end
