@@ -21,7 +21,7 @@ cd "$PROJECT_DIR"
 COMPOSE="docker compose -f $COMPOSE_FILE --env-file $ENV_FILE"
 
 current_upstream() {
-  grep -oP 'server\s+\Kapp-(blue|green)' "$NGINX_CONF" | head -1
+  grep -oP 'set \$backend \Kapp-(blue|green)' "$NGINX_CONF" | head -1
 }
 
 wait_healthy() {
@@ -83,7 +83,7 @@ fi
 
 echo ""
 echo "==> 4/5 Chaveando Nginx para $NEW_SLOT..."
-sed -i "s/server ${ACTIVE_SLOT}:3000/server ${NEW_SLOT}:3000/" "$NGINX_CONF"
+sed -i "s/set \$backend ${ACTIVE_SLOT}/set \$backend ${NEW_SLOT}/" "$NGINX_CONF"
 
 docker exec idiario-nginx-prod nginx -s reload
 echo "  Nginx recarregado para $NEW_SLOT."
