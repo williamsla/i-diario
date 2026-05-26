@@ -84,7 +84,24 @@ fi
 echo ""
 echo "==> 4/5 Chaveando Nginx para $NEW_SLOT..."
 sed -i "s/server ${ACTIVE_SLOT}:3000/server ${NEW_SLOT}:3000/" "$NGINX_CONF"
-docker exec idiario-nginx-prod nginx -s reload
+
+if ! docker exec idiario-nginx-prod nginx -t 2>&1; then
+  echo "  ERRO: nginx.conf inválido após troca! Revertendo..."
+  sed -i "s/server ${NEW_SLOT}:3000/server ${ACTIVE_SLOT}:3000/" "$NGINX_CONF"
+  exit 1
+fi
+
+docker restart idiario-nginx-prod
+
+echo "  Verificando se Nginx está respondendo..."
+sleep 3
+if ! docker exec idiario-nginx-prod wget -qO /dev/null --timeout=10 http://127.0.0.1/ 2>/dev/null; then
+  echo "  ERRO: Nginx não respondeu após restart! Revertendo para $ACTIVE_SLOT..."
+  sed -i "s/server ${NEW_SLOT}:3000/server ${ACTIVE_SLOT}:3000/" "$NGINX_CONF"
+  docker restart idiario-nginx-prod
+  exit 1
+fi
+echo "  Nginx chaveado com sucesso para $NEW_SLOT."
 
 echo ""
 echo "==> 5/5 Parando slot antigo ($ACTIVE_SLOT) e atualizando Sidekiq..."
