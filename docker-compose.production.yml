@@ -1,25 +1,31 @@
-# Stack da VM de aplicação (Rails + Sidekiq + Redis).
-# PostgreSQL roda fora deste compose (VM/serviço de banco já existente). Aponte DATABASE_HOST para esse host.
+# Stack de produção com deploy zero-downtime (blue/green).
 #
-# Pré-requisitos na VM da aplicação:
-#   - Imagem já publicada no registry (defina APP_IMAGE no .env.production)
-#   - Monte secrets em runtime (tem que ser um ARQUIVO YAML real no host). Se não existir,
-#     o Docker pode criar secrets.yml como PASTA e o Rails falha com EISDIR.
-#       volumes: [ "./config/secrets.yml:/app/config/secrets.yml:ro" ]
-#   - database.yml na imagem vem do sample (ENV); ou sobrescreva com volume se precisar.
+# Arquitetura:
+#   nginx (porta pública) → app-blue OU app-green (porta 3000 interna) → redis
+#   sidekiq → redis
 #
-# Exemplo:
-#   docker compose -f docker-compose.production.yml --env-file .env.production up -d
+# Deploy: use o script docker/deploy-zero-downtime.sh
+#   ./docker/deploy-zero-downtime.sh <nova-tag>
 #
 # Variáveis esperadas no .env.production (ou no ambiente):
-#   APP_IMAGE
+#   TAG (tag atual da imagem)
 #   DATABASE_HOST  DATABASE_USERNAME  DATABASE_PASSWORD  DATABASE_NAME
-#   Opcional: DATABASE_PORT (padrão 5432), DATABASE_POOL (importante para o cálculo do Puma),
-#   APP_PORT (host → container :3000). RAILS_MAX_THREADS e WEB_CONCURRENCY: omita para o Puma
-#   calcular a partir de CPUs e DATABASE_POOL; PUMA_LOG_CONCURRENCY=1 loga os valores escolhidos.
-#   RUN_DB_MIGRATE_ON_START: no app roda db:migrate antes do Puma (padrão 1). Sidekiq usa 0 e espera o app saudável.
+#   Opcional: DATABASE_PORT, DATABASE_POOL, APP_PORT, RAILS_MAX_THREADS, WEB_CONCURRENCY
 
 services:
+  nginx:
+    image: nginx:alpine
+    container_name: idiario-nginx-prod
+    ports:
+      - "${APP_PORT:-3000}:80"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app-blue
+    restart: unless-stopped
+    networks:
+      - idiario_prod
+
   redis:
     image: redis:7-alpine
     container_name: idiario-redis-prod
@@ -30,14 +36,12 @@ services:
     networks:
       - idiario_prod
 
-  app:
+  app-blue:
     image: container-registry.br-ne1.magalu.cloud/idiario/idiario-app:${TAG:?defina TAG}
-    container_name: idiario-web-prod
+    container_name: idiario-app-blue
     volumes:
       - ./config/secrets.yml:/app/config/secrets.yml:ro
-    ports:
-      - "${APP_PORT:-3000}:3000"
-    environment:
+    environment: &app_env
       RAILS_ENV: production
       NODE_ENV: production
       RAILS_LOG_TO_STDOUT: "1"
@@ -49,7 +53,7 @@ services:
       DATABASE_NAME: ${DATABASE_NAME:?defina DATABASE_NAME}
       DATABASE_PORT: ${DATABASE_PORT:-5432}
       DATABASE_POOL: ${DATABASE_POOL:-10}
-    healthcheck:
+    healthcheck: &app_health
       test:
         [
           "CMD",
@@ -69,6 +73,23 @@ services:
     networks:
       - idiario_prod
 
+  app-green:
+    image: container-registry.br-ne1.magalu.cloud/idiario/idiario-app:${TAG:?defina TAG}
+    container_name: idiario-app-green
+    volumes:
+      - ./config/secrets.yml:/app/config/secrets.yml:ro
+    environment:
+      <<: *app_env
+    healthcheck:
+      <<: *app_health
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - idiario_prod
+    profiles:
+      - green
+
   sidekiq:
     image: container-registry.br-ne1.magalu.cloud/idiario/idiario-app:${TAG:?defina TAG}
     container_name: idiario-sidekiq-prod
@@ -77,19 +98,12 @@ services:
     volumes:
       - ./config/secrets.yml:/app/config/secrets.yml:ro
     environment:
-      RAILS_ENV: production
-      RAILS_LOG_TO_STDOUT: "1"
+      <<: *app_env
       RUN_DB_MIGRATE_ON_START: "0"
-      DATABASE_HOST: ${DATABASE_HOST:?defina DATABASE_HOST}
-      DATABASE_USERNAME: ${DATABASE_USERNAME:?defina DATABASE_USERNAME}
-      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?defina DATABASE_PASSWORD}
-      DATABASE_NAME: ${DATABASE_NAME:?defina DATABASE_NAME}
-      DATABASE_PORT: ${DATABASE_PORT:-5432}
-      DATABASE_POOL: ${DATABASE_POOL:-10}
     depends_on:
       redis:
         condition: service_started
-      app:
+      app-blue:
         condition: service_healthy
     restart: unless-stopped
     networks:
