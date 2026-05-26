@@ -49,7 +49,7 @@ Rails.application.configure do
 
   # Log separado por domínio (tenant). Cada Entity gera seu próprio arquivo em log/{domain}.log
   # Para desativar, comente as duas linhas abaixo.
-  require_relative '../lib/per_domain_logger'
+  require_relative '../../lib/per_domain_logger'
   config.logger = PerDomainLogger.new
 
   # Use a different cache store in production.
