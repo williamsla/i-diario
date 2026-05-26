@@ -1,6 +1,7 @@
 class PerDomainLogger < Logger
   def initialize(log_dir = Rails.root.join('log'))
     @log_dir = log_dir
+    FileUtils.mkdir_p(@log_dir)
     @loggers = {}
     @fallback = Logger.new(File.join(@log_dir, "production.log"))
     @fallback.formatter = Rails.application.config.log_formatter
