@@ -85,8 +85,18 @@ echo ""
 echo "==> 4/5 Chaveando Nginx para $NEW_SLOT..."
 sed -i "s/set \$backend ${ACTIVE_SLOT}/set \$backend ${NEW_SLOT}/" "$NGINX_CONF"
 
-docker exec idiario-nginx-prod nginx -s reload
-echo "  Nginx recarregado para $NEW_SLOT."
+docker restart idiario-nginx-prod
+sleep 2
+
+# Verifica se o Nginx está apontando para o slot correto
+INSIDE=$(docker exec idiario-nginx-prod grep -o "app-\(blue\|green\)" /etc/nginx/conf.d/default.conf | head -1)
+if [ "$INSIDE" != "$NEW_SLOT" ]; then
+  echo "  ERRO: Nginx não carregou o novo config (esperado=$NEW_SLOT, atual=$INSIDE). Revertendo..."
+  sed -i "s/set \$backend ${NEW_SLOT}/set \$backend ${ACTIVE_SLOT}/" "$NGINX_CONF"
+  docker restart idiario-nginx-prod
+  exit 1
+fi
+echo "  Nginx chaveado para $NEW_SLOT."
 
 echo ""
 echo "==> 5/5 Parando slot antigo ($ACTIVE_SLOT) e atualizando Sidekiq..."
