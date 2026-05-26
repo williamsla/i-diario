@@ -181,7 +181,8 @@ class KnowledgeAreaContentRecordReport < BaseReport
         knowledge_area_content_record.content_record.daily_activities_record.to_s.gsub("\n", ' ').squeeze(' ') ,
         objective_cell_content(knowledge_area_content_record.content_record)
       ].join("\n")
-      texto_praticas_pedagogicas_e_habilidades_cell = make_cell(content: texto_praticas_pedagogicas_e_habilidades, size: 7, align: :left, colspan: 2)
+      colspan_value = @show_daily_activities_in_knowledge_area_content_record_report ? 2 : 1
+      texto_praticas_pedagogicas_e_habilidades_cell = make_cell(content: texto_praticas_pedagogicas_e_habilidades, size: 7, align: :left, colspan: colspan_value)
 
 
       general_information_cells << [

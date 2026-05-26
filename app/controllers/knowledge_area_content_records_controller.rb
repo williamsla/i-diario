@@ -9,7 +9,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
 
   def index
     params[:filter] ||= {}
-    author_type = PlansAuthors::ALL.to_s if params[:filter].empty?
+    author_type = PlansAuthors::MY_PLANS.to_s if params[:filter].empty?
     author_type ||= (params[:filter] || []).delete(:by_author)
 
     set_options_by_user
