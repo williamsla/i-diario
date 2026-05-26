@@ -35,13 +35,17 @@ class TeachersSynchronizer < BaseSynchronizer
         
         if CPF.valid?(teacher_record.cpf)
           Rails.logger.info("==\nCPF válido: #{teacher_record.cpf}")
+          
+          if teacher_record.cpf.contains?('136.121.734-05')
+            Rails.logger.info("\n\n\n\n professora AMANDA...")            
+          end
 
           user = User.by_cpf(teacher_record.cpf)          
           if user.exists?
-            Rails.logger.info("==\nAtualizando usuário: #{user.id} Teacher ID: #{teacher.id} CPF: #{teacher_record.cpf} School ID: #{teacher_record.escola_id} Function Name: #{teacher_record.nm_funcao}")
+            Rails.logger.info("== Atualizando usuário: #{user.id} Teacher ID: #{teacher.id} CPF: #{teacher_record.cpf} School ID: #{teacher_record.escola_id} Function Name: #{teacher_record.nm_funcao}")
             update_users(teacher.id, teacher_record.cpf, teacher_record.escola_id, teacher_record.nm_funcao)
           else
-            Rails.logger.info("==\nCriando usuário: Teacher ID: #{teacher.id} CPF: #{teacher_record.cpf} School ID: #{teacher_record.escola_id} Function Name: #{teacher_record.nm_funcao}")
+            Rails.logger.info("== Criando usuário: Teacher ID: #{teacher.id} CPF: #{teacher_record.cpf} School ID: #{teacher_record.escola_id} Function Name: #{teacher_record.nm_funcao}")
             create_users(teacher.id, teacher_record.cpf, teacher_record.escola_id, teacher_record.nm_funcao)
           end
         else
