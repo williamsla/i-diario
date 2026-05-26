@@ -7,9 +7,9 @@ class UserForTeacherCreator
   end
 
   def create!(teacher_id, cpf, school_id, function_name)
-    teacher = Teacher.find(teacher_id)
+    teacher = Teacher.find_by(id: teacher_id)
     if teacher.blank?
-      Rails.logger.info("==\nTeacher não encontrado: #{teacher.id} CPF: #{cpf} School ID: #{school_id} Function Name: #{function_name}")
+      Rails.logger.warn("[UserForTeacherCreator] Teacher não encontrado: teacher_id=#{teacher_id} CPF: #{cpf} School ID: #{school_id} Function Name: #{function_name}")
       return
     end
 
@@ -27,32 +27,34 @@ class UserForTeacherCreator
   def create_user(teacher, cpf, unity, function_name)
     function_name = function_name.to_s.strip
     if function_name.blank?
-      Rails.logger.warn("[UserForTeacherCreator] function_name ausente ou vazio (servidor_id=#{teacher.id} CPF: #{cpf} School ID: #{school_id} Function Name: #{function_name})")
+      Rails.logger.warn("[UserForTeacherCreator] function_name ausente ou vazio (servidor_id=#{teacher.id} CPF: #{cpf} Unity: #{unity.api_code} Function Name: #{function_name})")
       return
     end
 
     role_id = Role.where("name ILIKE ?", "%#{function_name}%").first&.id
     if role_id.blank?
-      Rails.logger.warn("[UserForTeacherCreator] Nenhum role encontrado para função '#{function_name}' (servidor_id=#{teacher.id}) CPF: #{cpf} School ID: #{school_id} Function Name: #{function_name}")
+      Rails.logger.warn("[UserForTeacherCreator] Nenhum role encontrado para função '#{function_name}' (servidor_id=#{teacher.id}) CPF: #{cpf} Unity: #{unity.api_code} Function Name: #{function_name}")
       return
     end
 
-    role = Role.by_id(role_id)
+    role = Role.find_by(id: role_id)
     if role.access_level == AccessLevel::ADMINISTRATOR
-      Rails.logger.warn("[UserForTeacherCreator] Role é administrador (servidor_id=#{teacher.id}) CPF: #{cpf} School ID: #{school_id} Function Name: #{function_name}")
+      Rails.logger.warn("[UserForTeacherCreator] Role é administrador (servidor_id=#{teacher.id}) CPF: #{cpf} Unity: #{unity.api_code} Function Name: #{function_name}")
       return
     end
 
     email = "professor#{teacher.api_code}@educaonline.tec.br"
 
     # retorna se encontrar o usuário como servidor cadastrado no sistema
-    if User.find_by(teacher_id: teacher.id, kind: RoleKind::EMPLOYEE)
-      Rails.logger.info("==\nUser encontrado: #{User.find_by(teacher_id: teacher.id, kind: RoleKind::EMPLOYEE)} CPF: #{cpf} School ID: #{school_id} Function Name: #{function_name}")
+    existing_user = User.find_by(teacher_id: teacher.id, kind: RoleKind::EMPLOYEE)
+    if existing_user
+      Rails.logger.info("[UserForTeacherCreator] User já existe por teacher_id: #{existing_user.id} CPF: #{cpf} Unity: #{unity.api_code} Function Name: #{function_name}")
       return
     end
 
-    if User.find_by(email: email, kind: RoleKind::EMPLOYEE)
-      Rails.logger.info("==\nUser encontrado: #{User.find_by(email: email, kind: RoleKind::EMPLOYEE)} CPF: #{cpf} School ID: #{school_id} Function Name: #{function_name}")
+    existing_user = User.find_by(email: email, kind: RoleKind::EMPLOYEE)
+    if existing_user
+      Rails.logger.info("[UserForTeacherCreator] User já existe por email: #{existing_user.id} CPF: #{cpf} Unity: #{unity.api_code} Function Name: #{function_name}")
       return
     end
 
@@ -66,7 +68,7 @@ class UserForTeacherCreator
     )
 
     unless user.new_record?
-      Rails.logger.info("==\nUser não encontrado: #{user.id} CPF: #{cpf} School ID: #{school_id} Function Name: #{function_name}")
+      Rails.logger.info("[UserForTeacherCreator] User já existe: #{user.id} CPF: #{cpf} Unity: #{unity.api_code} Function Name: #{function_name}")
       return
     end
 
