@@ -232,10 +232,8 @@ class ConceptualExamsController < ApplicationController
     student_ids = @student_enrollments.map(&:student_id).uniq
     @students = Student.where(id: student_ids).ordered
 
+    @disciplines_by_student = batch_disciplines_by_student(@classroom, @students, @step)
     @existing_by_student = batch_existing_conceptual_exams(@classroom, @step, student_ids)
-    @disciplines_by_student = batch_disciplines_by_student(
-      @classroom, @students, @step, existing_by_student: @existing_by_student
-    )
     @all_discipline_ids = @disciplines_by_student.values.flatten.uniq
     @disciplines = Discipline.where(id: @all_discipline_ids).includes(:knowledge_area)
     @disciplines = @disciplines.to_a.sort_by { |d| [d.knowledge_area&.sequence.to_i, d.knowledge_area&.description.to_s, d.sequence.to_i, d.description] }
@@ -282,6 +280,11 @@ class ConceptualExamsController < ApplicationController
           step = @step
         end
 
+        values_by_discipline = filter_batch_values_by_teacher_disciplines(
+          values_by_discipline, @classroom, step
+        )
+        next if values_by_discipline.empty?
+
         # Se já existir lançamento para este aluno nesta etapa, editar o existente.
         conceptual_exam = ConceptualExam.by_classroom(@classroom.id)
                                         .by_student_id(student_id)
@@ -316,6 +319,8 @@ class ConceptualExamsController < ApplicationController
 
     if errors.any?
       flash[:alert] = "Salvos: #{saved}. Erros: #{errors.join('; ')}"
+    elsif saved.zero?
+      flash[:alert] = I18n.t('conceptual_exams.create_batch.none_saved')
     else
       flash[:notice] = I18n.t('conceptual_exams.create_batch.saved', count: saved)
     end
@@ -785,38 +790,24 @@ class ConceptualExamsController < ApplicationController
       .pluck(:discipline_id)
       .uniq
 
+    return [] if teacher_discipline_ids.blank?
+
     step_number = step.respond_to?(:to_number) ? step.to_number : step.step_number
     exempted_discipline_ids = ExemptedDisciplinesInStep.discipline_ids(classroom.id, step_number)
     discipline_scope = Discipline.by_score_type(ScoreTypes::CONCEPT).not_grouper
     discipline_scope = discipline_scope.descriptor unless conceptual_exam_batch_layout?
 
-    if teacher_discipline_ids.present?
-      discipline_scope
-        .where(id: teacher_discipline_ids)
-        .where.not(id: exempted_discipline_ids)
-        .pluck(:id)
-    else
-      grade_ids = ClassroomsGrade.by_classroom_id(classroom.id).pluck(:grade_id).uniq
-      grade_discipline_ids = SchoolCalendarDisciplineGrade
-        .where(school_calendar_id: school_calendar.id, grade_id: grade_ids)
-        .pluck(:discipline_id)
-        .uniq
-      discipline_scope
-        .where(id: grade_discipline_ids)
-        .where.not(id: exempted_discipline_ids)
-        .pluck(:id)
-    end
+    discipline_scope
+      .where(id: teacher_discipline_ids)
+      .where.not(id: exempted_discipline_ids)
+      .pluck(:id)
   end
 
-  def batch_disciplines_by_student(classroom, students, step, existing_by_student: {})
+  def batch_disciplines_by_student(classroom, students, step)
     school_calendar = SchoolCalendar.find_by(unity_id: classroom.unity_id, year: classroom.year)
     return {} if school_calendar.blank?
 
     discipline_ids_global = batch_discipline_ids_global(classroom, school_calendar, step)
-    persisted_discipline_ids = existing_by_student.values.flat_map { |exam|
-      exam.conceptual_exam_values.map(&:discipline_id)
-    }.uniq
-    discipline_ids_global = (discipline_ids_global + persisted_discipline_ids).uniq
 
     result = {}
     students.each do |student|
@@ -826,14 +817,17 @@ class ConceptualExamsController < ApplicationController
       grade_discipline_ids = SchoolCalendarDisciplineGrade
         .where(school_calendar_id: school_calendar.id, grade_id: cg.grade_id)
         .pluck(:discipline_id)
-      student_discipline_ids = discipline_ids_global & grade_discipline_ids
-      student_exam = existing_by_student[student.id]
-      if student_exam.present?
-        student_discipline_ids = (student_discipline_ids + student_exam.conceptual_exam_values.map(&:discipline_id)).uniq
-      end
-      result[student.id] = student_discipline_ids
+      result[student.id] = discipline_ids_global & grade_discipline_ids
     end
     result
+  end
+
+  def filter_batch_values_by_teacher_disciplines(values_by_discipline, classroom, step)
+    school_calendar = SchoolCalendar.find_by(unity_id: classroom.unity_id, year: classroom.year)
+    return {} if school_calendar.blank?
+
+    allowed_ids = batch_discipline_ids_global(classroom, school_calendar, step)
+    values_by_discipline.select { |discipline_id, _| allowed_ids.include?(discipline_id.to_i) }
   end
 
   def batch_exempted_by_student(student_enrollments, step)

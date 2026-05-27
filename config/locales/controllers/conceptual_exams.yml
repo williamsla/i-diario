@@ -6,3 +6,4 @@ pt-BR:
       not_available: 'O preenchimento por turma não está disponível para esta unidade.'
     create_batch:
       saved: '%{count} avaliação(ões) salva(s) com sucesso.'
+      none_saved: 'Nenhuma avaliação foi salva. Preencha ao menos um conceito nas disciplinas da sua atribuição.'
