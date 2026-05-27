@@ -85,6 +85,24 @@ RSpec.describe Avaliation, type: :model do
         expect(subject).to_not be_valid
         expect(subject.errors[:test_setting_test]).to include('deve ser única por etapa')
       end
+
+      it 'allows updating the same avaliation when calendar_step is set (batch save)' do
+        existing = create(
+          :avaliation,
+          test_date: step.start_at.to_date,
+          discipline: subject.discipline,
+          classroom: subject.classroom,
+          test_setting: subject.test_setting,
+          test_setting_test: subject.test_setting.tests.first,
+          grade_ids: subject.grade_ids,
+          teacher_id: subject.teacher_id
+        )
+
+        existing.test_date = step.end_at.to_date
+        existing.calendar_step = step
+
+        expect(existing).to be_valid
+      end
     end
 
     context 'when configuration with sum calculation type that allow break up' do

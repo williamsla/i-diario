@@ -171,6 +171,13 @@ module AvaliationBatchGrades
         .by_test_date_between(@step.start_at, @step.end_at)
     end
 
+    def instrument_avaliations_scope
+      Avaliation
+        .by_classroom_id(@classroom.id)
+        .by_discipline_id(@discipline.id)
+        .by_test_setting_instruments(@test_setting.id)
+    end
+
     def resolve_avaliation!(col)
       case batch_mode
       when :instrument_sum
@@ -240,9 +247,18 @@ module AvaliationBatchGrades
 
     def resolve_sum_avaliation!(col)
       tst = TestSettingTest.find(col[:test_setting_test_id])
-      av = find_scoped_avaliation(col[:avaliation_id])
-      av ||= avaliations_scope.find_by(test_setting_test_id: tst.id)
-      av ||= Avaliation.new(
+      av = pick_canonical_instrument_avaliation(col, tst)
+      av ||= build_new_sum_avaliation(tst)
+      consolidate_duplicate_instrument_avaliations!(tst.id, keep: av)
+      apply_batch_attributes!(av)
+      av.test_date = @recorded_at
+      assign_grade_ids!(av)
+      av.save!
+      av
+    end
+
+    def build_new_sum_avaliation(tst)
+      Avaliation.new(
         classroom: @classroom,
         discipline: @discipline,
         school_calendar: @school_calendar,
@@ -252,11 +268,87 @@ module AvaliationBatchGrades
         weight: tst.weight,
         teacher_id: @teacher.id
       )
-      apply_batch_attributes!(av)
-      av.test_date = @recorded_at
-      assign_grade_ids!(av)
-      av.save!
-      av
+    end
+
+    # Escolhe uma avaliação por instrumento quando há duplicatas na etapa (causa comum do erro de unicidade).
+    def pick_canonical_instrument_avaliation(col, tst)
+      find_scoped_avaliation(col[:avaliation_id]) ||
+        pick_best_from_instrument_pool(instrument_pool_for_step(tst.id), col[:avaliation_id])
+    end
+
+    def instrument_pool_for_step(test_setting_test_id)
+      in_step = instrument_avaliations_scope
+        .where(test_setting_test_id: test_setting_test_id)
+        .merge(avaliations_scope)
+        .order(:id)
+        .to_a
+      return in_step if in_step.any?
+
+      instrument_avaliations_scope
+        .where(test_setting_test_id: test_setting_test_id)
+        .order(:id)
+        .to_a
+    end
+
+    def pick_best_from_instrument_pool(pool, preferred_id)
+      return if pool.blank?
+
+      if preferred_id.present?
+        found = pool.find { |a| a.id == preferred_id.to_i }
+        return found if found
+      end
+
+      with_notes = pool.select { |a| avaliation_has_notes?(a) }
+      (with_notes.presence || pool).min_by(&:id)
+    end
+
+    def consolidate_duplicate_instrument_avaliations!(test_setting_test_id, keep:)
+      duplicate_instrument_avaliations_in_step(test_setting_test_id, keep: keep).each do |extra|
+        merge_notes_into_avaliation!(keep, extra)
+        destroy_duplicate_avaliation!(extra)
+      end
+    end
+
+    def duplicate_instrument_avaliations_in_step(test_setting_test_id, keep:)
+      scope = instrument_avaliations_scope
+        .where(test_setting_test_id: test_setting_test_id)
+        .merge(avaliations_scope)
+      scope = scope.where.not(id: keep.id) if keep.persisted?
+      scope.order(:id).to_a
+    end
+
+    def merge_notes_into_avaliation!(keep, source)
+      source_dn = DailyNote.find_by(avaliation_id: source.id)
+      return if source_dn.blank?
+
+      keep_dn = DailyNoteCreator.new(avaliation_id: keep.id).find_or_create
+      return unless keep_dn.persisted?
+
+      source_dn.students.where.not(note: nil).find_each do |dns|
+        keep_dns = find_or_initialize_daily_note_student(keep_dn, dns.student_id)
+        keep_dns.note = dns.note if keep_dns.note.nil?
+        keep_dns.active = true
+        keep_dns.save!
+      end
+    end
+
+    def destroy_duplicate_avaliation!(avaliation)
+      svc = DestroyColumnService.new(avaliation: avaliation)
+      return if svc.call
+
+      avaliation.errors.add(
+        :base,
+        svc.error.presence || I18n.t('avaliations.batch.duplicate_destroy_failed')
+      )
+      raise ActiveRecord::RecordInvalid, avaliation
+    end
+
+    def avaliation_has_notes?(avaliation)
+      DailyNoteStudent
+        .joins(:daily_note)
+        .where(daily_notes: { avaliation_id: avaliation.id })
+        .where.not(note: nil)
+        .exists?
     end
 
     def apply_batch_attributes!(av)
