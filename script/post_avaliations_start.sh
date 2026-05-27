@@ -17,8 +17,9 @@ ROOT_DIR="${IDIARIO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$ROOT_DIR"
 
 COMPOSE="${COMPOSE:-docker compose -f docker-compose.production.yml --env-file .env.production}"
-COMPOSE_SERVICE="${COMPOSE_SERVICE:-app}"
-CONTAINER_NAME="${CONTAINER_NAME:-idiario-web-prod}"
+# Produção usa app-blue / app-green (docker-compose.production.yml), não "app".
+COMPOSE_SERVICE="${COMPOSE_SERVICE:-app-blue}"
+CONTAINER_NAME="${CONTAINER_NAME:-idiario-app-blue}"
 LOG_DIR="${LOG_DIR:-$ROOT_DIR/log/post_avaliations}"
 LOCK_DIR="${LOCK_DIR:-$ROOT_DIR/tmp/post_avaliations_locks}"
 
