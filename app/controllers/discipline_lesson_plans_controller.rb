@@ -3,6 +3,7 @@ class DisciplineLessonPlansController < ApplicationController
   has_scope :per, default: 10
 
   before_action :require_current_classroom, only: [:index, :new, :edit, :create, :update]
+  before_action :require_current_discipline, only: [:index, :new, :edit, :create, :update]
   before_action :require_current_teacher
   before_action :require_allow_to_modify_prev_years, only: [:create, :update, :destroy, :clone]
   before_action :require_allows_copy_experience_fields_in_lesson_plans, only: [:new, :edit]
@@ -191,11 +192,17 @@ class DisciplineLessonPlansController < ApplicationController
   private
 
   def fetch_discipline_lesson_plan(disciplines)
+    disciplines = Array(disciplines).compact
+    classroom_ids = Array(@classrooms).compact.map(&:id)
+    discipline_ids = disciplines.map(&:id).compact
+
+    return DisciplineLessonPlan.none if discipline_ids.empty? || classroom_ids.empty?
+
     apply_scopes(DisciplineLessonPlan
       .includes(:discipline, lesson_plan: [:classroom, :lesson_plan_attachments, :teacher])
       .by_unity_id(current_unity.id)
-      .by_classroom_id(@classrooms.map(&:id))
-      .by_discipline_id(disciplines.map(&:id))
+      .by_classroom_id(classroom_ids)
+      .by_discipline_id(discipline_ids)
       .order_by_classrooms
       .ordered).select(
         DisciplineLessonPlan.arel_table[Arel.sql('*')],
@@ -332,31 +339,31 @@ class DisciplineLessonPlansController < ApplicationController
   end
 
   def fetch_disciplines
-    @disciplines ||= [current_user_discipline]
+    @disciplines ||= [current_user_discipline].compact
   end
 
   def set_options_by_user
-    
-    if current_user.current_role_is_admin_or_employee?
-      fetch_classrooms
-      fetch_students_with_disabilities
-      fetch_disciplines
-      
-      discipline = if current_user_discipline&.grouper?
-                     Discipline.where(knowledge_area_id: @disciplines.map(&:knowledge_area_id)).all
-                   else
-                     Discipline.where(id: @disciplines.map(&:id))
-                   end
+    fetch_classrooms
+    fetch_students_with_disabilities
+    fetch_disciplines
 
-      @discipline_lesson_plans = fetch_discipline_lesson_plan(discipline)
+    disciplines = Array(@disciplines).compact
+
+    if disciplines.empty?
+      @discipline_lesson_plans = DisciplineLessonPlan.none
+      return
+    end
+
+    if current_user.current_role_is_admin_or_employee?
+      discipline_scope = if current_user_discipline&.grouper?
+                           Discipline.where(knowledge_area_id: disciplines.map(&:knowledge_area_id))
+                         else
+                           Discipline.where(id: disciplines.map(&:id))
+                         end
+
+      @discipline_lesson_plans = fetch_discipline_lesson_plan(discipline_scope)
     else
-      # retorna os registros de todas as disciplinas e turmas do professor, somente na visão do professor
-      # fetch_linked_by_teacher
-      fetch_classrooms
-      fetch_students_with_disabilities
-      fetch_disciplines
-      
-      @discipline_lesson_plans = fetch_discipline_lesson_plan(@disciplines)
+      @discipline_lesson_plans = fetch_discipline_lesson_plan(disciplines)
     end
   end
 

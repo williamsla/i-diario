@@ -27,7 +27,7 @@
                 <%= form_tag exam_record_report_path, method: :post, target: '_blank', style: 'display: inline; margin-left: 8px;' do %>
                   <%= hidden_field_tag 'exam_record_report_form[unity_id]', @classroom.unity_id %>
                   <%= hidden_field_tag 'exam_record_report_form[classroom_id]', @classroom.id %>
-                  <%= hidden_field_tag 'exam_record_report_form[discipline_id]', current_user_discipline.id %>
+                  <%= hidden_field_tag 'exam_record_report_form[discipline_id]', current_user_discipline&.id %>
                   <%= hidden_field_tag 'exam_record_report_form[report_type]', 'step_evaluations' %>
                   <% if @exam_report_use_classroom_step_field %>
                     <%= hidden_field_tag 'exam_record_report_form[school_calendar_classroom_step_id]', step.id %>

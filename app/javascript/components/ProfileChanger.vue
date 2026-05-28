@@ -1,8 +1,18 @@
 <template>
   <div>
-    <a id="user-info-selector" href="#">
+    <a
+      id="user-info-selector"
+      href="#"
+      :class="{ 'profile-incomplete': !profileComplete }"
+      :title="profileSelectorTitle"
+    >
       <span>
-        Trocar Disciplina
+        <i
+          v-if="!profileComplete"
+          class="fa fa-exclamation-circle"
+          aria-hidden="true"
+        ></i>
+        {{ profileSelectorLabel }}
         <i class="fa fa-angle-right" aria-hidden="true"></i>
       </span>
     </a>
@@ -13,6 +23,15 @@
         action="/current_role"
         method="post"
         >
+
+        <div
+          v-if="!profileComplete"
+          id="profile-incomplete-hint"
+          class="profile-incomplete-hint"
+          role="status"
+        >
+          Para usar o sistema, selecione escola, ano letivo, turma e disciplina nos campos abaixo.
+        </div>
 
         <input type="hidden" name="authenticity_token" v-model="x_csrf_token" />
         <input type="hidden" name="user[teacher_id]" v-model="teacher_id" />
@@ -40,7 +59,7 @@
 
         <div class="role-selector">
           <button v-show="this.submitAble()" :disabled="!validForm" class="btn btn-sm bg-color-blueDark txt-color-white" data-disable-with='Alterando...'>
-            CONFIRMAR DISCIPLINA
+            {{ profileComplete ? 'CONFIRMAR DISCIPLINA' : 'CONFIRMAR PERFIL' }}
           </button>
           <a class="btn btn-sm bg-color-white txt-color-blueDark role-cancel">Cancelar</a>
         </div>
@@ -65,6 +84,7 @@ export default {
   name: "b-profile-changer",
   data () {
     return {
+      profileComplete: window.state.profile_complete !== false,
       teacher_id: window.state.teacher_id,
       "x_csrf_token": document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
       isClassroomValid: false,
@@ -116,9 +136,26 @@ export default {
     },
     isStudentOrParent () {
       return this.role && (this.role.role_access_level === "student" || this.role.role_access_level === "parent")
+    },
+    profileSelectorLabel () {
+      if (this.profileComplete) {
+        return 'Trocar perfil de acesso'
+      }
+
+      return 'Selecionar perfil de acesso'
+    },
+    profileSelectorTitle () {
+      if (this.profileComplete) {
+        return 'Alterar escola, ano letivo, turma ou disciplina'
+      }
+
+      return 'Clique para escolher escola, ano letivo, turma e disciplina'
     }
   },
   methods: {
+    openProfileSelector () {
+      document.dispatchEvent(new CustomEvent('profile-selector:open'))
+    },
     isValid (data) {
       return !!data && (!data.required || !!data.selected)
     },
@@ -170,11 +207,47 @@ export default {
       this.isTeacherProfileValid = this.isValid(profileData)
       this.loading.profile = profileData.isLoading
     })
+  },
+  mounted () {
+    if (!this.profileComplete) {
+      this.$nextTick(() => {
+        this.openProfileSelector()
+      })
+    }
   }
 }
 </script>
 
 <style>
+#profile-incomplete-hint {
+  display: none;
+}
+
+body.profile-selector-required #profile-incomplete-hint {
+  display: block;
+  background: #f0ad4e;
+  border-radius: 4px;
+  color: #27333b;
+  font-size: 13px;
+  font-weight: 600;
+  clear: both;
+  line-height: 1.35;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  position: relative;
+}
+
+#user-info-selector.profile-incomplete span {
+  background: #f0ad4e;
+  border-radius: 4px;
+  color: #27333b;
+  padding: 6px 10px;
+}
+
+#user-info-selector.profile-incomplete .fa-exclamation-circle {
+  margin-right: 6px;
+}
+
 .multiselect, .multiselect__tags {
   font-size: 12px;
 }

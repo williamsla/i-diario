@@ -51,6 +51,7 @@ module ApplicationHelper
   def shortcuts
     key = [
       'HomeShortcuts',
+      navigation_cache_version,
       current_user.current_user_role&.role&.cache_key || current_user&.cache_key,
       Translation.cache_key
     ]
@@ -58,6 +59,12 @@ module ApplicationHelper
     Rails.cache.fetch(key, expires_in: 1.day) do
       Navigation.draw_shortcuts(current_user)
     end
+  end
+
+  def navigation_cache_version
+    @navigation_cache_version ||= Digest::MD5.file(
+      Rails.root.join('config', 'navigation.yml')
+    ).hexdigest
   end
 
   def title
@@ -207,7 +214,8 @@ module ApplicationHelper
       available_disciplines: current_profile.disciplines_as_json,
       teacher_id: current_user.teacher_id,
       current_profile: current_profile.teacher_profile_as_json,
-      profiles: current_profile.teacher_profiles_as_json
+      profiles: current_profile.teacher_profiles_as_json,
+      profile_complete: current_profile.complete?
 
     }
   end

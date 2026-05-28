@@ -90,6 +90,89 @@
   display: none;
 }
 
+body.profile-selector-required #user-info-selector {
+  color: #27333b;
+  display: block;
+  float: left;
+  font-weight: bold;
+  margin: 8px 0 0 8px;
+  text-transform: none;
+}
+
+body.profile-selector-required #user-info-selector span {
+  display: inline-block;
+  margin-top: 18px;
+}
+
+body.profile-selector-required #current-role-selector {
+  background-color: rgba(255, 255, 255, .75);
+  display: none;
+  float: none;
+  height: 100vh;
+  left: 0;
+  margin: 0;
+  overflow: auto;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 9050;
+}
+
+body.profile-selector-required #user-role-form {
+  background-color: rgb(39, 51, 59);
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, .5);
+  box-sizing: border-box;
+  margin: 20px auto;
+  padding: 25px;
+  width: 320px;
+}
+
+body.profile-selector-required #user-role-form > * {
+  float: none;
+}
+
+body.profile-selector-required #user-role-form .project-context {
+  padding: 0;
+}
+
+body.profile-selector-required #teacher-profile-field-container,
+body.profile-selector-required #role-field-container,
+body.profile-selector-required #unity-field-container,
+body.profile-selector-required #classroom-field-container,
+body.profile-selector-required #assumed-teacher-field-container,
+body.profile-selector-required #school-year-field-container,
+body.profile-selector-required #discipline-field-container,
+body.profile-selector-required #current-role-container,
+body.profile-selector-required #current-unity-container,
+body.profile-selector-required #current-school-year-container,
+body.profile-selector-required #current-classroom-container,
+body.profile-selector-required #current-teacher-container,
+body.profile-selector-required #current-discipline-container,
+body.profile-selector-required #teacher-profile-container {
+  display: block;
+  margin-bottom: 15px;
+  padding: 0;
+  width: 270px;
+}
+
+body.profile-selector-required .role-cancel {
+  display: inline-block;
+}
+
+body.profile-selector-required #profile-incomplete-hint,
+#user-role-form .profile-incomplete-hint {
+  display: block;
+  margin: 0 auto 15px;
+  max-width: 270px;
+}
+
+@media (min-width: 1366px) {
+  body.profile-selector-required #profile-selection {
+    min-width: 280px;
+  }
+}
+
 .errors-container {
   display: none;
 }

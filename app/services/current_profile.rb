@@ -164,6 +164,19 @@ class CurrentProfile
     }
   end
 
+  def complete?
+    CurrentRoleForm.new(
+      current_user: user,
+      current_user_role: user_role,
+      current_unity: unity,
+      current_school_year: school_year,
+      current_classroom: classroom,
+      current_teacher: teacher,
+      current_discipline_id: discipline&.id,
+      current_knowledge_area_id: user.current_knowledge_area_id
+    ).valid?
+  end
+
   private
 
   def initial_value(options, model)

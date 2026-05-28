@@ -10,16 +10,65 @@ $(function() {
 
   let documentWidth = window.innerWidth;
 
+  function isProfileIncomplete() {
+    return window.state && window.state.profile_complete === false;
+  }
+
+  function requiresModalLayout() {
+    return isModal() || isProfileIncomplete();
+  }
+
   function isModal() {
     const size = window.innerWidth;
 
     return size < breakpoint;
   }
 
+  function openRoleBar() {
+    if (isProfileIncomplete()) {
+      $('body').addClass('profile-selector-required');
+    }
+
+    $roleBar.show();
+    $body.css({ overflow: 'hidden' });
+  }
+
+  function closeRoleBar() {
+    $roleBar.hide();
+    $body.css({ overflow: 'auto' });
+
+    if (!isProfileIncomplete()) {
+      $('body').removeClass('profile-selector-required');
+    }
+  }
+
+  function syncRoleBarVisibility() {
+    if (requiresModalLayout()) {
+      if (isProfileIncomplete()) {
+        $('body').addClass('profile-selector-required');
+      }
+
+      if (!$roleBar.is(':visible')) {
+        $roleBar.hide();
+      }
+    } else {
+      $('body').removeClass('profile-selector-required');
+      $roleBar.show();
+      $body.css({ overflow: 'auto' });
+    }
+  }
+
+  function openProfileSelectorIfNeeded() {
+    if (!isProfileIncomplete()) {
+      return;
+    }
+
+    openRoleBar();
+  }
+
   $loginInfo.click(function (e) {
     if ($roleBar.is(':hidden')) {
-      $roleBar.show();
-      $body.css({ overflow: 'hidden' });
+      openRoleBar();
     }
 
     e.preventDefault();
@@ -27,8 +76,7 @@ $(function() {
 
   $closeBar.click(function (e) {
     if ($roleBar.is(':visible')) {
-      $roleBar.hide();
-      $body.css({ overflow: 'auto' });
+      closeRoleBar();
     }
 
     e.preventDefault();
@@ -41,12 +89,18 @@ $(function() {
       return true;
     }
 
-    if (isModal()) {
-      $roleBar.hide();
-    } else {
-      $roleBar.show();
-    }
-
+    syncRoleBarVisibility();
     documentWidth = currDocumentWidth;
   });
+
+  document.addEventListener('profile-selector:open', openProfileSelectorIfNeeded);
+
+  if (isProfileIncomplete()) {
+    $('body').addClass('profile-selector-required');
+    $roleBar.hide();
+  } else if (isModal()) {
+    $roleBar.hide();
+  }
+
+  setTimeout(openProfileSelectorIfNeeded, 300);
 });

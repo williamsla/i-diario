@@ -315,6 +315,14 @@ class ApplicationController < ActionController::Base
     redirect_to root_path
   end
 
+  def require_current_discipline
+    return if current_user_discipline
+
+    flash[:alert] = t('errors.general.require_current_discipline')
+
+    redirect_to root_path
+  end
+
   def require_current_unity
     return if current_unity
     return if current_user.has_administrator_access_level?
