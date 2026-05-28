@@ -33,6 +33,10 @@ class GeneralConfiguration < ActiveRecord::Base
     self.first.presence || new
   end
 
+  def self.annual_conceptual_evaluation?
+    current.annual_conceptual_evaluation
+  end
+
   def allows_after_sales_relationship?
     allows_after_sales_relationship == AfterSaleRelationshipOptions::ALLOWS
   end

@@ -23,7 +23,7 @@ class ConceptualExamsController < ApplicationController
       authorize ConceptualExam.new(classroom_id: @classroom&.id, student_id: nil)
     else
       @conceptual_exams = fetch_conceptual_exams
-      @only_one_conceptual_avaliation = Rails.application.secrets.only_one_conceptual_avaliation.present? && Rails.application.secrets.only_one_conceptual_avaliation
+      @only_one_conceptual_avaliation = GeneralConfiguration.annual_conceptual_evaluation?
       check_status_and_step(step_id, status)
       authorize @conceptual_exams
     end
@@ -80,7 +80,7 @@ class ConceptualExamsController < ApplicationController
 
       authorize @conceptual_exam
 
-      only_one_conceptual_avaliation = Rails.application.secrets.only_one_conceptual_avaliation.present? && Rails.application.secrets.only_one_conceptual_avaliation
+      only_one_conceptual_avaliation = GeneralConfiguration.annual_conceptual_evaluation?
 
       if only_one_conceptual_avaliation
         enrollment_classroom = StudentEnrollmentClassroom.by_classroom(resource_params[:classroom_id]).by_student(resource_params[:student_id]).first
@@ -222,7 +222,7 @@ class ConceptualExamsController < ApplicationController
     @recorded_at = batch_last_date_of_step(@step)
     @batch_form.recorded_at = @recorded_at
 
-    only_one = Rails.application.secrets.only_one_conceptual_avaliation.present? && Rails.application.secrets.only_one_conceptual_avaliation
+    only_one = GeneralConfiguration.annual_conceptual_evaluation?
     if only_one
       # Na configuração "uma etapa só", step e recorded_at vêm do primeiro aluno; aqui usamos step_id do form
       @step = StepsFetcher.new(@classroom).step_by_id(@batch_form.step_id)
@@ -259,7 +259,7 @@ class ConceptualExamsController < ApplicationController
     record_at = batch_valid_recorded_at(@step, @batch_form.recorded_at.to_date, @classroom)
     record_at = batch_last_date_of_step(@step) if record_at.blank?
 
-    only_one = Rails.application.secrets.only_one_conceptual_avaliation.present? && Rails.application.secrets.only_one_conceptual_avaliation
+    only_one = GeneralConfiguration.annual_conceptual_evaluation?
     saved = 0
     errors = []
 

@@ -39,6 +39,7 @@ pt-BR:
         group_children_education: "Apresentar outras séries de Educação infantil na configuração de objetivos/habilidades da bncc"
         allow_class_number_on_content_records: "Permitir informar número de aula no Registro de conteúdos?"
         descriptive_exams_semester_calendar_steps: "Avaliação descritiva em semestres (4 etapas: 2 pareceres, âncoras 2ª e 4ª etapa no i-educar; 2 etapas: 1 parecer, âncora na 2ª etapa)"
+        annual_conceptual_evaluation: "Avaliação conceitual anual (uma única avaliação por ano letivo, sem etapas)"
   backup:
     completed: "Exportação de dados realizada com sucesso! Clique %{link} para fazer download!"
     error: "Exportação de dados não pode ser realizada. Favor tentar novamente."
