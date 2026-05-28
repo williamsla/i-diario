@@ -146,6 +146,10 @@
     display: block;
     width: 100%;
   }
+  .avaliation-batch-grades-table .batch-student-name.inactive-student {
+    color: darkgray;
+    white-space: pre-line;
+  }
   .avaliation-batch-grades-table .batch-note-cell {
     width: 120px;
     min-width: 120px;
@@ -409,14 +413,17 @@
         <tbody>
           <% @batch[:students].each do |student| %>
             <tr>
-              <td class="batch-student-name"><%= student[:name] %></td>
+              <td>
+                <span class="batch-student-name <%= 'inactive-student' unless student[:active] %>"><%= student[:name] %></span>
+              </td>
               <% student[:notes].each_with_index do |note, idx| %>
                 <td class="batch-note-cell">
                   <%= text_field_tag "avaliation_batch[notes][#{student[:id]}][]",
                         note.present? ? number_with_precision(note, precision: decimal_places, separator: ',') : '',
                         class: 'form-control input-sm batch-note-input',
                         data: { inputmask: "'digits': #{decimal_places}" },
-                        autocomplete: 'off' %>
+                        autocomplete: 'off',
+                        readonly: !student[:active] %>
                 </td>
               <% end %>
               <td class="batch-average-cell">
@@ -431,6 +438,12 @@
         </tbody>
       </table>
     </div>
+
+    <% if @batch[:any_inactive_student] %>
+      <p style="margin: 12px 16px 0; color: #666;">
+        <span class="daily-note-student-legend"><%= t('avaliations.batch.inactive_students_legend') %></span>
+      </p>
+    <% end %>
 
     <footer style="padding: 12px 16px; border-top: 1px solid #eee; background: #fafafa;">
       <div class="clearfix">

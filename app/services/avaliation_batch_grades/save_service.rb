@@ -3,7 +3,9 @@
 module AvaliationBatchGrades
   # Cria/atualiza avaliações da etapa, diários de avaliação e notas por aluno em transação.
   class SaveService
-    attr_reader :errors
+    include StudentEnrollmentsForStep
+
+    attr_reader :errors, :classroom, :discipline, :step
 
     def initialize(classroom:, discipline:, step:, teacher:, current_user:, school_calendar:,
                    test_setting:, recorded_at:, assessments_count:, notes_params:,
@@ -399,7 +401,7 @@ module AvaliationBatchGrades
         raw = arr[column_index]
 
         dns = find_or_initialize_daily_note_student(daily_note, sid)
-        dns.active = true
+        dns.active = student_active_in_step_by_student_id?(sid)
         dns.note = parse_note(raw)
         dns.save!
       end

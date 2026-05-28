@@ -3,6 +3,8 @@
 module AvaliationBatchGrades
   # Monta dados para a tela de lançamento em lote (etapa + turma + disciplina).
   class BuildContext
+    include StudentEnrollmentsForStep
+
     MAX_ARITHMETIC_COLUMNS = 5
 
     attr_reader :classroom, :discipline, :step, :test_setting, :recorded_at, :assessments_count, :errors
@@ -47,6 +49,7 @@ module AvaliationBatchGrades
       return {} unless supported?
 
       min_count = minimum_reducible_assessments_count
+      students = students_payload
       {
         mode: batch_mode,
         weighted_sum_mode: batch_mode == :weighted_sum,
@@ -57,7 +60,8 @@ module AvaliationBatchGrades
         selected_max_score: selected_max_score_value,
         average_badge_label: average_badge_text,
         columns: columns,
-        students: students_payload,
+        students: students,
+        any_inactive_student: students.any? { |s| !s[:active] },
         test_setting: {
           minimum_score: test_setting.minimum_score,
           maximum_score: test_setting.maximum_score,
@@ -228,26 +232,20 @@ module AvaliationBatchGrades
     end
 
     def students_payload
-      grade_ids = numeric_grade_ids
-      return [] if grade_ids.blank?
+      return [] if numeric_grade_ids.blank?
 
-      enrollments = StudentEnrollmentsRetriever.call(
-        classrooms: classroom,
-        grades: grade_ids,
-        disciplines: discipline,
-        date: recorded_at,
-        score_type: StudentEnrollmentScoreTypeFilters::NUMERIC,
-        search_type: :by_date
-      )
+      enrollments = batch_student_enrollments
       return [] if enrollments.blank?
 
       cols = columns
       enrollments.map do |enrollment|
         student = enrollment.student
+        active = student_active_in_step?(enrollment)
         notes = cols.map { |col| note_for(student.id, col) }
         row = {
           id: student.id,
-          name: student.name,
+          active: active,
+          name: batch_student_display_name(enrollment, active),
           notes: notes,
           average: preview_average(student.id, cols),
           total_points: preview_weighted_total(student.id, cols)
