@@ -217,6 +217,18 @@ class ApplicationController < ActionController::Base
   end
   helper_method :is_infantil
 
+  def is_fundamental
+    classroom_grades.each do |classroom_grade|
+      description = I18n.transliterate(classroom_grade.grade.description.downcase)
+
+      return true if description.match?(
+        /ano|fundamental/
+      )
+    end
+    return false
+  end
+  helper_method :is_fundamental
+
   def is_aee
     classroom_grades.each do |classroom_grade|
       return true if classroom_grade.grade.description.match?(/aee/i)

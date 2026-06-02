@@ -105,9 +105,12 @@
               // Se for série educação infantil ou AEE
               <% if is_infantil == true %>
                   
+                  // se for multisérie infantil e fundamental, não esconde nada
+                  <% if is_fundamental == true %>
+                    const hrefs_to_hide = [];
                   // Se começou como disciplina ou área de conhecimento                  
                   // TODO: essa condição interna (if) é útil somente no ano 2025 em canindé.
-                  <% if started_as_discipline == true && started_as_knowledge_area == true %>
+                  <% elsif started_as_discipline == true && started_as_knowledge_area == true %>
                     
                     const hrefs_to_hide = [];
 
