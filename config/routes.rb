@@ -45,8 +45,20 @@ Rails.application.routes.draw do
         resources :teaching_plans, only: [:index]
         get 'monthly_absence_by_student_reports/report',
             to: 'monthly_absence_by_student_reports#report'
+
+        namespace :educamais do
+          resource :context, only: [:show], controller: 'context'
+          resources :unities, only: [:index]
+          resources :grades, only: [:index]
+          resources :classrooms, only: [:index]
+          resources :students, only: [:index]
+          resources :bncc_skills, only: [:index], path: 'bncc-skills'
+        end
       end
     end
+
+    get '/educamais/launch', to: 'educamais_launch#show', as: :educamais_launch
+    get '/educaindice/launch', to: redirect('/educamais/launch'), as: :educaindice_launch
 
     concern :history do
       member do

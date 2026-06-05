@@ -66,6 +66,11 @@ navigation:
             type: "school_calendar_event_batches"
             visible: "only-when-active"
   - menu:
+      type: "educamais"
+      icon: "fa-bar-chart"
+      path: "educamais_launch_path"
+      visible: <%= EducaMais::Config.enabled? %>
+  - menu:
       type: "pedagogical_trackings"
       icon: "fa-line-chart"
       path: "pedagogical_trackings_path"
