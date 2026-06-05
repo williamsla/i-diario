@@ -25,5 +25,15 @@ module EducaMais
     def enabled?
       app_url.present?
     end
+
+    # URL pública da API do i-diário (enviada no JWT ao Educa+).
+    # Preferência: secrets/ENV; senão a URL da requisição de launch.
+    def idiario_api_url(request: nil)
+      explicit = secrets[:idiario_public_url].presence ||
+                 ENV['IDIARIO_PUBLIC_URL'].presence
+      return explicit.to_s.chomp('/') if explicit.present?
+
+      request&.base_url&.chomp('/')
+    end
   end
 end

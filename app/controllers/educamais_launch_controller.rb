@@ -31,6 +31,7 @@ class EducamaisLaunchController < ApplicationController
       name: current_user.name,
       is_admin: current_user.admin? || current_user.administrator?,
       can_semed_view: semed_view_allowed?,
+      idiario_api_url: EducaMais::Config.idiario_api_url(request: request),
       exp: 2.hours.from_now.to_i
     }
   end
