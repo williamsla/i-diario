@@ -194,9 +194,9 @@ module AvaliationBatchGrades
     def resolve_arithmetic_avaliation!(col)
       canonical = I18n.t('avaliations.batch.arithmetic_description', n: col[:index] + 1)
       desc = col[:label].to_s.strip.presence || canonical
-      av = find_scoped_avaliation(col[:avaliation_id])
-      av ||= avaliations_scope.find_by(description: desc)
-      av ||= avaliations_scope.find_by(description: canonical)
+      av = scoped_avaliation_for_step(find_scoped_avaliation(col[:avaliation_id]))
+      av ||= scoped_avaliation_for_step(avaliations_scope.find_by(description: desc))
+      av ||= scoped_avaliation_for_step(avaliations_scope.find_by(description: canonical))
       av ||= Avaliation.new(
         classroom: @classroom,
         discipline: @discipline,
@@ -226,9 +226,9 @@ module AvaliationBatchGrades
     def resolve_weighted_sum_avaliation!(col)
       canonical = I18n.t('avaliations.batch.short_assessment', n: col[:index] + 1)
       desc = col[:label].to_s.strip.presence || canonical
-      av = find_scoped_avaliation(col[:avaliation_id])
-      av ||= avaliations_scope.find_by(description: desc)
-      av ||= avaliations_scope.find_by(description: canonical)
+      av = scoped_avaliation_for_step(find_scoped_avaliation(col[:avaliation_id]))
+      av ||= scoped_avaliation_for_step(avaliations_scope.find_by(description: desc))
+      av ||= scoped_avaliation_for_step(avaliations_scope.find_by(description: canonical))
       av ||= Avaliation.new(
         classroom: @classroom,
         discipline: @discipline,
@@ -274,20 +274,23 @@ module AvaliationBatchGrades
 
     # Escolhe uma avaliação por instrumento quando há duplicatas na etapa (causa comum do erro de unicidade).
     def pick_canonical_instrument_avaliation(col, tst)
-      find_scoped_avaliation(col[:avaliation_id]) ||
+      scoped_avaliation_for_step(find_scoped_avaliation(col[:avaliation_id])) ||
         pick_best_from_instrument_pool(instrument_pool_for_step(tst.id), col[:avaliation_id])
     end
 
-    def instrument_pool_for_step(test_setting_test_id)
-      in_step = instrument_avaliations_scope
-        .where(test_setting_test_id: test_setting_test_id)
-        .merge(avaliations_scope)
-        .order(:id)
-        .to_a
-      return in_step if in_step.any?
+    def scoped_avaliation_for_step(avaliation)
+      return if avaliation.blank?
+      return unless avaliation.test_date.between?(@step.start_at, @step.end_at)
 
+      avaliation
+    end
+
+    def instrument_pool_for_step(test_setting_test_id)
+      # Só avaliações da etapa atual. Reutilizar instrumento de outra etapa move test_date
+      # e sobrescreve o diário/notas já lançados na etapa de origem.
       instrument_avaliations_scope
         .where(test_setting_test_id: test_setting_test_id)
+        .merge(avaliations_scope)
         .order(:id)
         .to_a
     end
@@ -364,7 +367,7 @@ module AvaliationBatchGrades
     def find_scoped_avaliation(id)
       return if id.blank?
 
-      Avaliation.find_by(id: id, classroom_id: @classroom.id, discipline_id: @discipline.id)
+      avaliations_scope.find_by(id: id)
     end
 
     def assign_grade_ids!(av)

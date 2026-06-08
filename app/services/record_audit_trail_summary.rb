@@ -4,8 +4,11 @@ class RecordAuditTrailSummary
   AUDITABLE_TYPES_BY_RECORD_TYPE = {
     'frequency' => ['DailyFrequency'],
     'content' => %w[DisciplineContentRecord KnowledgeAreaContentRecord],
-    'avaliation' => ['Avaliation']
+    'avaliation' => ['Avaliation'],
+    'grades' => %w[DailyNote DailyNoteStudent]
   }.freeze
+
+  GRADE_NOTE_BATCH_TYPE = 'GradeNoteBatch'
 
   def initialize(unity_id:, classroom_id:, teacher_id:, discipline_id:, start_date:, end_date:, record_types:)
     @unity_id = unity_id
@@ -21,6 +24,10 @@ class RecordAuditTrailSummary
     entries = collect_record_entries
     collected_keys = entries.map { |entry| entry_key(entry) }
     entries.concat(collect_destroyed_entries(collected_keys))
+    collected_keys = entries.map { |entry| entry_key(entry) }
+    entries.concat(collect_grade_note_batch_entries(collected_keys))
+    collected_keys = entries.map { |entry| entry_key(entry) }
+    entries.concat(collect_avaliation_audit_entries(collected_keys))
     entries = deduplicate_entries(entries)
 
     audit_groups = fetch_audit_groups(entries)
@@ -36,6 +43,7 @@ class RecordAuditTrailSummary
     entries.concat(discipline_content_entries) if @record_types.include?('content')
     entries.concat(knowledge_area_content_entries) if @record_types.include?('content') && @discipline_id.blank?
     entries.concat(avaliation_entries) if @record_types.include?('avaliation')
+    entries.concat(daily_note_entries) if @record_types.include?('grades')
 
     entries
   end
@@ -112,9 +120,98 @@ class RecordAuditTrailSummary
         record_type: 'avaliation',
         record: record,
         occurred_on: record.test_date,
-        label: avaliation_label(record)
+        label: avaliation_label(record),
+        avaliation_id: record.id
       )
     end
+  end
+
+  def daily_note_entries
+    scope = DailyNote.by_unity_id(@unity_id)
+                     .by_test_date_between(@start_date, @end_date)
+    scope = scope.by_classroom_id(@classroom_id) if @classroom_id.present?
+    scope = scope.by_teacher_id(@teacher_id) if @teacher_id.present?
+    scope = scope.by_discipline_id(@discipline_id) if @discipline_id.present?
+
+    scope.includes(avaliation: %i[classroom discipline]).map do |record|
+      avaliation = record.avaliation
+
+      build_entry(
+        auditable_type: 'DailyNote',
+        auditable_id: record.id,
+        record_type: 'grades',
+        record: record,
+        occurred_on: avaliation.test_date,
+        label: daily_note_active_label(avaliation),
+        avaliation_id: avaliation.id
+      )
+    end
+  end
+
+  def collect_grade_note_batch_entries(collected_keys)
+    return [] unless @record_types.include?('grades')
+
+    period = @start_date.beginning_of_day..@end_date.end_of_day
+
+    audits = Audited::Audit.where(auditable_type: 'DailyNoteStudent', action: 'update', created_at: period)
+                           .includes(:user)
+                           .select { |audit| note_audited_change?(audit) }
+                           .select { |audit| teacher_audit_matches?(audit) }
+                           .uniq { |audit| [audit.auditable_id, audit.created_at.change(usec: 0), audit.user_id] }
+
+    grouped = audits.group_by { |audit| grade_batch_group_key(audit) }
+
+    grouped.map do |group_key, group_audits|
+      next if collected_keys.include?([GRADE_NOTE_BATCH_TYPE, group_key])
+
+      context = daily_note_context(daily_note_id_from_audit(group_audits.first))
+      next unless context
+      next unless matches_daily_note_context?(context)
+
+      stats = grade_batch_stats(group_audits)
+      label = grade_batch_label(context, stats)
+      occurred_on = group_audits.first.created_at.to_date
+
+      build_entry(
+        auditable_type: GRADE_NOTE_BATCH_TYPE,
+        auditable_id: group_key,
+        entry_key_override: [GRADE_NOTE_BATCH_TYPE, group_key],
+        record_type: 'grades',
+        record: DailyNote.find_by(id: context[:daily_note_id]),
+        occurred_on: occurred_on,
+        label: label,
+        avaliation_id: context[:avaliation]&.id,
+        inline_audits: group_audits,
+        grade_batch_stats: stats
+      )
+    end.compact
+  end
+
+  def collect_avaliation_audit_entries(collected_keys)
+    return [] unless @record_types.include?('avaliation')
+
+    period = @start_date.beginning_of_day..@end_date.end_of_day
+
+    Audited::Audit.where(auditable_type: 'Avaliation', action: 'create', created_at: period)
+                  .includes(:user)
+                  .select { |audit| teacher_audit_matches?(audit) }
+                  .select { |audit| matches_avaliation_audit_context?(audited_changes_hash(audit)) }
+                  .reject { |audit| collected_keys.include?([audit.auditable_type, audit.auditable_id]) }
+                  .map do |audit|
+                    changes = audited_changes_hash(audit)
+                    test_date = parse_date(changes['test_date'])
+
+                    build_entry(
+                      auditable_type: 'Avaliation',
+                      auditable_id: audit.auditable_id,
+                      record_type: 'avaliation',
+                      record: Avaliation.find_by(id: audit.auditable_id),
+                      occurred_on: test_date || audit.created_at.to_date,
+                      label: avaliation_label_from_changes(changes),
+                      avaliation_id: audit.auditable_id,
+                      inline_audits: [audit]
+                    )
+                  end
   end
 
   def collect_destroyed_entries(collected_keys)
@@ -126,6 +223,7 @@ class RecordAuditTrailSummary
     Audited::Audit.where(auditable_type: auditable_types, action: 'destroy', created_at: period)
                   .includes(:user)
                   .reject { |audit| collected_keys.include?([audit.auditable_type, audit.auditable_id]) }
+                  .select { |audit| teacher_audit_matches?(audit) }
                   .select { |audit| matches_destroyed_audit?(audit) }
                   .map { |audit| build_destroyed_entry(audit) }
                   .compact
@@ -142,7 +240,9 @@ class RecordAuditTrailSummary
     when 'KnowledgeAreaContentRecord'
       matches_knowledge_area_content_changes?(changes, audit)
     when 'Avaliation'
-      matches_avaliation_changes?(changes)
+      matches_avaliation_destroy_changes?(changes)
+    when 'DailyNote'
+      matches_daily_note_changes?(changes)
     else
       false
     end
@@ -181,13 +281,45 @@ class RecordAuditTrailSummary
   end
 
   def matches_avaliation_changes?(changes)
+    return false unless matches_avaliation_audit_context?(changes)
+
+    test_date_in_range?(changes['test_date'])
+  end
+
+  def matches_avaliation_audit_context?(changes)
     classroom = Classroom.find_by(id: changes['classroom_id'])
     return false unless unity_matches?(classroom&.unity_id)
     return false if @classroom_id.present? && changes['classroom_id'].to_i != @classroom_id.to_i
     return false if @discipline_id.present? && changes['discipline_id'].to_i != @discipline_id.to_i
     return false if @teacher_id.present? && !teacher_linked_to_avaliation?(changes)
 
-    test_date_in_range?(changes['test_date'])
+    true
+  end
+
+  def matches_avaliation_destroy_changes?(changes)
+    classroom = Classroom.find_by(id: changes['classroom_id'])
+    return false unless unity_matches?(classroom&.unity_id)
+    return false if @classroom_id.present? && changes['classroom_id'].to_i != @classroom_id.to_i
+    return false if @discipline_id.present? && changes['discipline_id'].to_i != @discipline_id.to_i
+    return false if @teacher_id.present? && !teacher_linked_to_avaliation?(changes)
+
+    true
+  end
+
+  def matches_daily_note_changes?(changes)
+    return false unless unity_matches?(changes['unity_id'])
+    return false if @classroom_id.present? && changes['classroom_id'].to_i != @classroom_id.to_i
+    return false if @discipline_id.present? && changes['discipline_id'].to_i != @discipline_id.to_i
+
+    true
+  end
+
+  def matches_daily_note_context?(context)
+    return false unless unity_matches?(context[:unity_id])
+    return false if @classroom_id.present? && context[:classroom_id].to_i != @classroom_id.to_i
+    return false if @discipline_id.present? && context[:discipline_id].to_i != @discipline_id.to_i
+
+    true
   end
 
   def teacher_linked_to_avaliation?(changes)
@@ -201,10 +333,20 @@ class RecordAuditTrailSummary
       )
   end
 
+  def teacher_audit_matches?(audit)
+    return true if @teacher_id.blank?
+
+    user = audit.user
+    return false unless user
+
+    user.teacher_id.to_i == @teacher_id.to_i || user.assumed_teacher_id.to_i == @teacher_id.to_i
+  end
+
   def build_destroyed_entry(audit)
     changes = audited_changes_hash(audit)
     label = destroyed_label(audit, changes)
     occurred_on = occurred_on_from_destroyed(audit, changes)
+    avaliation_id = destroyed_avaliation_id(audit, changes)
 
     build_entry(
       auditable_type: audit.auditable_type,
@@ -212,11 +354,12 @@ class RecordAuditTrailSummary
       record_type: record_type_for(audit.auditable_type),
       record: nil,
       occurred_on: occurred_on,
-      label: label
+      label: label,
+      avaliation_id: avaliation_id
     )
   end
 
-  def build_entry(auditable_type:, auditable_id:, record_type:, record:, occurred_on:, label:)
+  def build_entry(auditable_type:, auditable_id:, record_type:, record:, occurred_on:, label:, **options)
     {
       auditable_type: auditable_type,
       auditable_id: auditable_id,
@@ -224,7 +367,7 @@ class RecordAuditTrailSummary
       record: record,
       occurred_on: occurred_on,
       label: label
-    }
+    }.merge(options)
   end
 
   def deduplicate_entries(entries)
@@ -232,20 +375,35 @@ class RecordAuditTrailSummary
   end
 
   def entry_key(entry)
-    [entry[:auditable_type], entry[:auditable_id]]
+    entry[:entry_key_override] || [entry[:auditable_type], entry[:auditable_id]]
   end
 
   def fetch_audit_groups(entries)
     return {} if entries.blank?
 
-    auditable_types = entries.map { |entry| entry[:auditable_type] }.uniq
-    auditable_ids = entries.map { |entry| entry[:auditable_id] }
+    groups = {}
+
+    entries.each do |entry|
+      next if entry[:inline_audits].blank?
+
+      groups[entry_key(entry)] = entry[:inline_audits]
+    end
+
+    regular_entries = entries.reject { |entry| entry[:inline_audits].present? }
+    return groups if regular_entries.blank?
+
+    auditable_types = regular_entries.map { |entry| entry[:auditable_type] }.uniq
+    auditable_ids = regular_entries.map { |entry| entry[:auditable_id] }
 
     audits = Audited::Audit.where(auditable_type: auditable_types, auditable_id: auditable_ids)
                            .includes(:user)
                            .order(:created_at)
 
-    audits.group_by { |audit| [audit.auditable_type, audit.auditable_id] }
+    audits.group_by { |audit| [audit.auditable_type, audit.auditable_id] }.each do |key, grouped_audits|
+      groups[key] = grouped_audits
+    end
+
+    groups
   end
 
   def build_results(entries, audit_groups)
@@ -260,13 +418,15 @@ class RecordAuditTrailSummary
         record_type: entry[:record_type],
         record_type_label: record_type_label(entry[:record_type]),
         occurred_on: entry[:occurred_on],
+        primary_at: primary_event_at(events),
         label: entry[:label],
         record_exists: record_exists,
+        avaliation_id: entry[:avaliation_id],
         events: events,
-        summary: build_summary(events),
-        verdict: build_verdict(events, record_exists)
+        summary: build_entry_summary(entry, events),
+        verdict: build_verdict(entry, events, record_exists)
       }
-    end.sort_by { |result| [result[:occurred_on], result[:label]] }.reverse
+    end.sort_by { |result| [result[:primary_at] || result[:occurred_on].to_time, result[:label]] }.reverse
   end
 
   def build_events(audits)
@@ -275,25 +435,79 @@ class RecordAuditTrailSummary
         action: audit.action,
         action_label: AuditedAction.t(audit.action),
         at: audit.created_at,
-        user_name: audit.user&.to_s || I18n.t('services.record_audit_trail_summary.system_user')
+        user_name: audit.user&.to_s || I18n.t('services.record_audit_trail_summary.system_user'),
+        detail: event_detail(audit)
       }
     end
+  end
+
+  def event_detail(audit)
+    return nil unless audit.auditable_type == 'DailyNoteStudent' && audit.action == 'update'
+
+    changes = audited_changes_hash(audit)
+    return nil unless changes.key?('note')
+
+    old_note, new_note = Array(changes['note'])
+    format_note_change(old_note, new_note)
+  end
+
+  def format_note_change(old_note, new_note)
+    if old_note.blank? && new_note.present?
+      I18n.t('services.record_audit_trail_summary.note_change.launched', note: format_note(new_note))
+    elsif old_note.present? && new_note.blank?
+      I18n.t('services.record_audit_trail_summary.note_change.cleared', note: format_note(old_note))
+    else
+      I18n.t(
+        'services.record_audit_trail_summary.note_change.changed',
+        old_note: format_note(old_note),
+        new_note: format_note(new_note)
+      )
+    end
+  end
+
+  def format_note(note)
+    note.present? ? format('%.1f', note.to_f) : '-'
+  end
+
+  def build_entry_summary(entry, events)
+    if entry[:auditable_type] == GRADE_NOTE_BATCH_TYPE
+      return build_grade_batch_summary(entry, events)
+    end
+
+    build_summary(events)
+  end
+
+  def build_grade_batch_summary(entry, events)
+    return I18n.t('services.record_audit_trail_summary.no_events') if events.blank?
+
+    event = events.first
+    I18n.t(
+      'services.record_audit_trail_summary.event_line',
+      action: AuditedAction.t('update'),
+      datetime: I18n.l(event[:at], format: :compressed),
+      user: event[:user_name]
+    ) + " — #{entry[:label]}"
   end
 
   def build_summary(events)
     return I18n.t('services.record_audit_trail_summary.no_events') if events.blank?
 
     events.map do |event|
-      I18n.t(
+      line = I18n.t(
         'services.record_audit_trail_summary.event_line',
         action: event[:action_label],
         datetime: I18n.l(event[:at], format: :compressed),
         user: event[:user_name]
       )
+      event[:detail].present? ? "#{line} (#{event[:detail]})" : line
     end.join('; ')
   end
 
-  def build_verdict(events, record_exists)
+  def build_verdict(entry, events, record_exists)
+    if entry[:auditable_type] == GRADE_NOTE_BATCH_TYPE
+      return build_grade_batch_verdict(entry, events)
+    end
+
     create_event = events.find { |event| event[:action] == 'create' }
     destroy_event = events.find { |event| event[:action] == 'destroy' }
     update_events = events.select { |event| event[:action] == 'update' }
@@ -302,6 +516,14 @@ class RecordAuditTrailSummary
       return I18n.t('services.record_audit_trail_summary.verdict.no_audit_trail') if record_exists
 
       return I18n.t('services.record_audit_trail_summary.verdict.never_persisted')
+    end
+
+    if entry[:auditable_type] == 'DailyNote' && destroy_event.present?
+      return I18n.t(
+        'services.record_audit_trail_summary.verdict.daily_note_destroyed',
+        datetime: I18n.l(destroy_event[:at], format: :compressed),
+        user: destroy_event[:user_name]
+      )
     end
 
     if create_event.blank? && destroy_event.present?
@@ -317,6 +539,16 @@ class RecordAuditTrailSummary
         'services.record_audit_trail_summary.verdict.destroyed',
         datetime: I18n.l(destroy_event[:at], format: :compressed),
         user: destroy_event[:user_name]
+      )
+    end
+
+    if entry[:record_type] == 'avaliation' && create_event.present? && record_exists
+      test_date = entry[:occurred_on]
+      return I18n.t(
+        'services.record_audit_trail_summary.verdict.avaliation_created_in_period',
+        datetime: I18n.l(create_event[:at], format: :compressed),
+        user: create_event[:user_name],
+        test_date: I18n.l(test_date)
       )
     end
 
@@ -340,6 +572,46 @@ class RecordAuditTrailSummary
     I18n.t('services.record_audit_trail_summary.verdict.unknown')
   end
 
+  def build_grade_batch_verdict(entry, events)
+    stats = entry[:grade_batch_stats] || {}
+    event = events.first
+    return I18n.t('services.record_audit_trail_summary.verdict.unknown') if event.blank?
+
+    common = {
+      count: stats[:total],
+      datetime: I18n.l(event[:at], format: :compressed),
+      user: event[:user_name]
+    }
+
+    if stats[:launched].positive? && stats[:cleared].zero?
+      return I18n.t(
+        'services.record_audit_trail_summary.verdict.grades_launched',
+        **common,
+        range: stats[:note_range]
+      )
+    end
+
+    if stats[:cleared].positive? && stats[:launched].zero?
+      return I18n.t(
+        'services.record_audit_trail_summary.verdict.grades_cleared',
+        **common
+      )
+    end
+
+    I18n.t(
+      'services.record_audit_trail_summary.verdict.grades_mixed',
+      **common,
+      launched: stats[:launched],
+      cleared: stats[:cleared]
+    )
+  end
+
+  def primary_event_at(events)
+    return nil if events.blank?
+
+    events.map { |event| event[:at] }.compact.max
+  end
+
   def frequency_label(record)
     discipline = record.discipline&.to_s || I18n.t('services.record_audit_trail_summary.general_frequency')
     "#{discipline} — #{record.classroom} — #{I18n.l(record.frequency_date)}"
@@ -356,6 +628,157 @@ class RecordAuditTrailSummary
 
   def avaliation_label(record)
     "#{record} — #{record.discipline} — #{I18n.l(record.test_date)}"
+  end
+
+  def avaliation_label_from_changes(changes)
+    discipline_name = Discipline.find_by(id: changes['discipline_id'])&.to_s || '-'
+    date = parse_date(changes['test_date'])
+    description = changes['description'].presence || '-'
+    "#{description} — #{discipline_name} — #{I18n.l(date)}"
+  end
+
+  def daily_note_active_label(avaliation)
+    I18n.t(
+      'services.record_audit_trail_summary.daily_note_label.active',
+      avaliation: avaliation.to_s,
+      discipline: avaliation.discipline.to_s,
+      classroom: avaliation.classroom.to_s,
+      date: I18n.l(avaliation.test_date)
+    )
+  end
+
+  def grade_batch_label(context, stats)
+    avaliation = context[:avaliation]
+    avaliation_name = avaliation&.to_s || I18n.t('services.record_audit_trail_summary.removed_record')
+    discipline_name = context[:discipline_name] || '-'
+    classroom_name = context[:classroom_name] || '-'
+    common = {
+      count: stats[:total],
+      avaliation: avaliation_name,
+      discipline: discipline_name,
+      classroom: classroom_name
+    }
+
+    if stats[:launched].positive? && stats[:cleared].zero?
+      return I18n.t(
+        'services.record_audit_trail_summary.grade_batch_label.launched',
+        **common,
+        range: stats[:note_range]
+      )
+    end
+
+    if stats[:cleared].positive? && stats[:launched].zero?
+      return I18n.t(
+        'services.record_audit_trail_summary.grade_batch_label.cleared',
+        **common
+      )
+    end
+
+    I18n.t(
+      'services.record_audit_trail_summary.grade_batch_label.mixed',
+      **common,
+      launched: stats[:launched],
+      cleared: stats[:cleared]
+    )
+  end
+
+  def grade_batch_stats(audits)
+    launched = 0
+    cleared = 0
+    notes = []
+
+    audits.each do |audit|
+      changes = audited_changes_hash(audit)
+      old_note, new_note = Array(changes['note'])
+
+      if old_note.blank? && new_note.present?
+        launched += 1
+        notes << new_note.to_f
+      elsif old_note.present? && new_note.blank?
+        cleared += 1
+      elsif old_note.present? && new_note.present?
+        launched += 1
+        notes << new_note.to_f
+      end
+    end
+
+    {
+      total: audits.size,
+      launched: launched,
+      cleared: cleared,
+      note_range: note_range_label(notes)
+    }
+  end
+
+  def note_range_label(notes)
+    return '-' if notes.blank?
+
+    min_note = notes.min
+    max_note = notes.max
+    min_label = format('%.1f', min_note)
+    max_label = format('%.1f', max_note)
+
+    min_label == max_label ? min_label : "#{min_label} a #{max_label}"
+  end
+
+  def grade_batch_group_key(audit)
+    changes = audited_changes_hash(audit)
+    daily_note_id = changes['daily_note_id']
+    [daily_note_id, audit.user_id, audit.created_at.change(sec: 0, usec: 0)]
+  end
+
+  def daily_note_id_from_audit(audit)
+    audited_changes_hash(audit)['daily_note_id']
+  end
+
+  def note_audited_change?(audit)
+    changes = audited_changes_hash(audit)
+    return false unless changes.key?('note')
+
+    old_note, new_note = Array(changes['note'])
+    old_note.to_s != new_note.to_s
+  end
+
+  def daily_note_context(daily_note_id)
+    return nil if daily_note_id.blank?
+
+    @daily_note_context_cache ||= {}
+    @daily_note_context_cache[daily_note_id] ||= begin
+      record = DailyNote.find_by(id: daily_note_id)
+      if record
+        avaliation = record.avaliation
+        {
+          daily_note_id: daily_note_id,
+          avaliation: avaliation,
+          classroom_id: record.classroom_id,
+          discipline_id: record.discipline_id,
+          unity_id: record.unity_id,
+          discipline_name: avaliation&.discipline&.to_s,
+          classroom_name: avaliation&.classroom&.to_s
+        }
+      else
+        audit = Audited::Audit.where(auditable_type: 'DailyNote', auditable_id: daily_note_id)
+                              .order(created_at: :desc)
+                              .first
+        changes = audit ? audited_changes_hash(audit) : {}
+        avaliation = avaliation_from_changes(changes)
+        classroom = Classroom.find_by(id: changes['classroom_id'] || avaliation&.classroom_id)
+
+        {
+          daily_note_id: daily_note_id,
+          avaliation: avaliation,
+          classroom_id: changes['classroom_id'] || avaliation&.classroom_id,
+          discipline_id: changes['discipline_id'] || avaliation&.discipline_id,
+          unity_id: changes['unity_id'] || classroom&.unity_id,
+          discipline_name: Discipline.find_by(id: changes['discipline_id'] || avaliation&.discipline_id)&.to_s,
+          classroom_name: classroom&.to_s || avaliation&.classroom&.to_s
+        }
+      end
+    end
+  end
+
+  def avaliation_from_changes(changes)
+    Avaliation.find_by(id: changes['avaliation_id'])
   end
 
   def destroyed_label(audit, changes)
@@ -378,12 +801,25 @@ class RecordAuditTrailSummary
       date = parse_date(content_attrs['record_date'])
       "#{classroom_name} — #{I18n.l(date)} (#{I18n.t('services.record_audit_trail_summary.removed')})"
     when 'Avaliation'
-      discipline_name = Discipline.find_by(id: changes['discipline_id'])&.to_s || '-'
-      date = parse_date(changes['test_date'])
-      description = changes['description'].presence || '-'
-      "#{description} — #{discipline_name} — #{I18n.l(date)} (#{I18n.t('services.record_audit_trail_summary.removed')})"
+      avaliation_label_from_changes(changes) + " (#{I18n.t('services.record_audit_trail_summary.removed')})"
+    when 'DailyNote'
+      avaliation = avaliation_from_changes(changes)
+      I18n.t(
+        'services.record_audit_trail_summary.daily_note_label.removed',
+        avaliation: avaliation&.to_s || '-',
+        discipline: Discipline.find_by(id: changes['discipline_id'])&.to_s || '-',
+        classroom: Classroom.find_by(id: changes['classroom_id'])&.to_s || '-',
+        date: I18n.l(avaliation&.test_date || audit.created_at.to_date)
+      )
     else
       I18n.t('services.record_audit_trail_summary.removed_record')
+    end
+  end
+
+  def destroyed_avaliation_id(audit, changes)
+    case audit.auditable_type
+    when 'Avaliation' then audit.auditable_id
+    when 'DailyNote' then changes['avaliation_id']
     end
   end
 
@@ -391,6 +827,9 @@ class RecordAuditTrailSummary
     case audit.auditable_type
     when 'DailyFrequency' then parse_date(changes['frequency_date'])
     when 'Avaliation' then parse_date(changes['test_date'])
+    when 'DailyNote'
+      avaliation = avaliation_from_changes(changes)
+      avaliation&.test_date || audit.created_at.to_date
     when 'DisciplineContentRecord', 'KnowledgeAreaContentRecord'
       content_attrs = changes['content_record'] || content_record_attrs_from_audit(audit, changes)
       parse_date(content_attrs['record_date'])

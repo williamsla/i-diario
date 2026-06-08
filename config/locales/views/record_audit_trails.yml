@@ -3,7 +3,7 @@ pt-BR:
     form:
       submit: "Consultar trilha de auditoria"
     report:
-      help: "Esta consulta mostra o histórico de criação, alteração e exclusão dos lançamentos no período selecionado, com base nos registros de auditoria do sistema."
+      help: "Esta consulta mostra o histórico de criação, alteração e exclusão dos lançamentos no período selecionado. Para notas, busca exclusões de diário, lançamentos e remoções de notas com base na data do evento de auditoria (não apenas na data da prova)."
       back: "Voltar"
       empty: "Nenhum lançamento ou evento de auditoria encontrado para os filtros informados."
       view_history: "Histórico completo"
@@ -11,6 +11,7 @@ pt-BR:
         active: "Ativo"
         removed: "Excluído"
       columns:
+        event_at: "Data do evento"
         record_type: "Tipo"
         record: "Lançamento"
         status: "Situação"
