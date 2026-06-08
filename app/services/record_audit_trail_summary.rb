@@ -127,13 +127,9 @@ class RecordAuditTrailSummary
   end
 
   def daily_note_entries
-    scope = DailyNote.by_unity_id(@unity_id)
-                     .by_test_date_between(@start_date, @end_date)
-    scope = scope.by_classroom_id(@classroom_id) if @classroom_id.present?
-    scope = scope.by_teacher_id(@teacher_id) if @teacher_id.present?
-    scope = scope.by_discipline_id(@discipline_id) if @discipline_id.present?
+    scope = daily_notes_filtered_scope
 
-    scope.includes(avaliation: %i[classroom discipline]).map do |record|
+    scope.preload(avaliation: %i[classroom discipline]).map do |record|
       avaliation = record.avaliation
 
       build_entry(
@@ -779,6 +775,16 @@ class RecordAuditTrailSummary
 
   def avaliation_from_changes(changes)
     Avaliation.find_by(id: changes['avaliation_id'])
+  end
+
+  def daily_notes_filtered_scope
+    avaliations = Avaliation.by_test_date_between(@start_date, @end_date)
+    avaliations = avaliations.by_unity_id(@unity_id) if @unity_id.present?
+    avaliations = avaliations.by_classroom_id(@classroom_id) if @classroom_id.present?
+    avaliations = avaliations.by_discipline_id(@discipline_id) if @discipline_id.present?
+    avaliations = avaliations.by_teacher(@teacher_id) if @teacher_id.present?
+
+    DailyNote.joins(:avaliation).merge(avaliations).distinct
   end
 
   def destroyed_label(audit, changes)
