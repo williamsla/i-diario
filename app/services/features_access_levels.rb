@@ -21,6 +21,7 @@ class FeaturesAccessLevels
       :conceptual_exams,
       :daily_frequencies,
       :daily_notes,
+      :educamais,
       :descriptive_exams,
       :descriptive_report,
       :diary_report,

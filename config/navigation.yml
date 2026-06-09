@@ -69,7 +69,6 @@ navigation:
       type: "educamais"
       icon: "fa-bar-chart"
       path: "educamais_launch_path"
-      visible: <%= EducaMais::Config.enabled? %>
       shortcut: true
       shortcut_highlight: true
   - menu:

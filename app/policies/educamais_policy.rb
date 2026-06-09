@@ -8,6 +8,6 @@ class EducamaisPolicy < ApplicationPolicy
   def launch?
     return false unless EducaMais::Config.enabled?
 
-    user.present?
+    user.present? && user.can_show?(:educamais)
   end
 end

@@ -17,6 +17,7 @@ class Features < EnumerateIt::Base
                    :daily_notes,
                    :data_exportations,
                    :descriptive_exams,
+                   :educamais,
                    :discipline_content_records,
                    :discipline_lesson_plan_report,
                    :discipline_lesson_plans,

@@ -22,9 +22,31 @@ module EducaMais
         ENV['EDUCAINDICE_JWT_SECRET'].presence
     end
 
-    def enabled?
-      app_url.present?
+    def allowed_entity_names
+      names = secrets[:educamais_entity_names].presence ||
+              secrets[:educaindice_entity_names].presence ||
+              env_entity_names
+
+      Array(names).map { |name| name.to_s.strip }.reject(&:blank?)
     end
+
+    def enabled?
+      return false unless app_url.present?
+      return true if allowed_entity_names.blank?
+
+      entity = Entity.current
+      return false if entity.blank?
+
+      allowed_entity_names.any? { |name| name.casecmp?(entity.name.to_s) }
+    end
+
+    def env_entity_names
+      value = ENV['EDUCAMAIS_ENTITY_NAMES'].presence || ENV['EDUCAINDICE_ENTITY_NAMES'].presence
+      return if value.blank?
+
+      value.split(',').map(&:strip).reject(&:blank?)
+    end
+    private_class_method :env_entity_names
 
     # URL pública da API do i-diário (enviada no JWT ao Educa+).
     # Preferência: secrets/ENV; senão a URL da requisição de launch.

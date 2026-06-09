@@ -37,11 +37,7 @@ module Navigation
       end
 
       def policy(feature)
-        klass = begin
-                  feature.singularize.camelcase.constantize
-                rescue
-                  feature
-                end
+        klass = policy_klass_for(feature)
 
         begin
           result = Pundit::PolicyFinder.new(klass).policy!.new(current_user, klass)
@@ -51,6 +47,16 @@ module Navigation
           result = ApplicationPolicy.new(current_user, klass)
           Rails.logger.info 'LOG: Navigation::Render::Base#policy - Policy fallback'
           result
+        end
+      end
+
+      def policy_klass_for(feature)
+        return Educamais if feature.to_s == 'educamais'
+
+        begin
+          feature.singularize.camelcase.constantize
+        rescue
+          feature
         end
       end
 

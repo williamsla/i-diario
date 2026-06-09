@@ -4,6 +4,7 @@ module RoleHelper
     'ieducar_api_exam_posting_without_restrictions',
     'change_school_year',
     'infrequency_trackings',
+    'educamais',
     'pedagogical_trackings',
     'lessons_boards',
     'copy_discipline_teaching_plan'
