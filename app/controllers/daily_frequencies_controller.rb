@@ -825,9 +825,13 @@ class DailyFrequenciesController < ApplicationController
     )
 
     @knowledge_areas_for_content = if is_multigrade_infantil_fundamental?
+                                     infantil_discipline_ids = discipline_ids_for_grade_ids(
+                                       current_user_classroom,
+                                       infantil_fundamental_grade_ids(current_user_classroom, :infantil)
+                                     )
                                      filter_knowledge_areas_for_content_registration(
                                        KnowledgeArea.by_teacher(current_teacher)
-                                                    .by_classroom_id(current_user_classroom.id)
+                                                    .by_discipline_id(infantil_discipline_ids)
                                                     .ordered,
                                        current_user_classroom
                                      )

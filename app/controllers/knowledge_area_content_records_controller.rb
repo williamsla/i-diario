@@ -405,10 +405,22 @@ class KnowledgeAreaContentRecordsController < ApplicationController
 
   def set_knowledge_area_by_classroom(classroom_id)
     classroom = Classroom.find_by(id: classroom_id)
-    @knowledge_areas = filter_knowledge_areas_for_content_registration(
-      KnowledgeArea.by_teacher(current_teacher).by_classroom_id(classroom_id).ordered,
-      classroom
-    )
+
+    knowledge_areas = if multigrade_infantil_fundamental_classroom?(classroom)
+                        infantil_discipline_ids = discipline_ids_for_grade_ids(
+                          classroom,
+                          infantil_fundamental_grade_ids(classroom, :infantil)
+                        )
+                        KnowledgeArea.by_teacher(current_teacher)
+                                     .by_discipline_id(infantil_discipline_ids)
+                                     .ordered
+                      else
+                        KnowledgeArea.by_teacher(current_teacher)
+                                     .by_classroom_id(classroom_id)
+                                     .ordered
+                      end
+
+    @knowledge_areas = filter_knowledge_areas_for_content_registration(knowledge_areas, classroom)
   end
 
   def fetch_linked_by_teacher
