@@ -229,6 +229,25 @@ class ApplicationController < ActionController::Base
   end
   helper_method :is_fundamental
 
+  def is_multigrade_infantil_fundamental?
+    is_infantil && is_fundamental
+  end
+  helper_method :is_multigrade_infantil_fundamental?
+
+  def filter_disciplines_for_content_registration(disciplines, classroom = current_user_classroom)
+    return disciplines unless is_multigrade_infantil_fundamental?
+
+    allowed_ids = discipline_ids_for_grade_ids(classroom, infantil_fundamental_grade_ids(classroom, :fundamental))
+    disciplines.select { |discipline| allowed_ids.include?(discipline.id) }
+  end
+
+  def filter_knowledge_areas_for_content_registration(knowledge_areas, classroom = current_user_classroom)
+    return knowledge_areas unless is_multigrade_infantil_fundamental?
+
+    allowed_ids = knowledge_area_ids_for_grade_ids(classroom, infantil_fundamental_grade_ids(classroom, :infantil))
+    knowledge_areas.select { |knowledge_area| allowed_ids.include?(knowledge_area.id) }
+  end
+
   def is_aee
     classroom_grades.each do |classroom_grade|
       return true if classroom_grade.grade.description.match?(/aee/i)
@@ -457,6 +476,51 @@ class ApplicationController < ActionController::Base
   end
 
   private
+
+  INFANTIL_GRADE_PATTERN = /creche|pre|pre i|pre ii|pre[- ]escola(r)?|maternal|bercario|jardim|infantil|aee/
+  FUNDAMENTAL_GRADE_PATTERN = /ano|fundamental/
+
+  def infantil_fundamental_grade_ids(classroom, grade_type)
+    return [] if classroom.blank?
+
+    classroom.classrooms_grades.select do |classroom_grade|
+      description = I18n.transliterate(classroom_grade.grade.description.downcase)
+
+      case grade_type
+      when :infantil
+        description.match?(INFANTIL_GRADE_PATTERN)
+      when :fundamental
+        description.match?(FUNDAMENTAL_GRADE_PATTERN)
+      else
+        false
+      end
+    end.map(&:grade_id)
+  end
+
+  def discipline_ids_for_grade_ids(classroom, grade_ids)
+    return [] if classroom.blank? || grade_ids.blank? || current_teacher.blank?
+
+    TeacherDisciplineClassroom
+      .by_teacher_id(current_teacher.id)
+      .by_classroom(classroom)
+      .by_year(current_school_year)
+      .where(grade_id: grade_ids)
+      .pluck(:discipline_id)
+      .uniq
+  end
+
+  def knowledge_area_ids_for_grade_ids(classroom, grade_ids)
+    return [] if classroom.blank? || grade_ids.blank? || current_teacher.blank?
+
+    TeacherDisciplineClassroom
+      .by_teacher_id(current_teacher.id)
+      .by_classroom(classroom)
+      .by_year(current_school_year)
+      .where(grade_id: grade_ids)
+      .joins(:discipline)
+      .pluck('disciplines.knowledge_area_id')
+      .uniq
+  end
 
   def set_current_user_role_id
     return if request.xhr?

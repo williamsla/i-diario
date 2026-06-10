@@ -205,7 +205,7 @@
       <% if daily_frequency_ids.present? %>
             <div class="clearfix"></div>
             <div id="register-content-frame-modal" class="register-content-actions">
-              <% if is_infantil == false %>
+              <% unless is_infantil %>
                 <% (@disciplines_for_content || []).each do |discipline| %>
                   <button type="button"
                           class="btn btn-register-content btn-sm"
@@ -219,19 +219,20 @@
                     Lançar conteúdo de <%= discipline.description %>
                   </button>
                 <% end %>
-              <% else %>
-                  <% (@knowledge_areas_for_content || []).each do |knowledge_area| %>
-                    <button type="button"
-                            class="btn btn-register-content btn-sm"
-                            data-toggle="modal"
-                            data-target="#contentModal"
-                            data-knowledge-area-id="<%= knowledge_area.id %>"
-                            data-last-content="<%= get_knowledge_area_content_record_id_by_date(knowledge_area.id) %>"
-                            data-is-infantil="1"
-                    >
-                      Lançar conteúdo de <%= knowledge_area.description %>
-                    </button>
-                  <% end %>
+              <% end %>
+              <% if is_infantil %>
+                <% (@knowledge_areas_for_content || []).each do |knowledge_area| %>
+                  <button type="button"
+                          class="btn btn-register-content btn-sm"
+                          data-toggle="modal"
+                          data-target="#contentModal"
+                          data-knowledge-area-id="<%= knowledge_area.id %>"
+                          data-last-content="<%= get_knowledge_area_content_record_id_by_date(knowledge_area.id) %>"
+                          data-is-infantil="1"
+                  >
+                    Lançar conteúdo de <%= knowledge_area.description %>
+                  </button>
+                <% end %>
               <% end %>
 
               <!-- Modal -->

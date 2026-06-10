@@ -577,9 +577,11 @@ class DisciplineContentRecordsController < ApplicationController
     @disciplines = []
 
     if @discipline_content_record.content_record.classroom.present?
-      @disciplines = Discipline.by_teacher_and_classroom(
-        current_teacher.id, @discipline_content_record.content_record.classroom.id
-      ).ordered
+      classroom = @discipline_content_record.content_record.classroom
+      @disciplines = filter_disciplines_for_content_registration(
+        Discipline.by_teacher_and_classroom(current_teacher.id, classroom.id).ordered,
+        classroom
+      )
     end
 
     @disciplines
@@ -598,7 +600,10 @@ class DisciplineContentRecordsController < ApplicationController
   def fetch_linked_by_teacher
     @fetch_linked_by_teacher ||= TeacherClassroomAndDisciplineFetcher.fetch!(current_teacher.id, current_unity, current_school_year, current_user_classroom)
     # @classrooms ||=  @fetch_linked_by_teacher[:classrooms]
-    @disciplines ||= @fetch_linked_by_teacher[:disciplines]
+    @disciplines ||= filter_disciplines_for_content_registration(
+      @fetch_linked_by_teacher[:disciplines],
+      current_user_classroom
+    )
   end
 
   def show_objectives

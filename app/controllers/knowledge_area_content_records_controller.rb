@@ -404,9 +404,11 @@ class KnowledgeAreaContentRecordsController < ApplicationController
   end
 
   def set_knowledge_area_by_classroom(classroom_id)
-    @knowledge_areas = KnowledgeArea.by_teacher(current_teacher)
-                                    .by_classroom_id(classroom_id)
-                                    .ordered
+    classroom = Classroom.find_by(id: classroom_id)
+    @knowledge_areas = filter_knowledge_areas_for_content_registration(
+      KnowledgeArea.by_teacher(current_teacher).by_classroom_id(classroom_id).ordered,
+      classroom
+    )
   end
 
   def fetch_linked_by_teacher

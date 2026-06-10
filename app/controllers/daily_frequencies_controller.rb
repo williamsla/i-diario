@@ -819,8 +819,21 @@ class DailyFrequenciesController < ApplicationController
                                else
                                  linked_disciplines
                                end
+    @disciplines_for_content = filter_disciplines_for_content_registration(
+      @disciplines_for_content,
+      current_user_classroom
+    )
 
-    @knowledge_areas_for_content = @disciplines_for_content.map(&:knowledge_area).compact.uniq(&:id)
+    @knowledge_areas_for_content = if is_multigrade_infantil_fundamental?
+                                     filter_knowledge_areas_for_content_registration(
+                                       KnowledgeArea.by_teacher(current_teacher)
+                                                    .by_classroom_id(current_user_classroom.id)
+                                                    .ordered,
+                                       current_user_classroom
+                                     )
+                                   else
+                                     @disciplines_for_content.map(&:knowledge_area).compact.uniq(&:id)
+                                   end
     @knowledge_areas = []
     @knowledge_areas = [@disciplines.first&.knowledge_area] if @disciplines.first&.knowledge_area.present?
   end
