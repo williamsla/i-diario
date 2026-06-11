@@ -24,16 +24,23 @@ class PendingRecordsCalculator
       is_infantil = classroom ? is_infantil_classroom?(classroom) : false
     end
     
-    # Se for turma infantil e foi passado um discipline_id (que pode ser knowledge_area_id),
+    # Se for turma infantil (ou multisseriada com área de conhecimento) e foi passado knowledge_area_id,
     # processar diretamente sem depender de teacher_discipline_classrooms
-    if is_infantil && @discipline_id.present? && @teacher_id.present? && @classroom_id.present?
+    is_multigrade = classroom ? multigrade_infantil_fundamental_classroom?(classroom) : false
+    is_pure_infantil = is_infantil && !is_multigrade
+    infantil_knowledge_area_param = infantil_knowledge_area_param?(
+      classroom, @teacher_id, @discipline_id
+    )
+
+    if @discipline_id.present? && @teacher_id.present? && @classroom_id.present? && classroom &&
+       (is_pure_infantil || (is_multigrade && infantil_knowledge_area_param))
       unity = classroom.unity
       school_calendar = CurrentSchoolCalendarFetcher.new(unity, classroom, @school_year).fetch
       return results unless school_calendar
 
       steps_fetcher = StepsFetcher.new(classroom)
       steps = steps_fetcher.steps_by_date_range(@start_date, @end_date)
-      
+
       if steps.blank?
         start_date = @start_date
         end_date = @end_date
@@ -42,7 +49,6 @@ class PendingRecordsCalculator
         end_date = [steps.map(&:end_at).max, @end_date].min
       end
 
-      # Obter frequency_type da turma
       frequency_type_definer = FrequencyTypeDefiner.new(classroom, @teacher_id, nil, year: @school_year)
       frequency_type_definer.define!
       frequency_type = frequency_type_definer.frequency_type
@@ -51,26 +57,25 @@ class PendingRecordsCalculator
       today = Date.current
       grade_id = classroom.grade_ids.first
 
-      # Calcular dias letivos
       school_day_checker = SchoolDayChecker.new(school_calendar, start_date, grade_id, classroom.id, nil)
       all_school_days = school_day_checker.school_dates_between(start_date, end_date)
-      
-      # Adicionar sábados que estão no quadro de aulas, mesmo que não sejam dias letivos no calendário
       all_school_days = add_saturdays_from_lesson_boards(all_school_days, start_date, end_date, classroom.id)
 
-      # Buscar áreas de conhecimento do professor na turma
-      knowledge_area_ids = KnowledgeArea.by_teacher(@teacher_id)
-                                       .by_classroom_id(classroom.id)
-                                       .pluck(:id)
-      
-      # Filtrar pelo knowledge_area_id fornecido
+      knowledge_area_ids = if is_multigrade
+                             infantil_knowledge_area_ids_for_classroom(classroom, @teacher_id)
+                           else
+                             KnowledgeArea.by_teacher(@teacher_id)
+                                          .by_classroom_id(classroom.id)
+                                          .pluck(:id)
+                           end
+
       knowledge_area_ids = knowledge_area_ids.select { |id| id.to_s == @discipline_id.to_s }
-      
-      # Se não encontrou a área de conhecimento, retornar vazio
       return results if knowledge_area_ids.blank?
-      
-      # Processar por área de conhecimento
-      infantil_results = process_infantil_classroom(classroom, knowledge_area_ids, school_calendar, start_date, end_date, is_general_frequency, all_school_days, today, grade_id, @teacher_id)
+
+      infantil_results = process_infantil_classroom(
+        classroom, knowledge_area_ids, school_calendar, start_date, end_date,
+        is_general_frequency, all_school_days, today, grade_id, @teacher_id
+      )
       return infantil_results
     end
     
@@ -114,25 +119,48 @@ class PendingRecordsCalculator
       # Adicionar sábados que estão no quadro de aulas, mesmo que não sejam dias letivos no calendário
       all_school_days = add_saturdays_from_lesson_boards(all_school_days, start_date, end_date, classroom.id)
 
-      # Verificar se é turma infantil
       is_infantil = is_infantil_classroom?(classroom)
+      is_multigrade = multigrade_infantil_fundamental_classroom?(classroom)
 
-      # Se for turma infantil, buscar áreas de conhecimento ao invés de disciplinas
-      if is_infantil
-        # Buscar áreas de conhecimento do professor na turma
+      if is_multigrade
+        teacher_id = tdcs.first.teacher_id
+        knowledge_area_ids = infantil_knowledge_area_ids_for_classroom(classroom, teacher_id)
+
+        if @discipline_id.present? && infantil_knowledge_area_param?(classroom, teacher_id, @discipline_id)
+          knowledge_area_ids = knowledge_area_ids.select { |id| id.to_s == @discipline_id.to_s }
+        elsif @discipline_id.present?
+          knowledge_area_ids = []
+        end
+
+        if knowledge_area_ids.present?
+          results.concat(
+            process_infantil_classroom(
+              classroom, knowledge_area_ids, school_calendar, start_date, end_date,
+              is_general_frequency, all_school_days, today, grade_id, teacher_id
+            )
+          )
+        end
+
+        fundamental_ids = fundamental_grade_ids(classroom)
+        tdcs = tdcs.select { |tdc| fundamental_ids.include?(tdc.grade_id) }
+        next if tdcs.blank?
+      elsif is_infantil
         teacher_id = tdcs.first.teacher_id
         knowledge_area_ids = KnowledgeArea.by_teacher(teacher_id)
                                          .by_classroom_id(classroom.id)
                                          .pluck(:id)
-        
-        # Se discipline_id foi fornecido e é um ID de área de conhecimento, filtrar
+
         if @discipline_id.present?
           knowledge_area_ids = knowledge_area_ids.select { |id| id.to_s == @discipline_id.to_s }
         end
-        
-        # Para turmas infantis, processar por área de conhecimento
-        results.concat(process_infantil_classroom(classroom, knowledge_area_ids, school_calendar, start_date, end_date, is_general_frequency, all_school_days, today, grade_id, teacher_id))
-        next # Pular processamento normal de disciplinas
+
+        results.concat(
+          process_infantil_classroom(
+            classroom, knowledge_area_ids, school_calendar, start_date, end_date,
+            is_general_frequency, all_school_days, today, grade_id, teacher_id
+          )
+        )
+        next
       end
 
       # Buscar weekdays em batch para todas as disciplinas (sempre necessário para conteúdos)
@@ -1123,9 +1151,93 @@ class PendingRecordsCalculator
 
   def is_infantil_classroom?(classroom)
     classroom.classrooms_grades.any? do |classroom_grade|
-      grade = classroom_grade.grade
-      grade&.description&.match?(/creche|pre|pre-escola|pré|pré-escola|maternal|bercario|berçario|infantil|aee/i)
+      infantil_grade_description?(classroom_grade.grade&.description)
     end
+  end
+
+  INFANTIL_GRADE_PATTERN = /creche|pre|pre i|pre ii|pre[- ]escola(r)?|maternal|bercario|jardim|infantil|aee/
+  FUNDAMENTAL_GRADE_PATTERN = /ano|fundamental/
+
+  def multigrade_infantil_fundamental_classroom?(classroom)
+    return false if classroom.blank?
+
+    infantil = false
+    fundamental = false
+
+    classroom.classrooms_grades.each do |classroom_grade|
+      description = transliterated_grade_description(classroom_grade.grade&.description)
+      next if description.blank?
+
+      infantil ||= infantil_grade_description?(classroom_grade.grade&.description)
+      fundamental ||= description.match?(FUNDAMENTAL_GRADE_PATTERN)
+    end
+
+    infantil && fundamental
+  end
+
+  def infantil_grade_ids(classroom)
+    grade_ids_for_type(classroom, :infantil)
+  end
+
+  def fundamental_grade_ids(classroom)
+    grade_ids_for_type(classroom, :fundamental)
+  end
+
+  def infantil_knowledge_area_ids_for_classroom(classroom, teacher_id)
+    infantil_discipline_ids = discipline_ids_for_grade_ids(classroom, infantil_grade_ids(classroom), teacher_id)
+    return [] if infantil_discipline_ids.blank?
+
+    KnowledgeArea.joins(:disciplines)
+                 .where(disciplines: { id: infantil_discipline_ids })
+                 .distinct
+                 .pluck(:id)
+  end
+
+  def infantil_knowledge_area_param?(classroom, teacher_id, param_id)
+    return false if param_id.blank? || classroom.blank? || teacher_id.blank?
+
+    infantil_knowledge_area_ids_for_classroom(classroom, teacher_id).map(&:to_s).include?(param_id.to_s)
+  end
+
+  def discipline_ids_for_grade_ids(classroom, grade_ids, teacher_id)
+    return [] if classroom.blank? || grade_ids.blank? || teacher_id.blank?
+
+    TeacherDisciplineClassroom
+      .by_teacher_id(teacher_id)
+      .by_classroom(classroom)
+      .by_year(@school_year)
+      .where(grade_id: grade_ids)
+      .pluck(:discipline_id)
+      .uniq
+  end
+
+  def grade_ids_for_type(classroom, grade_type)
+    return [] if classroom.blank?
+
+    classroom.classrooms_grades.select do |classroom_grade|
+      description = transliterated_grade_description(classroom_grade.grade&.description)
+      next false if description.blank?
+
+      case grade_type
+      when :infantil
+        infantil_grade_description?(classroom_grade.grade&.description)
+      when :fundamental
+        description.match?(FUNDAMENTAL_GRADE_PATTERN)
+      else
+        false
+      end
+    end.map(&:grade_id)
+  end
+
+  def infantil_grade_description?(description)
+    return false if description.blank?
+
+    transliterated_grade_description(description).match?(INFANTIL_GRADE_PATTERN) &&
+      !transliterated_grade_description(description).match?(FUNDAMENTAL_GRADE_PATTERN)
+  end
+
+  def transliterated_grade_description(description)
+    I18n.transliterate(description.to_s.downcase)
   end
 
   def add_saturdays_from_lesson_boards(all_school_days, start_date, end_date, classroom_id)
