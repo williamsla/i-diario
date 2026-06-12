@@ -17,7 +17,7 @@ class KnowledgeAreasController < ApplicationController
       disciplines_ids = if multigrade_infantil_fundamental_classroom?(classroom)
                           discipline_ids_for_grade_ids(
                             classroom,
-                            infantil_fundamental_grade_ids(classroom, :infantil)
+                            infantil_grade_ids(classroom)
                           )
                         else
                           Discipline.by_teacher_and_classroom(current_teacher.id, classroom_id)

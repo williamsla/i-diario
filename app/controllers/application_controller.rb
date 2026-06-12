@@ -206,26 +206,16 @@ class ApplicationController < ActionController::Base
   end
 
   def is_infantil
-    classroom_grades.each do |classroom_grade|
-      description = I18n.transliterate(classroom_grade.grade.description.downcase)
-
-      return true if description.match?(
-        /creche|pre|pre i|pre ii|pre[- ]escola(r)?|maternal|bercario|jardim|infantil|aee/
-      )
+    classroom_grades.any? do |classroom_grade|
+      infantil_grade_description?(classroom_grade.grade&.description)
     end
-    return false
   end
   helper_method :is_infantil
 
   def is_fundamental
-    classroom_grades.each do |classroom_grade|
-      description = I18n.transliterate(classroom_grade.grade.description.downcase)
-
-      return true if description.match?(
-        /ano|fundamental/
-      )
+    classroom_grades.any? do |classroom_grade|
+      !infantil_grade_description?(classroom_grade.grade&.description)
     end
-    return false
   end
   helper_method :is_fundamental
 
@@ -237,25 +227,14 @@ class ApplicationController < ActionController::Base
   def filter_disciplines_for_content_registration(disciplines, classroom = current_user_classroom)
     return disciplines unless multigrade_infantil_fundamental_classroom?(classroom)
 
-    allowed_ids = discipline_ids_for_grade_ids(classroom, infantil_fundamental_grade_ids(classroom, :fundamental))
+    allowed_ids = discipline_ids_for_grade_ids(classroom, non_infantil_grade_ids(classroom))
     disciplines.select { |discipline| allowed_ids.include?(discipline.id) }
   end
 
   def filter_knowledge_areas_for_content_registration(knowledge_areas, classroom = current_user_classroom)
     return knowledge_areas unless multigrade_infantil_fundamental_classroom?(classroom)
 
-    infantil_grade_ids = infantil_fundamental_grade_ids(classroom, :infantil)
-    fundamental_grade_ids = infantil_fundamental_grade_ids(classroom, :fundamental)
-
-    infantil_knowledge_area_ids = knowledge_area_ids_for_grade_ids(classroom, infantil_grade_ids)
-    fundamental_knowledge_area_ids = knowledge_area_ids_for_grade_ids(classroom, fundamental_grade_ids)
-
-    allowed_ids = if infantil_knowledge_area_ids.present?
-                    infantil_knowledge_area_ids - fundamental_knowledge_area_ids
-                  else
-                    Array(knowledge_areas).map(&:id) - fundamental_knowledge_area_ids
-                  end
-
+    allowed_ids = knowledge_area_ids_for_grade_ids(classroom, infantil_grade_ids(classroom))
     knowledge_areas.select { |knowledge_area| allowed_ids.include?(knowledge_area.id) }
   end
 
@@ -489,38 +468,43 @@ class ApplicationController < ActionController::Base
   private
 
   INFANTIL_GRADE_PATTERN = /creche|pre|pre i|pre ii|pre[- ]escola(r)?|maternal|bercario|jardim|infantil|aee/
-  FUNDAMENTAL_GRADE_PATTERN = /ano|fundamental/
+
+  def infantil_grade_description?(description)
+    return false if description.blank?
+
+    I18n.transliterate(description.to_s.downcase).match?(INFANTIL_GRADE_PATTERN)
+  end
 
   def multigrade_infantil_fundamental_classroom?(classroom)
     return false if classroom.blank?
 
-    infantil = false
-    fundamental = false
+    has_infantil = false
+    has_non_infantil = false
 
     classroom.classrooms_grades.each do |classroom_grade|
-      description = I18n.transliterate(classroom_grade.grade.description.downcase)
-
-      infantil ||= description.match?(INFANTIL_GRADE_PATTERN) && !description.match?(FUNDAMENTAL_GRADE_PATTERN)
-      fundamental ||= description.match?(FUNDAMENTAL_GRADE_PATTERN)
+      if infantil_grade_description?(classroom_grade.grade&.description)
+        has_infantil = true
+      else
+        has_non_infantil = true
+      end
     end
 
-    infantil && fundamental
+    has_infantil && has_non_infantil
   end
 
-  def infantil_fundamental_grade_ids(classroom, grade_type)
+  def infantil_grade_ids(classroom)
     return [] if classroom.blank?
 
     classroom.classrooms_grades.select do |classroom_grade|
-      description = I18n.transliterate(classroom_grade.grade.description.downcase)
+      infantil_grade_description?(classroom_grade.grade&.description)
+    end.map(&:grade_id)
+  end
 
-      case grade_type
-      when :infantil
-        description.match?(INFANTIL_GRADE_PATTERN) && !description.match?(FUNDAMENTAL_GRADE_PATTERN)
-      when :fundamental
-        description.match?(FUNDAMENTAL_GRADE_PATTERN)
-      else
-        false
-      end
+  def non_infantil_grade_ids(classroom)
+    return [] if classroom.blank?
+
+    classroom.classrooms_grades.reject do |classroom_grade|
+      infantil_grade_description?(classroom_grade.grade&.description)
     end.map(&:grade_id)
   end
 

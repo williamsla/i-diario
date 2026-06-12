@@ -409,7 +409,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     knowledge_areas = if multigrade_infantil_fundamental_classroom?(classroom)
                         infantil_discipline_ids = discipline_ids_for_grade_ids(
                           classroom,
-                          infantil_fundamental_grade_ids(classroom, :infantil)
+                          infantil_grade_ids(classroom)
                         )
                         KnowledgeArea.by_teacher(current_teacher)
                                      .by_discipline_id(infantil_discipline_ids)

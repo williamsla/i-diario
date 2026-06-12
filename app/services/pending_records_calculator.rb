@@ -141,8 +141,8 @@ class PendingRecordsCalculator
           )
         end
 
-        fundamental_ids = fundamental_grade_ids(classroom)
-        tdcs = tdcs.select { |tdc| fundamental_ids.include?(tdc.grade_id) }
+        non_infantil_ids = non_infantil_grade_ids(classroom)
+        tdcs = tdcs.select { |tdc| non_infantil_ids.include?(tdc.grade_id) }
         next if tdcs.blank?
       elsif is_infantil
         teacher_id = tdcs.first.teacher_id
@@ -1149,38 +1149,45 @@ class PendingRecordsCalculator
       .exists?
   end
 
+  INFANTIL_GRADE_PATTERN = /creche|pre|pre i|pre ii|pre[- ]escola(r)?|maternal|bercario|jardim|infantil|aee/
+
   def is_infantil_classroom?(classroom)
     classroom.classrooms_grades.any? do |classroom_grade|
       infantil_grade_description?(classroom_grade.grade&.description)
     end
   end
 
-  INFANTIL_GRADE_PATTERN = /creche|pre|pre i|pre ii|pre[- ]escola(r)?|maternal|bercario|jardim|infantil|aee/
-  FUNDAMENTAL_GRADE_PATTERN = /ano|fundamental/
-
   def multigrade_infantil_fundamental_classroom?(classroom)
     return false if classroom.blank?
 
-    infantil = false
-    fundamental = false
+    has_infantil = false
+    has_non_infantil = false
 
     classroom.classrooms_grades.each do |classroom_grade|
-      description = transliterated_grade_description(classroom_grade.grade&.description)
-      next if description.blank?
-
-      infantil ||= infantil_grade_description?(classroom_grade.grade&.description)
-      fundamental ||= description.match?(FUNDAMENTAL_GRADE_PATTERN)
+      if infantil_grade_description?(classroom_grade.grade&.description)
+        has_infantil = true
+      else
+        has_non_infantil = true
+      end
     end
 
-    infantil && fundamental
+    has_infantil && has_non_infantil
   end
 
   def infantil_grade_ids(classroom)
-    grade_ids_for_type(classroom, :infantil)
+    return [] if classroom.blank?
+
+    classroom.classrooms_grades.select do |classroom_grade|
+      infantil_grade_description?(classroom_grade.grade&.description)
+    end.map(&:grade_id)
   end
 
-  def fundamental_grade_ids(classroom)
-    grade_ids_for_type(classroom, :fundamental)
+  def non_infantil_grade_ids(classroom)
+    return [] if classroom.blank?
+
+    classroom.classrooms_grades.reject do |classroom_grade|
+      infantil_grade_description?(classroom_grade.grade&.description)
+    end.map(&:grade_id)
   end
 
   def infantil_knowledge_area_ids_for_classroom(classroom, teacher_id)
@@ -1211,33 +1218,10 @@ class PendingRecordsCalculator
       .uniq
   end
 
-  def grade_ids_for_type(classroom, grade_type)
-    return [] if classroom.blank?
-
-    classroom.classrooms_grades.select do |classroom_grade|
-      description = transliterated_grade_description(classroom_grade.grade&.description)
-      next false if description.blank?
-
-      case grade_type
-      when :infantil
-        infantil_grade_description?(classroom_grade.grade&.description)
-      when :fundamental
-        description.match?(FUNDAMENTAL_GRADE_PATTERN)
-      else
-        false
-      end
-    end.map(&:grade_id)
-  end
-
   def infantil_grade_description?(description)
     return false if description.blank?
 
-    transliterated_grade_description(description).match?(INFANTIL_GRADE_PATTERN) &&
-      !transliterated_grade_description(description).match?(FUNDAMENTAL_GRADE_PATTERN)
-  end
-
-  def transliterated_grade_description(description)
-    I18n.transliterate(description.to_s.downcase)
+    I18n.transliterate(description.to_s.downcase).match?(INFANTIL_GRADE_PATTERN)
   end
 
   def add_saturdays_from_lesson_boards(all_school_days, start_date, end_date, classroom_id)
