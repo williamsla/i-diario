@@ -87,6 +87,7 @@ class ExamStepAverageReport < BaseReport
   def data_table
     avaliations = []
     students = {}
+    conceptual_exams_by_student_and_step = load_conceptual_exams_by_student_and_step
 
     recovery_exam_rule = classroom.first_exam_rule_with_recovery.recovery_exam_rules.first
     recovery_average = recovery_exam_rule&.average || 0
@@ -113,16 +114,18 @@ class ExamStepAverageReport < BaseReport
             students[student_enrollment.id][:social_name] = student.social_name
             students[student_enrollment.id][:student_id] = student.id
 
-            score = StudentAverageCalculator.new(
-                student
-            ).calculate(
-                classroom,
-                discipline,
-                school_calendar_step
-            )
+            uses_conceptual = student_uses_conceptual_evaluation?(student)
+            students[student_enrollment.id][:uses_conceptual] = uses_conceptual
+
+            score = if uses_conceptual
+              conceptual_exam = conceptual_exams_by_student_and_step[[student.id, school_calendar_step.step_number]]
+              fetch_conceptual_score_from_exam(student, conceptual_exam)
+            else
+              StudentAverageCalculator.new(student).calculate(classroom, discipline, school_calendar_step)
+            end
             (students[student_enrollment.id][:scores_number] ||= []) << score
 
-            if score.nil? && school_calendar_step.end_at < Date.today
+            if score.nil? && school_calendar_step.end_at < Date.today && !uses_conceptual
               (students[student_enrollment.id][:scores] ||= []) << make_cell(content: '', align: :center, background_color: 'FF0000')
             elsif score.is_a?(Numeric) && score < recovery_average
               (students[student_enrollment.id][:scores] ||= []) << make_cell(content: localize_score(score), align: :center, text_color: 'FF0000')
@@ -155,7 +158,7 @@ class ExamStepAverageReport < BaseReport
         student_cells = [sequence_cell, { content: (value[:dependence] ? '* ' : '') + value[:name] }].concat(value[:scores])
         data_column_count = value[:scores].count + (value[:recoveries].nil? ? 0 : value[:recoveries].count)
 
-        avg = calculate_avg(value[:scores_number], @steps.count)
+        avg = value[:uses_conceptual] ? nil : calculate_avg(value[:scores_number], @steps.count)
         student_cells << make_cell(content: "", align: :center) # recuperação final
         student_cells << make_cell(content: localize_score(avg), align: :center)
         
@@ -208,13 +211,55 @@ class ExamStepAverageReport < BaseReport
   end
 
   def calculate_avg(scores, steps_size)
-    sum = 0
-    scores.each { |v| 
-       if v.is_a? Numeric
-        sum = sum + v 
-       end
-    }
-    sum/steps_size
+    numeric_scores = scores.select { |v| v.is_a?(Numeric) }
+    return nil if numeric_scores.empty?
+
+    numeric_scores.sum / steps_size.to_f
+  end
+
+  def load_conceptual_exams_by_student_and_step
+    student_ids = @students_enrollments.map(&:student_id)
+    step_numbers = @steps.map(&:step_number)
+
+    ConceptualExam
+      .by_classroom_id(classroom.id)
+      .where(student_id: student_ids, step_number: step_numbers)
+      .includes(:conceptual_exam_values)
+      .each_with_object({}) do |exam, hash|
+        hash[[exam.student_id, exam.step_number]] = exam
+      end
+  end
+
+  def student_uses_conceptual_evaluation?(student)
+    exam_rule = ExamRuleFetcher.fetch(classroom, student)
+    return false if exam_rule.blank?
+
+    return true if exam_rule.score_type == ScoreTypes::CONCEPT
+
+    if exam_rule.score_type == ScoreTypes::NUMERIC_AND_CONCEPT
+      teacher_discipline = TeacherDisciplineClassroom.find_by(classroom: classroom, discipline: discipline)
+      return teacher_discipline&.score_type == ScoreTypes::CONCEPT
+    end
+
+    false
+  end
+
+  def fetch_conceptual_score_from_exam(student, conceptual_exam)
+    return nil if conceptual_exam.blank?
+
+    value_record = conceptual_exam.conceptual_exam_values.find { |v| v.discipline_id == discipline.id }
+    concept_display_name(student, value_record&.value)
+  end
+
+  def concept_display_name(student, value)
+    return nil if value.blank?
+
+    exam_rule = ExamRuleFetcher.fetch(classroom, student)
+    rounding_table = exam_rule&.conceptual_rounding_table
+    return value.to_s if rounding_table.blank?
+
+    rtv = rounding_table.rounding_table_values.find { |v| v.value.to_s == value.to_s }
+    rtv ? rtv.label.to_s : value.to_s
   end
 
   def student_slice_size(students)
@@ -283,7 +328,9 @@ class ExamStepAverageReport < BaseReport
   end
 
   def localize_score(value)
-    return value unless value.is_a? Numeric
+    return '' if value.blank?
+    return value.to_s unless value.is_a?(Numeric)
+
     number_with_precision(value, precision: 1)
   end
 
