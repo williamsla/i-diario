@@ -1,5 +1,9 @@
 class KnowledgeAreaToDisciplineContentRecordMigrator
-  Result = Struct.new(:created, :skipped, :errors, keyword_init: true)
+  Result = Struct.new(:created, :skipped, :errors)
+
+  def self.empty_result
+    Result.new(0, 0, [])
+  end
 
   def initialize(
     ka_record_ids:,
@@ -18,7 +22,7 @@ class KnowledgeAreaToDisciplineContentRecordMigrator
   end
 
   def call
-    result = Result.new(created: 0, skipped: 0, errors: [])
+    result = self.class.empty_result
 
     discipline = Discipline.find_by(id: @discipline_id)
     unless discipline
