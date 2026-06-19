@@ -126,7 +126,7 @@ class ExamStepAverageReport < BaseReport
             (students[student_enrollment.id][:scores_number] ||= []) << score
 
             if score.nil? && school_calendar_step.end_at < Date.today && !uses_conceptual
-              (students[student_enrollment.id][:scores] ||= []) << make_cell(content: '', align: :center, background_color: 'FF0000')
+              (students[student_enrollment.id][:scores] ||= []) << make_cell(content: '', align: :center)
             elsif score.is_a?(Numeric) && score < recovery_average
               (students[student_enrollment.id][:scores] ||= []) << make_cell(content: localize_score(score), align: :center, text_color: 'FF0000')
             else
