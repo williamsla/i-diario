@@ -249,11 +249,13 @@ Rails.application.routes.draw do
       collection do
         post :clone
         get :check_teacher_absence
+        get :disciplines_for_record_date
       end
     end
     resources :knowledge_area_content_records, concerns: :history do
       collection do
         post :clone
+        get :knowledge_areas_for_record_date
       end
     end
     resources :classrooms, only: [:index, :show] do

@@ -101,4 +101,43 @@ RSpec.describe KnowledgeAreaContentRecordsController, type: :controller do
     end
 
   end
+
+  describe 'GET #knowledge_areas_for_record_date' do
+    let(:other_teacher) { create(:teacher) }
+
+    it 'retorna mensagem quando o professor não possui áreas no quadro para a data' do
+      other_discipline = create(:discipline)
+      other_knowledge_area = create(:knowledge_area)
+      other_knowledge_area.disciplines << other_discipline
+      teacher_discipline_classroom = create(
+        :teacher_discipline_classroom,
+        teacher: other_teacher,
+        classroom: classroom,
+        discipline: other_discipline,
+        grade: classroom.classrooms_grades.first.grade,
+        year: classroom.year,
+        active: true
+      )
+      classrooms_grade = classroom.classrooms_grades.first
+      lessons_board = create(:lessons_board, classrooms_grade: classrooms_grade)
+      lesson = create(:lessons_board_lesson, lessons_board: lessons_board, lesson_number: 1)
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: lesson,
+        teacher_discipline_classroom: teacher_discipline_classroom,
+        weekday: :tuesday
+      )
+
+      get :knowledge_areas_for_record_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        record_date: '28/02/2017'
+      }
+
+      payload = JSON.parse(response.body)
+
+      expect(payload['knowledge_areas']).to be_empty
+      expect(payload['message']).to include('quadro de horários')
+    end
+  end
 end

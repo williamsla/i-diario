@@ -7,6 +7,14 @@ $(function () {
   // Regular expression for dd/mm/yyyy date including validation for leap year and more
   var dateRegex = '^(?:(?:31(\\/)(?:0?[13578]|1[02]))\\1|(?:(?:29|30)(\\/)(?:0?[1,3-9]|1[0-2])\\2))(?:(?:1[6-9]|[2-9]\\d)?\\d{2})$|^(?:29(\\/)0?2\\3(?:(?:(?:1[6-9]|[2-9]\\d)?(?:0[48]|[2468][048]|[13579][26])|(?:(?:16|[2468][048]|[3579][26])00))))$|^(?:0?[1-9]|1\\d|2[0-8])(\\/)(?:(?:0?[1-9])|(?:1[0-2]))\\4(?:(?:1[6-9]|[2-9]\\d)?\\d{2})$';
   var flashMessages = new FlashMessages();
+  var $form = $('#knowledge-area-content-record-form');
+  var isModalForm = $form.data('modal') === true || $form.data('modal') === 'true';
+  var apiPaths = {
+    knowledgeAreasForRecordDate: $form.data('knowledgeAreasForRecordDateUrl')
+  };
+  var $recordDateEmptyAlert = $('#record-date-empty-alert');
+  var $recordDateEmptyMessage = $('#record-date-empty-message');
+  var $recordDateHint = $('#record-date-hint');
   var $classroom = $('#knowledge_area_content_record_content_record_attributes_classroom_id');
   var $knowledgeArea = $('#knowledge_area_content_record_knowledge_area_ids');
   var $recordDate = $('#knowledge_area_content_record_content_record_attributes_record_date');
@@ -22,10 +30,117 @@ $(function () {
     $knowledgeArea.select2({ data: [] });
 
     if (!_.isEmpty(classroom_id)) {
-      fetchKnowledgeAreas(classroom_id);
+      reloadKnowledgeAreasForSelectedDate();
     }
     loadContents();
   });
+
+  var syncSubmitButtonState = function () {
+    if (isModalForm) {
+      return;
+    }
+
+    if (!$recordDateEmptyAlert.hasClass('hidden')) {
+      $form.find('input[type=submit]').addClass('disabled');
+      return;
+    }
+
+    $form.find('input[type=submit]').removeClass('disabled');
+  };
+
+  var toggleRecordDateAlert = function (message) {
+    if (isModalForm) {
+      return;
+    }
+
+    if (message) {
+      $recordDateEmptyMessage.text(message);
+      $recordDateEmptyAlert.removeClass('hidden');
+      $recordDateHint.text(message).removeClass('hidden');
+    } else {
+      $recordDateEmptyAlert.addClass('hidden');
+      $recordDateEmptyMessage.text('');
+      $recordDateHint.text('').addClass('hidden');
+    }
+
+    syncSubmitButtonState();
+  };
+
+  var applyKnowledgeAreasToSelect = function (payload) {
+    var knowledgeAreas = payload.knowledge_areas || [];
+    var selectedKnowledgeAreas = _.map(knowledgeAreas, function (knowledgeArea) {
+      return {
+        id: knowledgeArea.id,
+        text: knowledgeArea.description || knowledgeArea.name || knowledgeArea.text || ''
+      };
+    }).filter(function (item) {
+      return item.id && item.id !== 'empty';
+    });
+
+    var previousValues = $knowledgeArea.select2('val') || [];
+
+    $knowledgeArea.select2({ data: selectedKnowledgeAreas });
+
+    var hiddenKnowledgeArea = $('input[name="knowledge_area_content_record[knowledge_area_ids]"]');
+    var hiddenIds = [];
+    if (hiddenKnowledgeArea.length && hiddenKnowledgeArea.val()) {
+      hiddenIds = hiddenKnowledgeArea.val().split(',').filter(function (id) {
+        return id && id !== '' && id !== 'empty';
+      });
+    }
+
+    var preservedValues = _.filter(previousValues, function (id) {
+      return _.find(selectedKnowledgeAreas, function (item) { return String(item.id) === String(id); });
+    });
+
+    var hiddenValues = _.filter(hiddenIds, function (id) {
+      return _.find(selectedKnowledgeAreas, function (item) { return String(item.id) === String(id); });
+    });
+
+    if (!_.isEmpty(hiddenValues)) {
+      $knowledgeArea.select2('val', hiddenValues);
+    } else if (!_.isEmpty(preservedValues)) {
+      $knowledgeArea.select2('val', preservedValues);
+    } else if (selectedKnowledgeAreas.length === 1) {
+      $knowledgeArea.select2('val', [selectedKnowledgeAreas[0].id]);
+    } else {
+      $knowledgeArea.select2('val', []);
+    }
+
+    $knowledgeArea.trigger('change');
+    toggleRecordDateAlert(payload.message);
+
+    if (!payload.message) {
+      setTimeout(function () {
+        loadContentsAfterKnowledgeAreasIfNeeded();
+      }, 200);
+    }
+  };
+
+  var reloadKnowledgeAreasForSelectedDate = function () {
+    var classroom_id = null;
+    if ($classroom.length && $classroom.is('select')) {
+      classroom_id = $classroom.select2('val') || $classroom.val();
+    } else {
+      classroom_id = $classroom.val();
+    }
+
+    var date = $recordDate.val();
+
+    if (_.isEmpty(classroom_id) || _.isEmpty(date) || _.isEmpty(date.match(dateRegex))) {
+      toggleRecordDateAlert(null);
+      return;
+    }
+
+    $.getJSON(apiPaths.knowledgeAreasForRecordDate, {
+      classroom_id: classroom_id,
+      record_date: date
+    }).done(function (payload) {
+      applyKnowledgeAreasToSelect(payload || { knowledge_areas: [], message: null });
+    }).fail(function () {
+      toggleRecordDateAlert('Não foi possível carregar as áreas de conhecimento para a data selecionada. Tente novamente.');
+    });
+  };
 
 
   var handleFetchContentsSuccess = function(data){
@@ -185,6 +300,7 @@ $(function () {
 
   // Sempre recarrega conteúdos e objetivos quando a data mudar
   $recordDate.on('change', function(){
+    reloadKnowledgeAreasForSelectedDate();
     loadContents();
   });
 
@@ -208,7 +324,7 @@ $(function () {
       }
       
       if (_.isEmpty(knowledgeAreaData) || knowledgeAreaData.length === 0) {
-        fetchKnowledgeAreas(classroom_id);
+        reloadKnowledgeAreasForSelectedDate();
       }
     }
     
@@ -246,106 +362,7 @@ $(function () {
   }, 500);
 
   function fetchKnowledgeAreas(classroom_id) {
-    $.ajax({
-      url: Routes.knowledge_areas_pt_br_path({ classroom_id: classroom_id, format: 'json' }),
-      success: handlefetchKnowledgeAreasSuccess,
-      error: handlefetchKnowledgeAreasError
-    });
-  };
-
-  function handlefetchKnowledgeAreasSuccess(knowledge_areas) {
-    
-    // Filtra áreas de conhecimento válidas (com id e description não vazios)
-    var validKnowledgeAreas = _.filter(knowledge_areas, function(knowledge_area) {
-      return knowledge_area && knowledge_area['id'] && knowledge_area['description'] && 
-             knowledge_area['id'] !== '' && knowledge_area['description'] !== '';
-    });
-        
-    var selectedKnowledgeAreas = _.map(validKnowledgeAreas, function(knowledge_area) {
-      return { id: knowledge_area['id'], text: knowledge_area['description'] };
-    });
-
-    // Verifica se o elemento existe
-    if ($knowledgeArea.length) {
-      var isSelect = $knowledgeArea.is('select');
-      var isInput = $knowledgeArea.is('input');
-      
-      // Verifica se o select2 já está inicializado
-      var isSelect2Initialized = $knowledgeArea.data('select2') !== undefined;
-      
-      // Filtra áreas válidas removendo qualquer item com id "empty" ou vazio
-      var validSelectedKnowledgeAreas = _.filter(selectedKnowledgeAreas, function(item) {
-        return item && item.id && item.id !== '' && item.id !== 'empty' && item.id !== 'null';
-      });
-            
-      if (isSelect || isInput) {
-        if (isSelect2Initialized) {
-          // Se já está inicializado, apenas atualiza os dados
-          $knowledgeArea.select2({ data: validSelectedKnowledgeAreas });
-        } else {
-          // Se não está inicializado, inicializa com os dados
-          $knowledgeArea.select2({ data: validSelectedKnowledgeAreas });
-        }
-        
-        // Aguarda um pouco para garantir que o select2 foi atualizado
-        setTimeout(function() {
-          // Se há knowledge_area_ids já definidos (ex: via parâmetro na URL), seleciona-os
-          var hiddenKnowledgeArea = $('input[name="knowledge_area_content_record[knowledge_area_ids]"]');
-          if (hiddenKnowledgeArea.length && hiddenKnowledgeArea.val()) {
-            var ids = hiddenKnowledgeArea.val().split(',').filter(function(id) { return id && id !== '' && id !== 'empty'; });
-
-            if (ids.length > 0) {
-              // Define o valor diretamente no elemento e depois atualiza o select2
-              $knowledgeArea.val(ids);
-              $knowledgeArea.select2('val', ids);
-              $knowledgeArea.trigger('change');
-              setTimeout(function() {
-                loadContentsAfterKnowledgeAreasIfNeeded();
-              }, 200);
-            }
-          } else if (validSelectedKnowledgeAreas.length > 0) {
-            // Sempre seleciona a primeira área de conhecimento válida (não vazia)
-            var firstKnowledgeArea = validSelectedKnowledgeAreas[0];
-            var firstKnowledgeAreaId = firstKnowledgeArea.id;
-                        
-            // Verifica o valor atual
-            var currentVal = $knowledgeArea.select2('val') || [];
-                        
-            // Primeiro define o valor no elemento HTML
-            $knowledgeArea.val([firstKnowledgeAreaId]);
-            
-            // Depois atualiza o select2
-            $knowledgeArea.select2('val', [firstKnowledgeAreaId]);
-            
-            // Verifica se foi selecionado
-            var newVal = $knowledgeArea.select2('val');
-            
-            // Se ainda não foi selecionado, tenta novamente com método alternativo
-            if (_.isEmpty(newVal) || (_.isArray(newVal) && newVal.length === 0) || 
-                (_.isArray(newVal) && !newVal.includes(firstKnowledgeAreaId.toString()) && !newVal.includes(firstKnowledgeAreaId))) {
-            
-              // Tenta usar o método de seleção do select2 diretamente
-              var select2Instance = $knowledgeArea.data('select2');
-              if (select2Instance) {
-                select2Instance.val([firstKnowledgeAreaId]).trigger('change');
-                newVal = $knowledgeArea.select2('val');
-              }
-            }
-            
-            // Dispara o evento change
-            $knowledgeArea.trigger('change');
-            
-            setTimeout(function() {
-              loadContentsAfterKnowledgeAreasIfNeeded();
-            }, 500);
-          } 
-        }, 400);
-      }
-    }
-  };
-
-  function handlefetchKnowledgeAreasError() {
-    flashMessages.error('Ocorreu um erro ao buscar as áreas de conhecimento da turma selecionada.');
+    reloadKnowledgeAreasForSelectedDate();
   };
 
   $contents.on('change', function(e){

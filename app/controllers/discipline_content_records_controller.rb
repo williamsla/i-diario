@@ -1,4 +1,6 @@
 class DisciplineContentRecordsController < ApplicationController
+  include LessonsBoardAvailability
+
   has_scope :page, default: 1
   has_scope :per, default: 10
 
@@ -27,6 +29,34 @@ class DisciplineContentRecordsController < ApplicationController
               end
 
     render json: { blocked: blocked }
+  end
+
+  def disciplines_for_record_date
+    classroom_id = params[:classroom_id].presence || current_user_classroom&.id
+    record_date = parse_lessons_board_date(params[:record_date])
+
+    if classroom_id.blank? || record_date.blank?
+      render json: { disciplines: [], message: nil }
+      return
+    end
+
+    authorize DisciplineContentRecord.new, :new?
+
+    classroom = Classroom.find_by(id: classroom_id)
+    if classroom.blank?
+      render json: { disciplines: [], message: nil }
+      return
+    end
+
+    result = build_disciplines_for_content_record_result(
+      classroom: classroom,
+      record_date: record_date
+    )
+
+    render json: {
+      disciplines: result[:disciplines].map { |d| { id: d.id, description: d.description } },
+      message: result[:message]
+    }
   end
 
   def index
@@ -96,7 +126,16 @@ class DisciplineContentRecordsController < ApplicationController
     @class_numbers = []
 
     @teacher_absence_blocks_date = teacher_absence_blocks_content_record?(@discipline_content_record)
-     
+
+    if params[:modal] != 'true'
+      availability = build_disciplines_for_content_record_result(
+        classroom: current_user_classroom,
+        record_date: record_date.to_date
+      )
+      @disciplines = availability[:disciplines]
+      @record_date_message = availability[:message]
+    end
+
     authorize @discipline_content_record
   end
 

@@ -3,8 +3,23 @@
   <%= javascript_include_tag 'views/knowledge_area_content_records/form' %>
 <% end %>
 
-<%= simple_form_for @knowledge_area_content_record, url: polymorphic_path(@knowledge_area_content_record, params.permit(:modal).to_h), html: { class: 'smart-form' } do |f| %>
+<%= simple_form_for @knowledge_area_content_record, url: polymorphic_path(@knowledge_area_content_record, params.permit(:modal).to_h),
+      html: {
+        class: 'smart-form',
+        id: 'knowledge-area-content-record-form',
+        data: {
+          knowledge_areas_for_record_date_url: knowledge_areas_for_record_date_knowledge_area_content_records_path,
+          modal: params[:modal] == 'true'
+        }
+      } do |f| %>
   <%= f.error_notification %>
+
+  <% if params[:modal] != 'true' %>
+    <div class="alert alert-warning <%= @record_date_message.blank? ? 'hidden' : '' %>" id="record-date-empty-alert">
+      <i class="fa fa-info-circle fa-fw"></i>
+      <span id="record-date-empty-message"><%= @record_date_message %></span>
+    </div>
+  <% end %>
 
   <%= f.simple_fields_for :content_record, @knowledge_area_content_record.content_record.localized do |content_record| %>
     <%= content_record.hidden_field :id %>
@@ -44,6 +59,11 @@
         <% else %>
           <div class="col col-sm-4">
             <%= content_record.input :record_date, as: :date %>
+            <% if params[:modal] != 'true' %>
+              <p class="help-block text-warning record-date-hint <%= @record_date_message.blank? ? 'hidden' : '' %>" id="record-date-hint">
+                <%= @record_date_message %>
+              </p>
+            <% end %>
           </div>
         <% end %>
         <% if f.object.decorator.show_experience_fields %>
@@ -170,7 +190,7 @@
   <% end %>
 
   <footer>
-    <%= f.submit t('views.form.save'), class: 'btn btn-primary pull-right', data: { disable_with: 'Salvando...'} %>
+    <%= f.submit t('views.form.save'), class: "btn btn-primary pull-right #{'disabled' if @record_date_message.present?}", data: { disable_with: 'Salvando...'} %>
 
     <% unless params[:modal] == 'true' %>
       <%= link_to t('views.form.back'), knowledge_area_content_records_path, class: 'btn btn-default pull-left' %>

@@ -1,4 +1,6 @@
 class KnowledgeAreaContentRecordsController < ApplicationController
+  include LessonsBoardAvailability
+
   has_scope :page, default: 1
   has_scope :per, default: 10
 
@@ -6,6 +8,34 @@ class KnowledgeAreaContentRecordsController < ApplicationController
   before_action :require_current_teacher
   before_action :require_current_classroom, only: [:index, :new, :create, :edit, :update, :show]
   before_action :require_allow_to_modify_prev_years, only: [:create, :update, :destroy, :clone]
+
+  def knowledge_areas_for_record_date
+    classroom_id = params[:classroom_id].presence || current_user_classroom&.id
+    record_date = parse_lessons_board_date(params[:record_date])
+
+    if classroom_id.blank? || record_date.blank?
+      render json: { knowledge_areas: [], message: nil }
+      return
+    end
+
+    authorize KnowledgeAreaContentRecord.new, :new?
+
+    classroom = Classroom.find_by(id: classroom_id)
+    if classroom.blank?
+      render json: { knowledge_areas: [], message: nil }
+      return
+    end
+
+    result = build_knowledge_areas_for_content_record_result(
+      classroom: classroom,
+      record_date: record_date
+    )
+
+    render json: {
+      knowledge_areas: result[:knowledge_areas].map { |ka| { id: ka.id, description: ka.description } },
+      message: result[:message]
+    }
+  end
 
   def index
     params[:filter] ||= {}
@@ -58,6 +88,16 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     )
 
     set_knowledge_area_by_classroom(current_user_classroom.id)
+
+    if params[:modal] != 'true'
+      availability = build_knowledge_areas_for_content_record_result(
+        classroom: current_user_classroom,
+        record_date: record_date.to_date
+      )
+      @knowledge_areas = availability[:knowledge_areas]
+      @record_date_message = availability[:message]
+    end
+
     authorize @knowledge_area_content_record
   end
 

@@ -70,6 +70,12 @@ class LessonBoardsFetcher
       SQL
     end
 
+    teacher_condicao = if @user&.teacher_id.present?
+      "AND tdc.teacher_id = #{@user.teacher_id.to_i}"
+    else
+      ''
+    end
+
     sql = <<-SQL
       SELECT COALESCE(MAX(quadros.total_aulas), 0) AS total_aulas
       FROM (
@@ -80,10 +86,11 @@ class LessonBoardsFetcher
         INNER JOIN lessons_board_lesson_weekdays lblw ON lblw.lessons_board_lesson_id = lbl.id
         INNER JOIN teacher_discipline_classrooms tdc ON tdc.classroom_id = cg.classroom_id
           AND tdc.id = lblw.teacher_discipline_classroom_id
+          AND tdc.discipline_id = #{disciplina_id}
           AND tdc.discarded_at IS NULL
         WHERE cg.classroom_id = #{turma_id}
           AND lblw.weekday = '#{dia_semana_nome}'
-          AND tdc.discipline_id = #{disciplina_id}
+          #{teacher_condicao}
           #{ativo_condicao}
         GROUP BY lb.id
       ) AS quadros

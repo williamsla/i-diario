@@ -3,13 +3,28 @@
   <%= javascript_include_tag 'views/discipline_content_records/form' %>
 <% end %>
 
-<%= simple_form_for @discipline_content_record, url: polymorphic_path(@discipline_content_record, params.permit(:modal).to_h), html: { class: 'smart-form' } do |f| %>
+<%= simple_form_for @discipline_content_record, url: polymorphic_path(@discipline_content_record, params.permit(:modal).to_h),
+      html: {
+        class: 'smart-form',
+        id: 'discipline-content-record-form',
+        data: {
+          disciplines_for_record_date_url: disciplines_for_record_date_discipline_content_records_path,
+          modal: params[:modal] == 'true'
+        }
+      } do |f| %>
   <%= f.error_notification %>
 
   <div id="teacher_absence_blocks_content_alert" class="alert alert-warning fade in" style="<%= 'display:none' unless @teacher_absence_blocks_date %>">
     <i class="fa-fw fa fa-warning"></i>
     <span id="teacher_absence_blocks_content_message"><%= t('discipline_content_records.create.blocked_by_teacher_absence') %></span>
   </div>
+
+  <% if params[:modal] != 'true' %>
+    <div class="alert alert-warning <%= @record_date_message.blank? ? 'hidden' : '' %>" id="record-date-empty-alert">
+      <i class="fa fa-info-circle fa-fw"></i>
+      <span id="record-date-empty-message"><%= @record_date_message %></span>
+    </div>
+  <% end %>
 
   <%= f.simple_fields_for :content_record, @discipline_content_record.content_record.localized do |content_record| %>
     <%= content_record.hidden_field :id %>
@@ -32,24 +47,26 @@
       <div class="row">
         <%= content_record.input :unity_id, as: :hidden, input_html: { value: current_user.current_unity_id } %>
         <%= content_record.input :classroom_id, as: :hidden, input_html: { value: current_user.current_classroom_id } %>
-        
+
         <% if params[:modal] == 'true' %>
+          <%= content_record.input :record_date, as: :hidden, input_html: {value: @discipline_content_record.content_record.record_date} %>
           <%= f.input :discipline_id, as: :hidden, input_html: { value: @discipline_content_record.discipline_id } %>
         <% else %>
           <div class="col col-sm-4">
-            <%= f.association :discipline, as: :select2, elements: @disciplines, user: current_user,
-                record: f.object, classroom_id: @discipline_content_record.content_record.classroom_id,
-                readonly: ['show', 'edit'].include?(action_name) %>
+            <%= content_record.input :record_date, as: :date %>
+            <p class="help-block text-warning record-date-hint <%= @record_date_message.blank? ? 'hidden' : '' %>" id="record-date-hint">
+              <%= @record_date_message %>
+            </p>
           </div>
         <% end %>
       </div>
 
       <div class="row">
-        <% if params[:modal] == 'true' %>
-          <%= content_record.input :record_date, as: :hidden, input_html: {value: @discipline_content_record.content_record.record_date} %>
-        <% else %>
+        <% unless params[:modal] == 'true' %>
           <div class="col col-sm-4">
-            <%= content_record.input :record_date, as: :date %>
+            <%= f.association :discipline, as: :select2, elements: @disciplines, user: current_user,
+                record: f.object, classroom_id: @discipline_content_record.content_record.classroom_id,
+                readonly: ['show', 'edit'].include?(action_name) %>
           </div>
         <% end %>
 
@@ -190,7 +207,7 @@
   <% end %>
 
   <footer>
-    <%= f.submit t('views.form.save'), class: 'btn btn-primary pull-right', data: { disable_with: 'Salvando...'} %>
+    <%= f.submit t('views.form.save'), class: "btn btn-primary pull-right #{'disabled' if @record_date_message.present?}", data: { disable_with: 'Salvando...'} %>
 
     <% unless params[:modal] == 'true' %>
       <%= link_to t('views.form.back'), discipline_content_records_path, class: 'btn btn-default pull-left' %>

@@ -46,3 +46,5 @@ pt-BR:
       no_disciplines_on_lessons_board_for_date: 'Você não possui aulas no quadro de horários para %{weekday}, %{date}. Selecione outra data que tenha aulas da sua disciplina na turma.'
       no_teacher_lessons_on_lessons_board_for_date: 'Você não possui aulas alocadas no quadro de horários para %{weekday}, %{date}. Selecione outra data que tenha aulas da sua disciplina na turma.'
       no_lessons_on_lessons_board_for_date: 'Não há aulas no quadro de horários da turma para %{weekday}, %{date}. Selecione outra data que tenha aulas da sua disciplina na turma.'
+      no_linked_knowledge_areas: 'Você não possui áreas de conhecimento vinculadas a esta turma.'
+      no_knowledge_areas_on_lessons_board_for_date: 'Você não possui áreas de conhecimento no quadro de horários para %{weekday}, %{date}. Selecione outra data ou verifique o quadro de horários da turma.'

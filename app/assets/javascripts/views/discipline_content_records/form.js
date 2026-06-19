@@ -4,6 +4,14 @@ $(function () {
   // Regular expression for dd/mm/yyyy date including validation for leap year and more
   var dateRegex = '^(?:(?:31(\\/)(?:0?[13578]|1[02]))\\1|(?:(?:29|30)(\\/)(?:0?[1,3-9]|1[0-2])\\2))(?:(?:1[6-9]|[2-9]\\d)?\\d{2})$|^(?:29(\\/)0?2\\3(?:(?:(?:1[6-9]|[2-9]\\d)?(?:0[48]|[2468][048]|[13579][26])|(?:(?:16|[2468][048]|[3579][26])00))))$|^(?:0?[1-9]|1\\d|2[0-8])(\\/)(?:(?:0?[1-9])|(?:1[0-2]))\\4(?:(?:1[6-9]|[2-9]\\d)?\\d{2})$';
   var flashMessages = new FlashMessages();
+  var $form = $('#discipline-content-record-form');
+  var isModalForm = $form.data('modal') === true || $form.data('modal') === 'true';
+  var apiPaths = {
+    disciplinesForRecordDate: $form.data('disciplinesForRecordDateUrl')
+  };
+  var $recordDateEmptyAlert = $('#record-date-empty-alert');
+  var $recordDateEmptyMessage = $('#record-date-empty-message');
+  var $recordDateHint = $('#record-date-hint');
   var $classroom = $('#discipline_content_record_content_record_attributes_classroom_id');
   var $discipline = $('#discipline_content_record_discipline_id');
   var $recordDate = $('#discipline_content_record_content_record_attributes_record_date');
@@ -17,10 +25,81 @@ $(function () {
     $discipline.select2({ data: [] });
 
     if (!_.isEmpty(classroom_id)) {
-      fetchDisciplines(classroom_id);
+      reloadDisciplinesForSelectedDate();
     }
     loadContents();
   });
+
+  var syncSubmitButtonState = function () {
+    if (isModalForm) {
+      return;
+    }
+
+    if (!$recordDateEmptyAlert.hasClass('hidden')) {
+      $form.find('input[type=submit]').addClass('disabled');
+      return;
+    }
+
+    $form.find('input[type=submit]').removeClass('disabled');
+  };
+
+  var toggleRecordDateAlert = function (message) {
+    if (isModalForm) {
+      return;
+    }
+
+    if (message) {
+      $recordDateEmptyMessage.text(message);
+      $recordDateEmptyAlert.removeClass('hidden');
+      $recordDateHint.text(message).removeClass('hidden');
+    } else {
+      $recordDateEmptyAlert.addClass('hidden');
+      $recordDateEmptyMessage.text('');
+      $recordDateHint.text('').addClass('hidden');
+    }
+
+    syncSubmitButtonState();
+  };
+
+  var applyDisciplinesToSelect = function (payload) {
+    var disciplines = payload.disciplines || [];
+    var selectedDisciplines = _.map(disciplines, function (discipline) {
+      return { id: discipline.id, text: discipline.description || discipline.name || discipline.text || '' };
+    });
+    var previousDiscipline = $discipline.val();
+
+    $discipline.select2({ data: selectedDisciplines });
+
+    if (previousDiscipline && _.find(selectedDisciplines, function (d) { return String(d.id) === String(previousDiscipline); })) {
+      $discipline.select2('val', previousDiscipline);
+    } else if (selectedDisciplines.length === 1) {
+      $discipline.select2('val', selectedDisciplines[0].id);
+    } else {
+      $discipline.val('').trigger('change');
+    }
+
+    toggleRecordDateAlert(payload.message);
+    countLessons();
+  };
+
+  var reloadDisciplinesForSelectedDate = function () {
+    var classroom_id = $classroom.val();
+    var date = $recordDate.val();
+
+    if (_.isEmpty(classroom_id) || _.isEmpty(date) || _.isEmpty(date.match(dateRegex))) {
+      toggleRecordDateAlert(null);
+      return;
+    }
+
+    $.getJSON(apiPaths.disciplinesForRecordDate, {
+      classroom_id: classroom_id,
+      record_date: date
+    }).done(function (payload) {
+      applyDisciplinesToSelect(payload || { disciplines: [], message: null });
+    }).fail(function () {
+      toggleRecordDateAlert('Não foi possível carregar as disciplinas para a data selecionada. Tente novamente.');
+    });
+  };
 
 
   var handleFetchContentsSuccess = function (data) {
@@ -151,6 +230,8 @@ $(function () {
 
   $discipline.on('change', function () {
     loadContents();
+    countLessons();
+    checkTeacherAbsenceForContent();
   });
 
   function checkTeacherAbsenceForContent() {
@@ -185,14 +266,9 @@ $(function () {
     });
   }
 
-  // Sempre recarrega conteúdos e objetivos quando a data mudar
-  $recordDate.on('change', function () {
+  $recordDate.on('change changeDate valid-date', function () {
+    reloadDisciplinesForSelectedDate();
     loadContents();
-    countLessons();
-    checkTeacherAbsenceForContent();
-  });
-
-  $discipline.on('change', function () {
     checkTeacherAbsenceForContent();
   });
 
@@ -204,53 +280,54 @@ $(function () {
     loadContents();
   }
 
+  if (!isModalForm && $classroom.val() && $recordDate.val()) {
+    reloadDisciplinesForSelectedDate();
+  } else if ($discipline.val()) {
+    countLessons();
+  }
+
   checkTeacherAbsenceForContent();
 
   function fetchDisciplines(classroom_id) {
-    $.ajax({
-      url: Routes.disciplines_pt_br_path({ classroom_id: classroom_id, format: 'json' }),
-      success: handleFetchDisciplinesSuccess,
-      error: handleFetchDisciplinesError
-    });
-  };
+    reloadDisciplinesForSelectedDate();
+  }
 
-  function handleFetchDisciplinesSuccess(disciplines) {
-    var selectedDisciplines = _.map(disciplines, function (discipline) {
-      return { id: discipline['id'], text: discipline['description'] };
-    });
+  function setClassNumberValue(value) {
+    var normalizedValue = value && parseInt(value, 10) > 0 ? String(value) : '';
 
-    $discipline.select2({ data: selectedDisciplines });
-  };
+    try {
+      if ($class_number.data('select2')) {
+        $class_number.select2('val', normalizedValue);
+      }
+    } catch (e) {}
 
-  function handleFetchDisciplinesError() {
-    flashMessages.error('Ocorreu um erro ao buscar as disciplinas da turma selecionada.');
-  };
+    $class_number.val(normalizedValue).trigger('change');
+  }
 
   function countLessons() {
     var classroom_id = $classroom.val();
     var discipline_id = $discipline.val();
     var date = $recordDate.val();
-    
-    if (!_.isEmpty(classroom_id) && !_.isEmpty(discipline_id)) {
-      $.ajax({
-        url: Routes.count_lessons_lessons_boards_pt_br_path({
-          classroom_id: classroom_id,
-          discipline_id: discipline_id,
-          date: date,
-          format: 'json'
-        }),
-        success: handleCountLessonsSuccess,
-        error: handleCountLessonsError
-      });
+
+    if (_.isEmpty(classroom_id) || _.isEmpty(discipline_id) || _.isEmpty(date) || !date.match(dateRegex)) {
+      setClassNumberValue('');
+      return;
     }
+
+    $.ajax({
+      url: Routes.count_lessons_lessons_boards_pt_br_path({
+        classroom_id: classroom_id,
+        discipline_id: discipline_id,
+        date: date,
+        format: 'json'
+      }),
+      success: handleCountLessonsSuccess,
+      error: handleCountLessonsError
+    });
   }
 
   function handleCountLessonsSuccess(data) {
-    if (data) {
-      $class_number.val(data).trigger('change');
-    } else {
-      $class_number.val('').trigger('change');
-    }
+    setClassNumberValue(data);
   }
 
   function handleCountLessonsError() {
