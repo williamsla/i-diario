@@ -8,6 +8,8 @@ $(function () {
   let errors = {};
   let classroomGrades = [];
   let multiGradeClassroom = false;
+  let cachedTeachersToSelect = null;
+  let rowsBuildPromise = null;
 
   $(document).ready( function() {
     clearFields();
@@ -16,6 +18,17 @@ $(function () {
       updateGrades();
     }
     $('#btn-submit').attr("disabled", true);
+    bindTeacherSelectChangeHandlers();
+  });
+
+  $('#form-submit').on('cocoon:after-insert', function(e, insertedItem) {
+    if (!cachedTeachersToSelect) {
+      return;
+    }
+
+    insertedItem.find("input[id*='_teacher_discipline_classroom_id']").each(function(index, element) {
+      initTeacherSelect2($(element), cachedTeachersToSelect);
+    });
   });
 
   $('#lessons_board_unity').on('change', async function () {
@@ -341,8 +354,10 @@ $(function () {
 
   function handleNotExistsLessonsBoardSuccess(data) {
     if (data) {
-      getTeachersFromClassroom();
       $('#btn-submit').attr("disabled", false);
+      ensureLessonsBoardRows().then(function() {
+        getTeachersFromClassroom();
+      });
     } else {
       clearFields();
       $('#btn-submit').attr("disabled", true);
@@ -376,8 +391,9 @@ $(function () {
   function handleNotExistsLessonsBoardOnPeriodSuccess(data) {
     if (data) {
       $('#btn-submit').attr("disabled", false);
-      getNumberOfClasses();
-      getTeachersFromClassroomAndPeriod();
+      ensureLessonsBoardRows().then(function() {
+        getTeachersFromClassroomAndPeriod();
+      });
     } else {
       clearFields();
       $('#btn-submit').attr("disabled", true);
@@ -425,19 +441,48 @@ $(function () {
     }
   }
 
+  function mapTeachersFromResponse(data) {
+    return _.map(data.lessons_boards, function(lessons_board) {
+      return { id: lessons_board.table.id, name: lessons_board.table.name, text: lessons_board.table.text };
+    });
+  }
+
   function handleFetchTeachersFromTheClassroomSuccess(data) {
     if (data.lessons_boards.length < 2) {
+      cachedTeachersToSelect = null;
       clearFields();
       flashMessages.error('A turma selecionada não possui vínculo com professores(as).');
     } else {
-      let teachers_to_select = _.map(data.lessons_boards, function(lessons_board) {
-        return { id: lessons_board.table.id, name: lessons_board.table.name, text: lessons_board.table.text };
-      });
-
-      $("input[id*='_teacher_discipline_classroom_id']").each(function (index, teachers) {
-        $(teachers).select2({ data: teachers_to_select, escapeMarkup, formatResult })
-      })
+      applyTeachersToSelects(mapTeachersFromResponse(data));
     }
+  }
+
+  function initTeacherSelect2($element, teachers_to_select) {
+    if ($element.data('select2')) {
+      $element.select2('destroy');
+    }
+
+    $element.select2({
+      data: teachers_to_select,
+      escapeMarkup: escapeMarkup,
+      formatResult: formatResult,
+      formatSelection: function(el) {
+        if (el.text) {
+          return el.text;
+        }
+        return el.name;
+      },
+      allowClear: !$element.data('hide-empty-element'),
+      theme: 'classic'
+    });
+  }
+
+  function applyTeachersToSelects(teachers_to_select) {
+    cachedTeachersToSelect = teachers_to_select;
+
+    $("input[id*='_teacher_discipline_classroom_id']").each(function(index, element) {
+      initTeacherSelect2($(element), teachers_to_select);
+    });
   }
 
   function escapeMarkup(data) {
@@ -455,18 +500,29 @@ $(function () {
   function getNumberOfClasses() {
     let classroom_id = $('#lessons_board_classroom_id').select2('val');
 
-    $.ajax({
+    rowsBuildPromise = $.ajax({
       url: Routes.number_of_lessons_lessons_boards_pt_br_path({
         classroom_id: classroom_id,
         format: 'json'
-      }),
-      success: handleFetchNumberOfClassesByClassroomSuccess,
-      error: handleFetchNumberOfClassesByClassroomError
+      })
+    }).then(function(data) {
+      buildLessonsBoardRows(data);
+    }).fail(function() {
+      handleFetchNumberOfClassesByClassroomError();
     });
+
+    return rowsBuildPromise;
   }
 
+  function ensureLessonsBoardRows() {
+    if (rowsBuildPromise) {
+      return rowsBuildPromise;
+    }
 
-  function handleFetchNumberOfClassesByClassroomSuccess(data) {
+    return getNumberOfClasses();
+  }
+
+  function buildLessonsBoardRows(data) {
     flashMessages.pop('');
 
     if ($("#lessons-board-lessons > tr").length > 1) {
@@ -474,22 +530,31 @@ $(function () {
     }
 
     for (let i = 1; i <= data; i++) {
-      $('#add_row').trigger('click')
+      $('#add_row').trigger('click');
     }
 
-    $("input[id*='_lesson_number']").each(function (index, lesson_number) {
-      $(lesson_number).val(index + 1)
-    })
+    $("input[id*='_lesson_number']").each(function(index, lesson_number) {
+      $(lesson_number).val(index + 1);
+    });
 
-    $('input.table_lessons_td_select').on('change', function () {
-      let teacher_discipline_classroom_id = $(this).val();
-      let lesson_number = $(this).closest('tr').find('[data-id="lesson_number"]').val();
-      let weekday = $(this).closest('td').find('[data-id="weekday"]').val();
-      let classroom_id = $('#lessons_board_classroom_id').select2('val');
-      let period = $('#lessons_board_period').select2('val');
+    if (cachedTeachersToSelect) {
+      applyTeachersToSelects(cachedTeachersToSelect);
+    }
+  }
 
-      checkExistsTeacherOnLessonNumberAndWeekday(teacher_discipline_classroom_id, lesson_number, weekday, classroom_id, period);
-    })
+  function bindTeacherSelectChangeHandlers() {
+    $('#form-submit').off('change.teacherSelect', 'input.table_lessons_td_select')
+      .on('change.teacherSelect', 'input.table_lessons_td_select', function() {
+        let teacher_discipline_classroom_id = $(this).val();
+        let lesson_number = $(this).closest('tr').find('[data-id="lesson_number"]').val();
+        let weekday = $(this).closest('td').find('[data-id="weekday"]').val();
+        let classroom_id = $('#lessons_board_classroom_id').select2('val');
+        let period = $('#lessons_board_period').select2('val');
+
+        checkExistsTeacherOnLessonNumberAndWeekday(
+          teacher_discipline_classroom_id, lesson_number, weekday, classroom_id, period
+        );
+      });
   }
 
   function handleFetchNumberOfClassesByClassroomError() {
@@ -503,5 +568,7 @@ $(function () {
 
   function clearFields() {
     $("#lessons-board-lessons").empty();
+    rowsBuildPromise = null;
+    cachedTeachersToSelect = null;
   }
 });

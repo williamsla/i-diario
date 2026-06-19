@@ -56,6 +56,23 @@ class LessonBoardsFetcher
     total_aulas
   end
 
+  def count_lessons_including_make_up(turma_id, disciplina_id, data)
+    scheduled = count_lessons(turma_id, disciplina_id, data)
+    return scheduled unless @user&.teacher_id.present?
+
+    classroom = Classroom.find_by(id: turma_id)
+    make_up = TeacherAbsence.make_up_lessons_count_for(
+      classroom_id: turma_id,
+      discipline_id: disciplina_id,
+      teacher_id: @user.teacher_id,
+      date: data,
+      unity_id: classroom&.unity_id,
+      count_lessons_on_date: ->(absence_date) { count_lessons(turma_id, disciplina_id, absence_date) }
+    )
+
+    scheduled + make_up
+  end
+
   private
 
   def count_lessons_from_boards(turma_id, disciplina_id, dia_semana_nome, ativo)

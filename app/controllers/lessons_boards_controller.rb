@@ -282,8 +282,12 @@ class LessonsBoardsController < ApplicationController
     discipline_id = params[:discipline_id]
     date = Date.strptime(params[:date], "%d/%m/%Y")
 
-    total_aulas = LessonBoardsFetcher.new(current_user).count_lessons(classroom_id, discipline_id, date)
-     
+    total_aulas = LessonBoardsFetcher.new(current_user).count_lessons_including_make_up(
+      classroom_id,
+      discipline_id,
+      date
+    )
+
     render json: total_aulas
   end
 

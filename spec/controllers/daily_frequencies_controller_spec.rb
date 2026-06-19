@@ -278,6 +278,44 @@ RSpec.describe DailyFrequenciesController, type: :controller do
       expect(payload['disciplines']).to be_empty
       expect(payload['message']).to include('Não há aulas no quadro de horários')
     end
+
+    it 'libera a data quando há reposição cadastrada mesmo sem aulas no quadro' do
+      classrooms_grade = classroom.classrooms_grades.first
+      lessons_board = create(:lessons_board, classrooms_grade: classrooms_grade)
+      lesson = create(:lessons_board_lesson, lessons_board: lessons_board, lesson_number: 1)
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: lesson,
+        teacher_discipline_classroom: classroom.teacher_discipline_classrooms.first,
+        weekday: :monday
+      )
+      TeacherAbsence.create!(
+        unity: unity,
+        classroom: classroom,
+        discipline: discipline,
+        school_calendar: school_calendar,
+        teacher: current_teacher,
+        user: user,
+        absence_date: Date.parse('2017-02-20'),
+        reason: 'Falta',
+        will_make_up: true,
+        make_up_date: Date.parse('2017-02-28'),
+        coverage: TeacherAbsenceCoverage::BY_CLASSROOM
+      )
+      allow(classroom.classrooms_grades.first.exam_rule).to receive(:frequency_type).and_return(FrequencyTypes::BY_DISCIPLINE)
+
+      get :disciplines_for_frequency_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        frequency_date: '2017-02-28'
+      }
+
+      payload = JSON.parse(response.body)
+      discipline_ids = payload['disciplines'].map { |item| item['id'] }
+
+      expect(discipline_ids).to include(discipline.id)
+      expect(payload['message']).to be_nil
+    end
   end
 
   describe 'GET #schedule_for_frequency_date' do
@@ -312,6 +350,52 @@ RSpec.describe DailyFrequenciesController, type: :controller do
 
       expect(payload['available']).to eq(false)
       expect(payload['message']).to include('quadro de horários')
+    end
+
+    it 'retorna disponível quando há reposição cadastrada mesmo sem aulas no quadro' do
+      classrooms_grade = classroom.classrooms_grades.first
+      other_discipline = create(:discipline)
+      teacher_discipline_classroom = create(
+        :teacher_discipline_classroom,
+        teacher: other_teacher,
+        classroom: classroom,
+        discipline: other_discipline,
+        grade: grade,
+        year: classroom.year,
+        active: true
+      )
+      lessons_board = create(:lessons_board, classrooms_grade: classrooms_grade)
+      lesson = create(:lessons_board_lesson, lessons_board: lessons_board, lesson_number: 1)
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: lesson,
+        teacher_discipline_classroom: teacher_discipline_classroom,
+        weekday: :tuesday
+      )
+      TeacherAbsence.create!(
+        unity: unity,
+        classroom: classroom,
+        discipline: discipline,
+        school_calendar: school_calendar,
+        teacher: current_teacher,
+        user: user,
+        absence_date: Date.parse('2017-02-20'),
+        reason: 'Falta',
+        will_make_up: true,
+        make_up_date: Date.parse('2017-02-28'),
+        coverage: TeacherAbsenceCoverage::BY_CLASSROOM
+      )
+
+      get :schedule_for_frequency_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        frequency_date: '2017-02-28'
+      }
+
+      payload = JSON.parse(response.body)
+
+      expect(payload['available']).to eq(true)
+      expect(payload['message']).to be_nil
     end
   end
 

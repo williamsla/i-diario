@@ -126,6 +126,23 @@ class TeacherAbsence < ApplicationRecord
     rel.pluck(:make_up_date).map(&:to_date).to_set
   end
 
+  def self.make_up_lessons_count_for(classroom_id:, discipline_id:, teacher_id:, date:, unity_id: nil, count_lessons_on_date: nil)
+    rel = by_teacher(teacher_id).with_make_up.where(make_up_date: date)
+    rel = rel.for_classroom_or_unity(classroom_id, unity_id || Classroom.find_by(id: classroom_id)&.unity_id)
+    rel = scope_by_discipline(rel, discipline_id)
+
+    rel.to_a.sum do |absence|
+      if absence.class_number.present?
+        1
+      elsif count_lessons_on_date
+        count = count_lessons_on_date.call(absence.absence_date).to_i
+        count.positive? ? count : 1
+      else
+        1
+      end
+    end
+  end
+
   private
 
   def periods_presence

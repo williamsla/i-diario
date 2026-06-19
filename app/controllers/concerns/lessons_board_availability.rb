@@ -48,6 +48,60 @@ module LessonsBoardAvailability
       .uniq
   end
 
+  def teacher_make_up_absences_on_date(classroom:, date:)
+    TeacherAbsence
+      .by_teacher(current_teacher.id)
+      .with_make_up
+      .where(make_up_date: date)
+      .for_classroom_or_unity(classroom.id, classroom.unity_id)
+  end
+
+  def teacher_has_make_up_on_date?(classroom:, date:)
+    teacher_make_up_absences_on_date(classroom: classroom, date: date).exists?
+  end
+
+  def disciplines_for_make_up_date(disciplines, classroom, date)
+    absences = teacher_make_up_absences_on_date(classroom: classroom, date: date).to_a
+    return [] if absences.blank?
+
+    specific_discipline_ids = absences.map(&:discipline_id).compact.uniq
+    if specific_discipline_ids.present?
+      disciplines.select { |discipline| specific_discipline_ids.include?(discipline.id) }
+    else
+      disciplines
+    end
+  end
+
+  def knowledge_areas_for_make_up_date(knowledge_areas, classroom, date)
+    absences = teacher_make_up_absences_on_date(classroom: classroom, date: date).to_a
+    return [] if absences.blank?
+
+    specific_discipline_ids = absences.map(&:discipline_id).compact.uniq
+    if specific_discipline_ids.present?
+      knowledge_areas.select do |knowledge_area|
+        knowledge_area.disciplines.any? { |discipline| specific_discipline_ids.include?(discipline.id) }
+      end
+    else
+      knowledge_areas
+    end
+  end
+
+  def schedule_unavailable_message(classroom:, date:, schedule_ids:)
+    weekday = date.strftime('%A').downcase
+    classroom_has_lessons = LessonsBoardLessonWeekday
+                            .by_classroom(classroom.id)
+                            .by_weekday(weekday)
+                            .exists?
+
+    message_key = if schedule_ids.blank?
+                    classroom_has_lessons ? :no_teacher_lessons_on_lessons_board_for_date : :no_lessons_on_lessons_board_for_date
+                  else
+                    :no_disciplines_on_lessons_board_for_date
+                  end
+
+    lessons_board_date_message(message_key, date)
+  end
+
   def build_disciplines_for_content_record_result(classroom:, record_date:)
     linked = TeacherClassroomAndDisciplineFetcher.fetch!(
       current_teacher.id,
@@ -67,27 +121,29 @@ module LessonsBoardAvailability
 
     return { disciplines: all_disciplines, message: nil } if classroom_without_lessons_board?(classroom.id)
 
-    schedule_ids = schedule_discipline_ids_for_classroom_weekday(
+    schedule_ids = teacher_discipline_ids_on_schedule(
       classroom_id: classroom.id,
-      date: record_date,
-      period: nil
+      date: record_date
     )
-    if schedule_ids.blank?
-      return {
-        disciplines: [],
-        message: lessons_board_date_message(:no_lessons_on_lessons_board_for_date, record_date)
-      }
+
+    if schedule_ids.present?
+      filtered = all_disciplines.select { |d| schedule_ids.include?(d.id) }
+      return { disciplines: filtered, message: nil } if filtered.present?
     end
 
-    filtered = all_disciplines.select { |d| schedule_ids.include?(d.id) }
-    if filtered.blank?
-      return {
-        disciplines: [],
-        message: lessons_board_date_message(:no_disciplines_on_lessons_board_for_date, record_date)
-      }
+    make_up_disciplines = disciplines_for_make_up_date(all_disciplines, classroom, record_date)
+    if make_up_disciplines.present?
+      return { disciplines: make_up_disciplines, message: nil }
     end
 
-    { disciplines: filtered, message: nil }
+    {
+      disciplines: [],
+      message: schedule_unavailable_message(
+        classroom: classroom,
+        date: record_date,
+        schedule_ids: schedule_ids
+      )
+    }
   end
 
   def knowledge_areas_for_classroom(classroom)
@@ -126,35 +182,25 @@ module LessonsBoardAvailability
       date: record_date
     )
 
-    if teacher_discipline_ids.blank?
-      weekday = record_date.strftime('%A').downcase
-      classroom_has_lessons = LessonsBoardLessonWeekday
-                              .by_classroom(classroom.id)
-                              .by_weekday(weekday)
-                              .exists?
-      message_key = if classroom_has_lessons
-                      :no_teacher_lessons_on_lessons_board_for_date
-                    else
-                      :no_lessons_on_lessons_board_for_date
-                    end
-
-      return {
-        knowledge_areas: [],
-        message: lessons_board_date_message(message_key, record_date)
-      }
+    if teacher_discipline_ids.present?
+      filtered = knowledge_areas.select do |knowledge_area|
+        knowledge_area.disciplines.any? { |discipline| teacher_discipline_ids.include?(discipline.id) }
+      end
+      return { knowledge_areas: filtered, message: nil } if filtered.present?
     end
 
-    filtered = knowledge_areas.select do |knowledge_area|
-      knowledge_area.disciplines.any? { |discipline| teacher_discipline_ids.include?(discipline.id) }
+    make_up_knowledge_areas = knowledge_areas_for_make_up_date(knowledge_areas, classroom, record_date)
+    if make_up_knowledge_areas.present?
+      return { knowledge_areas: make_up_knowledge_areas, message: nil }
     end
 
-    if filtered.blank?
-      return {
-        knowledge_areas: [],
-        message: lessons_board_date_message(:no_knowledge_areas_on_lessons_board_for_date, record_date)
-      }
-    end
-
-    { knowledge_areas: filtered, message: nil }
+    {
+      knowledge_areas: [],
+      message: schedule_unavailable_message(
+        classroom: classroom,
+        date: record_date,
+        schedule_ids: teacher_discipline_ids
+      )
+    }
   end
 end

@@ -135,5 +135,52 @@ RSpec.describe DisciplineContentRecordsController, type: :controller do
       expect(payload['disciplines']).to be_empty
       expect(payload['message']).to include('quadro de horários')
     end
+
+    it 'libera a data quando há reposição cadastrada mesmo sem aulas no quadro' do
+      other_discipline = create(:discipline)
+      teacher_discipline_classroom = create(
+        :teacher_discipline_classroom,
+        teacher: other_teacher,
+        classroom: classroom,
+        discipline: other_discipline,
+        grade: classroom.classrooms_grades.first.grade,
+        year: classroom.year,
+        active: true
+      )
+      classrooms_grade = classroom.classrooms_grades.first
+      lessons_board = create(:lessons_board, classrooms_grade: classrooms_grade)
+      lesson = create(:lessons_board_lesson, lessons_board: lessons_board, lesson_number: 1)
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: lesson,
+        teacher_discipline_classroom: teacher_discipline_classroom,
+        weekday: :tuesday
+      )
+      TeacherAbsence.create!(
+        unity: unity,
+        classroom: classroom,
+        discipline: discipline,
+        school_calendar: school_calendar,
+        teacher: current_teacher,
+        user: user,
+        absence_date: Date.parse('2017-02-20'),
+        reason: 'Falta',
+        will_make_up: true,
+        make_up_date: Date.parse('2017-02-28'),
+        coverage: TeacherAbsenceCoverage::BY_CLASSROOM
+      )
+
+      get :disciplines_for_record_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        record_date: '28/02/2017'
+      }
+
+      payload = JSON.parse(response.body)
+      discipline_ids = payload['disciplines'].map { |item| item['id'] }
+
+      expect(discipline_ids).to include(discipline.id)
+      expect(payload['message']).to be_nil
+    end
   end
 end

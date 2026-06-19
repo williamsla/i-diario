@@ -113,7 +113,7 @@ class DisciplineContentRecordsController < ApplicationController
     if params[:class_number].present?
       @class_number_qtd = params[:class_number]
     else
-      qtd = LessonBoardsFetcher.new(current_user).count_lessons(
+      qtd = LessonBoardsFetcher.new(current_user).count_lessons_including_make_up(
         current_user_classroom.id,
         @discipline_content_record.discipline_id,
         @discipline_content_record.content_record.record_date
@@ -240,7 +240,7 @@ class DisciplineContentRecordsController < ApplicationController
 
     @discipline_content_record = DisciplineContentRecord.find(params[:id]).localized
 
-    qtd = LessonBoardsFetcher.new(current_user).count_lessons(
+    qtd = LessonBoardsFetcher.new(current_user).count_lessons_including_make_up(
         current_user_classroom.id,
         @discipline_content_record.discipline_id,
         @discipline_content_record.content_record.record_date

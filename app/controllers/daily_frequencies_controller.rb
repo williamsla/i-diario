@@ -1,4 +1,6 @@
 class DailyFrequenciesController < ApplicationController
+  include LessonsBoardAvailability
+
   before_action :require_current_classroom
   before_action :require_teacher
   before_action :set_number_of_classes, only: [:new, :form, :create, :edit_multiple]
@@ -945,34 +947,25 @@ class DailyFrequenciesController < ApplicationController
       date: frequency_date,
       period: nil
     )
-    if schedule_ids.blank?
-      return {
-        disciplines: [],
-        message: t(
-          'daily_frequencies.new.no_lessons_on_lessons_board_for_date',
-          weekday: weekday_name_for_date(frequency_date),
-          date: I18n.l(frequency_date)
-        )
-      }
+
+    if schedule_ids.present?
+      filtered = disciplines.select { |d| schedule_ids.include?(d.id) }
+      return { disciplines: filtered, message: nil } if filtered.present?
     end
 
-    filtered = disciplines.select { |d| schedule_ids.include?(d.id) }
-    if filtered.blank?
-      return {
-        disciplines: [],
-        message: t(
-          'daily_frequencies.new.no_disciplines_on_lessons_board_for_date',
-          weekday: weekday_name_for_date(frequency_date),
-          date: I18n.l(frequency_date)
-        )
-      }
+    make_up_disciplines = disciplines_for_make_up_date(disciplines, classroom, frequency_date)
+    if make_up_disciplines.present?
+      return { disciplines: make_up_disciplines, message: nil }
     end
 
-    { disciplines: filtered, message: nil }
-  end
-
-  def weekday_name_for_date(date)
-    I18n.t('date.day_names')[date.wday]
+    {
+      disciplines: [],
+      message: schedule_unavailable_message(
+        classroom: classroom,
+        date: frequency_date,
+        schedule_ids: schedule_ids
+      )
+    }
   end
 
   def build_schedule_availability_result(classroom:, frequency_date:)
@@ -986,6 +979,7 @@ class DailyFrequenciesController < ApplicationController
                           .exists?
 
     return { available: true, message: nil } if has_teacher_lessons
+    return { available: true, message: nil } if teacher_has_make_up_on_date?(classroom: classroom, date: frequency_date)
 
     classroom_has_lessons_on_day = LessonsBoardLessonWeekday
                                    .by_classroom(classroom.id)
@@ -1028,21 +1022,6 @@ class DailyFrequenciesController < ApplicationController
     ).pluck(:discipline_id).uniq
 
     disciplines.select { |discipline| allowed_discipline_ids.include?(discipline.id) }
-  end
-
-  def classroom_without_lessons_board?(classroom_id)
-    !LessonsBoard.joins(:classrooms_grade)
-                 .where(classrooms_grades: { classroom_id: classroom_id })
-                 .exists?
-  end
-
-  def schedule_discipline_ids_for_classroom_weekday(classroom_id:, date:, period: nil)
-    weekday = date.strftime("%A").downcase
-    scope = LessonsBoardLessonWeekday.by_classroom(classroom_id).by_weekday(weekday)
-    scope = scope.by_period(period) if period.present?
-    scope.includes(:teacher_discipline_classroom)
-         .map { |w| w.teacher_discipline_classroom.discipline_id }
-         .uniq
   end
 
   # Turno do quadro de aulas para a disciplina/data (usado no form novo diário de frequência).
