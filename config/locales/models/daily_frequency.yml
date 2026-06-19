@@ -41,3 +41,8 @@ pt-BR:
   daily_frequencies:
     new:
       exam_rule_not_found: 'Não localizamos uma regra de avaliação para a turma informada. Entre em contato com o administrador do sistema.'
+      no_linked_disciplines: 'Você não possui disciplinas vinculadas a esta turma.'
+      no_disciplines_allow_frequency: 'Nenhuma disciplina sua permite lançamento de frequência por disciplina nesta turma.'
+      no_disciplines_on_lessons_board_for_date: 'Você não possui aulas no quadro de horários para %{weekday}, %{date}. Selecione outra data que tenha aulas da sua disciplina na turma.'
+      no_teacher_lessons_on_lessons_board_for_date: 'Você não possui aulas alocadas no quadro de horários para %{weekday}, %{date}. Selecione outra data que tenha aulas da sua disciplina na turma.'
+      no_lessons_on_lessons_board_for_date: 'Não há aulas no quadro de horários da turma para %{weekday}, %{date}. Selecione outra data que tenha aulas da sua disciplina na turma.'

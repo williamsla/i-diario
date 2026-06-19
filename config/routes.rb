@@ -362,6 +362,7 @@ Rails.application.routes.draw do
         get :class_numbers_by_discipline
         get :fetch_frequency_type
         get :disciplines_for_frequency_date
+        get :schedule_for_frequency_date
         get :edit_multiple
         get :form
         put :create_or_update_multiple

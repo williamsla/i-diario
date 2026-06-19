@@ -215,10 +215,103 @@ RSpec.describe DailyFrequenciesController, type: :controller do
       }
 
       payload = JSON.parse(response.body)
-      discipline_ids = payload.map { |item| item['id'] }
+      discipline_ids = payload['disciplines'].map { |item| item['id'] }
 
       expect(discipline_ids).to include(discipline.id)
       expect(discipline_ids).not_to include(other_discipline.id)
+    end
+
+    it 'retorna mensagem quando o professor não possui aulas no quadro para a data' do
+      other_discipline = create(:discipline)
+      teacher_discipline_classroom = create(
+        :teacher_discipline_classroom,
+        teacher: other_teacher,
+        classroom: classroom,
+        discipline: other_discipline,
+        grade: grade,
+        year: classroom.year,
+        active: true
+      )
+      classrooms_grade = classroom.classrooms_grades.first
+      lessons_board = create(:lessons_board, classrooms_grade: classrooms_grade)
+      lesson = create(:lessons_board_lesson, lessons_board: lessons_board, lesson_number: 1)
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: lesson,
+        teacher_discipline_classroom: teacher_discipline_classroom,
+        weekday: :tuesday
+      )
+      allow(classroom.classrooms_grades.first.exam_rule).to receive(:frequency_type).and_return(FrequencyTypes::BY_DISCIPLINE)
+
+      get :disciplines_for_frequency_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        frequency_date: '2017-02-28'
+      }
+
+      payload = JSON.parse(response.body)
+
+      expect(payload['disciplines']).to be_empty
+      expect(payload['message']).to include('quadro de horários')
+    end
+
+    it 'retorna mensagem quando não há aulas no quadro para o dia da semana' do
+      classrooms_grade = classroom.classrooms_grades.first
+      lessons_board = create(:lessons_board, classrooms_grade: classrooms_grade)
+      lesson = create(:lessons_board_lesson, lessons_board: lessons_board, lesson_number: 1)
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: lesson,
+        teacher_discipline_classroom: classroom.teacher_discipline_classrooms.first,
+        weekday: :monday
+      )
+      allow(classroom.classrooms_grades.first.exam_rule).to receive(:frequency_type).and_return(FrequencyTypes::BY_DISCIPLINE)
+
+      get :disciplines_for_frequency_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        frequency_date: '2017-02-28'
+      }
+
+      payload = JSON.parse(response.body)
+
+      expect(payload['disciplines']).to be_empty
+      expect(payload['message']).to include('Não há aulas no quadro de horários')
+    end
+  end
+
+  describe 'GET #schedule_for_frequency_date' do
+    it 'retorna indisponível quando o professor não possui aulas no quadro para a data' do
+      classrooms_grade = classroom.classrooms_grades.first
+      other_discipline = create(:discipline)
+      teacher_discipline_classroom = create(
+        :teacher_discipline_classroom,
+        teacher: other_teacher,
+        classroom: classroom,
+        discipline: other_discipline,
+        grade: grade,
+        year: classroom.year,
+        active: true
+      )
+      lessons_board = create(:lessons_board, classrooms_grade: classrooms_grade)
+      lesson = create(:lessons_board_lesson, lessons_board: lessons_board, lesson_number: 1)
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: lesson,
+        teacher_discipline_classroom: teacher_discipline_classroom,
+        weekday: :tuesday
+      )
+
+      get :schedule_for_frequency_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        frequency_date: '2017-02-28'
+      }
+
+      payload = JSON.parse(response.body)
+
+      expect(payload['available']).to eq(false)
+      expect(payload['message']).to include('quadro de horários')
     end
   end
 

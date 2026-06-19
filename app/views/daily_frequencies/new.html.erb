@@ -3,13 +3,27 @@
 <% end %>
 
 <div class="widget-body no-padding">
-  <%= simple_form_for @daily_frequency, url: daily_frequencies_path, method: :post, html: { class: "smart-form" } do |f| %>
+  <%= simple_form_for @daily_frequency, url: daily_frequencies_path, method: :post,
+        html: {
+          class: 'smart-form',
+          id: 'daily-frequency-new-form',
+          data: {
+            disciplines_for_date_url: disciplines_for_frequency_date_daily_frequencies_path,
+            schedule_for_date_url: schedule_for_frequency_date_daily_frequencies_path,
+            fetch_frequency_type_url: fetch_frequency_type_daily_frequencies_path,
+            class_numbers_by_discipline_url: class_numbers_by_discipline_daily_frequencies_path
+          }
+        } do |f| %>
     <%= f.hidden_field :period, value: @period %>
     <%= f.hidden_field :unity_id %>
     <%= f.hidden_field :classroom_id %>
     <div class="alert alert-danger hidden" id="exam-rule-not-found-alert">
       <i class="fa fa-exclamation-circle fa-fw"></i>
       <%= t('.exam_rule_not_found') %>
+    </div>
+    <div class="alert alert-warning <%= @frequency_date_message.blank? ? 'hidden' : '' %>" id="disciplines-empty-alert">
+      <i class="fa fa-info-circle fa-fw"></i>
+      <span id="disciplines-empty-message"><%= @frequency_date_message %></span>
     </div>
     <%= f.error_notification %>
 
@@ -29,6 +43,9 @@
       <div class="row">
         <div class="col col-sm-4">
           <%= f.input :frequency_date %>
+          <p class="help-block text-warning frequency-date-hint <%= @frequency_date_message.blank? ? 'hidden' : '' %>" id="frequency-date-hint">
+            <%= @frequency_date_message %>
+          </p>
         </div>
       </div>
       <div class="row">
@@ -36,7 +53,7 @@
           <div class="control-group required daily_frequency_discipline <%= @error_on_discipline ? 'error' : '' %>">
             <%= f.input :discipline_id, as: :select2, elements: @disciplines, user: current_user,
                         classroom_id: @daily_frequency.classroom_id,
-                        required: true %>            
+                        required: true %>
           </div>
         </div>
         <div class="col col-sm-4 class_numbers_field">
@@ -57,7 +74,7 @@
     </fieldset>
 
     <footer>
-      <%= f.submit 'Carregar', class: 'btn btn-primary' %>
+      <%= f.submit 'Carregar', class: "btn btn-primary #{'disabled' if @frequency_date_message.present?}" %>
     </footer>
   <% end %>
 </div>

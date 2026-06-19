@@ -71,7 +71,7 @@ class DailyFrequenciesController < ApplicationController
     frequency_date = parse_frequency_date(params[:frequency_date])
 
     if classroom_id.blank? || frequency_date.blank?
-      render_disciplines_for_frequency_json([])
+      render_disciplines_for_frequency_json(disciplines: [])
       return
     end
 
@@ -79,18 +79,47 @@ class DailyFrequenciesController < ApplicationController
 
     classroom = Classroom.find_by(id: classroom_id)
     if classroom.blank?
-      render_disciplines_for_frequency_json([])
+      render_disciplines_for_frequency_json(disciplines: [])
       return
     end
 
-    disciplines = disciplines_for_classroom_and_frequency(
+    result = build_disciplines_for_frequency_result(
       classroom: classroom,
       frequency_date: frequency_date
     )
 
     render_disciplines_for_frequency_json(
-      disciplines.map { |d| { id: d.id, description: d.description } }
+      disciplines: result[:disciplines].map { |d| { id: d.id, description: d.description } },
+      message: result[:message]
     )
+  end
+
+  def schedule_for_frequency_date
+    classroom_id = params[:classroom_id].presence
+    frequency_date = parse_frequency_date(params[:frequency_date])
+
+    if classroom_id.blank? || frequency_date.blank?
+      render json: { available: true, message: nil }
+      return
+    end
+
+    authorize DailyFrequency.new, :new?
+
+    classroom = Classroom.find_by(id: classroom_id)
+    if classroom.blank?
+      render json: { available: true, message: nil }
+      return
+    end
+
+    result = build_schedule_availability_result(
+      classroom: classroom,
+      frequency_date: frequency_date
+    )
+
+    render json: {
+      available: result[:available],
+      message: result[:message]
+    }
   end
 
   def fetch_frequency_type
@@ -457,8 +486,9 @@ class DailyFrequenciesController < ApplicationController
 
   private
 
-  # JSON array literal — evita ActiveModel::Serializers envolver em { daily_frequencies: ... }.
-  def render_disciplines_for_frequency_json(payload)
+  def render_disciplines_for_frequency_json(disciplines:, message: nil)
+    payload = { disciplines: disciplines }
+    payload[:message] = message if message.present?
     render plain: payload.to_json, content_type: 'application/json'
   end
 
@@ -799,10 +829,25 @@ class DailyFrequenciesController < ApplicationController
     if params[:discipline_id].present?
       @disciplines ||= [current_user_discipline]
     elsif (ctx = discipline_options_context)
-      @disciplines = disciplines_for_classroom_and_frequency(
+      frequency_type = frequency_type_for_classroom_and_discipline(
         classroom: ctx[:classroom],
-        frequency_date: ctx[:date]
+        discipline_id: current_user.current_discipline_id
       )
+
+      if frequency_type == FrequencyTypes::BY_DISCIPLINE
+        result = build_disciplines_for_frequency_result(
+          classroom: ctx[:classroom],
+          frequency_date: ctx[:date]
+        )
+        @disciplines = result[:disciplines]
+        @frequency_date_message = result[:message]
+      else
+        @disciplines = (@fetch_linked_by_teacher[:disciplines] || []).select { |d| d.grouper == false && d.descriptor == false }
+        @frequency_date_message = build_schedule_availability_result(
+          classroom: ctx[:classroom],
+          frequency_date: ctx[:date]
+        )[:message]
+      end
     else
       @disciplines = (@fetch_linked_by_teacher[:disciplines] || []).select { |d| d.grouper == false && d.descriptor == false }
       schedule_ids = fetch_disciplines_by_day
@@ -857,19 +902,41 @@ class DailyFrequenciesController < ApplicationController
   end
 
   def disciplines_for_classroom_and_frequency(classroom:, frequency_date:)
+    build_disciplines_for_frequency_result(
+      classroom: classroom,
+      frequency_date: frequency_date
+    )[:disciplines]
+  end
+
+  def build_disciplines_for_frequency_result(classroom:, frequency_date:)
     linked = TeacherClassroomAndDisciplineFetcher.fetch!(
       current_teacher.id,
       current_unity,
       current_school_year,
       classroom
     )
-    disciplines = (linked[:disciplines] || []).select { |d| d.grouper == false && d.descriptor == false }
+    all_disciplines = (linked[:disciplines] || []).select { |d| d.grouper == false && d.descriptor == false }
+
+    if all_disciplines.blank?
+      return {
+        disciplines: [],
+        message: t('daily_frequencies.new.no_linked_disciplines')
+      }
+    end
+
     disciplines = filter_disciplines_for_teacher_frequency_type(
-      disciplines: disciplines,
+      disciplines: all_disciplines,
       classroom: classroom
     )
 
-    return disciplines if classroom_without_lessons_board?(classroom.id)
+    if disciplines.blank?
+      return {
+        disciplines: [],
+        message: t('daily_frequencies.new.no_disciplines_allow_frequency')
+      }
+    end
+
+    return { disciplines: disciplines, message: nil } if classroom_without_lessons_board?(classroom.id)
 
     # Disciplinas do dia pela grade (dia da semana), sem filtrar por turno — o professor
     # vê tudo que está no quadro daquele dia na turma.
@@ -878,9 +945,67 @@ class DailyFrequenciesController < ApplicationController
       date: frequency_date,
       period: nil
     )
-    return disciplines if schedule_ids.blank?
+    if schedule_ids.blank?
+      return {
+        disciplines: [],
+        message: t(
+          'daily_frequencies.new.no_lessons_on_lessons_board_for_date',
+          weekday: weekday_name_for_date(frequency_date),
+          date: I18n.l(frequency_date)
+        )
+      }
+    end
 
-    disciplines.select { |d| schedule_ids.include?(d.id) }
+    filtered = disciplines.select { |d| schedule_ids.include?(d.id) }
+    if filtered.blank?
+      return {
+        disciplines: [],
+        message: t(
+          'daily_frequencies.new.no_disciplines_on_lessons_board_for_date',
+          weekday: weekday_name_for_date(frequency_date),
+          date: I18n.l(frequency_date)
+        )
+      }
+    end
+
+    { disciplines: filtered, message: nil }
+  end
+
+  def weekday_name_for_date(date)
+    I18n.t('date.day_names')[date.wday]
+  end
+
+  def build_schedule_availability_result(classroom:, frequency_date:)
+    return { available: true, message: nil } if classroom_without_lessons_board?(classroom.id)
+
+    weekday = frequency_date.strftime('%A').downcase
+    has_teacher_lessons = LessonsBoardLessonWeekday
+                          .by_classroom(classroom.id)
+                          .by_teacher(current_teacher.id)
+                          .by_weekday(weekday)
+                          .exists?
+
+    return { available: true, message: nil } if has_teacher_lessons
+
+    classroom_has_lessons_on_day = LessonsBoardLessonWeekday
+                                   .by_classroom(classroom.id)
+                                   .by_weekday(weekday)
+                                   .exists?
+
+    message_key = if classroom_has_lessons_on_day
+                    'daily_frequencies.new.no_teacher_lessons_on_lessons_board_for_date'
+                  else
+                    'daily_frequencies.new.no_lessons_on_lessons_board_for_date'
+                  end
+
+    {
+      available: false,
+      message: t(
+        message_key,
+        weekday: weekday_name_for_date(frequency_date),
+        date: I18n.l(frequency_date)
+      )
+    }
   end
 
   def filter_disciplines_for_teacher_frequency_type(disciplines:, classroom:)
