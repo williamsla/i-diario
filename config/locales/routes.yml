@@ -82,6 +82,7 @@ pt-BR:
     attendance_record_report_by_students: 'registro-de-frequencia-por-aluno'
     attendance_record_report_by_students_report: 'registro-de-frequencia-por-aluno-report'
     diary_report: 'imprimir-diario'
+    conceptual_exam_report: 'avaliacoes-conceituais'
     record_audit_trails: 'trilha-de-auditoria-de-lancamentos'
     record_audit_trails_report: 'trilha-de-auditoria-de-lancamentos-relatorio'
     record_audit_trails_classroom_teachers: 'trilha-de-auditoria-de-lancamentos-professores'

@@ -56,6 +56,7 @@ class Features < EnumerateIt::Base
                    :monthly_absence_by_student_report,
                    :diary_report,
                    :descriptive_report,
+                   :conceptual_exam_report,
                    :teacher_absences,
                    :record_audit_trails
 

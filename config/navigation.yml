@@ -242,6 +242,9 @@ navigation:
             type: "descriptive_report"
             path: "descriptive_report_path"
         - menu:
+            type: "conceptual_exam_report"
+            path: "conceptual_exam_report_path"
+        - menu:
             type: "diary_report"
             path: "diary_report_path"
         - menu:

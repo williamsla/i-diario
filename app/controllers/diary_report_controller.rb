@@ -274,6 +274,23 @@ class DiaryReportController < ApplicationController
       tempo_total += diff
       my_logger.info("Tempo de carregamento avaliações numéricas #{diff}")
 
+      ### avaliações conceituais
+      ini = Time.now
+      ConceptualExamReportBatchBuilder.new(
+        entity_configuration: current_entity_configuration,
+        unity: current_user_unity,
+        classroom: current_user_classroom,
+        teacher_id: current_teacher.id,
+        start_at: @diary_report_form.start_at,
+        end_at: @diary_report_form.end_at
+      ).each_rendered_report do |render|
+        add_pdf_to_merge(pdfTarget, report_name('avaliacao-conceitual'), render)
+      end
+      finish = Time.now
+      diff = finish - ini
+      tempo_total += diff
+      my_logger.info("Tempo de carregamento avaliações conceituais #{diff}")
+
       # parecer
       if classroom_has_opinion_type(current_user_classroom) == true
         ini = Time.now

@@ -25,6 +25,7 @@ class FeaturesAccessLevels
       :descriptive_exams,
       :descriptive_report,
       :diary_report,
+      :conceptual_exam_report,
       :discipline_content_records,
       :discipline_lesson_plan_report,
       :discipline_lesson_plans,
