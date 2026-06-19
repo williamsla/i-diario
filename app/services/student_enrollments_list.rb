@@ -118,6 +118,7 @@ class StudentEnrollmentsList
     students_enrollments = remove_not_displayable_students(students_enrollments)
 
     students_enrollments = filter_enrollments_by_conceptual_exam_rule(students_enrollments) if conceptual_exam_score_type_filter?
+    students_enrollments = filter_enrollments_by_numeric_exam_rule(students_enrollments) if numeric_exam_score_type_filter?
 
     students_enrollments = remove_duplicate_student_enrollments(students_enrollments) if @remove_duplicate_student
 
@@ -276,6 +277,31 @@ class StudentEnrollmentsList
 
   def conceptual_exam_score_type_filter?
     score_type == StudentEnrollmentScoreTypeFilters::CONCEPT
+  end
+
+  def numeric_exam_score_type_filter?
+    score_type == StudentEnrollmentScoreTypeFilters::NUMERIC
+  end
+
+  # Alinha com AvaliationBatchGrades::BuildContext#numeric_grade_ids: só séries com
+  # avaliação numérica (numérica ou numérica e conceitual).
+  def filter_enrollments_by_numeric_exam_rule(student_enrollments)
+    cid = classroom.is_a?(Classroom) ? classroom.id : classroom
+    student_enrollments.select { |enrollment| numeric_exam_score_type_permitted?(enrollment.student, cid) }
+  end
+
+  def numeric_exam_score_type_permitted?(student, classroom_id)
+    classroom_grade = ClassroomsGrade.by_student_id(student.id).by_classroom_id(classroom_id).first
+    return false if classroom_grade.blank?
+
+    exam_rule = classroom_grade.exam_rule
+    if student.uses_differentiated_exam_rule
+      exam_rule = exam_rule.differentiated_exam_rule || exam_rule
+    end
+
+    return false if exam_rule.blank?
+
+    [ScoreTypes::NUMERIC, ScoreTypes::NUMERIC_AND_CONCEPT].include?(exam_rule.score_type)
   end
 
   # Alinha com ConceptualExam#student_must_have_conceptual_exam_score_type: só séries com
