@@ -28,8 +28,12 @@ module LessonsBoardAvailability
                  .exists?
   end
 
+  def lessons_board_weekday_for_date(date)
+    SchoolSaturdaysMapping.weekday_name_for(date, school_calendar: try(:current_school_calendar))
+  end
+
   def schedule_discipline_ids_for_classroom_weekday(classroom_id:, date:, period: nil)
-    weekday = date.strftime('%A').downcase
+    weekday = lessons_board_weekday_for_date(date)
     scope = LessonsBoardLessonWeekday.by_classroom(classroom_id).by_weekday(weekday)
     scope = scope.by_period(period) if period.present?
     scope.includes(:teacher_discipline_classroom)
@@ -38,7 +42,7 @@ module LessonsBoardAvailability
   end
 
   def teacher_discipline_ids_on_schedule(classroom_id:, date:)
-    weekday = date.strftime('%A').downcase
+    weekday = lessons_board_weekday_for_date(date)
     LessonsBoardLessonWeekday
       .by_classroom(classroom_id)
       .by_teacher(current_teacher.id)
@@ -87,7 +91,7 @@ module LessonsBoardAvailability
   end
 
   def schedule_unavailable_message(classroom:, date:, schedule_ids:)
-    weekday = date.strftime('%A').downcase
+    weekday = lessons_board_weekday_for_date(date)
     classroom_has_lessons = LessonsBoardLessonWeekday
                             .by_classroom(classroom.id)
                             .by_weekday(weekday)

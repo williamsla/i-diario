@@ -46,7 +46,7 @@ class DailyFrequenciesController < ApplicationController
       return
     end
 
-    weekday = frequency_date.strftime("%A").downcase
+    weekday = lessons_board_weekday_for_date(frequency_date)
     # Mesma regra do select de disciplinas: aulas do dia no quadro, sem filtrar por turno.
     allocations = LessonsBoardLessonWeekday.includes(lessons_board_lesson: :lessons_board)
                                            .by_classroom(classroom_id)
@@ -971,7 +971,7 @@ class DailyFrequenciesController < ApplicationController
   def build_schedule_availability_result(classroom:, frequency_date:)
     return { available: true, message: nil } if classroom_without_lessons_board?(classroom.id)
 
-    weekday = frequency_date.strftime('%A').downcase
+    weekday = lessons_board_weekday_for_date(frequency_date)
     has_teacher_lessons = LessonsBoardLessonWeekday
                           .by_classroom(classroom.id)
                           .by_teacher(current_teacher.id)

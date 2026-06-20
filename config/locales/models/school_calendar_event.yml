@@ -25,6 +25,7 @@ pt-BR:
         discipline_id: "Disciplina"
         discipline: "Disciplina"
         show_in_frequency_record: 'Apresentar no Registro de frequência'
+        equivalent_weekday: 'Dia da semana de referência'
 
     errors:
       models:
@@ -32,9 +33,15 @@ pt-BR:
           attributes:
             start_date:
               already_exists_event_in_this_date: "Já existe um evento cadastrado de outro tipo nesta data"
+              saturday_school_day_requires_single_date: "Sábado letivo deve ter data inicial e final iguais"
             end_date:
               already_exists_event_in_this_date: "Já existe um evento cadastrado de outro tipo nesta data"
+              saturday_school_day_requires_single_date: "Sábado letivo deve ter data inicial e final iguais"
+            equivalent_weekday:
+              blank: "deve ser informado para sábado letivo"
 
   school_calendar_events:
     index:
       new_html: "<i class='fa fa-plus'></i> Novo evento"
+    form:
+      equivalent_weekday_hint: "Informe qual dia da semana (segunda a sexta) será utilizado no quadro de horários neste sábado letivo."

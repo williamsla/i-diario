@@ -5,6 +5,7 @@ class SchoolCalendarEvent < ApplicationRecord
   has_associated_audits
 
   include Audit
+  include SaturdaySchoolDayMapping
 
   belongs_to :school_calendar_event_batch, foreign_key: 'batch_id'
   belongs_to :school_calendar

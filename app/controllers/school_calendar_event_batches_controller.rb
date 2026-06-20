@@ -82,7 +82,8 @@ class SchoolCalendarEventBatchesController < ApplicationController
 
   def resource_params
     parameters = params.require(:school_calendar_event_batch).permit(
-      :year, :periods, :description, :start_date, :end_date, :event_type, :legend, :show_in_frequency_record
+      :year, :periods, :description, :start_date, :end_date, :event_type, :legend,
+      :show_in_frequency_record, :equivalent_weekday
     )
 
     parameters[:periods] = parameters[:periods].split(',')

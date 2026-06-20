@@ -38,6 +38,9 @@ class PendingRecordsCalculator
       school_calendar = CurrentSchoolCalendarFetcher.new(unity, classroom, @school_year).fetch
       return results unless school_calendar
 
+      @current_school_calendar = school_calendar
+      @saturdays_mapping = nil
+
       steps_fetcher = StepsFetcher.new(classroom)
       steps = steps_fetcher.steps_by_date_range(@start_date, @end_date)
 
@@ -87,6 +90,9 @@ class PendingRecordsCalculator
       unity = classroom.unity
       school_calendar = CurrentSchoolCalendarFetcher.new(unity, classroom, @school_year).fetch
       next unless school_calendar
+
+      @current_school_calendar = school_calendar
+      @saturdays_mapping = nil
 
       steps_fetcher = StepsFetcher.new(classroom)
       steps = steps_fetcher.steps_by_date_range(@start_date, @end_date)
@@ -1225,10 +1231,8 @@ class PendingRecordsCalculator
   end
 
   def add_saturdays_from_lesson_boards(all_school_days, start_date, end_date, classroom_id)
-    # Carregar mapeamento de sábados letivos do arquivo de configuração
-    sabados_letivos_map = load_sabados_letivos_config
-    
-    # Se não houver mapeamento, retornar os dias letivos sem modificação
+    sabados_letivos_map = saturdays_mapping.mapping
+
     return all_school_days if sabados_letivos_map.blank?
     
     # Buscar todos os sábados no intervalo de datas
@@ -1268,46 +1272,12 @@ class PendingRecordsCalculator
     (all_school_days + saturdays_to_add).sort
   end
 
-  def load_sabados_letivos_config
-    # Carrega o mapeamento de sábados letivos do arquivo de configuração
-    @sabados_letivos_map ||= begin
-      config_path = Rails.root.join('config', 'sabados_letivos.yml')
-      
-      if File.exist?(config_path)
-        YAML.load_file(config_path) || {}
-      else
-        {}
-      end
-    end
+  def saturdays_mapping
+    @saturdays_mapping ||= SchoolSaturdaysMapping.new(school_calendar: @current_school_calendar)
   end
 
   def get_equivalent_weekday_number(date)
-    # Retorna o número do dia da semana equivalente para uma data
-    # Se for um sábado mapeado, retorna o número do dia equivalente
-    # Caso contrário, retorna o wday normal da data
-    
-    return date.wday unless date.saturday?
-    
-    # Verificar se o sábado está mapeado
-    sabados_letivos_map = load_sabados_letivos_config
-    date_key = date.strftime("%Y-%m-%d")
-    equivalent_weekday = sabados_letivos_map[date_key]
-    
-    # Se não estiver mapeado, retornar o wday normal (6 para sábado)
-    return date.wday if equivalent_weekday.blank?
-    
-    # Converter o dia equivalente para número
-    case equivalent_weekday
-    when 'sunday' then 0
-    when 'monday' then 1
-    when 'tuesday' then 2
-    when 'wednesday' then 3
-    when 'thursday' then 4
-    when 'friday' then 5
-    when 'saturday' then 6
-    else
-      date.wday # Se não for um dia válido, retornar o wday normal
-    end
+    saturdays_mapping.weekday_number_for(date)
   end
 
   def filter_saturdays_by_events(pending_dates, classroom, school_calendar)

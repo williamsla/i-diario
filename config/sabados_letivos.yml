@@ -1,16 +1,12 @@
-# Configuração dos Sábados Letivos
-# 
-# Este arquivo mapeia as datas dos sábados letivos para o dia da semana equivalente
-# no quadro de horários. Os professores podem registrar normalmente com data de sábado,
-# mas o sistema usará o dia da semana equivalente para buscar as aulas no quadro de horários.
+# Configuração legada dos Sábados Letivos (YAML)
+#
+# Preferencialmente cadastre sábados letivos em Calendário letivo > Eventos,
+# informando o "Dia da semana de referência" (segunda a sexta).
+#
+# Este arquivo permanece como fallback e pode ser usado para migração gradual.
 #
 # Formato:
 #   "YYYY-MM-DD": "weekday"
 #
 # Dias da semana válidos: monday, tuesday, wednesday, thursday, friday
-#
-# Exemplo:
-#   "2025-01-11": "monday"
-#   "2025-01-18": "tuesday"
-#   "2025-01-25": "wednesday"
 
