@@ -881,6 +881,13 @@ class DailyFrequenciesController < ApplicationController
                                                     .ordered,
                                        current_user_classroom
                                      )
+                                   elsif infantil_classroom?(current_user_classroom)
+                                     filter_knowledge_areas_for_content_registration(
+                                       KnowledgeArea.by_teacher(current_teacher)
+                                                    .by_classroom_id(current_user_classroom.id)
+                                                    .ordered,
+                                       current_user_classroom
+                                     )
                                    else
                                      @disciplines_for_content.map(&:knowledge_area).compact.uniq(&:id)
                                    end
@@ -975,6 +982,7 @@ class DailyFrequenciesController < ApplicationController
       classroom: classroom,
       date: frequency_date
     )
+    return { available: true, message: nil } if infantil_classroom?(classroom)
 
     linked = TeacherClassroomAndDisciplineFetcher.fetch!(
       current_teacher.id,

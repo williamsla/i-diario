@@ -105,15 +105,35 @@ RSpec.describe KnowledgeAreaContentRecordsController, type: :controller do
   describe 'GET #knowledge_areas_for_record_date' do
     let(:other_teacher) { create(:teacher) }
 
-    it 'retorna mensagem quando o professor não possui áreas no quadro para a data' do
-      other_discipline = create(:discipline)
-      other_knowledge_area = create(:knowledge_area)
-      other_knowledge_area.disciplines << other_discipline
+    it 'retorna mensagem quando não há aulas no quadro para o dia da semana' do
+      classrooms_grade = classroom.classrooms_grades.first
+      lessons_board = create(:lessons_board, classrooms_grade: classrooms_grade)
+      lesson = create(:lessons_board_lesson, lessons_board: lessons_board, lesson_number: 1)
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: lesson,
+        teacher_discipline_classroom: classroom.teacher_discipline_classrooms.first,
+        weekday: :monday
+      )
+
+      get :knowledge_areas_for_record_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        record_date: '28/02/2017'
+      }
+
+      payload = JSON.parse(response.body)
+
+      expect(payload['knowledge_areas']).to be_empty
+      expect(payload['message']).to include('quadro de horários')
+    end
+
+    it 'libera as áreas quando a disciplina da área consta no quadro mesmo com outro professor alocado' do
       teacher_discipline_classroom = create(
         :teacher_discipline_classroom,
         teacher: other_teacher,
         classroom: classroom,
-        discipline: other_discipline,
+        discipline: discipline,
         grade: classroom.classrooms_grades.first.grade,
         year: classroom.year,
         active: true
@@ -135,9 +155,10 @@ RSpec.describe KnowledgeAreaContentRecordsController, type: :controller do
       }
 
       payload = JSON.parse(response.body)
+      knowledge_area_ids = payload['knowledge_areas'].map { |item| item['id'] }
 
-      expect(payload['knowledge_areas']).to be_empty
-      expect(payload['message']).to include('quadro de horários')
+      expect(knowledge_area_ids).to include(knowledge_area.id)
+      expect(payload['message']).to be_nil
     end
   end
 end

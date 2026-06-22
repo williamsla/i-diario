@@ -39,6 +39,64 @@ module LessonsBoardAvailability
     )
   end
 
+  def infantil_classroom?(classroom)
+    return false if classroom.blank?
+
+    classroom.classrooms_grades.any? do |classroom_grade|
+      infantil_grade_description?(classroom_grade.grade&.description)
+    end
+  end
+
+  def teacher_discipline_ids_for_classroom(classroom)
+    linked = TeacherClassroomAndDisciplineFetcher.fetch!(
+      current_teacher.id,
+      current_unity,
+      current_school_year,
+      classroom
+    )
+
+    (linked[:disciplines] || []).select { |discipline| discipline.grouper == false && discipline.descriptor == false }.map(&:id)
+  end
+
+  def classroom_has_lessons_on_date?(classroom:, date:)
+    weekday = lessons_board_weekday_for_date(date)
+    LessonsBoardLessonWeekday
+      .by_classroom(classroom.id)
+      .by_weekday(weekday)
+      .exists?
+  end
+
+  def schedule_unavailable_message_for_knowledge_areas(classroom:, date:, schedule_ids:)
+    weekday = lessons_board_weekday_for_date(date)
+    classroom_has_lessons = LessonsBoardLessonWeekday
+                            .by_classroom(classroom.id)
+                            .by_weekday(weekday)
+                            .exists?
+
+    message_key = if schedule_ids.blank?
+                    classroom_has_lessons ? :no_knowledge_areas_on_lessons_board_for_date : :no_lessons_on_lessons_board_for_date
+                  else
+                    :no_knowledge_areas_on_lessons_board_for_date
+                  end
+
+    lessons_board_date_message(message_key, date)
+  end
+
+  def knowledge_areas_matching_schedule(knowledge_areas, classroom:, date:)
+    board_discipline_ids = schedule_discipline_ids_for_classroom_weekday(
+      classroom_id: classroom.id,
+      date: date
+    )
+
+    return [] if board_discipline_ids.blank?
+
+    filtered = knowledge_areas.select do |knowledge_area|
+      knowledge_area.disciplines.any? { |discipline| board_discipline_ids.include?(discipline.id) }
+    end
+
+    filtered.presence || knowledge_areas
+  end
+
   def schedule_discipline_ids_for_classroom_weekday(classroom_id:, date:, period: nil)
     weekday = lessons_board_weekday_for_date(date)
     scope = LessonsBoardLessonWeekday.by_classroom(classroom_id).by_weekday(weekday)
@@ -192,23 +250,19 @@ module LessonsBoardAvailability
     end
 
     return { knowledge_areas: knowledge_areas, message: nil } if classroom_without_lessons_board?(classroom.id)
+    return { knowledge_areas: knowledge_areas, message: nil } if infantil_classroom?(classroom)
     return { knowledge_areas: knowledge_areas, message: nil } if saturday_school_day_without_equivalent_weekday?(
       classroom: classroom,
       date: record_date
     )
 
-    linked_discipline_ids = knowledge_areas.flat_map { |knowledge_area| knowledge_area.disciplines.map(&:id) }.uniq
-    scheduled_discipline_ids = linked_discipline_ids_on_schedule(
-      classroom_id: classroom.id,
-      date: record_date,
-      discipline_ids: linked_discipline_ids
+    matched_knowledge_areas = knowledge_areas_matching_schedule(
+      knowledge_areas,
+      classroom: classroom,
+      date: record_date
     )
-
-    if scheduled_discipline_ids.present?
-      filtered = knowledge_areas.select do |knowledge_area|
-        knowledge_area.disciplines.any? { |discipline| scheduled_discipline_ids.include?(discipline.id) }
-      end
-      return { knowledge_areas: filtered, message: nil } if filtered.present?
+    if matched_knowledge_areas.present?
+      return { knowledge_areas: matched_knowledge_areas, message: nil }
     end
 
     make_up_knowledge_areas = knowledge_areas_for_make_up_date(knowledge_areas, classroom, record_date)
@@ -216,12 +270,19 @@ module LessonsBoardAvailability
       return { knowledge_areas: make_up_knowledge_areas, message: nil }
     end
 
+    teacher_discipline_ids = teacher_discipline_ids_for_classroom(classroom)
+    scheduled_teacher_discipline_ids = linked_discipline_ids_on_schedule(
+      classroom_id: classroom.id,
+      date: record_date,
+      discipline_ids: teacher_discipline_ids
+    )
+
     {
       knowledge_areas: [],
-      message: schedule_unavailable_message(
+      message: schedule_unavailable_message_for_knowledge_areas(
         classroom: classroom,
         date: record_date,
-        schedule_ids: scheduled_discipline_ids
+        schedule_ids: scheduled_teacher_discipline_ids
       )
     }
   end
