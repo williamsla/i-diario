@@ -984,6 +984,13 @@ class DailyFrequenciesController < ApplicationController
     )
     return { available: true, message: nil } if infantil_classroom?(classroom)
 
+    unless frequency_by_discipline_for_classroom?(classroom)
+      return build_general_schedule_availability_result(
+        classroom: classroom,
+        frequency_date: frequency_date
+      )
+    end
+
     linked = TeacherClassroomAndDisciplineFetcher.fetch!(
       current_teacher.id,
       current_unity,
@@ -1003,12 +1010,37 @@ class DailyFrequenciesController < ApplicationController
     return { available: true, message: nil } if has_linked_discipline_on_schedule
     return { available: true, message: nil } if teacher_has_make_up_on_date?(classroom: classroom, date: frequency_date)
 
-    weekday = lessons_board_weekday_for_date(frequency_date)
-    classroom_has_lessons_on_day = LessonsBoardLessonWeekday
-                                   .by_classroom(classroom.id)
-                                   .by_weekday(weekday)
-                                   .exists?
+    classroom_has_lessons_on_day = classroom_has_lessons_on_date?(classroom: classroom, date: frequency_date)
 
+    message_key = if classroom_has_lessons_on_day
+                    'daily_frequencies.new.no_teacher_lessons_on_lessons_board_for_date'
+                  else
+                    'daily_frequencies.new.no_lessons_on_lessons_board_for_date'
+                  end
+
+    {
+      available: false,
+      message: t(
+        message_key,
+        weekday: weekday_name_for_date(frequency_date),
+        date: I18n.l(frequency_date)
+      )
+    }
+  end
+
+  def build_general_schedule_availability_result(classroom:, frequency_date:)
+    return { available: true, message: nil } if teacher_has_make_up_on_date?(classroom: classroom, date: frequency_date)
+
+    teacher_discipline_ids = teacher_discipline_ids_for_classroom(classroom)
+    schedule_ids = schedule_discipline_ids_for_classroom_weekday(
+      classroom_id: classroom.id,
+      date: frequency_date
+    )
+    has_teacher_discipline_on_schedule = (schedule_ids & teacher_discipline_ids).present?
+
+    return { available: true, message: nil } if has_teacher_discipline_on_schedule
+
+    classroom_has_lessons_on_day = classroom_has_lessons_on_date?(classroom: classroom, date: frequency_date)
     message_key = if classroom_has_lessons_on_day
                     'daily_frequencies.new.no_teacher_lessons_on_lessons_board_for_date'
                   else

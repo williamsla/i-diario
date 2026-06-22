@@ -381,7 +381,98 @@ RSpec.describe DailyFrequenciesController, type: :controller do
   end
 
   describe 'GET #schedule_for_frequency_date' do
-    it 'retorna indisponível quando o professor não possui aulas no quadro para a data' do
+    it 'bloqueia frequência geral quando nenhuma disciplina do professor está no quadro na data' do
+      classrooms_grade = classroom.classrooms_grades.first
+      other_discipline = create(:discipline)
+      teacher_discipline_classroom = create(
+        :teacher_discipline_classroom,
+        teacher: other_teacher,
+        classroom: classroom,
+        discipline: other_discipline,
+        grade: grade,
+        year: classroom.year,
+        active: true
+      )
+      lessons_board = create(:lessons_board, classrooms_grade: classrooms_grade)
+      lesson = create(:lessons_board_lesson, lessons_board: lessons_board, lesson_number: 1)
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: lesson,
+        teacher_discipline_classroom: teacher_discipline_classroom,
+        weekday: :tuesday
+      )
+
+      get :schedule_for_frequency_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        frequency_date: '2017-02-28'
+      }
+
+      payload = JSON.parse(response.body)
+
+      expect(payload['available']).to eq(false)
+      expect(payload['message']).to include('quadro de horários')
+    end
+
+    it 'libera frequência geral quando alguma disciplina do professor está no quadro na data' do
+      classrooms_grade = classroom.classrooms_grades.first
+      teacher_discipline_classroom = TeacherDisciplineClassroom.find_by(
+        classroom: classroom,
+        teacher: current_teacher
+      )
+      lessons_board = create(:lessons_board, classrooms_grade: classrooms_grade)
+      lesson = create(:lessons_board_lesson, lessons_board: lessons_board, lesson_number: 1)
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: lesson,
+        teacher_discipline_classroom: teacher_discipline_classroom,
+        weekday: :tuesday
+      )
+
+      get :schedule_for_frequency_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        frequency_date: '2017-02-28'
+      }
+
+      payload = JSON.parse(response.body)
+
+      expect(payload['available']).to eq(true)
+      expect(payload['message']).to be_nil
+    end
+
+    it 'libera frequência geral quando o vínculo do professor não permite falta por disciplina' do
+      TeacherDisciplineClassroom.where(classroom: classroom, teacher: current_teacher).update_all(allow_absence_by_discipline: 0)
+
+      classrooms_grade = classroom.classrooms_grades.first
+      teacher_discipline_classroom = TeacherDisciplineClassroom.find_by(
+        classroom: classroom,
+        teacher: current_teacher
+      )
+      lessons_board = create(:lessons_board, classrooms_grade: classrooms_grade)
+      lesson = create(:lessons_board_lesson, lessons_board: lessons_board, lesson_number: 1)
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: lesson,
+        teacher_discipline_classroom: teacher_discipline_classroom,
+        weekday: :tuesday
+      )
+
+      get :schedule_for_frequency_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        frequency_date: '2017-02-28'
+      }
+
+      payload = JSON.parse(response.body)
+
+      expect(payload['available']).to eq(true)
+      expect(payload['message']).to be_nil
+    end
+
+    it 'retorna indisponível na frequência por disciplina quando o professor não possui aulas no quadro' do
+      allow(classroom.classrooms_grades.first.exam_rule).to receive(:frequency_type).and_return(FrequencyTypes::BY_DISCIPLINE)
+
       classrooms_grade = classroom.classrooms_grades.first
       other_discipline = create(:discipline)
       teacher_discipline_classroom = create(
