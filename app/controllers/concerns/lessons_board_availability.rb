@@ -41,15 +41,15 @@ module LessonsBoardAvailability
          .uniq
   end
 
-  def teacher_discipline_ids_on_schedule(classroom_id:, date:)
-    weekday = lessons_board_weekday_for_date(date)
-    LessonsBoardLessonWeekday
-      .by_classroom(classroom_id)
-      .by_teacher(current_teacher.id)
-      .by_weekday(weekday)
-      .includes(:teacher_discipline_classroom)
-      .map { |w| w.teacher_discipline_classroom.discipline_id }
-      .uniq
+  def linked_discipline_ids_on_schedule(classroom_id:, date:, discipline_ids:)
+    return [] if discipline_ids.blank?
+
+    board_discipline_ids = schedule_discipline_ids_for_classroom_weekday(
+      classroom_id: classroom_id,
+      date: date
+    )
+
+    board_discipline_ids & discipline_ids
   end
 
   def teacher_make_up_absences_on_date(classroom:, date:)
@@ -125,9 +125,10 @@ module LessonsBoardAvailability
 
     return { disciplines: all_disciplines, message: nil } if classroom_without_lessons_board?(classroom.id)
 
-    schedule_ids = teacher_discipline_ids_on_schedule(
+    schedule_ids = linked_discipline_ids_on_schedule(
       classroom_id: classroom.id,
-      date: record_date
+      date: record_date,
+      discipline_ids: all_disciplines.map(&:id)
     )
 
     if schedule_ids.present?
@@ -181,14 +182,16 @@ module LessonsBoardAvailability
 
     return { knowledge_areas: knowledge_areas, message: nil } if classroom_without_lessons_board?(classroom.id)
 
-    teacher_discipline_ids = teacher_discipline_ids_on_schedule(
+    linked_discipline_ids = knowledge_areas.flat_map { |knowledge_area| knowledge_area.disciplines.map(&:id) }.uniq
+    scheduled_discipline_ids = linked_discipline_ids_on_schedule(
       classroom_id: classroom.id,
-      date: record_date
+      date: record_date,
+      discipline_ids: linked_discipline_ids
     )
 
-    if teacher_discipline_ids.present?
+    if scheduled_discipline_ids.present?
       filtered = knowledge_areas.select do |knowledge_area|
-        knowledge_area.disciplines.any? { |discipline| teacher_discipline_ids.include?(discipline.id) }
+        knowledge_area.disciplines.any? { |discipline| scheduled_discipline_ids.include?(discipline.id) }
       end
       return { knowledge_areas: filtered, message: nil } if filtered.present?
     end
@@ -203,7 +206,7 @@ module LessonsBoardAvailability
       message: schedule_unavailable_message(
         classroom: classroom,
         date: record_date,
-        schedule_ids: teacher_discipline_ids
+        schedule_ids: scheduled_discipline_ids
       )
     }
   end

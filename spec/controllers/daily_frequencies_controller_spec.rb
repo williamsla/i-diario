@@ -255,6 +255,41 @@ RSpec.describe DailyFrequenciesController, type: :controller do
       expect(payload['message']).to include('quadro de horários')
     end
 
+    it 'libera a disciplina quando ela consta no quadro mesmo com outro professor alocado' do
+      other_discipline = create(:discipline)
+      teacher_discipline_classroom = create(
+        :teacher_discipline_classroom,
+        teacher: other_teacher,
+        classroom: classroom,
+        discipline: discipline,
+        grade: grade,
+        year: classroom.year,
+        active: true
+      )
+      classrooms_grade = classroom.classrooms_grades.first
+      lessons_board = create(:lessons_board, classrooms_grade: classrooms_grade)
+      lesson = create(:lessons_board_lesson, lessons_board: lessons_board, lesson_number: 1)
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: lesson,
+        teacher_discipline_classroom: teacher_discipline_classroom,
+        weekday: :tuesday
+      )
+      allow(classroom.classrooms_grades.first.exam_rule).to receive(:frequency_type).and_return(FrequencyTypes::BY_DISCIPLINE)
+
+      get :disciplines_for_frequency_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        frequency_date: '2017-02-28'
+      }
+
+      payload = JSON.parse(response.body)
+      discipline_ids = payload['disciplines'].map { |item| item['id'] }
+
+      expect(discipline_ids).to include(discipline.id)
+      expect(payload['message']).to be_nil
+    end
+
     it 'retorna mensagem quando não há aulas no quadro para o dia da semana' do
       classrooms_grade = classroom.classrooms_grades.first
       lessons_board = create(:lessons_board, classrooms_grade: classrooms_grade)

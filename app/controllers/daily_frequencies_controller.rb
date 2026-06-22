@@ -50,7 +50,6 @@ class DailyFrequenciesController < ApplicationController
     # Mesma regra do select de disciplinas: aulas do dia no quadro, sem filtrar por turno.
     allocations = LessonsBoardLessonWeekday.includes(lessons_board_lesson: :lessons_board)
                                            .by_classroom(classroom_id)
-                                           .by_teacher(current_teacher.id)
                                            .by_discipline(discipline_id)
                                            .by_weekday(weekday)
                                            .order('lessons_board_lessons.lesson_number')
@@ -971,16 +970,26 @@ class DailyFrequenciesController < ApplicationController
   def build_schedule_availability_result(classroom:, frequency_date:)
     return { available: true, message: nil } if classroom_without_lessons_board?(classroom.id)
 
-    weekday = lessons_board_weekday_for_date(frequency_date)
-    has_teacher_lessons = LessonsBoardLessonWeekday
-                          .by_classroom(classroom.id)
-                          .by_teacher(current_teacher.id)
-                          .by_weekday(weekday)
-                          .exists?
+    linked = TeacherClassroomAndDisciplineFetcher.fetch!(
+      current_teacher.id,
+      current_unity,
+      current_school_year,
+      classroom
+    )
+    disciplines = filter_disciplines_for_teacher_frequency_type(
+      disciplines: (linked[:disciplines] || []).select { |d| d.grouper == false && d.descriptor == false },
+      classroom: classroom
+    )
+    schedule_ids = schedule_discipline_ids_for_classroom_weekday(
+      classroom_id: classroom.id,
+      date: frequency_date
+    )
+    has_linked_discipline_on_schedule = (schedule_ids & disciplines.map(&:id)).present?
 
-    return { available: true, message: nil } if has_teacher_lessons
+    return { available: true, message: nil } if has_linked_discipline_on_schedule
     return { available: true, message: nil } if teacher_has_make_up_on_date?(classroom: classroom, date: frequency_date)
 
+    weekday = lessons_board_weekday_for_date(frequency_date)
     classroom_has_lessons_on_day = LessonsBoardLessonWeekday
                                    .by_classroom(classroom.id)
                                    .by_weekday(weekday)
