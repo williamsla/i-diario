@@ -32,6 +32,13 @@ module LessonsBoardAvailability
     SchoolSaturdaysMapping.weekday_name_for(date, school_calendar: try(:current_school_calendar))
   end
 
+  def saturday_school_day_without_equivalent_weekday?(classroom:, date:)
+    SchoolSaturdaysMapping.saturday_school_day_without_equivalent_weekday?(
+      date,
+      classroom: classroom
+    )
+  end
+
   def schedule_discipline_ids_for_classroom_weekday(classroom_id:, date:, period: nil)
     weekday = lessons_board_weekday_for_date(date)
     scope = LessonsBoardLessonWeekday.by_classroom(classroom_id).by_weekday(weekday)
@@ -124,6 +131,10 @@ module LessonsBoardAvailability
     end
 
     return { disciplines: all_disciplines, message: nil } if classroom_without_lessons_board?(classroom.id)
+    return { disciplines: all_disciplines, message: nil } if saturday_school_day_without_equivalent_weekday?(
+      classroom: classroom,
+      date: record_date
+    )
 
     schedule_ids = linked_discipline_ids_on_schedule(
       classroom_id: classroom.id,
@@ -181,6 +192,10 @@ module LessonsBoardAvailability
     end
 
     return { knowledge_areas: knowledge_areas, message: nil } if classroom_without_lessons_board?(classroom.id)
+    return { knowledge_areas: knowledge_areas, message: nil } if saturday_school_day_without_equivalent_weekday?(
+      classroom: classroom,
+      date: record_date
+    )
 
     linked_discipline_ids = knowledge_areas.flat_map { |knowledge_area| knowledge_area.disciplines.map(&:id) }.uniq
     scheduled_discipline_ids = linked_discipline_ids_on_schedule(

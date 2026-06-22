@@ -23,6 +23,10 @@ class SchoolSaturdaysMapping
     new(school_calendar: school_calendar).mapping
   end
 
+  def self.saturday_school_day_without_equivalent_weekday?(date, classroom:)
+    new.saturday_school_day_without_equivalent_weekday?(date, classroom: classroom)
+  end
+
   def initialize(school_calendar: nil)
     @school_calendar = school_calendar
   end
@@ -47,7 +51,41 @@ class SchoolSaturdaysMapping
     mapping[date.to_date.strftime('%Y-%m-%d')]
   end
 
+  def saturday_school_day_without_equivalent_weekday?(date, classroom:)
+    date = date.to_date
+    return false unless date.saturday?
+    return false if equivalent_weekday(date).present?
+
+    saturday_school_day?(date, classroom: classroom)
+  end
+
+  def saturday_school_day?(date, classroom:)
+    date = date.to_date
+    return false unless date.saturday?
+
+    school_calendar = school_calendar_for(classroom, date)
+    return false unless school_calendar
+
+    if classroom.present?
+      grade_id = classroom.classrooms_grades.pick(:grade_id)
+      SchoolDayChecker.new(school_calendar, date, grade_id, classroom.id, nil).school_day?
+    else
+      school_calendar.events.by_date(date).school_event.exists?
+    end
+  end
+
   private
+
+  def school_calendar_for(classroom, date)
+    return @school_calendar if @school_calendar
+
+    classroom = classroom.is_a?(Classroom) ? classroom : Classroom.find_by(id: classroom)
+    return nil unless classroom
+
+    CurrentSchoolCalendarFetcher.new(classroom.unity, classroom, date.year).fetch
+  rescue StandardError
+    SchoolCalendar.find_by(unity_id: classroom.unity_id, year: date.year)
+  end
 
   def load_yaml_mapping
     config_path = Rails.root.join('config', 'sabados_letivos.yml')

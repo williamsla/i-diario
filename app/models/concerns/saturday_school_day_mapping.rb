@@ -35,7 +35,5 @@ module SaturdaySchoolDayMapping
       errors.add(:start_date, :saturday_school_day_requires_single_date)
       errors.add(:end_date, :saturday_school_day_requires_single_date)
     end
-
-    errors.add(:equivalent_weekday, :blank) if equivalent_weekday.blank?
   end
 end

@@ -938,6 +938,8 @@ class DailyFrequenciesController < ApplicationController
     end
 
     return { disciplines: disciplines, message: nil } if classroom_without_lessons_board?(classroom.id)
+    return { disciplines: disciplines, message: nil } if frequency_by_discipline_for_classroom?(classroom) &&
+      saturday_school_day_without_equivalent_weekday?(classroom: classroom, date: frequency_date)
 
     # Disciplinas do dia pela grade (dia da semana), sem filtrar por turno — o professor
     # vê tudo que está no quadro daquele dia na turma.
@@ -969,6 +971,10 @@ class DailyFrequenciesController < ApplicationController
 
   def build_schedule_availability_result(classroom:, frequency_date:)
     return { available: true, message: nil } if classroom_without_lessons_board?(classroom.id)
+    return { available: true, message: nil } if saturday_school_day_without_equivalent_weekday?(
+      classroom: classroom,
+      date: frequency_date
+    )
 
     linked = TeacherClassroomAndDisciplineFetcher.fetch!(
       current_teacher.id,
@@ -1009,6 +1015,10 @@ class DailyFrequenciesController < ApplicationController
         date: I18n.l(frequency_date)
       )
     }
+  end
+
+  def frequency_by_discipline_for_classroom?(classroom)
+    classroom.classrooms_grades.first&.exam_rule&.frequency_type == FrequencyTypes::BY_DISCIPLINE
   end
 
   def filter_disciplines_for_teacher_frequency_type(disciplines:, classroom:)

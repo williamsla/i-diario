@@ -169,6 +169,32 @@ RSpec.describe DisciplineContentRecordsController, type: :controller do
       expect(payload['message']).to be_nil
     end
 
+    it 'retorna todas as disciplinas em sábado letivo sem dia equivalente cadastrado' do
+      saturday = Date.parse('2017-06-10')
+      create(
+        :school_calendar_event,
+        school_calendar: school_calendar,
+        coverage: EventCoverageType::BY_UNITY,
+        start_date: saturday,
+        end_date: saturday,
+        event_type: EventTypes::EXTRA_SCHOOL,
+        equivalent_weekday: nil,
+        periods: Periods.list
+      )
+
+      get :disciplines_for_record_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        record_date: saturday.strftime('%d/%m/%Y')
+      }
+
+      payload = JSON.parse(response.body)
+      discipline_ids = payload['disciplines'].map { |item| item['id'] }
+
+      expect(discipline_ids).to include(discipline.id)
+      expect(payload['message']).to be_nil
+    end
+
     it 'libera a data quando há reposição cadastrada mesmo sem aulas no quadro' do
       other_discipline = create(:discipline)
       teacher_discipline_classroom = create(

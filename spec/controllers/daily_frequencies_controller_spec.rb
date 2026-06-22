@@ -290,6 +290,33 @@ RSpec.describe DailyFrequenciesController, type: :controller do
       expect(payload['message']).to be_nil
     end
 
+    it 'retorna todas as disciplinas em sábado letivo sem dia equivalente cadastrado' do
+      saturday = Date.parse('2017-06-10')
+      create(
+        :school_calendar_event,
+        school_calendar: school_calendar,
+        coverage: EventCoverageType::BY_UNITY,
+        start_date: saturday,
+        end_date: saturday,
+        event_type: EventTypes::EXTRA_SCHOOL,
+        equivalent_weekday: nil,
+        periods: Periods.list
+      )
+      allow(classroom.classrooms_grades.first.exam_rule).to receive(:frequency_type).and_return(FrequencyTypes::BY_DISCIPLINE)
+
+      get :disciplines_for_frequency_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        frequency_date: saturday.strftime('%Y-%m-%d')
+      }
+
+      payload = JSON.parse(response.body)
+      discipline_ids = payload['disciplines'].map { |item| item['id'] }
+
+      expect(discipline_ids).to include(discipline.id)
+      expect(payload['message']).to be_nil
+    end
+
     it 'retorna mensagem quando não há aulas no quadro para o dia da semana' do
       classrooms_grade = classroom.classrooms_grades.first
       lessons_board = create(:lessons_board, classrooms_grade: classrooms_grade)

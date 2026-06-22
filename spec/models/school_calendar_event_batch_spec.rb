@@ -6,7 +6,7 @@ RSpec.describe SchoolCalendarEventBatch, type: :model do
   describe 'saturday school day mapping' do
     let(:saturday) { Date.parse('2025-06-14') }
 
-    it 'exige dia da semana de referência para sábado letivo' do
+    it 'permite sábado letivo sem dia da semana de referência' do
       batch = build(
         :school_calendar_event_batch,
         start_date: saturday,
@@ -16,8 +16,7 @@ RSpec.describe SchoolCalendarEventBatch, type: :model do
         periods: Periods.list
       )
 
-      expect(batch).not_to be_valid
-      expect(batch.errors[:equivalent_weekday]).to be_present
+      expect(batch).to be_valid
     end
 
     it 'é válido com dia da semana de referência informado' do

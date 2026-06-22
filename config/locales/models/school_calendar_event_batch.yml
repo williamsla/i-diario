@@ -36,4 +36,4 @@ pt-BR:
     index:
       new_html: "<i class='fa fa-plus'></i> Novo evento"
     form:
-      equivalent_weekday_hint: "Informe qual dia da semana (segunda a sexta) será utilizado no quadro de horários neste sábado letivo."
+      equivalent_weekday_hint: "Opcional. Informe qual dia da semana (segunda a sexta) será utilizado no quadro de horários. Se não informar, o professor escolherá a disciplina ao registrar frequência ou conteúdo."

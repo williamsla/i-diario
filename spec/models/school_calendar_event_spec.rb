@@ -45,23 +45,22 @@ RSpec.describe SchoolCalendarEvent, type: :model do
       let(:school_calendar) { create(:school_calendar, :with_one_step) }
       let(:saturday) { Date.parse('2025-06-14') }
 
-      it 'exige dia da semana de referência e data única' do
-        event = build(
-          :school_calendar_event,
-          school_calendar: school_calendar,
-          coverage: EventCoverageType::BY_UNITY,
-          start_date: saturday,
-          end_date: saturday,
-          event_type: EventTypes::EXTRA_SCHOOL,
-          equivalent_weekday: nil,
-          periods: Periods.list
-        )
+    it 'exige data única para sábado letivo' do
+      event = build(
+        :school_calendar_event,
+        school_calendar: school_calendar,
+        coverage: EventCoverageType::BY_UNITY,
+        start_date: saturday,
+        end_date: saturday,
+        event_type: EventTypes::EXTRA_SCHOOL,
+        equivalent_weekday: nil,
+        periods: Periods.list
+      )
 
-        expect(event).not_to be_valid
-        expect(event.errors[:equivalent_weekday]).to be_present
-      end
+      expect(event).to be_valid
+    end
 
-      it 'é válido com dia da semana de referência informado' do
+    it 'é válido com dia da semana de referência informado' do
         event = build(
           :school_calendar_event,
           school_calendar: school_calendar,

@@ -216,7 +216,6 @@ $(function () {
   var toggleEquivalentWeekdayContainerVisibility = function() {
     if (shouldShowEquivalentWeekday()) {
       $equivalentWeekdayContainer.removeClass('hidden');
-      $equivalentWeekday.prop('required', true);
     } else {
       $equivalentWeekdayContainer.addClass('hidden');
       $equivalentWeekday.prop('required', false);
