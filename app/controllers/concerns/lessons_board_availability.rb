@@ -35,7 +35,8 @@ module LessonsBoardAvailability
   def saturday_school_day_without_equivalent_weekday?(classroom:, date:)
     SchoolSaturdaysMapping.saturday_school_day_without_equivalent_weekday?(
       date,
-      classroom: classroom
+      classroom: classroom,
+      school_calendar: try(:current_school_calendar)
     )
   end
 

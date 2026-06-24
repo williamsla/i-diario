@@ -23,8 +23,8 @@ class SchoolSaturdaysMapping
     new(school_calendar: school_calendar).mapping
   end
 
-  def self.saturday_school_day_without_equivalent_weekday?(date, classroom:)
-    new.saturday_school_day_without_equivalent_weekday?(date, classroom: classroom)
+  def self.saturday_school_day_without_equivalent_weekday?(date, classroom:, school_calendar: nil)
+    new(school_calendar: school_calendar).saturday_school_day_without_equivalent_weekday?(date, classroom: classroom)
   end
 
   def initialize(school_calendar: nil)
@@ -67,7 +67,7 @@ class SchoolSaturdaysMapping
     return false unless school_calendar
 
     if classroom.present?
-      grade_id = classroom.classrooms_grades.pick(:grade_id)
+      grade_id = classroom.classrooms_grades.pluck(:grade_id).first
       SchoolDayChecker.new(school_calendar, date, grade_id, classroom.id, nil).school_day?
     else
       school_calendar.events.by_date(date).school_event.exists?

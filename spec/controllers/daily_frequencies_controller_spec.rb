@@ -550,6 +550,33 @@ RSpec.describe DailyFrequenciesController, type: :controller do
       expect(payload['available']).to eq(true)
       expect(payload['message']).to be_nil
     end
+
+    it 'libera sábado letivo sem dia equivalente na frequência geral' do
+      saturday = Date.parse('2017-02-25')
+      create(
+        :school_calendar_event,
+        school_calendar: school_calendar,
+        coverage: EventCoverageType::BY_UNITY,
+        start_date: saturday,
+        end_date: saturday,
+        event_type: EventTypes::EXTRA_SCHOOL,
+        equivalent_weekday: nil,
+        periods: Periods.list
+      )
+
+      get :schedule_for_frequency_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        frequency_date: saturday.strftime('%Y-%m-%d')
+      }
+
+      expect(response).to have_http_status(:ok)
+
+      payload = JSON.parse(response.body)
+
+      expect(payload['available']).to eq(true)
+      expect(payload['message']).to be_nil
+    end
   end
 
   describe '#resolved_classroom_id_for_lessons_board (turma do formulário vs sessão)' do
