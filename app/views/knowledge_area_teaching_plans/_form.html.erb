@@ -52,10 +52,14 @@
         </div>
 
         <div class="col col-sm-4">
-          <%= f.input :knowledge_area_ids, as: :select2,
-                elements: @knowledge_areas, multiple: true,
-                input_html: { data: { without_json_parser: true } },
-                readonly: action_name.eql?('show') %>
+          <% if @knowledge_areas.present? && @knowledge_areas.count == 1 %>
+            <%= f.hidden_field :knowledge_area_ids, value: @knowledge_areas.first.id %>
+          <% else %>
+            <%= f.input :knowledge_area_ids, as: :select2,
+                  elements: @knowledge_areas, multiple: true,
+                  input_html: { data: { without_json_parser: true } },
+                  readonly: action_name.eql?('show') %>
+          <% end %>
         </div>
       </div>
 
@@ -78,9 +82,11 @@
                 readonly: action_name.eql?('show') %>
         </div>
 
-        <div class="col col-sm-4">
-          <%= f.input :experience_fields, readonly: action_name.eql?('show') %>
-        </div>
+        <% unless is_aee %>
+          <div class="col col-sm-4">
+            <%= f.input :experience_fields, readonly: action_name.eql?('show') %>
+          </div>
+        <% end %>
       </div>
 
       <% if @students&.any? %>
@@ -98,7 +104,7 @@
       <div class="row textarea">
         <div class="col col-sm-12">
           <legend style="margin-bottom: 10px;">
-            <%= @knowledge_area_teaching_plan.class.human_attribute_name(:contents) %>
+            <%= is_aee ? 'Área do AEE' : @knowledge_area_teaching_plan.class.human_attribute_name(:contents) %>
             <abbr title="obrigatório">*</abbr>
           </legend>
           

@@ -45,6 +45,8 @@
         
         <% if params[:modal] == 'true' %>
           <%= f.hidden_field :knowledge_area_ids, value: @knowledge_area_content_record.knowledge_area_ids %>
+        <% elsif @knowledge_areas.present? && @knowledge_areas.count == 1 %>
+          <%= content_record.input :knowledge_area_ids, as: :hidden, input_html: { value: @knowledge_areas.first.id } %>
         <% else %>
           <div class="col col-sm-4">
             <%= f.input :knowledge_area_ids, as: :select2, elements: @knowledge_areas, multiple: true,
@@ -66,7 +68,7 @@
             <% end %>
           </div>
         <% end %>
-        <% if f.object.decorator.show_experience_fields %>
+        <% if f.object.decorator.show_experience_fields && !is_aee %>
           <div class="col col-sm-4">
             <%= f.input :experience_fields %>
           </div>
@@ -82,7 +84,10 @@
 
     </fieldset>
     <fieldset>
-      <legend><%= @knowledge_area_content_record.class.human_attribute_name(:contents) %></legend>
+      <legend>
+        <%= is_aee ? 'Área do AEE' : @knowledge_area_content_record.class.human_attribute_name(:contents) %>
+        <abbr title="obrigatório">*</abbr>
+      </legend>
       <% if content_record.object.errors[:contents].any? %>
         <div class="alert alert-danger fade in">
           <i class="fa-fw fa fa-times"></i>
