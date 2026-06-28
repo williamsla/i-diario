@@ -56,6 +56,7 @@ RSpec.describe KnowledgeAreaToDisciplineContentRecordMigrator do
 
       discipline_content_record = DisciplineContentRecord.last
       expect(discipline_content_record.discipline_id).to eq(discipline.id)
+      expect(discipline_content_record.teacher_id).to eq(teacher.id)
       expect(discipline_content_record.content_record.contents).to eq([content])
       expect(KnowledgeAreaContentRecord.exists?(ka_content_record.id)).to be(true)
     end

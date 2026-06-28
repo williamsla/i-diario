@@ -86,7 +86,8 @@ class KnowledgeAreaToDisciplineContentRecordMigrator
   rescue ActiveRecord::RecordInvalid => e
     result.errors << error_message(ka_record, e.record.errors.full_messages.join(', '))
   rescue StandardError => e
-    result.errors << error_message(ka_record, e.message)
+    detail = [e.class.name, e.message.presence].compact.join(': ')
+    result.errors << error_message(ka_record, detail)
   end
 
   def discipline_in_classroom?(classroom_id)
@@ -111,8 +112,10 @@ class KnowledgeAreaToDisciplineContentRecordMigrator
       discipline: discipline,
       class_number: @class_number
     )
+    discipline_content_record.teacher_id = content_record.teacher_id
 
     discipline_content_record.content_record = content_record.dup
+    discipline_content_record.content_record.teacher = content_record.teacher
     discipline_content_record.content_record.teacher_id = content_record.teacher_id
     discipline_content_record.content_record.origin = OriginTypes::WEB
     discipline_content_record.content_record.creator_type = 'discipline_content_record'
@@ -128,6 +131,7 @@ class KnowledgeAreaToDisciplineContentRecordMigrator
   end
 
   def error_message(ka_record, message)
-    "KA##{ka_record.id}: #{message}"
+    detail = message.presence || 'erro desconhecido'
+    "KA##{ka_record.id}: #{detail}"
   end
 end
