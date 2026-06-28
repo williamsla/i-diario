@@ -57,6 +57,7 @@ namespace :content_records do
       DELETE_OLD                1 para remover registros por área após migrar (padrão: 0)
       SKIP_KNOWLEDGE_AREA_CHECK 1 para ignorar validação de área de conhecimento (padrão: 0)
       CLASS_NUMBER              Número da aula, se a escola usa essa configuração
+      VERBOSE                   1 para exibir backtrace completo no terminal
 
     Exemplos:
       DOMAIN=escola.gov.br KA_RECORD_IDS=101,102 DISCIPLINE_ID=456 DRY_RUN=1 \\
@@ -74,6 +75,7 @@ namespace :content_records do
     delete_old = truthy_env?('DELETE_OLD')
     skip_knowledge_area_check = truthy_env?('SKIP_KNOWLEDGE_AREA_CHECK')
     class_number = ENV['CLASS_NUMBER'].presence&.to_i
+    verbose = truthy_env?('VERBOSE')
 
     with_content_records_entity_connection do |entity|
       puts "Entidade: #{entity.name} (#{entity.domain})"
@@ -86,7 +88,8 @@ namespace :content_records do
         dry_run: dry_run,
         delete_old: delete_old,
         skip_knowledge_area_check: skip_knowledge_area_check,
-        class_number: class_number
+        class_number: class_number,
+        verbose: verbose
       ).call
 
       print_migration_result(result)
@@ -103,6 +106,7 @@ namespace :content_records do
       DELETE_OLD        1 para remover registros por área após migrar (padrão: 0)
       SKIP_KNOWLEDGE_AREA_CHECK 1 para ignorar validação de área (padrão: 0)
       CLASS_NUMBER      Número da aula, se necessário
+      VERBOSE           1 para exibir backtrace completo no terminal
 
     Exemplo:
       DOMAIN=escola.gov.br MIGRATIONS=101:456,102:456,103:789 DRY_RUN=1 \\
@@ -123,6 +127,7 @@ namespace :content_records do
     delete_old = truthy_env?('DELETE_OLD')
     skip_knowledge_area_check = truthy_env?('SKIP_KNOWLEDGE_AREA_CHECK')
     class_number = ENV['CLASS_NUMBER'].presence&.to_i
+    verbose = truthy_env?('VERBOSE')
 
     total_created = 0
     total_skipped = 0
@@ -141,7 +146,8 @@ namespace :content_records do
           dry_run: dry_run,
           delete_old: delete_old,
           skip_knowledge_area_check: skip_knowledge_area_check,
-          class_number: class_number
+          class_number: class_number,
+          verbose: verbose
         ).call
 
         total_created += result.created
