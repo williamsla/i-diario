@@ -103,7 +103,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
 
   def create
     @knowledge_area_content_record = KnowledgeAreaContentRecord.new(resource_params)
-    @knowledge_area_content_record.knowledge_area_ids = resource_params[:knowledge_area_ids].split(',')
+    @knowledge_area_content_record.knowledge_area_ids = parsed_knowledge_area_ids
     @knowledge_area_content_record.content_record.teacher = current_teacher
     @knowledge_area_content_record.content_record.content_ids = content_ids
     @knowledge_area_content_record.content_record.objective_ids = objective_ids
@@ -184,7 +184,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
   def update
     @knowledge_area_content_record = KnowledgeAreaContentRecord.find(params[:id])
     @knowledge_area_content_record.assign_attributes(resource_params)
-    @knowledge_area_content_record.knowledge_area_ids = resource_params[:knowledge_area_ids].split(',')
+    @knowledge_area_content_record.knowledge_area_ids = parsed_knowledge_area_ids
     @knowledge_area_content_record.content_record.content_ids = content_ids
     @knowledge_area_content_record.content_record.objective_ids = objective_ids
     @knowledge_area_content_record.teacher_id = current_teacher_id
@@ -280,7 +280,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
 
   def fetch_knowledge_area_content_records_by_user
     apply_scopes(KnowledgeAreaContentRecord
-      .includes(:knowledge_areas, content_record: [:classroom, :teacher, :contents, :objectives])
+      .includes(:knowledge_areas, content_record: [:classroom, :teacher, :student, :contents, :objectives])
       .by_classroom_id(@classrooms.map(&:id))
       .order_by_classroom
       .ordered)
@@ -317,6 +317,13 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     @ordered_objective_ids = param_objective_ids + new_objectives_ids
   end
 
+  def parsed_knowledge_area_ids
+    ids = resource_params[:knowledge_area_ids]
+    return [] if ids.blank?
+
+    ids.is_a?(Array) ? ids.map(&:to_s) : ids.split(',')
+  end
+
   def resource_params
     params.require(:knowledge_area_content_record).permit(
       :knowledge_area_ids,
@@ -327,6 +334,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
         :classroom_id,
         :record_date,
         :daily_activities_record,
+        :student_id,
         :content_ids,
         :objective_ids
       ]
@@ -353,8 +361,12 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     
     # Busca conteúdos dos planos de aula/ensino da área de conhecimento
     plan_contents = []
+    student_id = @knowledge_area_content_record.content_record.student_id
+
     if teacher && classroom && knowledge_areas && date
-      plan_contents = ContentsForKnowledgeAreaRecordFetcher.new(teacher, classroom, knowledge_areas, date).fetch
+      plan_contents = ContentsForKnowledgeAreaRecordFetcher.new(
+        teacher, classroom, knowledge_areas, date, student_id
+      ).fetch
       plan_contents.each { |content| content.is_editable = false }
     end
     
@@ -399,8 +411,12 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     
     # Busca objetivos dos planos de aula/ensino da área de conhecimento
     plan_objectives = []
+    student_id = @knowledge_area_content_record.content_record.student_id
+
     if teacher && classroom && knowledge_areas && date
-      plan_objectives = ContentsForKnowledgeAreaRecordFetcher.new(teacher, classroom, knowledge_areas, date).fetch_objectives
+      plan_objectives = ContentsForKnowledgeAreaRecordFetcher.new(
+        teacher, classroom, knowledge_areas, date, student_id
+      ).fetch_objectives
       plan_objectives.each { |objective| objective.is_editable = false }
     end
 
@@ -440,7 +456,30 @@ class KnowledgeAreaContentRecordsController < ApplicationController
   helper_method :unities
 
   def set_options_by_user
+    fetch_students_with_disabilities
     @classrooms = [current_user_classroom]
+  end
+
+  def student_enrollments
+    StudentEnrollmentsList.new(
+      classroom: current_user_classroom,
+      discipline: current_user_discipline,
+      search_type: :by_year
+    ).student_enrollments
+  end
+
+  def fetch_students_with_disabilities
+    @students = []
+
+    @student_enrollments ||= student_enrollments
+
+    @student_ids = @student_enrollments.collect(&:student_id)
+
+    if is_aee == true
+      @students = Student.where(id: @student_ids).ordered
+    else
+      @students = Student.where(id: @student_ids).where(uses_differentiated_exam_rule: true).ordered
+    end
   end
 
   def set_knowledge_area_by_classroom(classroom_id)

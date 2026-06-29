@@ -12,6 +12,7 @@ pt-BR:
         classroom: "Turma"
         classroom_id: "Turma"
         record_date: "Data"
+        student_id: "Aluno AEE"
         daily_activities_record: "Registro das atividades (Desdobramentos da prática pedagógica)"
         contents: "Conteúdos"
         contents_tags: "Adicionar novo"

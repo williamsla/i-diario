@@ -16,7 +16,9 @@ class ObjectivesController < ApplicationController
       knowledge_areas = KnowledgeArea.find(params[:knowledge_area_ids])
       date = params[:date]
       return unless teacher && classroom && knowledge_areas && date
-      @objectives = ContentsForKnowledgeAreaRecordFetcher.new(teacher, classroom, knowledge_areas, date).fetch_objectives
+      @objectives = ContentsForKnowledgeAreaRecordFetcher.new(
+        teacher, classroom, knowledge_areas, date, params[:student_id]
+      ).fetch_objectives
     elsif !params[:merge_objectives_by_code] || params[:filter][:by_description]
       @objectives = apply_scopes(Objective)
     elsif params[:filter][:start_with_description]

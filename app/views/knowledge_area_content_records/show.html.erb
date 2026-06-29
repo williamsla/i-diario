@@ -35,6 +35,11 @@
             <%= f.input :experience_fields, readonly: true %>
           <% end %>
         </div>
+        <% if @knowledge_area_content_record.content_record.student.present? %>
+          <div class="col col-sm-4">
+            <%= content_record.input :student_id, as: :select2, elements: [@knowledge_area_content_record.content_record.student], readonly: true %>
+          </div>
+        <% end %>
       </div>
 
       <div class="row">

@@ -20,6 +20,9 @@
 
           <tr>
             <th><%= ContentRecord.human_attribute_name :record_date %></th>
+            <% if is_aee %>
+              <th><%= ContentRecord.human_attribute_name :student_id %></th>
+            <% end %>
             <th><%= KnowledgeAreaContentRecord.human_attribute_name :contents %></th>
             <th><%= KnowledgeAreaContentRecord.human_attribute_name :objectives %></th>
             <th width="10%"><%= KnowledgeAreaContentRecord.human_attribute_name :author %></th>
@@ -30,7 +33,7 @@
         <%= render 'resources' %>
 
         <tfoot id="paginator" class="remote">
-          <td id="pagination-tfoot" colspan="5">
+          <td id="pagination-tfoot" colspan="<%= is_aee ? 6 : 5 %>">
             <%= render 'shared/pagination', records: @knowledge_area_content_records %>
           </td>
         </tfoot>

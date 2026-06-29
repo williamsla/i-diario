@@ -35,6 +35,13 @@ class KnowledgeAreaLessonPlan < ActiveRecord::Base
     )
   }
   scope :by_date, ->(date) { by_date_query(date) }
+  scope :by_student_id, lambda { |student_id|
+    if student_id.to_i > 0
+      joins(:lesson_plan).where(lesson_plans: { student_id: student_id })
+    else
+      joins(:lesson_plan).where('lesson_plans.student_id IS NULL')
+    end
+  }
   scope :by_experience_fields, lambda { |experience_field|
     where('unaccent(knowledge_area_lesson_plans.experience_fields) ILIKE unaccent(?)', "%#{experience_field}%")
   }

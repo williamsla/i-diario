@@ -18,6 +18,7 @@ $(function () {
   var $classroom = $('#knowledge_area_content_record_content_record_attributes_classroom_id');
   var $knowledgeArea = $('#knowledge_area_content_record_knowledge_area_ids');
   var $recordDate = $('#knowledge_area_content_record_content_record_attributes_record_date');
+  var $student = $('#knowledge_area_content_record_content_record_attributes_student_id');
   var $contents = $('#knowledge_area_content_record_content_record_attributes_contents_tags');
   var $objectives = $('#knowledge_area_content_record_content_record_attributes_objectives_tags');
   var idContentsCounter = 1;
@@ -175,6 +176,7 @@ $(function () {
       classroom_id: classroom_id,
       knowledge_area_ids: knowledge_area_ids,
       date: date,
+      student_id: $student.val(),
       fetch_for_knowledge_area_records: true,
       format: "json"
     }
@@ -214,6 +216,7 @@ $(function () {
       classroom_id: classroom_id,
       knowledge_area_ids: knowledge_area_ids,
       date: date,
+      student_id: $student.val(),
       fetch_for_knowledge_area_records: true,
       format: "json"
     }
@@ -288,6 +291,10 @@ $(function () {
   };
 
   $knowledgeArea.on('change', function(){
+    loadContents();
+  });
+
+  $student.on('change', function(){
     loadContents();
   });
   
