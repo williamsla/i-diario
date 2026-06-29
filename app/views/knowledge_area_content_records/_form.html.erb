@@ -120,9 +120,10 @@
         <div class="row textarea contents-select2-container">
           <div class="col col-sm-12">
             <% translation = Translator.t('activerecord.attributes.knowledge_area_content_record.contents') %>
+            <% label_content = "#{is_aee ? 'Área' : translation}" %>
             <%= content_record.input :contents_tags,
                 as: :string,
-                label: "Adicionar #{translation}",
+                label: "Adicionar #{label_content}",
                 input_html: {
                   class: 'select2-content-tags-ajax',
                   value: '',
@@ -171,9 +172,10 @@
               <% if !action_name.eql?('show') %>
                 <div class="row textarea">
                   <div class="col col-sm-12 objectives-select2-container">
+                    <% label_objective = "#{is_aee ? 'Objetivo' : 'Habilidade'}" %>
                     <%= content_record.input :objectives_tags,
                         as: :string,
-                        label: "Adicionar Habilidades",
+                        label: "Adicionar #{label_objective}",
                         input_html: {
                           class: 'select2-content-tags-ajax',
                           value: '',
