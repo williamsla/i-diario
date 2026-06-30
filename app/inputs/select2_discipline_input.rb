@@ -12,6 +12,8 @@ class Select2DisciplineInput < Select2Input
   end
 
   def parse_collection
+    return super if options[:elements].present?
+
     user = options[:user]
 
     disciplines =

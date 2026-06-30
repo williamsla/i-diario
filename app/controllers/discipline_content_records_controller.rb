@@ -134,6 +134,13 @@ class DisciplineContentRecordsController < ApplicationController
       )
       @disciplines = availability[:disciplines]
       @record_date_message = availability[:message]
+
+      if params[:discipline_id].blank? && @disciplines.present?
+        available_discipline_ids = @disciplines.map(&:id)
+        unless available_discipline_ids.include?(@discipline_content_record.discipline_id)
+          @discipline_content_record.discipline_id = @disciplines.first.id
+        end
+      end
     end
 
     authorize @discipline_content_record

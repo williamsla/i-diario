@@ -80,6 +80,7 @@ $(function () {
 
     toggleRecordDateAlert(payload.message);
     countLessons();
+    loadContents();
   };
 
   var reloadDisciplinesForSelectedDate = function () {
@@ -88,6 +89,7 @@ $(function () {
 
     if (_.isEmpty(classroom_id) || _.isEmpty(date) || _.isEmpty(date.match(dateRegex))) {
       toggleRecordDateAlert(null);
+      loadContents();
       return;
     }
 
@@ -268,7 +270,6 @@ $(function () {
 
   $recordDate.on('change changeDate valid-date', function () {
     reloadDisciplinesForSelectedDate();
-    loadContents();
     checkTeacherAbsenceForContent();
   });
 
@@ -276,12 +277,10 @@ $(function () {
     checkTeacherAbsenceForContent();
   });
 
-  if (!$("#contents-list li").length) {
-    loadContents();
-  }
-
   if (!isModalForm && $classroom.val() && $recordDate.val()) {
     reloadDisciplinesForSelectedDate();
+  } else if (!$("#contents-list li").length) {
+    loadContents();
   } else if ($discipline.val()) {
     countLessons();
   }
