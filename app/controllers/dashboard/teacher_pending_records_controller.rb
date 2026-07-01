@@ -83,6 +83,12 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
             record[:pending_content_dates] = result[:pending_content_dates]&.map { |d| d.strftime('%d/%m/%Y') } || []
           end
           record
+        end.reject do |record|
+          PendingRecordsCalculator.exclude_pending_record_row?(
+            discipline_name: record[:discipline],
+            knowledge_area_id: record[:knowledge_area_id],
+            discipline_id: record[:discipline_id]
+          )
         end.sort_by { |record| record[:discipline] }
 
         # Frequência por disciplina: quando false, a coluna de frequências deve ser mesclada (um único valor para todas as linhas)

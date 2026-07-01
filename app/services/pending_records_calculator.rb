@@ -1,4 +1,65 @@
 class PendingRecordsCalculator
+  FICHA_CONCEITUAL_NAME_PATTERN = /ficha conceitual/.freeze
+
+  def self.exclude_pending_record_row?(discipline_name:, knowledge_area_id: nil, discipline_id: nil)
+    return false if knowledge_area_id.present?
+    return true if discipline_name_excluded?(discipline_name)
+
+    return false if discipline_id.blank?
+
+    discipline = Discipline.includes(:knowledge_area).find_by(id: discipline_id)
+    discipline_excluded_from_pending_records?(discipline)
+  end
+
+  def self.discipline_name_excluded?(name)
+    return false if name.blank?
+
+    normalized = I18n.transliterate(name.to_s.downcase)
+    normalized.match?(FICHA_CONCEITUAL_NAME_PATTERN)
+  end
+
+  def self.discipline_excluded_from_pending_records?(discipline)
+    return true if discipline.blank?
+
+    knowledge_area = discipline.knowledge_area
+
+    return true if discipline.grouper? || discipline.descriptor?
+    return true if knowledge_area&.group_descriptors?
+    return true if discipline_name_excluded?(discipline.description)
+    return true if knowledge_area_with_conceptual_ficha?(knowledge_area&.id)
+    return true if knowledge_area_with_grouper_discipline?(knowledge_area&.id)
+
+    false
+  end
+
+  def self.knowledge_area_with_conceptual_ficha?(knowledge_area_id)
+    return false if knowledge_area_id.blank?
+
+    knowledge_area_ids_with_fichas.include?(knowledge_area_id)
+  end
+
+  def self.knowledge_area_with_grouper_discipline?(knowledge_area_id)
+    return false if knowledge_area_id.blank?
+
+    knowledge_area_ids_with_grouper.include?(knowledge_area_id)
+  end
+
+  def self.knowledge_area_ids_with_fichas
+    @knowledge_area_ids_with_fichas ||= Discipline
+      .where('unaccent(lower(description)) LIKE unaccent(?)', '%ficha conceitual%')
+      .distinct
+      .pluck(:knowledge_area_id)
+      .to_set
+  end
+
+  def self.knowledge_area_ids_with_grouper
+    @knowledge_area_ids_with_grouper ||= Discipline.unscoped
+      .where(grouper: true)
+      .distinct
+      .pluck(:knowledge_area_id)
+      .to_set
+  end
+
   def initialize(unity_id: nil, classroom_id: nil, teacher_id: nil, discipline_id: nil, start_date: nil, end_date: nil, school_year: nil, count_only: false, include_dates: false)
     @unity_id = unity_id
     @classroom_id = classroom_id
@@ -13,7 +74,8 @@ class PendingRecordsCalculator
 
   def calculate
     results = []
-    @grouper_knowledge_area_ids = Discipline.unscoped.where(grouper: true).distinct.pluck(:knowledge_area_id).to_set
+    self.class.knowledge_area_ids_with_grouper
+    self.class.knowledge_area_ids_with_fichas
     
     # Se foi passado um discipline_id e pode ser uma área de conhecimento (turma infantil),
     # verificar primeiro se a turma é infantil antes de buscar teacher_discipline_classrooms
@@ -663,43 +725,16 @@ class PendingRecordsCalculator
   # Agrupadores (grouper), descritores/fichas conceituais e disciplinas de áreas com
   # group_descriptors não entram em datas pendentes — o lançamento é pela área de conhecimento.
   def excluded_discipline_for_pending_records?(discipline)
-    return true if discipline.blank?
-
-    knowledge_area = discipline.knowledge_area
-
-    return true if discipline.grouper? || discipline.descriptor?
-    return true if knowledge_area&.group_descriptors?
-    return true if conceptual_ficha_discipline?(discipline)
-    return true if grouped_conceptual_area_discipline?(discipline, knowledge_area)
-
-    false
-  end
-
-  def conceptual_ficha_discipline?(discipline)
-    normalized = I18n.transliterate(discipline.description.to_s.downcase)
-    normalized.include?('ficha conceitual')
-  end
-
-  # Área com disciplina agrupadora: eixos/fichas não geram linha própria em datas pendentes.
-  def grouped_conceptual_area_discipline?(discipline, knowledge_area)
-    return false if knowledge_area.blank?
-
-    grouper_knowledge_area_ids.include?(knowledge_area.id)
-  end
-
-  def grouper_knowledge_area_ids
-    @grouper_knowledge_area_ids ||= Discipline.unscoped.where(grouper: true).distinct.pluck(:knowledge_area_id).to_set
+    self.class.discipline_excluded_from_pending_records?(discipline)
   end
 
   def filter_excluded_discipline_results!(results)
     results.reject! do |result|
-      next false if result[:knowledge_area_id].present?
-
-      discipline_id = result[:discipline_id]
-      next false if discipline_id.blank?
-
-      discipline = Discipline.includes(:knowledge_area).find_by(id: discipline_id)
-      excluded_discipline_for_pending_records?(discipline)
+      self.class.exclude_pending_record_row?(
+        discipline_name: result[:discipline_name],
+        knowledge_area_id: result[:knowledge_area_id],
+        discipline_id: result[:discipline_id]
+      )
     end
   end
 
