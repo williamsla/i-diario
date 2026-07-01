@@ -105,6 +105,26 @@ $(function(){
     });
   }
 
+  function notInLessonsBoardHtml() {
+    return '<span class="not-in-lessons-board-label" style="display: inline-block; color: #8a6d3b; max-width: 180px; line-height: 1.4;" title="Solicite à coordenação que adicione essa disciplina no quadro de aulas da turma.">' +
+      '<i class="fa fa-exclamation-triangle" style="margin-right: 5px;"></i>' +
+      'Não consta no quadro de aulas' +
+    '</span>';
+  }
+
+  function renderPendingDatesButton(count, type, recordId, recordIndex, iconClass) {
+    if (count > 0) {
+      return '<button type="button" class="btn toggle-dates" style="background-color: #ff9800' + (type === 'content' ? '' : ' !important') + '; color: white; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#' + type + '-' + recordId + '" data-record-index="' + recordIndex + '">' +
+        '<i class="fa ' + iconClass + '" style="margin-right: 5px;"></i>' +
+        count + ' datas' +
+      '</button>';
+    }
+
+    return '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: green; font-size: 30px;" title="Tudo certo com ' + (type === 'freq' ? 'a frequência nessa disciplina' : 'o conteúdo nessa disciplina') + ' na etapa selecionada.">' +
+      '<i class="fa fa-check-circle"' + (type === 'content' ? ' style="margin-right: 5px;"' : '') + '></i>' +
+    '</span>';
+  }
+
   function handleFetchStepDataSuccess(stepData) {
     var $stepContainer = $('#step-data-container');
     
@@ -140,18 +160,14 @@ $(function(){
     _.each(stepData.pending_records, function(record) {
       var recordId = 'record-' + stepData.step_id + '-' + recordIndex;
       var mergedFreqId = 'freq-merged-' + stepData.step_id;
+      var notInLessonsBoard = record.in_lessons_board === false;
 
       // Frequências: laranja quando há pendências; verde quando está ok (0 datas)
       var frequencyButton;
       if (frequencyByDiscipline) {
-        frequencyButton = record.pending_frequency_count > 0 ?
-          '<button type="button" class="btn toggle-dates" style="background-color: #ff9800 !important; border-color: #ff9800 !important; color: white !important; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#freq-' + recordId + '" data-record-index="' + recordIndex + '">' +
-            '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
-            record.pending_frequency_count + ' datas' +
-          '</button>' :
-          '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: green; font-size: 30px;" title="Tudo certo com a frequência nessa disciplina na etapa selecionada.">' +
-            '<i class="fa fa-check-circle"></i>' +
-          '</span>';
+        frequencyButton = notInLessonsBoard ?
+          notInLessonsBoardHtml() :
+          renderPendingDatesButton(record.pending_frequency_count, 'freq', recordId, recordIndex, 'fa-calendar');
       } else {
         // Frequência única para todas as disciplinas: só na primeira linha
         if (recordIndex === 0) {
@@ -192,14 +208,9 @@ $(function(){
       }
 
       // Conteúdos: laranja quando há pendências; verde quando está ok (0 datas)
-      var contentButton = record.pending_content_count > 0 ?
-        '<button type="button" class="btn toggle-dates" style="background-color: #ff9800; color: white; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#cont-' + recordId + '" data-record-index="' + recordIndex + '">' +
-          '<i class="fa fa-file-text" style="margin-right: 5px;"></i>' +
-          record.pending_content_count + ' datas' +
-        '</button>' :
-        '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: green; font-size: 30px;" title="Tudo certo com o conteúdo nessa disciplina na etapa selecionada.">' +
-          '<i class="fa fa-check-circle" style="margin-right: 5px;"></i>' +
-        '</span>';
+      var contentButton = notInLessonsBoard ?
+        notInLessonsBoardHtml() :
+        renderPendingDatesButton(record.pending_content_count, 'cont', recordId, recordIndex, 'fa-file-text');
 
       if (frequencyByDiscipline) {
         stepHtml += '<tr>' +

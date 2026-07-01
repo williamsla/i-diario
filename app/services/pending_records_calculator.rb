@@ -569,6 +569,7 @@ class PendingRecordsCalculator
           unity_name: unity.name,
           period: period_for_calculation,
           total_workload: total_workload,
+          in_lessons_board: discipline_weekdays.any?,
           pending_frequency_count: pending_frequency_count,
           pending_content_count: pending_content_count
         }
@@ -1406,6 +1407,19 @@ class PendingRecordsCalculator
       # Se não houver weekdays, não há pendências
       area_weekdays = knowledge_area_weekdays[knowledge_area_id] || []
       area_discarded_weekdays = knowledge_area_discarded_weekdays[knowledge_area_id] || []
+
+      # Mapear weekdays excluídos para números (sempre necessário para quadros descartados)
+      discarded_weekday_numbers = area_discarded_weekdays.map do |wd|
+        case wd
+        when 'sunday' then 0
+        when 'monday' then 1
+        when 'tuesday' then 2
+        when 'wednesday' then 3
+        when 'thursday' then 4
+        when 'friday' then 5
+        when 'saturday' then 6
+        end
+      end.compact
       
       if area_weekdays.empty?
         # Se a área de conhecimento não está no quadro de aulas, não há pendências
@@ -1414,19 +1428,6 @@ class PendingRecordsCalculator
       else
         # Mapear weekdays para números (0=domingo, 1=segunda, etc)
         weekday_numbers = area_weekdays.map do |wd|
-          case wd
-          when 'sunday' then 0
-          when 'monday' then 1
-          when 'tuesday' then 2
-          when 'wednesday' then 3
-          when 'thursday' then 4
-          when 'friday' then 5
-          when 'saturday' then 6
-          end
-        end.compact
-        
-        # Mapear weekdays excluídos para números
-        discarded_weekday_numbers = area_discarded_weekdays.map do |wd|
           case wd
           when 'sunday' then 0
           when 'monday' then 1
@@ -1631,6 +1632,7 @@ class PendingRecordsCalculator
         unity_name: classroom.unity.name,
         period: nil,
         total_workload: total_workload,
+        in_lessons_board: area_weekdays.any?,
         pending_frequency_count: pending_frequency_count,
         pending_content_count: pending_content_count
       }

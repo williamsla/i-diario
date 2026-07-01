@@ -70,6 +70,7 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
             discipline: result[:discipline_name],
             discipline_id: result[:discipline_id] || result[:knowledge_area_id], # Usar knowledge_area_id se discipline_id for nil
             knowledge_area_id: result[:knowledge_area_id], # Para áreas de conhecimento
+            in_lessons_board: result[:in_lessons_board] != false,
             pending_frequency_count: result[:pending_frequency_count],
             pending_content_count: result[:pending_content_count]
           }
