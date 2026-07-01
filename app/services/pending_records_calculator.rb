@@ -13,6 +13,7 @@ class PendingRecordsCalculator
 
   def calculate
     results = []
+    @grouper_knowledge_area_ids = Discipline.unscoped.where(grouper: true).distinct.pluck(:knowledge_area_id).to_set
     
     # Se foi passado um discipline_id e pode ser uma área de conhecimento (turma infantil),
     # verificar primeiro se a turma é infantil antes de buscar teacher_discipline_classrooms
@@ -79,6 +80,7 @@ class PendingRecordsCalculator
         classroom, knowledge_area_ids, school_calendar, start_date, end_date,
         is_general_frequency, all_school_days, today, grade_id, @teacher_id
       )
+      filter_excluded_discipline_results!(infantil_results)
       return infantil_results
     end
     
@@ -149,6 +151,13 @@ class PendingRecordsCalculator
 
         non_infantil_ids = non_infantil_grade_ids(classroom)
         tdcs = tdcs.select { |tdc| non_infantil_ids.include?(tdc.grade_id) }
+
+        infantil_ka_ids = infantil_knowledge_area_ids_for_classroom(classroom, teacher_id)
+        if infantil_ka_ids.present?
+          infantil_discipline_ids = Discipline.where(knowledge_area_id: infantil_ka_ids).pluck(:id)
+          tdcs = tdcs.reject { |tdc| infantil_discipline_ids.include?(tdc.discipline_id) }
+        end
+
         next if tdcs.blank?
       elsif is_infantil
         teacher_id = tdcs.first.teacher_id
@@ -587,6 +596,7 @@ class PendingRecordsCalculator
       end
     end
 
+    filter_excluded_discipline_results!(results)
     results
   end
 
@@ -657,7 +667,40 @@ class PendingRecordsCalculator
 
     knowledge_area = discipline.knowledge_area
 
-    discipline.grouper? || discipline.descriptor? || knowledge_area&.group_descriptors?
+    return true if discipline.grouper? || discipline.descriptor?
+    return true if knowledge_area&.group_descriptors?
+    return true if conceptual_ficha_discipline?(discipline)
+    return true if grouped_conceptual_area_discipline?(discipline, knowledge_area)
+
+    false
+  end
+
+  def conceptual_ficha_discipline?(discipline)
+    normalized = I18n.transliterate(discipline.description.to_s.downcase)
+    normalized.include?('ficha conceitual')
+  end
+
+  # Área com disciplina agrupadora: eixos/fichas não geram linha própria em datas pendentes.
+  def grouped_conceptual_area_discipline?(discipline, knowledge_area)
+    return false if knowledge_area.blank?
+
+    grouper_knowledge_area_ids.include?(knowledge_area.id)
+  end
+
+  def grouper_knowledge_area_ids
+    @grouper_knowledge_area_ids ||= Discipline.unscoped.where(grouper: true).distinct.pluck(:knowledge_area_id).to_set
+  end
+
+  def filter_excluded_discipline_results!(results)
+    results.reject! do |result|
+      next false if result[:knowledge_area_id].present?
+
+      discipline_id = result[:discipline_id]
+      next false if discipline_id.blank?
+
+      discipline = Discipline.includes(:knowledge_area).find_by(id: discipline_id)
+      excluded_discipline_for_pending_records?(discipline)
+    end
   end
 
   def calculate_weekly_hours(classroom_id, discipline_id, period)
