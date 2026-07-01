@@ -1,5 +1,15 @@
 class PendingRecordsCalculator
-  FICHA_CONCEITUAL_NAME_PATTERN = /ficha conceitual/.freeze
+  FICHA_CONCEITUAL_NAME_PATTERNS = [
+    /ficha\s*conceitual/,
+    /\beixo\s+(i{1,3}|iv|v)\s*-/,
+    /\Az\s+.*\beixo\b/
+  ].freeze
+
+  def self.reset_pending_records_discipline_cache!
+    @knowledge_area_ids_with_fichas = nil
+    @knowledge_area_ids_with_grouper = nil
+    @infantil_content_knowledge_area_ids = nil
+  end
 
   def self.exclude_pending_record_row?(discipline_name:, knowledge_area_id: nil, discipline_id: nil)
     return false if knowledge_area_id.present?
@@ -15,19 +25,21 @@ class PendingRecordsCalculator
     return false if name.blank?
 
     normalized = I18n.transliterate(name.to_s.downcase)
-    normalized.match?(FICHA_CONCEITUAL_NAME_PATTERN)
+    FICHA_CONCEITUAL_NAME_PATTERNS.any? { |pattern| normalized.match?(pattern) }
   end
 
   def self.discipline_excluded_from_pending_records?(discipline)
     return true if discipline.blank?
 
     knowledge_area = discipline.knowledge_area
+    knowledge_area_id = knowledge_area&.id
 
     return true if discipline.grouper? || discipline.descriptor?
     return true if knowledge_area&.group_descriptors?
     return true if discipline_name_excluded?(discipline.description)
-    return true if knowledge_area_with_conceptual_ficha?(knowledge_area&.id)
-    return true if knowledge_area_with_grouper_discipline?(knowledge_area&.id)
+    return true if infantil_content_knowledge_area_ids.include?(knowledge_area_id)
+    return true if knowledge_area_with_conceptual_ficha?(knowledge_area_id)
+    return true if knowledge_area_with_grouper_discipline?(knowledge_area_id)
 
     false
   end
@@ -44,9 +56,33 @@ class PendingRecordsCalculator
     knowledge_area_ids_with_grouper.include?(knowledge_area_id)
   end
 
+  def self.infantil_content_knowledge_area_ids
+    @infantil_content_knowledge_area_ids ||= begin
+      infantil_ids = KnowledgeArea
+        .where(
+          'description ILIKE ? OR description ILIKE ? OR description ILIKE ? OR description ILIKE ?',
+          '%educação infantil%',
+          '%educacao infantil%',
+          '%campos de experiência%',
+          '%campos de experiencia%'
+        )
+        .pluck(:id)
+
+      (infantil_ids + knowledge_area_ids_with_grouper.to_a + knowledge_area_ids_with_fichas.to_a)
+        .compact
+        .uniq
+        .to_set
+    end
+  end
+
   def self.knowledge_area_ids_with_fichas
     @knowledge_area_ids_with_fichas ||= Discipline
-      .where('unaccent(lower(description)) LIKE unaccent(?)', '%ficha conceitual%')
+      .where(
+        'description ILIKE ? OR description ILIKE ? OR description ~* ?',
+        '%ficha conceitual%',
+        '%ficha  conceitual%',
+        '\beixo\s+(i{1,3}|iv|v)\s*-'
+      )
       .distinct
       .pluck(:knowledge_area_id)
       .to_set
@@ -74,8 +110,10 @@ class PendingRecordsCalculator
 
   def calculate
     results = []
+    self.class.reset_pending_records_discipline_cache!
     self.class.knowledge_area_ids_with_grouper
     self.class.knowledge_area_ids_with_fichas
+    self.class.infantil_content_knowledge_area_ids
     
     # Se foi passado um discipline_id e pode ser uma área de conhecimento (turma infantil),
     # verificar primeiro se a turma é infantil antes de buscar teacher_discipline_classrooms
