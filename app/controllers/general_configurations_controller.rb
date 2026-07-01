@@ -59,6 +59,7 @@ class GeneralConfigurationsController < ApplicationController
       :require_daily_activities_record,
       :remove_lesson_plan_objectives,
       :show_experience_fields,
+      :show_aee_area_label_in_knowledge_area_content_record,
       :allows_copy_experience_fields_in_lesson_plans,
       :group_children_education,
       :allow_class_number_on_content_records,

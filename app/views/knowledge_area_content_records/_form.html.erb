@@ -93,7 +93,7 @@
     </fieldset>
     <fieldset>
       <legend>
-        <%= is_aee ? 'Área do AEE' : @knowledge_area_content_record.class.human_attribute_name(:contents) %>
+        <%= show_aee_area_label? ? 'Área do AEE' : @knowledge_area_content_record.class.human_attribute_name(:contents) %>
         <abbr title="obrigatório">*</abbr>
       </legend>
       <% if content_record.object.errors[:contents].any? %>
@@ -128,7 +128,7 @@
         <div class="row textarea contents-select2-container">
           <div class="col col-sm-12">
             <% translation = Translator.t('activerecord.attributes.knowledge_area_content_record.contents') %>
-            <% label_content = "#{is_aee ? 'Área' : translation}" %>
+            <% label_content = "#{show_aee_area_label? ? 'Área' : translation}" %>
             <%= content_record.input :contents_tags,
                 as: :string,
                 label: "Adicionar #{label_content}",
@@ -180,7 +180,7 @@
               <% if !action_name.eql?('show') %>
                 <div class="row textarea">
                   <div class="col col-sm-12 objectives-select2-container">
-                    <% label_objective = "#{is_aee ? 'Objetivo' : 'Habilidade'}" %>
+                    <% label_objective = "#{show_aee_area_label? ? 'Objetivo' : 'Habilidade'}" %>
                     <%= content_record.input :objectives_tags,
                         as: :string,
                         label: "Adicionar #{label_objective}",

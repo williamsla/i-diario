@@ -246,6 +246,11 @@ class ApplicationController < ActionController::Base
   end
   helper_method :is_aee
 
+  def show_aee_area_label?
+    is_aee && GeneralConfiguration.current.show_aee_area_label_in_knowledge_area_content_record
+  end
+  helper_method :show_aee_area_label?
+
   def has_opinion
     classroom_grades.each do |classroom_grade|
       exam_rule = classroom_grade.exam_rule
