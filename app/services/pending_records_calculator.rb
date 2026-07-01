@@ -169,6 +169,10 @@ class PendingRecordsCalculator
         next
       end
 
+      # Ignorar agrupadores (grouper), descritores (fichas conceituais) e eixos de áreas com group_descriptors
+      tdcs = tdcs.reject { |tdc| excluded_discipline_for_pending_records?(tdc.discipline) }
+      next if tdcs.blank?
+
       # Buscar weekdays em batch para todas as disciplinas (sempre necessário para conteúdos)
       discipline_ids = tdcs.map { |tdc| tdc.discipline_id }.uniq
       periods = tdcs.map(&:period).uniq
@@ -240,8 +244,7 @@ class PendingRecordsCalculator
         teacher = tdc.teacher
         discipline = tdc.discipline
 
-        # Filtrar apenas disciplinas que não são grouper e não são descriptor
-        next if discipline.grouper == true || discipline.descriptor == true
+        next if excluded_discipline_for_pending_records?(discipline)
 
         # Para frequências: se for GENERAL, usar todos os dias letivos (não filtrar por weekdays)
         # Se for BY_DISCIPLINE, filtrar por weekdays da disciplina
@@ -630,7 +633,7 @@ class PendingRecordsCalculator
 
   def teacher_discipline_classrooms
     relation = TeacherDisciplineClassroom
-      .includes(:teacher, :discipline, classroom: :unity)
+      .includes(:teacher, discipline: :knowledge_area, classroom: :unity)
       .joins(:classroom)
     
     # Filtrar por ano - converter para string se necessário, pois o campo year pode ser string
@@ -645,6 +648,16 @@ class PendingRecordsCalculator
     relation = relation.by_discipline_id(@discipline_id) if @discipline_id.present?
 
     relation
+  end
+
+  # Agrupadores (grouper), descritores/fichas conceituais e disciplinas de áreas com
+  # group_descriptors não entram em datas pendentes — o lançamento é pela área de conhecimento.
+  def excluded_discipline_for_pending_records?(discipline)
+    return true if discipline.blank?
+
+    knowledge_area = discipline.knowledge_area
+
+    discipline.grouper? || discipline.descriptor? || knowledge_area&.group_descriptors?
   end
 
   def calculate_weekly_hours(classroom_id, discipline_id, period)
@@ -1378,7 +1391,10 @@ class PendingRecordsCalculator
     all_contents_by_discipline = {}
     if started_as_discipline
       knowledge_area_ids.each do |knowledge_area_id|
-        discipline_ids = Discipline.where(knowledge_area_id: knowledge_area_id).pluck(:id)
+        discipline_ids = Discipline.where(knowledge_area_id: knowledge_area_id)
+                                   .not_grouper
+                                   .not_descriptor
+                                   .pluck(:id)
         discipline_ids_by_knowledge_area[knowledge_area_id] = discipline_ids
       end
       
