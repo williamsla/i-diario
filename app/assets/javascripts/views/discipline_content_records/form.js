@@ -1,6 +1,8 @@
 $(function () {
   'use strict';
 
+  $('.list-group.checked-list-box .list-group-item:not(.initialized)').each(initializeListEvents);
+
   // Regular expression for dd/mm/yyyy date including validation for leap year and more
   var dateRegex = '^(?:(?:31(\\/)(?:0?[13578]|1[02]))\\1|(?:(?:29|30)(\\/)(?:0?[1,3-9]|1[0-2])\\2))(?:(?:1[6-9]|[2-9]\\d)?\\d{2})$|^(?:29(\\/)0?2\\3(?:(?:(?:1[6-9]|[2-9]\\d)?(?:0[48]|[2468][048]|[13579][26])|(?:(?:16|[2468][048]|[3579][26])00))))$|^(?:0?[1-9]|1\\d|2[0-8])(\\/)(?:(?:0?[1-9])|(?:1[0-2]))\\4(?:(?:1[6-9]|[2-9]\\d)?\\d{2})$';
   var flashMessages = new FlashMessages();
@@ -17,17 +19,31 @@ $(function () {
   var $recordDate = $('#discipline_content_record_content_record_attributes_record_date');
   var $class_number = $('#discipline_content_record_class_number');
   var idContentsCounter = 1;
+  var isDisciplineReadonly = $discipline.prop('readonly');
+
+  var getInputValue = function ($input) {
+    if (!$input || !$input.length) {
+      return '';
+    }
+
+    try {
+      if ($input.data('select2')) {
+        return $input.select2('val');
+      }
+    } catch (e) {}
+
+    return $input.val();
+  };
 
   $classroom.on('change', function () {
-    var classroom_id = $classroom.val();
+    var classroom_id = getInputValue($classroom);
 
-    $discipline.val(null).trigger('change');
+    $discipline.select2('val', '');
     $discipline.select2({ data: [] });
 
     if (!_.isEmpty(classroom_id)) {
-      reloadDisciplinesForSelectedDate();
+      reloadDisciplinesForSelectedDate({ reloadContents: true });
     }
-    loadContents();
   });
 
   var syncSubmitButtonState = function () {
@@ -61,35 +77,62 @@ $(function () {
     syncSubmitButtonState();
   };
 
-  var applyDisciplinesToSelect = function (payload) {
+  var applyDisciplinesToSelect = function (payload, options) {
+    options = options || {};
     var disciplines = payload.disciplines || [];
     var selectedDisciplines = _.map(disciplines, function (discipline) {
-      return { id: discipline.id, text: discipline.description || discipline.name || discipline.text || '' };
+      var label = discipline.description || discipline.name || discipline.text || '';
+      return { id: discipline.id, text: label, name: label };
     });
-    var previousDiscipline = $discipline.val();
+    var previousDiscipline = getInputValue($discipline);
+
+    if (isDisciplineReadonly && previousDiscipline) {
+      var disciplineInList = _.find(selectedDisciplines, function (d) {
+        return String(d.id) === String(previousDiscipline);
+      });
+
+      if (!disciplineInList) {
+        var currentData = $discipline.select2('data');
+        var currentLabel = currentData && (currentData.text || currentData.name);
+
+        if (currentLabel) {
+          selectedDisciplines.push({
+            id: previousDiscipline,
+            text: currentLabel,
+            name: currentLabel
+          });
+        }
+      }
+    }
 
     $discipline.select2({ data: selectedDisciplines });
 
     if (previousDiscipline && _.find(selectedDisciplines, function (d) { return String(d.id) === String(previousDiscipline); })) {
       $discipline.select2('val', previousDiscipline);
-    } else if (selectedDisciplines.length === 1) {
+    } else if (!isDisciplineReadonly && selectedDisciplines.length === 1) {
       $discipline.select2('val', selectedDisciplines[0].id);
-    } else {
-      $discipline.val('').trigger('change');
+    } else if (!isDisciplineReadonly) {
+      $discipline.select2('val', '');
+      $discipline.trigger('change');
     }
 
     toggleRecordDateAlert(payload.message);
     countLessons();
-    loadContents();
+
+    if (options.reloadContents) {
+      loadContents();
+    } else {
+      loadContentsIfNeeded();
+    }
   };
 
-  var reloadDisciplinesForSelectedDate = function () {
-    var classroom_id = $classroom.val();
-    var date = $recordDate.val();
+  var reloadDisciplinesForSelectedDate = function (options) {
+    options = options || {};
+    var classroom_id = getInputValue($classroom);
+    var date = getInputValue($recordDate);
 
     if (_.isEmpty(classroom_id) || _.isEmpty(date) || _.isEmpty(date.match(dateRegex))) {
       toggleRecordDateAlert(null);
-      loadContents();
       return;
     }
 
@@ -97,7 +140,7 @@ $(function () {
       classroom_id: classroom_id,
       record_date: date
     }).done(function (payload) {
-      applyDisciplinesToSelect(payload || { disciplines: [], message: null });
+      applyDisciplinesToSelect(payload || { disciplines: [], message: null }, options);
     }).fail(function () {
       toggleRecordDateAlert('Não foi possível carregar as disciplinas para a data selecionada. Tente novamente.');
     });
@@ -105,17 +148,9 @@ $(function () {
 
 
   var handleFetchContentsSuccess = function (data) {
-    
-    // Remove TODOS os conteúdos não manuais antes de adicionar os novos
-    // Isso garante que quando a data muda, os conteúdos antigos sejam removidos
-    // IMPORTANTE: Remove novamente aqui para garantir que não há itens residuais
-    var itemsBefore = $('#contents-list .list-group-item').length;
-    
-    $('#contents-list .list-group-item').each(function() {
-      $(this).remove();
-    });
-    
-    var itemsAfter = $('#contents-list .list-group-item').length;
+    // Remove só itens vindos do AJAX (sem .manual). Itens .manual vêm do servidor ou foram
+    // adicionados pelo usuário — não apagar aqui, senão a tela de edição perde conteúdos salvos.
+    $('#contents-list .list-group-item:not(.manual)').remove();
 
     // Adiciona os novos conteúdos retornados pelo servidor
     if (!_.isEmpty(data.contents)) {
@@ -155,10 +190,7 @@ $(function () {
   }
 
   var handleFetchObjectivesSuccess = function (data) {
-    // Remove TODOS os objetivos não manuais antes de adicionar os novos
-    // Isso garante que quando a data muda, os objetivos antigos sejam removidos
-    // IMPORTANTE: Remove novamente aqui para garantir que não há itens residuais
-    $('#objectives-list .list-group-item').remove();
+    $('#objectives-list .list-group-item:not(.manual)').remove();
 
     // Adiciona os novos objetivos retornados pelo servidor
     if (!_.isEmpty(data.objectives)) {
@@ -194,41 +226,35 @@ $(function () {
   }
 
   var loadContents = function () {
-    var classroom_id = $classroom.val();
-    var discipline_id = $discipline.val();
-    var date = $recordDate.val();
-    
-    // Remove TODOS os conteúdos e objetivos não manuais ANTES de fazer a requisição
-    // Isso garante que quando a data muda, os itens antigos sejam removidos imediatamente
-    var contentsBefore = $('#contents-list .list-group-item').length;
-    var objectivesBefore = $('#objectives-list .list-group-item').length;
-        
-    // Remove os elementos do DOM de forma mais agressiva
-    $('#contents-list .list-group-item').each(function() {
-      $(this).remove();
-    });
-    $('#objectives-list .list-group-item').each(function() {
-      $(this).remove();
-    });
-    
-    // Verifica se realmente foram removidos
-    var contentsAfter = $('#contents-list .list-group-item').length;
-    var objectivesAfter = $('#objectives-list .list-group-item').length;
-    
+    var classroom_id = getInputValue($classroom);
+    var discipline_id = getInputValue($discipline);
+    var date = getInputValue($recordDate);
+
     if (!_.isEmpty(classroom_id) &&
       !_.isEmpty(discipline_id) &&
+      !_.isEmpty(date) &&
       !_.isEmpty(date.match(dateRegex))) {
 
-      // Faz as requisições para buscar novos conteúdos e objetivos baseados na nova data
-      // As funções de sucesso também removem itens não manuais como segurança extra
+      // Só remove itens vindos dos planos (AJAX); preserva linhas .manual (servidor / usuário).
+      $('#contents-list .list-group-item:not(.manual)').remove();
+      $('#objectives-list .list-group-item:not(.manual)').remove();
+
       fetchContents(classroom_id, discipline_id, date);
       fetchObjectives(classroom_id, discipline_id, date);
-    } else {
-      // Se os campos não estão preenchidos, limpa a lista completamente
-      $('#contents-list .list-group-item').remove();
-      $('#objectives-list .list-group-item').remove();
     }
-  }
+    // Se filtros inválidos: não limpar a lista (evita apagar HTML renderizado na edição).
+  };
+
+  // Só busca conteúdos via AJAX quando as listas ainda estão vazias (ex.: novo registro).
+  // Na edição, o servidor já envia conteúdos/habilidades; chamar loadContents apagaria tudo.
+  var loadContentsIfNeeded = function () {
+    var hasContents = $('#contents-list .list-group-item').length > 0;
+    var hasObjectives = $('#objectives-list .list-group-item').length > 0;
+    if (hasContents || hasObjectives) {
+      return;
+    }
+    loadContents();
+  };
 
   $discipline.on('change', function () {
     loadContents();
@@ -237,9 +263,9 @@ $(function () {
   });
 
   function checkTeacherAbsenceForContent() {
-    var classroom_id = $classroom.val();
-    var discipline_id = $discipline.val();
-    var date = $recordDate.val();
+    var classroom_id = getInputValue($classroom);
+    var discipline_id = getInputValue($discipline);
+    var date = getInputValue($recordDate);
     var class_number = $class_number.val();
 
     if (_.isEmpty(classroom_id) || _.isEmpty(date) || !date.match(dateRegex)) {
@@ -269,7 +295,7 @@ $(function () {
   }
 
   $recordDate.on('change changeDate valid-date', function () {
-    reloadDisciplinesForSelectedDate();
+    reloadDisciplinesForSelectedDate({ reloadContents: true });
     checkTeacherAbsenceForContent();
   });
 
@@ -277,11 +303,11 @@ $(function () {
     checkTeacherAbsenceForContent();
   });
 
-  if (!isModalForm && $classroom.val() && $recordDate.val()) {
+  if (!isModalForm && getInputValue($classroom) && getInputValue($recordDate)) {
     reloadDisciplinesForSelectedDate();
   } else if (!$("#contents-list li").length) {
-    loadContents();
-  } else if ($discipline.val()) {
+    loadContentsIfNeeded();
+  } else if (getInputValue($discipline)) {
     countLessons();
   }
 
@@ -304,9 +330,9 @@ $(function () {
   }
 
   function countLessons() {
-    var classroom_id = $classroom.val();
-    var discipline_id = $discipline.val();
-    var date = $recordDate.val();
+    var classroom_id = getInputValue($classroom);
+    var discipline_id = getInputValue($discipline);
+    var date = getInputValue($recordDate);
 
     if (_.isEmpty(classroom_id) || _.isEmpty(discipline_id) || _.isEmpty(date) || !date.match(dateRegex)) {
       setClassNumberValue('');
