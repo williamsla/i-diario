@@ -12,8 +12,10 @@ class PendingRecordsCalculator
   end
 
   def self.exclude_pending_record_row?(discipline_name:, knowledge_area_id: nil, discipline_id: nil)
-    return false if knowledge_area_id.present?
+    # Exclui fichas conceituais tanto como disciplina quanto como área de conhecimento
+    # (no iEducar cada eixo pode ser uma área com o mesmo nome da ficha).
     return true if discipline_name_excluded?(discipline_name)
+    return false if knowledge_area_id.present?
 
     return false if discipline_id.blank?
 
