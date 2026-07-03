@@ -103,7 +103,7 @@ RSpec.describe DisciplineContentRecordsController, type: :controller do
   describe 'GET #disciplines_for_record_date' do
     let(:other_teacher) { create(:teacher) }
 
-    it 'retorna mensagem quando o professor não possui aulas no quadro para a data' do
+    it 'libera a disciplina quando ela não consta no quadro de aulas' do
       other_discipline = create(:discipline)
       teacher_discipline_classroom = create(
         :teacher_discipline_classroom,
@@ -131,9 +131,10 @@ RSpec.describe DisciplineContentRecordsController, type: :controller do
       }
 
       payload = JSON.parse(response.body)
+      discipline_ids = payload['disciplines'].map { |item| item['id'] }
 
-      expect(payload['disciplines']).to be_empty
-      expect(payload['message']).to include('quadro de horários')
+      expect(discipline_ids).to include(discipline.id)
+      expect(payload['message']).to be_nil
     end
 
     it 'libera a disciplina quando ela consta no quadro mesmo com outro professor alocado' do

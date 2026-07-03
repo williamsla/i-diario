@@ -15,6 +15,10 @@ class ClassCouncilReport < BaseReport
     new(:landscape).build(entity_configuration, report_data)
   end
 
+  def self.build_unavailable(entity_configuration, classroom)
+    new(:landscape).build_unavailable(entity_configuration, classroom)
+  end
+
   def build(entity_configuration, report_data)
     @entity_configuration = entity_configuration
     @report_data = report_data
@@ -26,6 +30,30 @@ class ClassCouncilReport < BaseReport
     header
     move_down 6
     content
+    footer
+
+    self
+  end
+
+  def build_unavailable(entity_configuration, classroom)
+    @entity_configuration = entity_configuration
+    @classroom = classroom
+    @report_data = ClassCouncilReportDataService.header_payload(classroom)
+    @disciplines = []
+    @steps = []
+    @students = []
+
+    header
+    move_down 40
+    text(
+      I18n.t(
+        'pedagogical_trackings.class_council_pdf.no_numeric_or_concept_scores',
+        classroom: classroom.description
+      ),
+      size: 12,
+      align: :center,
+      style: :bold
+    )
     footer
 
     self
@@ -149,7 +177,7 @@ class ClassCouncilReport < BaseReport
 
   def student_block_rows(student)
     student_below_minimum = student_below_minimum?(student)
-    student_name = truncate_student_name(student[:name])
+    student_name = wrap_student_name(student[:name])
 
     first_row = [
       table_cell(student[:order].to_s, rowspan: ROWS_PER_STUDENT, align: :center, valign: :center),
@@ -159,7 +187,8 @@ class ClassCouncilReport < BaseReport
         align: :left,
         valign: :center,
         inline_format: student_below_minimum,
-        background_color: student_below_minimum ? BELOW_MINIMUM_BACKGROUND : nil
+        background_color: student_below_minimum ? BELOW_MINIMUM_BACKGROUND : nil,
+        overflow: :expand
       ),
       table_cell(student[:situation].to_s, rowspan: ROWS_PER_STUDENT, align: :center, valign: :center),
       table_cell(format_frequency(student[:frequency_percentage], student[:total_absences]), align: :center)
@@ -309,7 +338,8 @@ class ClassCouncilReport < BaseReport
   def highlighted_content(text, highlight)
     return text unless highlight
 
-    "<color rgb='#{BELOW_MINIMUM_COLOR}'><b>#{text}</b></color>"
+    escaped_text = text.to_s.gsub('&', '&amp;').gsub('>', '&gt;').gsub('<', '&lt;')
+    "<color rgb='#{BELOW_MINIMUM_COLOR}'><b>#{escaped_text}</b></color>"
   end
 
   def student_below_minimum?(student)
@@ -318,14 +348,66 @@ class ClassCouncilReport < BaseReport
     end
   end
 
-  def truncate_student_name(name)
-    max_chars = (layout_widths[:student] / 2.8).floor
-    max_chars = [[max_chars, 20].max, 60].min
-    normalized_name = name.to_s.upcase
+  def wrap_student_name(name)
+    full_name = name.to_s.upcase
+    max_width = student_column_width - 6
+    font_size = content_font_size
 
-    return normalized_name if normalized_name.length <= max_chars
+    return full_name if max_width <= 0
 
-    "#{normalized_name[0, max_chars - 3]}..."
+    lines = []
+    current_line = ''
+
+    full_name.split(/\s+/).each do |word|
+      break_long_word(word, max_width, font_size).split("\n").each_with_index do |segment, index|
+        if index.positive?
+          lines << current_line if current_line.present?
+          current_line = segment
+          next
+        end
+
+        candidate = current_line.blank? ? segment : "#{current_line} #{segment}"
+
+        if text_fits?(candidate, max_width, font_size)
+          current_line = candidate
+        else
+          lines << current_line if current_line.present?
+          current_line = segment
+        end
+      end
+    end
+
+    lines << current_line if current_line.present?
+    lines.join("\n")
+  end
+
+  def break_long_word(word, max_width, font_size)
+    return word if text_fits?(word, max_width, font_size)
+
+    segments = []
+    current_segment = ''
+
+    word.each_char do |char|
+      candidate = "#{current_segment}#{char}"
+
+      if text_fits?(candidate, max_width, font_size)
+        current_segment = candidate
+      else
+        segments << current_segment if current_segment.present?
+        current_segment = char
+      end
+    end
+
+    segments << current_segment if current_segment.present?
+    segments.join("\n")
+  end
+
+  def text_fits?(text, max_width, font_size)
+    width_of(text, size: font_size) <= max_width
+  end
+
+  def student_column_width
+    @student_column_width ||= column_widths_array[1]
   end
 
   def format_frequency(percentage, absences)
@@ -334,6 +416,7 @@ class ClassCouncilReport < BaseReport
 
   def format_score(score)
     return '' if score.blank?
+    return score.to_s unless score.is_a?(Numeric)
 
     number_with_precision(score, precision: 1, separator: ',', delimiter: '.')
   end

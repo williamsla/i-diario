@@ -118,6 +118,25 @@ module LessonsBoardAvailability
     board_discipline_ids & discipline_ids
   end
 
+  def discipline_ids_on_classroom_lessons_board(classroom_id)
+    @discipline_ids_on_classroom_lessons_board ||= {}
+    @discipline_ids_on_classroom_lessons_board[classroom_id] ||= LessonsBoardLessonWeekday
+      .by_classroom(classroom_id)
+      .joins(:teacher_discipline_classroom)
+      .pluck('teacher_discipline_classrooms.discipline_id')
+      .uniq
+  end
+
+  def disciplines_without_lessons_board_allocation(disciplines, classroom)
+    board_discipline_ids = discipline_ids_on_classroom_lessons_board(classroom.id)
+    disciplines.select { |discipline| !board_discipline_ids.include?(discipline.id) }
+  end
+
+  def teacher_has_discipline_without_lessons_board_allocation?(classroom, discipline_ids)
+    board_discipline_ids = discipline_ids_on_classroom_lessons_board(classroom.id)
+    (discipline_ids - board_discipline_ids).present?
+  end
+
   def teacher_make_up_absences_on_date(classroom:, date:)
     TeacherAbsence
       .by_teacher(current_teacher.id)
@@ -209,6 +228,11 @@ module LessonsBoardAvailability
     make_up_disciplines = disciplines_for_make_up_date(all_disciplines, classroom, record_date)
     if make_up_disciplines.present?
       return { disciplines: make_up_disciplines, message: nil }
+    end
+
+    disciplines_without_board = disciplines_without_lessons_board_allocation(all_disciplines, classroom)
+    if disciplines_without_board.present?
+      return { disciplines: disciplines_without_board, message: nil }
     end
 
     {

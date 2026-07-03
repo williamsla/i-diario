@@ -13,5 +13,7 @@ pt-BR:
       recalculate_school_days: 'Recalcular dias letivos'
       filter_days: 'Filtrar'
       class_council: 'Conselho de classe'
+    class_council_pdf:
+      no_numeric_or_concept_scores: 'A turma %{classroom} selecionada não possui nota numérica ou conceitual.'
     minimum_year:
       error: 'Funcionalidade apenas disponível para o ano 2020 ou superior.'

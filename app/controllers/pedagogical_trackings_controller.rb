@@ -376,6 +376,12 @@ class PedagogicalTrackingsController < ApplicationController
 
     return render plain: 'Turma não encontrada', status: :not_found if classroom.blank?
 
+    unless ClassCouncilReportDataService.reportable?(classroom)
+      report = ClassCouncilReport.build_unavailable(current_entity_configuration, classroom)
+      filename = "conselho-de-classe-#{classroom.description.parameterize}-#{Date.current.strftime('%Y%m%d')}.pdf"
+      return send_pdf(filename, report.render)
+    end
+
     report_data = ClassCouncilReportDataService.new(classroom).build
     report = ClassCouncilReport.build(current_entity_configuration, report_data)
 

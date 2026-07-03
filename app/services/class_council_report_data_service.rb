@@ -1,4 +1,10 @@
 class ClassCouncilReportDataService
+  SCORE_TYPES_WITH_GRADES = [
+    ScoreTypes::NUMERIC,
+    ScoreTypes::CONCEPT,
+    ScoreTypes::NUMERIC_AND_CONCEPT
+  ].freeze
+
   STATUS_ABBREVIATIONS = {
     StudentEnrollmentStatus::APPROVED => 'Apr',
     StudentEnrollmentStatus::REPPROVED => 'Rep',
@@ -25,11 +31,40 @@ class ClassCouncilReportDataService
     /convivência|convivencia/i => 'CO'
   }.freeze
 
+  def self.reportable?(classroom)
+    classroom.classrooms_grades.includes(exam_rule: :differentiated_exam_rule).any? do |classrooms_grade|
+      exam_rules_for(classrooms_grade).any? do |exam_rule|
+        SCORE_TYPES_WITH_GRADES.include?(exam_rule.score_type)
+      end
+    end
+  end
+
+  def self.header_payload(classroom)
+    service = new(classroom)
+
+    {
+      classroom: classroom,
+      school_year: classroom.year,
+      course_name: classroom.course&.description,
+      period_name: service.send(:period_label),
+      grade_name: service.send(:grade_name_for_header)
+    }
+  end
+
+  def self.exam_rules_for(classrooms_grade)
+    [classrooms_grade.exam_rule, classrooms_grade.exam_rule&.differentiated_exam_rule].compact
+  end
+  private_class_method :exam_rules_for
+
   def initialize(classroom)
     @classroom = classroom
     @steps_fetcher = StepsFetcher.new(classroom)
     @steps = @steps_fetcher.steps
-    @disciplines = Discipline.by_classroom(classroom).not_descriptor.not_grouper.order_by_sequence
+    @disciplines = Discipline.by_classroom(classroom)
+                             .not_grouper
+                             .joins(:knowledge_area)
+                             .where(knowledge_areas: { group_descriptors: false })
+                             .order_by_sequence
     @discipline_ids = @disciplines.map(&:id)
     @general_configuration = GeneralConfiguration.first
     @year_start = year_start_date
@@ -73,7 +108,7 @@ class ClassCouncilReportDataService
       discipline: nil,
       start_at: start_at,
       end_at: end_at,
-      score_type: StudentEnrollmentScoreTypeFilters::NUMERIC,
+      score_type: StudentEnrollmentScoreTypeFilters::BOTH,
       search_type: :by_date_range,
       show_inactive: false
     ).student_enrollments
@@ -177,6 +212,8 @@ class ClassCouncilReportDataService
     @exemptions_by_student = load_exemptions_by_student
     @daily_notes_index = load_daily_notes_index
     @recovery_scores_index = load_recovery_scores_index
+    @conceptual_exams_index = load_conceptual_exams_index
+    @teacher_discipline_score_types = load_teacher_discipline_score_types
     @scores_cache = {}
 
     @student_enrollments.each do |enrollment|
@@ -235,7 +272,62 @@ class ClassCouncilReportDataService
     end
   end
 
+  def load_conceptual_exams_index
+    return {} if @student_ids.blank?
+
+    step_numbers = @steps.map(&:step_number)
+    return {} if step_numbers.blank?
+
+    ConceptualExam
+      .by_classroom_id(@classroom.id)
+      .where(student_id: @student_ids, step_number: step_numbers)
+      .includes(:conceptual_exam_values)
+      .each_with_object({}) do |exam, hash|
+        hash[[exam.student_id, exam.step_number]] = exam
+      end
+  end
+
+  def load_teacher_discipline_score_types
+    TeacherDisciplineClassroom
+      .where(classroom_id: @classroom.id, discipline_id: @discipline_ids, active: true)
+      .pluck(:discipline_id, :score_type)
+      .to_h
+  end
+
+  def student_uses_conceptual_evaluation?(student, discipline)
+    exam_rule = ExamRuleFetcher.fetch(@classroom, student)
+    return false if exam_rule.blank?
+    return true if exam_rule.score_type == ScoreTypes::CONCEPT
+
+    if exam_rule.score_type == ScoreTypes::NUMERIC_AND_CONCEPT
+      return @teacher_discipline_score_types[discipline.id] == ScoreTypes::CONCEPT
+    end
+
+    false
+  end
+
+  def conceptual_score(student, discipline, step)
+    exam = @conceptual_exams_index[[student.id, step.step_number]]
+    return nil if exam.blank?
+
+    value_record = exam.conceptual_exam_values.find { |value| value.discipline_id == discipline.id }
+    concept_display_name(student, value_record&.value)
+  end
+
+  def concept_display_name(student, value)
+    return nil if value.blank?
+
+    exam_rule = ExamRuleFetcher.fetch(@classroom, student)
+    rounding_table = exam_rule&.conceptual_rounding_table
+    return value.to_s if rounding_table.blank?
+
+    rounding_table_value = rounding_table.rounding_table_values.find { |rtv| rtv.value.to_s == value.to_s }
+    rounding_table_value ? rounding_table_value.label.to_s : value.to_s
+  end
+
   def calculate_score(student, discipline, step)
+    return conceptual_score(student, discipline, step) if student_uses_conceptual_evaluation?(student, discipline)
+
     notes = daily_notes_in_step(student.id, discipline.id, step)
     recoveries = @recovery_scores_index[[student.id, discipline.id]] || []
 
@@ -317,6 +409,8 @@ class ClassCouncilReportDataService
   end
 
   def score_below_minimum?(score, step)
+    return false unless score.is_a?(Numeric)
+
     numeric_score = score.to_f if score.present?
     return false if numeric_score.nil? || score.blank?
 

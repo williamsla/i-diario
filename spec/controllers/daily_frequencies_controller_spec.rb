@@ -221,7 +221,7 @@ RSpec.describe DailyFrequenciesController, type: :controller do
       expect(discipline_ids).not_to include(other_discipline.id)
     end
 
-    it 'retorna mensagem quando o professor não possui aulas no quadro para a data' do
+    it 'libera a disciplina quando ela não consta no quadro de aulas' do
       other_discipline = create(:discipline)
       teacher_discipline_classroom = create(
         :teacher_discipline_classroom,
@@ -250,9 +250,10 @@ RSpec.describe DailyFrequenciesController, type: :controller do
       }
 
       payload = JSON.parse(response.body)
+      discipline_ids = payload['disciplines'].map { |item| item['id'] }
 
-      expect(payload['disciplines']).to be_empty
-      expect(payload['message']).to include('quadro de horários')
+      expect(discipline_ids).to include(discipline.id)
+      expect(payload['message']).to be_nil
     end
 
     it 'libera a disciplina quando ela consta no quadro mesmo com outro professor alocado' do
@@ -381,7 +382,7 @@ RSpec.describe DailyFrequenciesController, type: :controller do
   end
 
   describe 'GET #schedule_for_frequency_date' do
-    it 'bloqueia frequência geral quando nenhuma disciplina do professor está no quadro na data' do
+    it 'libera frequência geral quando a disciplina do professor não consta no quadro de aulas' do
       classrooms_grade = classroom.classrooms_grades.first
       other_discipline = create(:discipline)
       teacher_discipline_classroom = create(
@@ -410,8 +411,8 @@ RSpec.describe DailyFrequenciesController, type: :controller do
 
       payload = JSON.parse(response.body)
 
-      expect(payload['available']).to eq(false)
-      expect(payload['message']).to include('quadro de horários')
+      expect(payload['available']).to eq(true)
+      expect(payload['message']).to be_nil
     end
 
     it 'libera frequência geral quando alguma disciplina do professor está no quadro na data' do

@@ -11,8 +11,8 @@ class DailyFrequenciesInBatchsController < ApplicationController
   def new
     @admin_or_teacher = current_user.current_role_is_admin_or_employee?
     
-    classroom_id = teacher_allocated.blank? ? nil : current_user_classroom.id
-    discipline_id = teacher_allocated.blank? ? nil : current_user_discipline.id
+    classroom_id = teacher_has_classroom_discipline_link? ? current_user_classroom.id : nil
+    discipline_id = teacher_has_classroom_discipline_link? ? current_user_discipline.id : nil
     unity_id = current_unity&.id
     
     # Para o período, usar o período da turma ou tentar buscar o período do professor
@@ -759,7 +759,7 @@ class DailyFrequenciesInBatchsController < ApplicationController
   end
 
   def require_allocation_on_lessons_board
-    return if teacher_allocated
+    return if teacher_has_classroom_discipline_link?
 
     @admin_or_teacher = current_user.current_role_is_admin_or_employee?
 
@@ -772,6 +772,25 @@ class DailyFrequenciesInBatchsController < ApplicationController
 
     @classrooms ||= [current_user_classroom]
     @disciplines ||= [current_user_discipline]
+  end
+
+  def teacher_has_classroom_discipline_link?
+    @classroom ||= current_user_classroom
+    @discipline ||= current_user_discipline
+
+    tdc_scope = TeacherDisciplineClassroom.where(
+      teacher_id: current_teacher.id,
+      classroom_id: @classroom.id,
+      active: true
+    )
+
+    frequency_type = current_frequency_type(@classroom)
+
+    if frequency_type == FrequencyTypes::BY_DISCIPLINE
+      tdc_scope.where(discipline_id: @discipline.id).exists?
+    else
+      tdc_scope.exists?
+    end
   end
 
   def teacher_allocated
@@ -840,25 +859,7 @@ class DailyFrequenciesInBatchsController < ApplicationController
 
   def fetch_linked_by_teacher
     @fetch_linked_by_teacher ||= TeacherClassroomAndDisciplineFetcher.fetch!(current_teacher.id, current_unity, current_school_year)
-    @disciplines = []
-    @classrooms = []
-
-    # Remove turmas que não estão no quadro de aulas
-    @fetch_linked_by_teacher[:classrooms].each do |classroom|
-      lesson_board = LessonsBoard.by_teacher(current_teacher)
-                                 .by_classroom(classroom)
-                                 .exists?
-      @classrooms << classroom if lesson_board
-    end
-
-    # Remove disciplinas que não estão no quadro de aulas
-    @fetch_linked_by_teacher[:disciplines].each do |discipline|
-      lesson_board = LessonsBoard.by_teacher(current_teacher)
-                                 .by_classroom(@classrooms)
-                                 .by_discipline(discipline)
-                                 .exists?
-      @disciplines << discipline if lesson_board
-    end
-    @disciplines.uniq
+    @classrooms = @fetch_linked_by_teacher[:classrooms]
+    @disciplines = @fetch_linked_by_teacher[:disciplines].uniq
   end
 end

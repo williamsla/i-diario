@@ -966,6 +966,11 @@ class DailyFrequenciesController < ApplicationController
       return { disciplines: make_up_disciplines, message: nil }
     end
 
+    disciplines_without_board = disciplines_without_lessons_board_allocation(disciplines, classroom)
+    if disciplines_without_board.present?
+      return { disciplines: disciplines_without_board, message: nil }
+    end
+
     {
       disciplines: [],
       message: schedule_unavailable_message(
@@ -1005,10 +1010,15 @@ class DailyFrequenciesController < ApplicationController
       classroom_id: classroom.id,
       date: frequency_date
     )
-    has_linked_discipline_on_schedule = (schedule_ids & disciplines.map(&:id)).present?
+    discipline_ids = disciplines.map(&:id)
+    has_linked_discipline_on_schedule = (schedule_ids & discipline_ids).present?
 
     return { available: true, message: nil } if has_linked_discipline_on_schedule
     return { available: true, message: nil } if teacher_has_make_up_on_date?(classroom: classroom, date: frequency_date)
+    return { available: true, message: nil } if teacher_has_discipline_without_lessons_board_allocation?(
+      classroom,
+      discipline_ids
+    )
 
     classroom_has_lessons_on_day = classroom_has_lessons_on_date?(classroom: classroom, date: frequency_date)
 
@@ -1039,6 +1049,10 @@ class DailyFrequenciesController < ApplicationController
     has_teacher_discipline_on_schedule = (schedule_ids & teacher_discipline_ids).present?
 
     return { available: true, message: nil } if has_teacher_discipline_on_schedule
+    return { available: true, message: nil } if teacher_has_discipline_without_lessons_board_allocation?(
+      classroom,
+      teacher_discipline_ids
+    )
 
     classroom_has_lessons_on_day = classroom_has_lessons_on_date?(classroom: classroom, date: frequency_date)
     message_key = if classroom_has_lessons_on_day
