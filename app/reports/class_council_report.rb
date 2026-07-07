@@ -2,14 +2,10 @@ class ClassCouncilReport < BaseReport
   ROWS_PER_STUDENT = 5
   FONT_SIZE = 6
   HEADER_BG = 'DEDEDE'
-  BELOW_MINIMUM_COLOR = 'FF0000'
   BELOW_MINIMUM_BACKGROUND = 'FFE5E5'
   MIN_STUDENT_WIDTH = 55
-  MIN_SCORE_WIDTH = 11
-  MIN_ABSENCE_WIDTH = 8
-  STUDENT_COLUMN_WIDTH_FACTOR = 0.9
-  SCORE_COLUMN_WIDTH_FACTOR = 0.8
-  ABSENCE_COLUMN_WIDTH_FACTOR = 0.7
+  MIN_SCORE_WIDTH = 12
+  MIN_ABSENCE_WIDTH = 9
 
   def self.build(entity_configuration, report_data)
     new(:landscape).build(entity_configuration, report_data)
@@ -141,10 +137,9 @@ class ClassCouncilReport < BaseReport
       width: bounds.width,
       column_widths: column_widths_array,
       header: true,
-      cell_style: { overflow: :shrink_to_fit, min_font_size: 4, size: font_size }
+      cell_style: { size: font_size, overflow: :expand, inline_format: false }
     ) do
       cells.border_width = 0.25
-      row(0).font_style = :bold
       row(0).background_color = HEADER_BG
       row(0).align = :center
     end
@@ -152,14 +147,14 @@ class ClassCouncilReport < BaseReport
 
   def column_headers
     row = [
-      table_cell('Ord.', font_style: :bold, align: :center),
-      table_cell('Aluno', font_style: :bold, align: :center),
-      table_cell('Sit.', font_style: :bold, align: :center),
-      table_cell('Freq. - Falta', font_style: :bold, align: :center)
+      table_cell('Ord.', align: :center),
+      table_cell('Aluno', align: :center),
+      table_cell('Sit.', align: :center),
+      table_cell('Freq. - Falta', align: :center)
     ]
 
     @disciplines.each do |discipline|
-      row << table_cell(discipline[:abbreviation], font_style: :bold, align: :center, colspan: 2)
+      row << table_cell(discipline[:abbreviation], align: :center, colspan: 2)
     end
 
     row
@@ -181,15 +176,7 @@ class ClassCouncilReport < BaseReport
 
     first_row = [
       table_cell(student[:order].to_s, rowspan: ROWS_PER_STUDENT, align: :center, valign: :center),
-      table_cell(
-        highlighted_content(student_name, student_below_minimum),
-        rowspan: ROWS_PER_STUDENT,
-        align: :left,
-        valign: :center,
-        inline_format: student_below_minimum,
-        background_color: student_below_minimum ? BELOW_MINIMUM_BACKGROUND : nil,
-        overflow: :expand
-      ),
+      student_name_cell(student_name, student_below_minimum),
       table_cell(student[:situation].to_s, rowspan: ROWS_PER_STUDENT, align: :center, valign: :center),
       table_cell(format_frequency(student[:frequency_percentage], student[:total_absences]), align: :center)
     ]
@@ -217,6 +204,19 @@ class ClassCouncilReport < BaseReport
     end
 
     [first_row] + step_rows
+  end
+
+  def student_name_cell(name, below_minimum)
+    options = {
+      rowspan: ROWS_PER_STUDENT,
+      align: :left,
+      valign: :center,
+      leading: 1.2,
+      inline_format: false
+    }
+    options[:background_color] = BELOW_MINIMUM_BACKGROUND if below_minimum
+
+    table_cell(name, options)
   end
 
   def empty_step_row
@@ -251,29 +251,14 @@ class ClassCouncilReport < BaseReport
         available = bounds.width - order_w - situation_w - frequency_w - student_w
       end
 
-      pair_width = available / discipline_pairs.to_f
-      score_w = pair_width * 0.65
-      absence_w = pair_width * 0.35
-
-      if score_w < MIN_SCORE_WIDTH || absence_w < MIN_ABSENCE_WIDTH
-        score_w = [score_w, MIN_SCORE_WIDTH].max
-        absence_w = [absence_w, MIN_ABSENCE_WIDTH].max
-        pair_total = score_w + absence_w
-
-        if pair_total > pair_width
-          scale = pair_width / pair_total
-          score_w *= scale
-          absence_w *= scale
-        end
-      end
+      pair_width = [available / discipline_pairs.to_f, min_pair_width].max
+      score_w = [pair_width * 0.65, MIN_SCORE_WIDTH].max
+      absence_w = [pair_width - score_w, MIN_ABSENCE_WIDTH].max
+      score_w = pair_width - absence_w if score_w + absence_w > pair_width
     else
       score_w = MIN_SCORE_WIDTH
       absence_w = MIN_ABSENCE_WIDTH
     end
-
-    student_w *= STUDENT_COLUMN_WIDTH_FACTOR
-    score_w *= SCORE_COLUMN_WIDTH_FACTOR
-    absence_w *= ABSENCE_COLUMN_WIDTH_FACTOR
 
     {
       order: order_w,
@@ -286,38 +271,65 @@ class ClassCouncilReport < BaseReport
   end
 
   def column_widths_array
-    widths = layout_widths
-    columns = [widths[:order], widths[:student], widths[:situation], widths[:frequency]] +
-              @disciplines.flat_map { [widths[:score], widths[:absence]] }
+    @column_widths_array ||= begin
+      widths = layout_widths
+      columns = [widths[:order], widths[:student], widths[:situation], widths[:frequency]] +
+                @disciplines.flat_map { [widths[:score], widths[:absence]] }
 
-    normalize_column_widths(columns)
+      normalize_column_widths(columns)
+    end
   end
 
   def normalize_column_widths(columns)
     total = columns.sum
     return columns if total.zero?
 
-    scale = bounds.width / total
-    normalized = columns.map { |width| width * scale }
+    columns = columns.map { |width| width * (bounds.width / total) } if total > bounds.width
 
-    width_gap = bounds.width - normalized.sum
-    normalized[-1] += width_gap if width_gap.abs > 0.01
+    (4...columns.size).step(2) { |index| columns[index] = [columns[index], MIN_SCORE_WIDTH].max }
+    (5...columns.size).step(2) { |index| columns[index] = [columns[index], MIN_ABSENCE_WIDTH].max }
+    columns[1] = [columns[1], MIN_STUDENT_WIDTH].max
 
-    normalized
+    if columns.sum > bounds.width
+      overflow = columns.sum - bounds.width
+      student_shrinkable = columns[1] - MIN_STUDENT_WIDTH
+
+      if student_shrinkable.positive?
+        shrink_by = [student_shrinkable, overflow].min
+        columns[1] -= shrink_by
+        overflow -= shrink_by
+      end
+
+      if overflow.positive?
+        scale = bounds.width / columns.sum
+        columns = columns.map { |width| width * scale }
+      end
+    end
+
+    width_gap = bounds.width - columns.sum
+    columns[-1] += width_gap if width_gap.abs > 0.01
+
+    columns
   end
 
   def content_font_size
-    @content_font_size ||= if @disciplines.size > 18
-                             5
-                           elsif @disciplines.size > 14
-                             5.5
-                           else
-                             FONT_SIZE
-                           end
+    @content_font_size ||= begin
+      pair_width = layout_widths[:score] + layout_widths[:absence]
+
+      if @disciplines.size > 24 || pair_width < 16
+        4.5
+      elsif @disciplines.size > 18 || pair_width < 18
+        5
+      elsif @disciplines.size > 14
+        5.5
+      else
+        FONT_SIZE
+      end
+    end
   end
 
   def table_cell(content, options = {})
-    cell_options = { content: content.to_s, size: content_font_size }.merge(options)
+    cell_options = { content: content.to_s, size: content_font_size, inline_format: false }.merge(options)
     cell_options.reject! { |_key, value| value.nil? }
 
     make_cell(cell_options)
@@ -326,20 +338,10 @@ class ClassCouncilReport < BaseReport
   def score_cell(discipline_data)
     below_minimum = discipline_data[:below_minimum]
     formatted_score = format_score(discipline_data[:score])
+    options = { align: :center, inline_format: false }
+    options[:background_color] = BELOW_MINIMUM_BACKGROUND if below_minimum
 
-    table_cell(
-      highlighted_content(formatted_score, below_minimum),
-      align: :center,
-      inline_format: below_minimum,
-      background_color: below_minimum ? BELOW_MINIMUM_BACKGROUND : nil
-    )
-  end
-
-  def highlighted_content(text, highlight)
-    return text unless highlight
-
-    escaped_text = text.to_s.gsub('&', '&amp;').gsub('>', '&gt;').gsub('<', '&lt;')
-    "<color rgb='#{BELOW_MINIMUM_COLOR}'><b>#{escaped_text}</b></color>"
+    table_cell(formatted_score, options)
   end
 
   def student_below_minimum?(student)
@@ -416,8 +418,19 @@ class ClassCouncilReport < BaseReport
 
   def format_score(score)
     return '' if score.blank?
-    return score.to_s unless score.is_a?(Numeric)
 
-    number_with_precision(score, precision: 1, separator: ',', delimiter: '.')
+    if score.is_a?(Numeric)
+      number_with_precision(score, precision: 1, separator: ',', delimiter: '.')
+    else
+      score_column_width = column_widths_array[4] || layout_widths[:score]
+      truncate_text(score.to_s, score_column_width)
+    end
+  end
+
+  def truncate_text(text, column_width)
+    max_chars = [(column_width / (content_font_size * 0.5)).floor, 1].max
+    return text if text.length <= max_chars
+
+    text[0, max_chars]
   end
 end

@@ -16,6 +16,8 @@ pt-BR:
         content: "Conteúdo"
         avaliation: "Avaliação"
         grades: "Diário de avaliações / Notas"
+        teaching_plan: "Plano de ensino"
+        lesson_plan: "Plano de aula"
       grade_batch_label:
         launched: "%{count} nota(s) lançada(s) (%{range}) — %{avaliation} — %{discipline} — %{classroom}"
         cleared: "%{count} nota(s) removida(s) — %{avaliation} — %{discipline} — %{classroom}"

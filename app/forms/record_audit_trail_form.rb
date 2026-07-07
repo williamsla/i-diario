@@ -3,7 +3,7 @@
 class RecordAuditTrailForm
   include ActiveModel::Model
 
-  RECORD_TYPES = %w[frequency content avaliation grades].freeze
+  RECORD_TYPES = %w[frequency content avaliation grades teaching_plan lesson_plan].freeze
 
   attr_accessor :unity_id,
                 :classroom_id,

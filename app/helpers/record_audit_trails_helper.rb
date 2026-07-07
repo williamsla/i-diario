@@ -13,6 +13,14 @@ module RecordAuditTrailsHelper
       history_avaliation_path(result[:auditable_id])
     when 'DailyNote'
       history_daily_note_path(result[:auditable_id])
+    when 'DisciplineTeachingPlan'
+      history_discipline_teaching_plan_path(result[:auditable_id])
+    when 'KnowledgeAreaTeachingPlan'
+      history_knowledge_area_teaching_plan_path(result[:auditable_id])
+    when 'DisciplineLessonPlan'
+      history_discipline_lesson_plan_path(result[:auditable_id])
+    when 'KnowledgeAreaLessonPlan'
+      history_knowledge_area_lesson_plan_path(result[:auditable_id])
     end
   end
 

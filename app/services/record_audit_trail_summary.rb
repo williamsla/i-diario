@@ -5,7 +5,9 @@ class RecordAuditTrailSummary
     'frequency' => ['DailyFrequency'],
     'content' => %w[DisciplineContentRecord KnowledgeAreaContentRecord],
     'avaliation' => ['Avaliation'],
-    'grades' => %w[DailyNote DailyNoteStudent]
+    'grades' => %w[DailyNote DailyNoteStudent],
+    'teaching_plan' => %w[DisciplineTeachingPlan KnowledgeAreaTeachingPlan],
+    'lesson_plan' => %w[DisciplineLessonPlan KnowledgeAreaLessonPlan]
   }.freeze
 
   GRADE_NOTE_BATCH_TYPE = 'GradeNoteBatch'
@@ -44,6 +46,10 @@ class RecordAuditTrailSummary
     entries.concat(knowledge_area_content_entries) if @record_types.include?('content') && @discipline_id.blank?
     entries.concat(avaliation_entries) if @record_types.include?('avaliation')
     entries.concat(daily_note_entries) if @record_types.include?('grades')
+    entries.concat(discipline_teaching_plan_entries) if @record_types.include?('teaching_plan')
+    entries.concat(knowledge_area_teaching_plan_entries) if @record_types.include?('teaching_plan') && @discipline_id.blank?
+    entries.concat(discipline_lesson_plan_entries) if @record_types.include?('lesson_plan')
+    entries.concat(knowledge_area_lesson_plan_entries) if @record_types.include?('lesson_plan') && @discipline_id.blank?
 
     entries
   end
@@ -144,6 +150,95 @@ class RecordAuditTrailSummary
     end
   end
 
+  def discipline_teaching_plan_entries
+    scope = DisciplineTeachingPlan.by_unity(@unity_id)
+                                  .joins(:teaching_plan)
+                                  .where(teaching_plans: { year: @start_date.year..@end_date.year })
+                                  .where(
+                                    'DATE(teaching_plans.created_at) BETWEEN :start_date AND :end_date OR ' \
+                                    'DATE(teaching_plans.updated_at) BETWEEN :start_date AND :end_date',
+                                    start_date: @start_date,
+                                    end_date: @end_date
+                                  )
+    scope = scope.by_teacher_id(@teacher_id) if @teacher_id.present?
+    scope = scope.by_discipline(@discipline_id) if @discipline_id.present?
+    scope = scope.by_grade(classroom_grade_ids) if @classroom_id.present?
+
+    scope.includes(:discipline, teaching_plan: %i[grade school_term_type school_term_type_step]).map do |record|
+      build_entry(
+        auditable_type: 'DisciplineTeachingPlan',
+        auditable_id: record.id,
+        record_type: 'teaching_plan',
+        record: record,
+        occurred_on: teaching_plan_occurred_on(record.teaching_plan),
+        label: discipline_teaching_plan_label(record)
+      )
+    end
+  end
+
+  def knowledge_area_teaching_plan_entries
+    scope = KnowledgeAreaTeachingPlan.by_unity(@unity_id)
+                                     .joins(:teaching_plan)
+                                     .where(teaching_plans: { year: @start_date.year..@end_date.year })
+                                     .where(
+                                       'DATE(teaching_plans.created_at) BETWEEN :start_date AND :end_date OR ' \
+                                       'DATE(teaching_plans.updated_at) BETWEEN :start_date AND :end_date',
+                                       start_date: @start_date,
+                                       end_date: @end_date
+                                     )
+    scope = scope.by_teacher_id(@teacher_id) if @teacher_id.present?
+    scope = scope.by_grade(classroom_grade_ids) if @classroom_id.present?
+
+    scope.includes(:knowledge_areas, teaching_plan: %i[grade school_term_type school_term_type_step]).map do |record|
+      build_entry(
+        auditable_type: 'KnowledgeAreaTeachingPlan',
+        auditable_id: record.id,
+        record_type: 'teaching_plan',
+        record: record,
+        occurred_on: teaching_plan_occurred_on(record.teaching_plan),
+        label: knowledge_area_teaching_plan_label(record)
+      )
+    end
+  end
+
+  def discipline_lesson_plan_entries
+    scope = DisciplineLessonPlan.by_unity_id(@unity_id)
+                                .by_date_range(@start_date, @end_date)
+    scope = scope.by_classroom_id(@classroom_id) if @classroom_id.present?
+    scope = scope.by_teacher_id(@teacher_id) if @teacher_id.present?
+    scope = scope.by_discipline_id(@discipline_id) if @discipline_id.present?
+
+    scope.includes(:discipline, lesson_plan: :classroom).map do |record|
+      build_entry(
+        auditable_type: 'DisciplineLessonPlan',
+        auditable_id: record.id,
+        record_type: 'lesson_plan',
+        record: record,
+        occurred_on: record.lesson_plan.start_at.to_date,
+        label: discipline_lesson_plan_label(record)
+      )
+    end
+  end
+
+  def knowledge_area_lesson_plan_entries
+    scope = KnowledgeAreaLessonPlan.joins(:lesson_plan)
+                                   .merge(LessonPlan.by_unity_id(@unity_id))
+                                   .by_date_range(@start_date, @end_date)
+    scope = scope.by_classroom_id(@classroom_id) if @classroom_id.present?
+    scope = scope.by_teacher_id(@teacher_id) if @teacher_id.present?
+
+    scope.includes(:knowledge_areas, lesson_plan: :classroom).map do |record|
+      build_entry(
+        auditable_type: 'KnowledgeAreaLessonPlan',
+        auditable_id: record.id,
+        record_type: 'lesson_plan',
+        record: record,
+        occurred_on: record.lesson_plan.start_at.to_date,
+        label: knowledge_area_lesson_plan_label(record)
+      )
+    end
+  end
+
   def collect_grade_note_batch_entries(collected_keys)
     return [] unless @record_types.include?('grades')
 
@@ -239,6 +334,14 @@ class RecordAuditTrailSummary
       matches_avaliation_destroy_changes?(changes)
     when 'DailyNote'
       matches_daily_note_changes?(changes)
+    when 'DisciplineTeachingPlan'
+      matches_discipline_teaching_plan_changes?(changes, audit)
+    when 'KnowledgeAreaTeachingPlan'
+      matches_knowledge_area_teaching_plan_changes?(changes, audit)
+    when 'DisciplineLessonPlan'
+      matches_discipline_lesson_plan_changes?(changes, audit)
+    when 'KnowledgeAreaLessonPlan'
+      matches_knowledge_area_lesson_plan_changes?(changes, audit)
     else
       false
     end
@@ -308,6 +411,58 @@ class RecordAuditTrailSummary
     return false if @discipline_id.present? && changes['discipline_id'].to_i != @discipline_id.to_i
 
     true
+  end
+
+  def matches_discipline_teaching_plan_changes?(changes, audit)
+    teaching_plan_attrs = teaching_plan_attrs_from_audit(audit, changes)
+    return false if teaching_plan_attrs.blank?
+
+    return false unless unity_matches?(teaching_plan_attrs['unity_id'])
+    return false if @teacher_id.present? && teaching_plan_attrs['teacher_id'].to_i != @teacher_id.to_i
+    return false if @discipline_id.present? && changes['discipline_id'].to_i != @discipline_id.to_i
+    return false if @classroom_id.present? && !grade_matches_classroom?(teaching_plan_attrs['grade_id'])
+
+    teaching_plan_year_in_range?(teaching_plan_attrs['year'])
+  end
+
+  def matches_knowledge_area_teaching_plan_changes?(changes, audit)
+    return false if @discipline_id.present?
+
+    teaching_plan_attrs = teaching_plan_attrs_from_audit(audit, changes)
+    return false if teaching_plan_attrs.blank?
+
+    return false unless unity_matches?(teaching_plan_attrs['unity_id'])
+    return false if @teacher_id.present? && teaching_plan_attrs['teacher_id'].to_i != @teacher_id.to_i
+    return false if @classroom_id.present? && !grade_matches_classroom?(teaching_plan_attrs['grade_id'])
+
+    teaching_plan_year_in_range?(teaching_plan_attrs['year'])
+  end
+
+  def matches_discipline_lesson_plan_changes?(changes, audit)
+    lesson_plan_attrs = lesson_plan_attrs_from_audit(audit, changes)
+    return false if lesson_plan_attrs.blank?
+
+    classroom = Classroom.find_by(id: lesson_plan_attrs['classroom_id'])
+    return false unless unity_matches?(classroom&.unity_id)
+    return false if @classroom_id.present? && lesson_plan_attrs['classroom_id'].to_i != @classroom_id.to_i
+    return false if @teacher_id.present? && lesson_plan_attrs['teacher_id'].to_i != @teacher_id.to_i
+    return false if @discipline_id.present? && changes['discipline_id'].to_i != @discipline_id.to_i
+
+    lesson_plan_date_range_overlaps?(lesson_plan_attrs)
+  end
+
+  def matches_knowledge_area_lesson_plan_changes?(changes, audit)
+    return false if @discipline_id.present?
+
+    lesson_plan_attrs = lesson_plan_attrs_from_audit(audit, changes)
+    return false if lesson_plan_attrs.blank?
+
+    classroom = Classroom.find_by(id: lesson_plan_attrs['classroom_id'])
+    return false unless unity_matches?(classroom&.unity_id)
+    return false if @classroom_id.present? && lesson_plan_attrs['classroom_id'].to_i != @classroom_id.to_i
+    return false if @teacher_id.present? && lesson_plan_attrs['teacher_id'].to_i != @teacher_id.to_i
+
+    lesson_plan_date_range_overlaps?(lesson_plan_attrs)
   end
 
   def matches_daily_note_context?(context)
@@ -622,6 +777,34 @@ class RecordAuditTrailSummary
     "#{areas} — #{record.classroom} — #{I18n.l(record.content_record.record_date)}"
   end
 
+  def discipline_teaching_plan_label(record)
+    teaching_plan = record.teaching_plan
+    term = teaching_plan.school_term_type_step_humanize.presence || teaching_plan.school_term_type&.to_s || '-'
+    "#{record.discipline} — #{teaching_plan.grade} — #{term} — #{teaching_plan.year}"
+  end
+
+  def knowledge_area_teaching_plan_label(record)
+    teaching_plan = record.teaching_plan
+    areas = record.knowledge_areas.map(&:to_s).join(', ')
+    term = teaching_plan.school_term_type_step_humanize.presence || teaching_plan.school_term_type&.to_s || '-'
+    "#{areas} — #{teaching_plan.grade} — #{term} — #{teaching_plan.year}"
+  end
+
+  def discipline_lesson_plan_label(record)
+    lesson_plan = record.lesson_plan
+    "#{record.discipline} — #{lesson_plan.classroom} — #{I18n.l(lesson_plan.start_at.to_date)} a #{I18n.l(lesson_plan.end_at.to_date)}"
+  end
+
+  def knowledge_area_lesson_plan_label(record)
+    lesson_plan = record.lesson_plan
+    areas = record.knowledge_areas.map(&:to_s).join(', ')
+    "#{areas} — #{lesson_plan.classroom} — #{I18n.l(lesson_plan.start_at.to_date)} a #{I18n.l(lesson_plan.end_at.to_date)}"
+  end
+
+  def teaching_plan_occurred_on(teaching_plan)
+    [teaching_plan.updated_at, teaching_plan.created_at].compact.max.to_date
+  end
+
   def avaliation_label(record)
     "#{record} — #{record.discipline} — #{I18n.l(record.test_date)}"
   end
@@ -817,6 +1000,14 @@ class RecordAuditTrailSummary
         classroom: Classroom.find_by(id: changes['classroom_id'])&.to_s || '-',
         date: I18n.l(avaliation&.test_date || audit.created_at.to_date)
       )
+    when 'DisciplineTeachingPlan'
+      discipline_teaching_plan_destroyed_label(changes, audit)
+    when 'KnowledgeAreaTeachingPlan'
+      knowledge_area_teaching_plan_destroyed_label(changes, audit)
+    when 'DisciplineLessonPlan'
+      discipline_lesson_plan_destroyed_label(changes, audit)
+    when 'KnowledgeAreaLessonPlan'
+      knowledge_area_lesson_plan_destroyed_label(changes, audit)
     else
       I18n.t('services.record_audit_trail_summary.removed_record')
     end
@@ -839,6 +1030,15 @@ class RecordAuditTrailSummary
     when 'DisciplineContentRecord', 'KnowledgeAreaContentRecord'
       content_attrs = changes['content_record'] || content_record_attrs_from_audit(audit, changes)
       parse_date(content_attrs['record_date'])
+    when 'DisciplineTeachingPlan', 'KnowledgeAreaTeachingPlan'
+      teaching_plan_attrs = teaching_plan_attrs_from_audit(audit, changes)
+      parse_date(teaching_plan_attrs['updated_at']) ||
+        parse_date(teaching_plan_attrs['created_at']) ||
+        teaching_plan_year_to_date(teaching_plan_attrs['year']) ||
+        audit.created_at.to_date
+    when 'DisciplineLessonPlan', 'KnowledgeAreaLessonPlan'
+      lesson_plan_attrs = lesson_plan_attrs_from_audit(audit, changes)
+      parse_date(lesson_plan_attrs['start_at']) || audit.created_at.to_date
     else
       audit.created_at.to_date
     end
@@ -856,6 +1056,157 @@ class RecordAuditTrailSummary
                                   .first
 
     audited_changes_hash(content_audit) if content_audit
+  end
+
+  def teaching_plan_attrs_from_audit(audit, changes)
+    nested = changes['teaching_plan']
+    return nested if nested.is_a?(Hash) && nested['unity_id'].present?
+
+    teaching_plan_id = changes['teaching_plan_id'] || nested&.dig('id')
+    return {} if teaching_plan_id.blank?
+
+    teaching_plan_audit = Audited::Audit.where(auditable_type: 'TeachingPlan', auditable_id: teaching_plan_id)
+                                        .order(created_at: :desc)
+                                        .first
+
+    audited_changes_hash(teaching_plan_audit) if teaching_plan_audit
+  end
+
+  def lesson_plan_attrs_from_audit(audit, changes)
+    nested = changes['lesson_plan']
+    return nested if nested.is_a?(Hash) && nested['classroom_id'].present?
+
+    lesson_plan_id = changes['lesson_plan_id'] || nested&.dig('id')
+    return {} if lesson_plan_id.blank?
+
+    lesson_plan_audit = Audited::Audit.where(auditable_type: 'LessonPlan', auditable_id: lesson_plan_id)
+                                      .order(created_at: :desc)
+                                      .first
+
+    audited_changes_hash(lesson_plan_audit) if lesson_plan_audit
+  end
+
+  def discipline_teaching_plan_destroyed_label(changes, audit)
+    teaching_plan_attrs = teaching_plan_attrs_from_audit(audit, changes)
+    discipline_name = Discipline.find_by(id: changes['discipline_id'])&.to_s || '-'
+    grade_name = Grade.find_by(id: teaching_plan_attrs['grade_id'])&.to_s || '-'
+    year = teaching_plan_attrs['year'] || '-'
+    term = school_term_label_from_changes(teaching_plan_attrs)
+
+    "#{discipline_name} — #{grade_name} — #{term} — #{year} (#{I18n.t('services.record_audit_trail_summary.removed')})"
+  end
+
+  def knowledge_area_teaching_plan_destroyed_label(changes, audit)
+    teaching_plan_attrs = teaching_plan_attrs_from_audit(audit, changes)
+    grade_name = Grade.find_by(id: teaching_plan_attrs['grade_id'])&.to_s || '-'
+    year = teaching_plan_attrs['year'] || '-'
+    term = school_term_label_from_changes(teaching_plan_attrs)
+    areas = knowledge_area_names_from_teaching_plan_audit(audit, changes)
+
+    "#{areas} — #{grade_name} — #{term} — #{year} (#{I18n.t('services.record_audit_trail_summary.removed')})"
+  end
+
+  def discipline_lesson_plan_destroyed_label(changes, audit)
+    lesson_plan_attrs = lesson_plan_attrs_from_audit(audit, changes)
+    discipline_name = Discipline.find_by(id: changes['discipline_id'])&.to_s || '-'
+    classroom_name = Classroom.find_by(id: lesson_plan_attrs['classroom_id'])&.to_s || '-'
+    date_range = lesson_plan_date_range_label(lesson_plan_attrs)
+
+    "#{discipline_name} — #{classroom_name} — #{date_range} (#{I18n.t('services.record_audit_trail_summary.removed')})"
+  end
+
+  def knowledge_area_lesson_plan_destroyed_label(changes, audit)
+    lesson_plan_attrs = lesson_plan_attrs_from_audit(audit, changes)
+    classroom_name = Classroom.find_by(id: lesson_plan_attrs['classroom_id'])&.to_s || '-'
+    date_range = lesson_plan_date_range_label(lesson_plan_attrs)
+    areas = knowledge_area_names_from_lesson_plan_audit(audit, changes)
+
+    "#{areas} — #{classroom_name} — #{date_range} (#{I18n.t('services.record_audit_trail_summary.removed')})"
+  end
+
+  def lesson_plan_date_range_label(lesson_plan_attrs)
+    start_at = parse_date(lesson_plan_attrs['start_at'])
+    end_at = parse_date(lesson_plan_attrs['end_at'])
+    return '-' if start_at.blank? && end_at.blank?
+    return I18n.l(start_at) if end_at.blank?
+    return I18n.l(end_at) if start_at.blank?
+
+    "#{I18n.l(start_at)} a #{I18n.l(end_at)}"
+  end
+
+  def school_term_label_from_changes(teaching_plan_attrs)
+    step_id = teaching_plan_attrs['school_term_type_step_id']
+    type_id = teaching_plan_attrs['school_term_type_id']
+
+    if step_id.present?
+      SchoolTermTypeStep.find_by(id: step_id)&.to_s
+    elsif type_id.present?
+      SchoolTermType.find_by(id: type_id)&.to_s
+    else
+      '-'
+    end
+  end
+
+  def knowledge_area_names_from_teaching_plan_audit(audit, changes)
+    knowledge_area_ids = knowledge_area_ids_from_teaching_plan_audit(audit, changes)
+    return '-' if knowledge_area_ids.blank?
+
+    KnowledgeArea.where(id: knowledge_area_ids).map(&:to_s).join(', ')
+  end
+
+  def knowledge_area_names_from_lesson_plan_audit(audit, changes)
+    knowledge_area_ids = knowledge_area_ids_from_lesson_plan_audit(audit, changes)
+    return '-' if knowledge_area_ids.blank?
+
+    KnowledgeArea.where(id: knowledge_area_ids).map(&:to_s).join(', ')
+  end
+
+  def knowledge_area_ids_from_teaching_plan_audit(audit, changes)
+    nested = changes['knowledge_area_teaching_plan_knowledge_areas']
+    return nested.map { |item| item['knowledge_area_id'] }.compact if nested.is_a?(Array)
+
+    KnowledgeAreaTeachingPlanKnowledgeArea.where(knowledge_area_teaching_plan_id: audit.auditable_id)
+                                          .pluck(:knowledge_area_id)
+  end
+
+  def knowledge_area_ids_from_lesson_plan_audit(audit, changes)
+    nested = changes['knowledge_area_lesson_plan_knowledge_areas']
+    return nested.map { |item| item['knowledge_area_id'] }.compact if nested.is_a?(Array)
+
+    KnowledgeAreaLessonPlanKnowledgeArea.where(knowledge_area_lesson_plan_id: audit.auditable_id)
+                                        .pluck(:knowledge_area_id)
+  end
+
+  def classroom_grade_ids
+    @classroom_grade_ids ||= ClassroomsGrade.by_classroom_id(@classroom_id).pluck(:grade_id)
+  end
+
+  def grade_matches_classroom?(grade_id)
+    return true if @classroom_id.blank? || grade_id.blank?
+
+    classroom_grade_ids.include?(grade_id.to_i)
+  end
+
+  def teaching_plan_year_in_range?(year)
+    return false if year.blank?
+
+    year.to_i.between?(@start_date.year, @end_date.year)
+  end
+
+  def teaching_plan_year_to_date(year)
+    return nil if year.blank?
+
+    Date.new(year.to_i, 1, 1)
+  rescue ArgumentError
+    nil
+  end
+
+  def lesson_plan_date_range_overlaps?(lesson_plan_attrs)
+    start_at = parse_date(lesson_plan_attrs['start_at'])
+    end_at = parse_date(lesson_plan_attrs['end_at'])
+    return false if start_at.blank? || end_at.blank?
+
+    start_at <= @end_date && end_at >= @start_date
   end
 
   def audited_changes_hash(audit)
