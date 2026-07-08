@@ -188,11 +188,50 @@ $(function () {
     return (period === undefined || period === null) ? '' : String(period);
   };
 
+  var destroyTurnoSelect2 = function () {
+    if (!$turno.length) {
+      return;
+    }
+
+    try {
+      if ($turno.data('select2')) {
+        $turno.select2('destroy');
+      }
+    } catch (e) {}
+
+    $turno.val('');
+    $turno.off('change.turno');
+  };
+
+  var initFrequencyDatepicker = function () {
+    if (!$frequencyDate.length) {
+      return;
+    }
+
+    if ($frequencyDate.hasClass('hasDatepicker')) {
+      $frequencyDate.datepicker('destroy');
+    }
+
+    $frequencyDate.datepicker();
+
+    var $calendarIcon = $frequencyDate.closest('.icon-addon').find('label.fa-calendar');
+    $calendarIcon.off('click.frequencyDate').on('click.frequencyDate', function (e) {
+      e.preventDefault();
+      $frequencyDate.datepicker('show');
+    });
+
+    $frequencyDate.off('focus.frequencyDate').on('focus.frequencyDate', function () {
+      $frequencyDate.datepicker('show');
+    });
+  };
+
   var showTurnoSelector = function (periods) {
     var elements = _.map(periods, function (period) {
       var label = period.name || period.text || String(period.id);
       return { id: normalizePeriodKey(period.id), name: label, text: label };
     });
+
+    destroyTurnoSelect2();
 
     $turno.select2({
       data: elements,
@@ -201,6 +240,15 @@ $(function () {
     });
     // Vazio por padrão: o professor precisa escolher o turno.
     $turno.select2('val', '');
+    $turno.on('change.turno', function (e) {
+      var selectedPeriod = normalizePeriodKey(e.val !== undefined ? e.val : $turno.select2('val'));
+      $('#daily_frequency_period').val(selectedPeriod);
+
+      var byPeriod = window.classNumbersByPeriod || {};
+      var numbers = byPeriod[selectedPeriod] || [];
+      setClassNumbersOnField(numbers);
+      syncSubmitButtonState();
+    });
     $turnoField.removeClass('hidden').show();
 
     // Até escolher o turno, período e aulas ficam em branco.
@@ -209,10 +257,8 @@ $(function () {
   };
 
   var hideTurnoSelector = function () {
+    destroyTurnoSelect2();
     $turnoField.addClass('hidden').hide();
-    if ($turno.length && $turno.data('select2')) {
-      $turno.select2('val', '');
-    }
   };
 
   var handleClassNumbersResponse = function (data) {
@@ -256,15 +302,7 @@ $(function () {
     });
   };
 
-  $turno.on('change', function (e) {
-    var selectedPeriod = normalizePeriodKey(e.val !== undefined ? e.val : $turno.select2('val'));
-    $('#daily_frequency_period').val(selectedPeriod);
-
-    var byPeriod = window.classNumbersByPeriod || {};
-    var numbers = byPeriod[selectedPeriod] || [];
-    setClassNumbersOnField(numbers);
-    syncSubmitButtonState();
-  });
+  initFrequencyDatepicker();
 
   var scheduleAutoFillClassNumbers = function () {
     if (autoFillTimeout) {
