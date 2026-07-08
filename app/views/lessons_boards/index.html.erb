@@ -3,6 +3,13 @@
   <%= javascript_include_tag 'views/lessons_boards/index' %>
 <% end %>
 
+<div class="widget-body">
+  <div class="alert alert-info">
+    <i class="fa fa-info-circle"></i>
+    <%= t('.archive_info_html') %>
+  </div>
+</div>
+
 <div class="widget-body no-padding">
   <%= simple_form_for :search, { url: lessons_boards_path, method: :get, html: { class: 'filterable_search_form' } } do |f| %>
     <div class="table-responsive">
