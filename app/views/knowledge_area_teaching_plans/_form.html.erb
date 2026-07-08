@@ -17,9 +17,26 @@
   <%= f.simple_fields_for :teaching_plan, @knowledge_area_teaching_plan.teaching_plan do |teaching_plan_form| %>
     <%= teaching_plan_form.hidden_field :id %>
 
+    <% unless params[:modal] == 'true' %>
+      <fieldset style="padding: 2px; padding-bottom: 15px;">
+        <div class="row">
+          <div class="col col-sm-12">
+            <small class="text-muted">
+              Ano letivo: <strong><%= (defined?(current_school_year) && current_school_year) || (defined?(current_school_calendar) && current_school_calendar&.year) || Time.zone.today.year %></strong>
+              | Escola: <strong><%= @knowledge_area_teaching_plan.teaching_plan.unity || current_unity %></strong>              
+            </small>
+          </div>
+        </div>
+      </fieldset>
+    <% end %>
+
     <fieldset>
       <% school_type = GeneralConfiguration.current.group_children_education ? 'group_child_schools' : 'experience_fields' %>
       <%= render 'teaching_plans/copy_objectives', f: teaching_plan_form, type: school_type, modal_id: 'confirm-copy-objectives-modal', confirm_btn: 'confirm-copy-objectives-btn'  %>
+
+      <%= teaching_plan_form.input :year, as: :hidden, input_html: { value: current_school_calendar.year } %>
+      <%= teaching_plan_form.input :unity_id, as: :hidden, input_html: { value: current_user.current_unity_id } %>
+        
 
       <div id='copy_plan_info' class='alert alert-info' style='display: none;'>
         <i class='fa-fw fa fa-info'></i>
@@ -28,16 +45,6 @@
       </div>
 
       <div class="row">
-        <div class="col col-sm-4">
-          <%= teaching_plan_form.input :year, readonly: true %>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="col col-sm-4">
-          <%= teaching_plan_form.association :unity, as: :select2_unity, user: current_user %>
-        </div>
-
         <div class="col col-sm-4">
           <% if current_user.current_role_is_admin_or_employee? %>
             <%= teaching_plan_form.association :grade, as: :select2_grade, user: current_user,
@@ -145,9 +152,10 @@
         <div class="row textarea">
           <div class="col col-sm-12 contents-select2-container">
             <% translation = Translator.t('activerecord.attributes.knowledge_area_teaching_plan.contents') %>
+            <% label_content = "#{show_aee_area_label? ? 'Área' : translation}" %>
             <%= teaching_plan_form.input :contents_tags,
                 as: :string,
-                label: "Adicionar #{translation}",
+                label: "Adicionar #{label_content}",
                 input_html: {
                   class: 'select2-tags',
                   value: ''
@@ -169,7 +177,7 @@
             </div>
           <% end %>
 
-          <% if !action_name.eql?('show') %>
+          <% if !action_name.eql?('show') && !is_aee %>
             <a href="#" data-toggle="modal" data-target="#confirm-copy-objectives-modal">
               Copiar objetivos/habilidades por área
             </a>
