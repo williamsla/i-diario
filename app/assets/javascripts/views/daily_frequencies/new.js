@@ -58,7 +58,12 @@ $(function () {
   var $avaliation = $('#daily_frequency_avaliation_id');
   var $classNumbers = $('#class_numbers');
   var $frequencyDate = $('#daily_frequency_frequency_date');
+  var $turnoField = $('.turno_field');
+  var $turno = $('#daily_frequency_turno');
   var autoFillTimeout = null;
+
+  // Guarda as aulas (ordem) por turno quando a disciplina existe em mais de um turno no dia.
+  window.classNumbersByPeriod = {};
 
   var periodParam = function () {
     var $period = $('#daily_frequency_period');
@@ -179,12 +184,61 @@ $(function () {
     $period.val(String(data.period));
   };
 
+  var normalizePeriodKey = function (period) {
+    return (period === undefined || period === null) ? '' : String(period);
+  };
+
+  var showTurnoSelector = function (periods) {
+    var elements = _.map(periods, function (period) {
+      var label = period.name || period.text || String(period.id);
+      return { id: normalizePeriodKey(period.id), name: label, text: label };
+    });
+
+    $turno.select2({
+      data: elements,
+      placeholder: $turno.data('placeholder') || 'Selecione o turno',
+      allowClear: true
+    });
+    // Vazio por padrão: o professor precisa escolher o turno.
+    $turno.select2('val', '');
+    $turnoField.removeClass('hidden').show();
+
+    // Até escolher o turno, período e aulas ficam em branco.
+    $('#daily_frequency_period').val('');
+    setClassNumbersOnField([]);
+  };
+
+  var hideTurnoSelector = function () {
+    $turnoField.addClass('hidden').hide();
+    if ($turno.length && $turno.data('select2')) {
+      $turno.select2('val', '');
+    }
+  };
+
+  var handleClassNumbersResponse = function (data) {
+    var periods = (data && _.isArray(data.periods)) ? data.periods : [];
+    window.classNumbersByPeriod = (data && _.isObject(data.class_numbers_by_period)) ?
+      data.class_numbers_by_period : {};
+
+    // Mais de um turno para a mesma disciplina no dia: expõe o seletor de turno e deixa que
+    // o professor lance cada turno separadamente (sem deduplicar a ordem entre os turnos).
+    if (periods.length > 1) {
+      showTurnoSelector(periods);
+      return;
+    }
+
+    hideTurnoSelector();
+    setClassNumbersOnField(extractClassNumbersFromResponse(data));
+    applyPeriodFromScheduleResponse(data);
+  };
+
   var autoFillClassNumbersBySchedule = function () {
     var disciplineId = getInputValue($discipline);
     var classroomId = getInputValue($classroom);
     var frequencyDate = getInputValue($frequencyDate);
 
     if (_.isEmpty(disciplineId) || _.isEmpty(classroomId) || _.isEmpty(frequencyDate)) {
+      hideTurnoSelector();
       setClassNumbersOnField([]);
       return;
     }
@@ -194,12 +248,21 @@ $(function () {
       discipline_id: disciplineId,
       frequency_date: frequencyDate
     }).done(function (data) {
-      setClassNumbersOnField(extractClassNumbersFromResponse(data));
-      applyPeriodFromScheduleResponse(data);
+      handleClassNumbersResponse(data);
     }).fail(function () {
+      hideTurnoSelector();
       setClassNumbersOnField([]);
     });
   };
+
+  $turno.on('change', function (e) {
+    var selectedPeriod = normalizePeriodKey(e.val !== undefined ? e.val : $turno.select2('val'));
+    $('#daily_frequency_period').val(selectedPeriod);
+
+    var byPeriod = window.classNumbersByPeriod || {};
+    var numbers = byPeriod[selectedPeriod] || [];
+    setClassNumbersOnField(numbers);
+  });
 
   var scheduleAutoFillClassNumbers = function () {
     if (autoFillTimeout) {
@@ -344,12 +407,14 @@ $(function () {
           $discipline.val('').trigger('change');
           $classNumbers.val('').trigger('change');
           $discipline.select2({ data: [] });
+          hideTurnoSelector();
           reloadScheduleForSelectedDate();
         }
       }else{
         $globalAbsence.val(0);
         $disciplineField.hide();
         $classNumbersField.hide();
+        hideTurnoSelector();
 
         // Display alert
         $examRuleNotFoundAlert.removeClass('hidden');
@@ -367,6 +432,7 @@ $(function () {
     if (_.isEmpty(classroomId) || _.isEmpty(disciplineId)) {
       $classNumbersField.hide();
       $classNumbers.val('').trigger('change');
+      hideTurnoSelector();
       return;
     }
 
@@ -382,6 +448,7 @@ $(function () {
       } else {
         $classNumbersField.hide();
         $classNumbers.val('').trigger('change');
+        hideTurnoSelector();
       }
     });
   };

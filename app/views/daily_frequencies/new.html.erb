@@ -56,6 +56,17 @@
                         required: true %>
           </div>
         </div>
+        <div class="col col-sm-4 turno_field hidden">
+          <div class="control-group required daily_frequency_turno">
+            <label class="select2 required control-label" for="daily_frequency_turno">Turno <abbr title="obrigatório">*</abbr></label>
+            <%= hidden_field_tag :turno, '',
+                  id: 'daily_frequency_turno',
+                  class: 'form-control select2',
+                  data: {
+                    placeholder: 'Selecione o turno'
+                  } %>
+          </div>
+        </div>
         <div class="col col-sm-4 class_numbers_field">
           <div class="control-group required daily_frequency_class_numbers <%= @error_on_class_numbers ? 'error' : '' %>">
             <label class="select2 required control-label" for="daily_frequency_class_numbers">Informe o número exato da aula (1ª, 2ª, 3ª...) <abbr title="obrigatório">*</abbr></label>

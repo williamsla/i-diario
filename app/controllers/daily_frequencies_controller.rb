@@ -64,7 +64,18 @@ class DailyFrequenciesController < ApplicationController
       discipline_id: discipline_id
     )
 
-    render json: { class_numbers: class_numbers, period: period }
+    # Mesma regra do select de disciplinas: turnos/aulas do dia no quadro para a disciplina,
+    # sem filtrar pelo professor específico da alocação (as disciplinas já vêm filtradas
+    # pelas disciplinas do professor).
+    class_numbers_by_period = class_numbers_grouped_by_period(allocations)
+    periods = periods_from_allocations(allocations)
+
+    render json: {
+      class_numbers: class_numbers,
+      period: period,
+      periods: periods,
+      class_numbers_by_period: class_numbers_by_period
+    }
   end
 
   def disciplines_for_frequency_date
@@ -199,7 +210,23 @@ class DailyFrequenciesController < ApplicationController
       @daily_frequency,
       params[:class_numbers].to_s.split(',').map(&:strip)
     )
-    @period = @admin_or_teacher ? current_teacher_period : set_options_by_classroom
+    # Turno escolhido no formulário (chega via params na edição múltipla). Quando o professor
+    # leciona a mesma disciplina em mais de um turno no mesmo dia, é ele quem define o turno,
+    # e o registro precisa manter esse turno (matutino/vespertino) — caso contrário os dois
+    # turnos gravariam com o mesmo período e colidiriam no índice único.
+    selected_period = daily_frequency_params[:period].presence&.to_i
+
+    @period = if @admin_or_teacher
+                current_teacher_period
+              elsif selected_period.present? && selected_period.positive?
+                selected_period
+              else
+                set_options_by_classroom
+              end
+
+    # Garante que o registro (e o hidden field :period do formulário de marcação) use o turno
+    # escolhido, sem ser sobrescrito por set_options_by_classroom.
+    @daily_frequency.period = selected_period if selected_period.present? && selected_period.positive?
 
     # Em turma de turno integral (FULL), manter o período real do professor (matutino/vespertino)
     # para filtrar faltas justificadas e matrículas por turno. Evita que falta justificada da
@@ -1120,6 +1147,36 @@ class DailyFrequenciesController < ApplicationController
       ]
     end
     first&.lessons_board_lesson&.lessons_board&.period&.to_i
+  end
+
+  # Números de aula (ordem) agrupados por turno. Permite que o professor que leciona
+  # a mesma disciplina em mais de um turno no mesmo dia lance cada turno separadamente,
+  # sem que a mesma ordem de aulas seja deduplicada entre os turnos.
+  def class_numbers_grouped_by_period(allocations)
+    grouped = allocations.each_with_object({}) do |allocation, memo|
+      lesson = allocation.lessons_board_lesson
+      period = lesson&.lessons_board&.period&.to_i
+      class_number = lesson&.lesson_number&.to_i
+      next if period.blank? || period.zero? || class_number.blank? || class_number.zero?
+
+      memo[period] ||= []
+      memo[period] << class_number
+    end
+
+    grouped.each { |period, numbers| grouped[period] = numbers.uniq.sort }
+    grouped
+  end
+
+  # Lista de turnos presentes no quadro para a turma/disciplina/dia (com rótulo para o select).
+  def periods_from_allocations(allocations)
+    periods_on_board = allocations.map do |allocation|
+      allocation.lessons_board_lesson&.lessons_board&.period
+    end.compact.map(&:to_i).reject(&:zero?).uniq.sort
+
+    periods_on_board.map do |period|
+      label = Periods.t(period)
+      { id: period, name: label, text: label }
+    end
   end
 
   def fetch_disciplines_by_day
