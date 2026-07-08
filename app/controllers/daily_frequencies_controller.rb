@@ -54,27 +54,35 @@ class DailyFrequenciesController < ApplicationController
                                            .by_weekday(weekday)
                                            .order('lessons_board_lessons.lesson_number')
 
-    class_numbers = allocations.map { |allocation|
-      allocation.lessons_board_lesson&.lesson_number&.to_i
-    }.compact.uniq.sort
-
-    period = infer_daily_frequency_period_from_allocations(
-      allocations,
-      classroom_id: classroom_id,
-      discipline_id: discipline_id
-    )
-
-    # Mesma regra do select de disciplinas: turnos/aulas do dia no quadro para a disciplina,
-    # sem filtrar pelo professor específico da alocação (as disciplinas já vêm filtradas
-    # pelas disciplinas do professor).
     class_numbers_by_period = class_numbers_grouped_by_period(allocations)
-    periods = periods_from_allocations(allocations)
+    periods_list = periods_from_allocations(allocations)
+    requires_period_selection = requires_period_selection?(class_numbers_by_period)
+
+    if requires_period_selection
+      class_numbers = []
+      period = nil
+    elsif class_numbers_by_period.size == 1
+      only_period = class_numbers_by_period.keys.first
+      class_numbers = class_numbers_by_period[only_period]
+      period = only_period
+    else
+      class_numbers = allocations.map { |allocation|
+        allocation.lessons_board_lesson&.lesson_number&.to_i
+      }.compact.uniq.sort
+
+      period = infer_daily_frequency_period_from_allocations(
+        allocations,
+        classroom_id: classroom_id,
+        discipline_id: discipline_id
+      )
+    end
 
     render json: {
       class_numbers: class_numbers,
       period: period,
-      periods: periods,
-      class_numbers_by_period: class_numbers_by_period
+      periods: requires_period_selection ? periods_list : [],
+      class_numbers_by_period: requires_period_selection ? class_numbers_by_period : {},
+      requires_period_selection: requires_period_selection
     }
   end
 
@@ -164,7 +172,11 @@ class DailyFrequenciesController < ApplicationController
     if @daily_frequency.valid?
       @frequency_type = current_frequency_type(@daily_frequency)
 
-      return if @frequency_type == FrequencyTypes::BY_DISCIPLINE && !(validate_class_numbers && validate_discipline)
+      if @frequency_type == FrequencyTypes::BY_DISCIPLINE &&
+         !(validate_class_numbers && validate_discipline && validate_period_selection_when_required!)
+        render :new
+        return
+      end
 
       if teacher_absence_blocks_frequency?(@daily_frequency, @class_numbers)
         redirect_to new_daily_frequency_path, alert: I18n.t('daily_frequencies.create.blocked_by_teacher_absence')
@@ -182,7 +194,11 @@ class DailyFrequenciesController < ApplicationController
       if existing_frequencies_for_date?
         @frequency_type = current_frequency_type(@daily_frequency)
 
-        return if @frequency_type == FrequencyTypes::BY_DISCIPLINE && !(validate_class_numbers && validate_discipline)
+        if @frequency_type == FrequencyTypes::BY_DISCIPLINE &&
+           !(validate_class_numbers && validate_discipline && validate_period_selection_when_required!)
+          render :new
+          return
+        end
 
         if teacher_absence_blocks_frequency?(@daily_frequency, @class_numbers)
           redirect_to new_daily_frequency_path, alert: I18n.t('daily_frequencies.create.blocked_by_teacher_absence')
@@ -1147,6 +1163,39 @@ class DailyFrequenciesController < ApplicationController
       ]
     end
     first&.lessons_board_lesson&.lessons_board&.period&.to_i
+  end
+
+  # Só exige escolha de turno quando a mesma ordem de aula (1ª, 2ª...) aparece em mais de um
+  # turno no quadro — caso da professora com Matemática nos dois turnos na mesma ordem.
+  # Turmas integrais com disciplinas em turnos diferentes (ex.: 1ª manhã e 3ª tarde) não entram.
+  def requires_period_selection?(class_numbers_by_period)
+    return false if class_numbers_by_period.blank? || class_numbers_by_period.size <= 1
+
+    class_numbers_by_period.values.flatten.group_by(&:itself).any? { |_, occurrences| occurrences.size > 1 }
+  end
+
+  def validate_period_selection_when_required!
+    classroom_id = daily_frequency_params[:classroom_id].presence
+    discipline_id = daily_frequency_params[:discipline_id].presence
+    frequency_date = parse_frequency_date(daily_frequency_params[:frequency_date])
+
+    return true if classroom_id.blank? || discipline_id.blank? || frequency_date.blank?
+
+    weekday = lessons_board_weekday_for_date(frequency_date)
+    allocations = LessonsBoardLessonWeekday.includes(lessons_board_lesson: :lessons_board)
+                                           .by_classroom(classroom_id)
+                                           .by_discipline(discipline_id)
+                                           .by_weekday(weekday)
+
+    return true unless requires_period_selection?(class_numbers_grouped_by_period(allocations))
+
+    period = daily_frequency_params[:period].presence&.to_i
+    return true if period.present? && period.positive?
+
+    @error_on_turno = true
+    flash.now[:alert] = t('errors.daily_frequencies.turn_required_when_multiple_periods')
+
+    false
   end
 
   # Números de aula (ordem) agrupados por turno. Permite que o professor que leciona

@@ -216,20 +216,21 @@ $(function () {
   };
 
   var handleClassNumbersResponse = function (data) {
+    var requiresPeriodSelection = !!(data && data.requires_period_selection);
     var periods = (data && _.isArray(data.periods)) ? data.periods : [];
     window.classNumbersByPeriod = (data && _.isObject(data.class_numbers_by_period)) ?
       data.class_numbers_by_period : {};
 
-    // Mais de um turno para a mesma disciplina no dia: expõe o seletor de turno e deixa que
-    // o professor lance cada turno separadamente (sem deduplicar a ordem entre os turnos).
-    if (periods.length > 1) {
+    if (requiresPeriodSelection) {
       showTurnoSelector(periods);
+      syncSubmitButtonState();
       return;
     }
 
     hideTurnoSelector();
     setClassNumbersOnField(extractClassNumbersFromResponse(data));
     applyPeriodFromScheduleResponse(data);
+    syncSubmitButtonState();
   };
 
   var autoFillClassNumbersBySchedule = function () {
@@ -262,6 +263,7 @@ $(function () {
     var byPeriod = window.classNumbersByPeriod || {};
     var numbers = byPeriod[selectedPeriod] || [];
     setClassNumbersOnField(numbers);
+    syncSubmitButtonState();
   });
 
   var scheduleAutoFillClassNumbers = function () {
@@ -290,6 +292,11 @@ $(function () {
 
   var syncSubmitButtonState = function () {
     if (!$examRuleNotFoundAlert.hasClass('hidden') || !$disciplinesEmptyAlert.hasClass('hidden')) {
+      $('form input[type=submit]').addClass('disabled');
+      return;
+    }
+
+    if (!$turnoField.hasClass('hidden') && _.isEmpty(getInputValue($turno))) {
       $('form input[type=submit]').addClass('disabled');
       return;
     }
