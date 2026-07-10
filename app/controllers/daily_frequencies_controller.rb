@@ -291,57 +291,38 @@ class DailyFrequenciesController < ApplicationController
 
     @students_as_justified = []
 
-    # Agrupar enrollment_classrooms por student_id para selecionar apenas a matrícula mais recente
+    # Agrupar por aluno e priorizar a enturmação ativa na data da frequência.
+    # Sem isso, uma rematrícula/retorno posterior (joined_at mais recente) fazia o sistema
+    # considerar o aluno inativo em datas anteriores — e a tela exibia "não há alunos".
     enrollment_classrooms_by_student = fetch_enrollment_classrooms.group_by { |ec| ec[:student].id }
     frequency_date = @daily_frequency.frequency_date.to_date
-    
-    enrollment_classrooms_by_student.each do |student_id, enrollment_classrooms|
-      # Selecionar a matrícula mais recente baseada no sequence e joined_at
-      # Prioriza sequence (maior = mais recente), depois joined_at (mais recente = mais recente)
-      enrollment_classroom = enrollment_classrooms.max_by do |ec|
-        # Acessar sequence e joined_at do hash
-        sequence = ec[:sequence]
-        joined_at = ec[:joined_at]
-        
-        # Converter sequence para inteiro e joined_at para Date
-        sequence_value = sequence.to_i rescue 0
-        joined_at_date = joined_at.is_a?(Date) ? joined_at : (joined_at.to_date rescue nil)
-        
-        # Retorna um array para comparação: [sequence, joined_at]
-        # O max_by vai comparar primeiro pelo sequence, depois pelo joined_at
-        [joined_at_date, sequence_value || Date.new(1900, 1, 1)]
-      end
-      
+
+    enrollment_classrooms_by_student.each do |_student_id, enrollment_classrooms|
+      enrollment_classroom = select_enrollment_classroom_for_frequency_date(
+        enrollment_classrooms,
+        frequency_date
+      )
+
       student = enrollment_classroom[:student]
-      student_enrollment = enrollment_classroom[:student_enrollment]
       left_at = enrollment_classroom[:left_at]
       joined_at = enrollment_classroom[:joined_at]
-      
       student_enrollment_id = enrollment_classroom[:student_enrollment_id]
-      
-      # Verificar se o aluno está ativo na data da frequência
-      # Considera: joined_at <= frequency_date E (left_at é nulo OU left_at > frequency_date)
-      joined_at_date = joined_at.to_date rescue nil
-      left_at_date = left_at.to_date rescue nil if left_at.present?
-      
-      is_active_on_frequency_date = false
-      if joined_at_date && joined_at_date <= frequency_date
-        is_active_on_frequency_date = left_at_date.nil? || left_at_date.blank? || left_at_date > frequency_date
-      end
-      
-      # O aluno está ativo se está no hash 'active' (calculado pelo ActiveStudentsOnDate)
-      # E está realmente ativo na data (verificação manual)
-      activated_student = active.include?(enrollment_classroom[:student_enrollment_classroom_id]) && is_active_on_frequency_date
+
+      is_active_on_frequency_date = enrollment_active_on_date?(enrollment_classroom, frequency_date)
+
+      # Ativo se está no hash do ActiveStudentsOnDate e na enturmação válida para a data
+      activated_student = active.include?(enrollment_classroom[:student_enrollment_classroom_id]) &&
+                          is_active_on_frequency_date
       has_dependence = dependencies[student_enrollment_id] ? true : false
       has_exempted = exempt[student_enrollment_id] ? true : false
-      
+
       if absence_justifications[student.id]
         absence_justification = absence_justifications[student.id]
-        @students_as_justified << student        
+        @students_as_justified << student
       else
         absence_justification = {}
       end
-      
+
       in_active_search = active_search[@daily_frequency.frequency_date]&.include?(student_enrollment_id)
       sequence = enrollment_classroom[:sequence] if show_inactive_enrollments
 
@@ -351,7 +332,7 @@ class DailyFrequenciesController < ApplicationController
       @any_inactive_student ||= !activated_student
 
       next unless activated_student || show_inactive_enrollments
-      
+
       @students << {
         student: student,
         dependence: has_dependence,
@@ -363,7 +344,6 @@ class DailyFrequenciesController < ApplicationController
         joined_at: joined_at,
         left_at: left_at
       }
-
     end
 
     all_inactive = @students.all? { |element| element[:active] == false }
@@ -790,7 +770,43 @@ class DailyFrequenciesController < ApplicationController
                 date: @daily_frequency.frequency_date,
                 search_type: :by_date,
                 period: @period
-              ).student_enrollment_classrooms    
+              ).student_enrollment_classrooms
+  end
+
+  # Preferência: enturmação ativa na data; senão a mais recente (joined_at/sequence).
+  def select_enrollment_classroom_for_frequency_date(enrollment_classrooms, frequency_date)
+    active_on_date = enrollment_classrooms.select { |ec| enrollment_active_on_date?(ec, frequency_date) }
+
+    candidates = active_on_date.presence || enrollment_classrooms
+
+    candidates.max_by do |ec|
+      sequence_value = ec[:sequence].to_i rescue 0
+      joined_at_date = parse_enrollment_date(ec[:joined_at]) || Date.new(1900, 1, 1)
+
+      [joined_at_date, sequence_value]
+    end
+  end
+
+  # Mesmo critério do scope StudentEnrollmentClassroom.by_date:
+  # date >= joined_at AND (left_at vazio OU date <= left_at)
+  def enrollment_active_on_date?(enrollment_classroom, date)
+    joined_at_date = parse_enrollment_date(enrollment_classroom[:joined_at])
+    return false unless joined_at_date && date >= joined_at_date
+
+    left_at = enrollment_classroom[:left_at]
+    return true if left_at.blank?
+
+    left_at_date = parse_enrollment_date(left_at)
+    left_at_date.nil? || date <= left_at_date
+  end
+
+  def parse_enrollment_date(value)
+    return if value.blank?
+    return value if value.is_a?(Date)
+
+    value.to_date
+  rescue ArgumentError, TypeError
+    nil
   end
 
   def set_number_of_classes
