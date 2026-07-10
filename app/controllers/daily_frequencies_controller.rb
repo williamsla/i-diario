@@ -230,24 +230,14 @@ class DailyFrequenciesController < ApplicationController
     # leciona a mesma disciplina em mais de um turno no mesmo dia, é ele quem define o turno,
     # e o registro precisa manter esse turno (matutino/vespertino) — caso contrário os dois
     # turnos gravariam com o mesmo período e colidiriam no índice único.
-    selected_period = daily_frequency_params[:period].presence&.to_i
-
-    @period = if @admin_or_teacher
-                current_teacher_period
-              elsif selected_period.present? && selected_period.positive?
-                selected_period
-              else
-                set_options_by_classroom
-              end
-
-    # Garante que o registro (e o hidden field :period do formulário de marcação) use o turno
-    # escolhido, sem ser sobrescrito por set_options_by_classroom.
-    @daily_frequency.period = selected_period if selected_period.present? && selected_period.positive?
+    @frequency_type = current_frequency_type(@daily_frequency)
+    @period = period_for_daily_frequency(@daily_frequency)
 
     # Em turma de turno integral (FULL), manter o período real do professor (matutino/vespertino)
     # para filtrar faltas justificadas e matrículas por turno. Evita que falta justificada da
     # manhã apareça no registro da tarde (e vice-versa).
     @period = nil if @period == Periods::FULL.to_i && !current_teacher_has_specific_period?
+    @daily_frequency.period = @period if @daily_frequency.period.blank? && @period.present?
 
     @general_configuration = GeneralConfiguration.current
 
@@ -264,11 +254,12 @@ class DailyFrequenciesController < ApplicationController
     @absence_justification = AbsenceJustification.new
     @absence_justification.school_calendar = current_school_calendar
 
-    student_enrollment_ids = fetch_enrollment_classrooms.map { |student_enrollment|
+    enrollment_classrooms = fetch_enrollment_classrooms
+    student_enrollment_ids = enrollment_classrooms.map { |student_enrollment|
       student_enrollment[:student_enrollment_id]
     }
 
-    student_ids = fetch_enrollment_classrooms.map { |student_enrollment|
+    student_ids = enrollment_classrooms.map { |student_enrollment|
       student_enrollment[:student].id
     }
 
@@ -294,12 +285,12 @@ class DailyFrequenciesController < ApplicationController
     # Agrupar por aluno e priorizar a enturmação ativa na data da frequência.
     # Sem isso, uma rematrícula/retorno posterior (joined_at mais recente) fazia o sistema
     # considerar o aluno inativo em datas anteriores — e a tela exibia "não há alunos".
-    enrollment_classrooms_by_student = fetch_enrollment_classrooms.group_by { |ec| ec[:student].id }
+    enrollment_classrooms_by_student = enrollment_classrooms.group_by { |ec| ec[:student].id }
     frequency_date = @daily_frequency.frequency_date.to_date
 
-    enrollment_classrooms_by_student.each do |_student_id, enrollment_classrooms|
+    enrollment_classrooms_by_student.each do |_student_id, student_enrollment_classrooms|
       enrollment_classroom = select_enrollment_classroom_for_frequency_date(
-        enrollment_classrooms,
+        student_enrollment_classrooms,
         frequency_date
       )
 
@@ -308,11 +299,8 @@ class DailyFrequenciesController < ApplicationController
       joined_at = enrollment_classroom[:joined_at]
       student_enrollment_id = enrollment_classroom[:student_enrollment_id]
 
-      is_active_on_frequency_date = enrollment_active_on_date?(enrollment_classroom, frequency_date)
-
-      # Ativo se está no hash do ActiveStudentsOnDate e na enturmação válida para a data
-      activated_student = active.include?(enrollment_classroom[:student_enrollment_classroom_id]) &&
-                          is_active_on_frequency_date
+      # ActiveStudentsOnDate já valida a enturmação na data via SQL (by_date).
+      activated_student = active.include?(enrollment_classroom[:student_enrollment_classroom_id])
       has_dependence = dependencies[student_enrollment_id] ? true : false
       has_exempted = exempt[student_enrollment_id] ? true : false
 
@@ -464,7 +452,16 @@ class DailyFrequenciesController < ApplicationController
       )
     end
 
-    redirect_to edit_multiple_daily_frequencies_path
+    redirect_to edit_multiple_daily_frequencies_path(
+      daily_frequency: daily_frequency_attributes.slice(
+        :classroom_id,
+        :discipline_id,
+        :frequency_date,
+        :period,
+        :unity_id
+      ),
+      class_numbers: class_numbers_from_params
+    )
   end
 
   def destroy_multiple
@@ -763,50 +760,70 @@ class DailyFrequenciesController < ApplicationController
   end
 
   def fetch_enrollment_classrooms
-    list ||= StudentEnrollmentsList.new(
-                classroom: @daily_frequency.classroom,
-                grade: discipline_classroom_grade_ids,
-                discipline: @daily_frequency.discipline,
-                date: @daily_frequency.frequency_date,
-                search_type: :by_date,
-                period: @period
-              ).student_enrollment_classrooms
+    @fetch_enrollment_classrooms ||= begin
+      enrollments = enrollment_classrooms_for(period: enrollment_period_for_student_list)
+      if enrollments.blank? && enrollment_period_for_student_list.present?
+        enrollments = enrollment_classrooms_for(period: nil)
+      end
+      enrollments
+    end
+  end
+
+  def enrollment_classrooms_for(period:)
+    StudentEnrollmentsList.new(
+      classroom: @daily_frequency.classroom,
+      grade: discipline_classroom_grade_ids,
+      discipline: @daily_frequency.discipline,
+      date: @daily_frequency.frequency_date,
+      search_type: :by_date,
+      period: period
+    ).student_enrollment_classrooms
+  end
+
+  # Em turma integral, filtra alunos pelo turno do registro de frequência.
+  # Em turmas de turno único, não aplica filtro de turno na listagem.
+  def enrollment_period_for_student_list
+    return @enrollment_period_for_student_list if defined?(@enrollment_period_for_student_list)
+
+    classroom_period = @daily_frequency.classroom.period.to_i
+    @enrollment_period_for_student_list =
+      if classroom_period == Periods::FULL.to_i && @period.present? && @period != Periods::FULL.to_i
+        @period
+      end
+  end
+
+  def period_for_daily_frequency(daily_frequency)
+    selected_period = daily_frequency_params[:period].presence&.to_i
+
+    if selected_period.present? && selected_period.positive?
+      selected_period
+    elsif daily_frequency.period.present? && daily_frequency.period.to_i.positive?
+      daily_frequency.period.to_i
+    else
+      current_teacher_period_by_classroom(daily_frequency.classroom, daily_frequency.discipline)
+    end
   end
 
   # Preferência: enturmação ativa na data; senão a mais recente (joined_at/sequence).
   def select_enrollment_classroom_for_frequency_date(enrollment_classrooms, frequency_date)
-    active_on_date = enrollment_classrooms.select { |ec| enrollment_active_on_date?(ec, frequency_date) }
+    active_on_date = enrollment_classrooms.select do |ec|
+      enrollment_active_on_date?(ec[:student_enrollment_classroom_id], frequency_date)
+    end
 
     candidates = active_on_date.presence || enrollment_classrooms
 
     candidates.max_by do |ec|
       sequence_value = ec[:sequence].to_i rescue 0
-      joined_at_date = parse_enrollment_date(ec[:joined_at]) || Date.new(1900, 1, 1)
+      joined_at_date = ec[:joined_at].to_date rescue Date.new(1900, 1, 1)
 
       [joined_at_date, sequence_value]
     end
   end
 
-  # Mesmo critério do scope StudentEnrollmentClassroom.by_date:
-  # date >= joined_at AND (left_at vazio OU date <= left_at)
-  def enrollment_active_on_date?(enrollment_classroom, date)
-    joined_at_date = parse_enrollment_date(enrollment_classroom[:joined_at])
-    return false unless joined_at_date && date >= joined_at_date
-
-    left_at = enrollment_classroom[:left_at]
-    return true if left_at.blank?
-
-    left_at_date = parse_enrollment_date(left_at)
-    left_at_date.nil? || date <= left_at_date
-  end
-
-  def parse_enrollment_date(value)
-    return if value.blank?
-    return value if value.is_a?(Date)
-
-    value.to_date
-  rescue ArgumentError, TypeError
-    nil
+  def enrollment_active_on_date?(student_enrollment_classroom_id, date)
+    StudentEnrollmentClassroom.where(id: student_enrollment_classroom_id)
+                              .by_date(date)
+                              .exists?
   end
 
   def set_number_of_classes
@@ -848,20 +865,25 @@ class DailyFrequenciesController < ApplicationController
 
   def discipline_classroom_grade_ids
     classroom_grade_ids = ClassroomsGrade.by_classroom_id(@daily_frequency.classroom.id).pluck(:grade_id)
-    school_calendar = StepsFetcher.new(@daily_frequency.classroom).school_calendar
+    return classroom_grade_ids if classroom_grade_ids.blank?
 
-    if @frequency_type == FrequencyTypes::BY_DISCIPLINE
-      SchoolCalendarDisciplineGrade.where(
-        grade_id: classroom_grade_ids,
-        school_calendar_id: school_calendar.id,
-        discipline_id: @daily_frequency.discipline.id
-      ).pluck(:grade_id)
-    else
-      SchoolCalendarDisciplineGrade.where(
-        grade_id: classroom_grade_ids,
-        school_calendar_id: school_calendar.id
-      ).pluck(:grade_id)
-    end
+    school_calendar = StepsFetcher.new(@daily_frequency.classroom).school_calendar
+    frequency_type = @frequency_type || current_frequency_type(@daily_frequency)
+
+    grade_ids = if frequency_type == FrequencyTypes::BY_DISCIPLINE && @daily_frequency.discipline.present?
+                  SchoolCalendarDisciplineGrade.where(
+                    grade_id: classroom_grade_ids,
+                    school_calendar_id: school_calendar.id,
+                    discipline_id: @daily_frequency.discipline.id
+                  ).pluck(:grade_id)
+                else
+                  SchoolCalendarDisciplineGrade.where(
+                    grade_id: classroom_grade_ids,
+                    school_calendar_id: school_calendar.id
+                  ).pluck(:grade_id)
+                end
+
+    grade_ids.presence || classroom_grade_ids
   end
 
   def show_inactive_enrollments
