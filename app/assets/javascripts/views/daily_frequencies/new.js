@@ -236,7 +236,13 @@ $(function () {
     $turno.select2({
       data: elements,
       placeholder: $turno.data('placeholder') || 'Selecione o turno',
-      allowClear: true
+      allowClear: true,
+      formatResult: function (el) {
+        return "<div class='select2-user-result'>" + (el.name || el.text) + "</div>";
+      },
+      formatSelection: function (el) {
+        return "<div class='select2-user-result'>" + (el.text || el.name) + "</div>";
+      }
     });
     // Vazio por padrão: o professor precisa escolher o turno.
     $turno.select2('val', '');
@@ -245,7 +251,7 @@ $(function () {
       $('#daily_frequency_period').val(selectedPeriod);
 
       var byPeriod = window.classNumbersByPeriod || {};
-      var numbers = byPeriod[selectedPeriod] || [];
+      var numbers = byPeriod[selectedPeriod] || byPeriod[String(parseInt(selectedPeriod, 10))] || [];
       setClassNumbersOnField(numbers);
       syncSubmitButtonState();
     });

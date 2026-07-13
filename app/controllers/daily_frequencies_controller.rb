@@ -81,7 +81,7 @@ class DailyFrequenciesController < ApplicationController
       class_numbers: class_numbers,
       period: period,
       periods: requires_period_selection ? periods_list : [],
-      class_numbers_by_period: requires_period_selection ? class_numbers_by_period : {},
+      class_numbers_by_period: requires_period_selection ? class_numbers_by_period.stringify_keys : {},
       requires_period_selection: requires_period_selection
     }
   end
@@ -1203,13 +1203,10 @@ class DailyFrequenciesController < ApplicationController
     first&.lessons_board_lesson&.lessons_board&.period&.to_i
   end
 
-  # Só exige escolha de turno quando a mesma ordem de aula (1ª, 2ª...) aparece em mais de um
-  # turno no quadro — caso da professora com Matemática nos dois turnos na mesma ordem.
-  # Turmas integrais com disciplinas em turnos diferentes (ex.: 1ª manhã e 3ª tarde) não entram.
+  # Exige escolha de turno quando a disciplina aparece em mais de um turno no quadro no mesmo dia
+  # (ex.: professora de Matemática no matutino e no vespertino da mesma turma).
   def requires_period_selection?(class_numbers_by_period)
-    return false if class_numbers_by_period.blank? || class_numbers_by_period.size <= 1
-
-    class_numbers_by_period.values.flatten.group_by(&:itself).any? { |_, occurrences| occurrences.size > 1 }
+    class_numbers_by_period.present? && class_numbers_by_period.size > 1
   end
 
   def validate_period_selection_when_required!
@@ -1262,7 +1259,7 @@ class DailyFrequenciesController < ApplicationController
 
     periods_on_board.map do |period|
       label = Periods.t(period)
-      { id: period, name: label, text: label }
+      { id: period.to_s, name: label, text: label }
     end
   end
 
