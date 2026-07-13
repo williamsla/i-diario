@@ -406,10 +406,10 @@ class PedagogicalTrackingsController < ApplicationController
       @selected_classifications = selected_classifications
 
       # Filtro principal: escolher qual critério usar
-      # 'absences_only' (padrão): apenas alunos com 3+ faltas nos últimos 15 dias
-      # 'low_frequency_only': apenas alunos com < 80% de frequência no ano
+      # 'absences_only': apenas alunos com 3+ faltas nos últimos 15 dias
+      # 'low_frequency_only' (padrão): apenas alunos com < 80% de frequência no ano
       # 'both': ambos os critérios (3+ faltas OU < 80%)
-      @main_filter = params[:main_filter] || 'absences_only'
+      @main_filter = params[:main_filter] || 'low_frequency_only'
 
       # Data atual e últimos 15 dias
       end_date = Date.current
@@ -532,8 +532,8 @@ class PedagogicalTrackingsController < ApplicationController
             # Ambos: 3+ faltas OU menos de 80% de frequência
             next unless has_3_or_more_absences || has_low_frequency
           else
-            # Padrão: apenas 3+ faltas
-            next unless has_3_or_more_absences
+            # Padrão: apenas alunos com menos de 80% de frequência no ano
+            next unless has_low_frequency
           end
           
           # Data da última presença (já calculada no banco)

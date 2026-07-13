@@ -298,7 +298,7 @@ function closeResumeModal(event) {
 let currentFrequencyModalParams = {
   unityId: null,
   classroomId: null,
-  mainFilter: 'absences_only',
+  mainFilter: 'low_frequency_only',
   selectedClassifications: ['Abaixo do Mínimo', 'Crítico']
 };
 
@@ -310,7 +310,7 @@ function openFrequencyReportModal(unityId, classroomId) {
   currentFrequencyModalParams.unityId = unityId;
   currentFrequencyModalParams.classroomId = classroomId;
   // Inicializar valores dos filtros
-  currentFrequencyModalParams.mainFilter = 'absences_only';
+  currentFrequencyModalParams.mainFilter = 'low_frequency_only';
   currentFrequencyModalParams.selectedClassifications = ['Abaixo do Mínimo', 'Crítico'];
 
   // mostra modal
@@ -319,11 +319,11 @@ function openFrequencyReportModal(unityId, classroomId) {
   // mostra loading
   document.getElementById("frequencyReportModalBody").innerHTML = "<p>Carregando...</p>";
 
-  // busca conteúdo via fetch (por padrão: Abaixo do Mínimo e Crítico, filtro principal: absences_only)
+  // busca conteúdo via fetch (por padrão: Abaixo do Mínimo e Crítico, filtro principal: low_frequency_only)
   const defaultClassifications = ['Abaixo do Mínimo', 'Crítico'];
   const params = new URLSearchParams({
     unity_id: unityId,
-    main_filter: 'absences_only'
+    main_filter: 'low_frequency_only'
   });
   if (classroomId && classroomId != 0) {
     params.append('classroom_id', classroomId);
@@ -413,7 +413,7 @@ function attachFilterListeners() {
       const isNowChecked = target.checked;
             
       // Usar o filtro principal atual armazenado globalmente
-      let mainFilter = currentFrequencyModalParams.mainFilter || 'absences_only';
+      let mainFilter = currentFrequencyModalParams.mainFilter || 'low_frequency_only';
       
       // Processar a mudança imediatamente, buscando checkboxes do modalBody
       const processCheckboxChange = function() {
@@ -498,7 +498,7 @@ function applyRiskFilterWithValues(mainFilter, selectedClassifications) {
   const modalBody = document.getElementById("frequencyReportModalBody");
   
   // Garantir valores padrão
-  mainFilter = mainFilter || currentFrequencyModalParams.mainFilter || 'absences_only';
+  mainFilter = mainFilter || currentFrequencyModalParams.mainFilter || 'low_frequency_only';
   selectedClassifications = selectedClassifications || currentFrequencyModalParams.selectedClassifications || ['Abaixo do Mínimo', 'Crítico'];
   
   if (selectedClassifications.length === 0) {
@@ -570,7 +570,7 @@ window.applyRiskFilter = function() {
   // Tentar buscar o formulário, se não encontrar, usar valores padrão
   let form = document.getElementById("riskClassificationFilter");
   let selectedClassifications = [];
-  let mainFilter = 'absences_only';
+  let mainFilter = 'low_frequency_only';
   
   if (form) {
     // Obter valores dos checkboxes de classificação selecionados
@@ -579,12 +579,12 @@ window.applyRiskFilter = function() {
 
     // Obter valor do radio button do filtro principal
     const checkedRadio = form.querySelector('input[name="main_filter"]:checked');
-    mainFilter = (checkedRadio && checkedRadio.value) ? checkedRadio.value : 'absences_only';
+    mainFilter = (checkedRadio && checkedRadio.value) ? checkedRadio.value : 'low_frequency_only';
   } else {
     console.warn('Formulário não encontrado, usando valores padrão');
     // Usar valores padrão se o formulário não estiver disponível
     selectedClassifications = ['Abaixo do Mínimo', 'Crítico'];
-    mainFilter = 'absences_only';
+    mainFilter = 'low_frequency_only';
   }
 
   // Se nenhum checkbox de classificação estiver selecionado, usar padrão
