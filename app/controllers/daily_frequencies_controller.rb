@@ -1258,9 +1258,17 @@ class DailyFrequenciesController < ApplicationController
     end.compact.map(&:to_i).reject(&:zero?).uniq.sort
 
     periods_on_board.map do |period|
-      label = Periods.t(period)
+      label = period_label_for(period)
       { id: period.to_s, name: label, text: label }
     end
+  end
+
+  def period_label_for(period)
+    value = period.to_s
+    translated = Periods.t(value)
+    return translated if translated.present? && translated.to_s != value
+
+    Periods.to_a.find { |_name, period_value| period_value.to_s == value }&.first || value
   end
 
   def fetch_disciplines_by_day

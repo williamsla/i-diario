@@ -199,6 +199,8 @@ $(function () {
       }
     } catch (e) {}
 
+    $turno.closest('.control-group').find('> .select2-container').remove();
+    $turno.next('.select2-container').remove();
     $turno.val('');
     $turno.off('change.turno');
   };
@@ -225,9 +227,26 @@ $(function () {
     });
   };
 
+  var PERIOD_LABELS = {
+    '1': 'Matutino',
+    '2': 'Vespertino',
+    '3': 'Noturno',
+    '4': 'Integral',
+    '5': 'Intermediário'
+  };
+
+  var periodLabel = function (period) {
+    var key = normalizePeriodKey(period && period.id !== undefined ? period.id : period);
+    var fromPayload = period && (period.name || period.text);
+    if (fromPayload && String(fromPayload) !== key) {
+      return fromPayload;
+    }
+    return PERIOD_LABELS[key] || fromPayload || key;
+  };
+
   var showTurnoSelector = function (periods) {
     var elements = _.map(periods, function (period) {
-      var label = period.name || period.text || String(period.id);
+      var label = periodLabel(period);
       return { id: normalizePeriodKey(period.id), name: label, text: label };
     });
 
@@ -237,11 +256,13 @@ $(function () {
       data: elements,
       placeholder: $turno.data('placeholder') || 'Selecione o turno',
       allowClear: true,
+      theme: 'classic',
+      width: '100%',
       formatResult: function (el) {
-        return "<div class='select2-user-result'>" + (el.name || el.text) + "</div>";
+        return "<div class='select2-user-result'>" + periodLabel(el) + "</div>";
       },
       formatSelection: function (el) {
-        return "<div class='select2-user-result'>" + (el.text || el.name) + "</div>";
+        return "<div class='select2-user-result'>" + periodLabel(el) + "</div>";
       }
     });
     // Vazio por padrão: o professor precisa escolher o turno.
