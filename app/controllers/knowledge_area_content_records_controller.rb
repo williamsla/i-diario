@@ -509,7 +509,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
   end
   
   def show_objectives
-    Rails.application.secrets.show_objectives.to_s == 'true'
+    GeneralConfiguration.show_objectives?
   end
   helper_method :show_objectives
 end

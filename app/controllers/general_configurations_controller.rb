@@ -64,7 +64,10 @@ class GeneralConfigurationsController < ApplicationController
       :group_children_education,
       :allow_class_number_on_content_records,
       :descriptive_exams_semester_calendar_steps,
-      :annual_conceptual_evaluation
+      :annual_conceptual_evaluation,
+      :show_objectives,
+      :semestral_recovery,
+      :conceptual_exam_batch_layout
     )
 
     parameters[:types_of_teaching] = parameters[:types_of_teaching].split(',')

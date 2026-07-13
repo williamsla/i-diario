@@ -729,8 +729,7 @@ class ConceptualExamsController < ApplicationController
   end
 
   def conceptual_exam_batch_layout?
-    Rails.application.secrets.conceptual_exam_batch_layout.present? &&
-      Rails.application.secrets.conceptual_exam_batch_layout
+    GeneralConfiguration.conceptual_exam_batch_layout?
   end
 
   def require_batch_layout_enabled

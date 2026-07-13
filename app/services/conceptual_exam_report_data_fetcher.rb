@@ -102,7 +102,6 @@ class ConceptualExamReportDataFetcher
   end
 
   def conceptual_exam_batch_layout?
-    Rails.application.secrets.conceptual_exam_batch_layout.present? &&
-      Rails.application.secrets.conceptual_exam_batch_layout
+    GeneralConfiguration.conceptual_exam_batch_layout?
   end
 end

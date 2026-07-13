@@ -50,8 +50,9 @@ module Navigation
         end
       end
 
-      def policy_klass_for(feature)
-        return Educamais if feature.to_s == 'educamais'
+  def policy_klass_for(feature)
+    return Educamais if feature.to_s == 'educamais'
+    return Tutorials if feature.to_s == 'tutorials'
 
         begin
           feature.singularize.camelcase.constantize
@@ -62,11 +63,7 @@ module Navigation
 
       def menu_text(menu_type)
         if menu_type == 'school_term_recovery_diary_records'
-          semestral_recovery = Rails.application.secrets.try(:semestral_recovery) || 
-                              Rails.application.secrets.try(:SEMESTRAL_RECOVERY) || 
-                              false
-          
-          if semestral_recovery
+          if GeneralConfiguration.semestral_recovery?
             'Recuperação Semestral'
           else
             Translator.t("navigation.#{menu_type}")

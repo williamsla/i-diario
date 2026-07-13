@@ -37,6 +37,18 @@ class GeneralConfiguration < ActiveRecord::Base
     current.annual_conceptual_evaluation
   end
 
+  def self.show_objectives?
+    current.show_objectives
+  end
+
+  def self.semestral_recovery?
+    current.semestral_recovery
+  end
+
+  def self.conceptual_exam_batch_layout?
+    current.conceptual_exam_batch_layout
+  end
+
   def allows_after_sales_relationship?
     allows_after_sales_relationship == AfterSaleRelationshipOptions::ALLOWS
   end
