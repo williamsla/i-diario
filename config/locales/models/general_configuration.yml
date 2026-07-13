@@ -42,7 +42,7 @@ pt-BR:
         descriptive_exams_semester_calendar_steps: "Avaliação descritiva em semestres (4 etapas: 2 pareceres, âncoras 2ª e 4ª etapa no i-educar; 2 etapas: 1 parecer, âncora na 2ª etapa)"
         annual_conceptual_evaluation: "Avaliação conceitual anual (uma única avaliação por ano letivo, sem etapas)"
         show_objectives: "Exibir campo 'Objetivos' no Registro de conteúdos (por disciplina e por área)"
-        semestral_recovery: "Recuperação semestral (menu e relatório de registro de avaliações com média de todas as etapas)"
+        semestral_recovery: "Recuperação semestral — renomeia o menu 'Recuperações de etapas' e usa o relatório de médias com MP/Rec por semestre"
         conceptual_exam_batch_layout: "Layout por turma nas avaliações conceituais (preencher matriz de todos os alunos de uma vez)"
 
   backup:

@@ -38,16 +38,43 @@ class GeneralConfiguration < ActiveRecord::Base
   end
 
   def self.show_objectives?
-    current.show_objectives
+    flag_enabled?(:show_objectives)
   end
 
   def self.semestral_recovery?
-    current.semestral_recovery
+    flag_enabled?(:semestral_recovery)
   end
 
   def self.conceptual_exam_batch_layout?
-    current.conceptual_exam_batch_layout
+    flag_enabled?(:conceptual_exam_batch_layout)
   end
+
+  # Preferência: general_configurations (por município). Fallback: secrets.yml se a coluna ainda não existir.
+  def self.flag_enabled?(attribute)
+    record = current
+    if record.has_attribute?(attribute)
+      return ActiveRecord::Type::Boolean.new.cast(record.public_send(attribute))
+    end
+
+    secret_flag?(attribute)
+  end
+  private_class_method :flag_enabled?
+
+  def self.secret_flag?(attribute)
+    secrets = Rails.application.secrets
+    keys = [attribute]
+    keys << :SEMESTRAL_RECOVERY if attribute.to_sym == :semestral_recovery
+
+    keys.any? do |key|
+      next false unless secrets.respond_to?(key)
+
+      value = secrets.public_send(key)
+      value == true || value.to_s.strip.casecmp('true').zero? || value.to_s == '1'
+    end
+  rescue NoMethodError
+    false
+  end
+  private_class_method :secret_flag?
 
   def allows_after_sales_relationship?
     allows_after_sales_relationship == AfterSaleRelationshipOptions::ALLOWS
