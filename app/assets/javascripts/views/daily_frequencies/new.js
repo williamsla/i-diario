@@ -199,8 +199,10 @@ $(function () {
       }
     } catch (e) {}
 
-    $turno.closest('.control-group').find('> .select2-container').remove();
+    // Remove containers órfãos (ex.: init global que quebrou o campo).
+    $turno.closest('.control-group').find('.select2-container').remove();
     $turno.next('.select2-container').remove();
+    $turno.removeData('select2');
     $turno.val('');
     $turno.off('change.turno');
   };
