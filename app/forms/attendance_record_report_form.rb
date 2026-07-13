@@ -36,26 +36,14 @@ class AttendanceRecordReportForm
   end
 
   def fetch_daily_frequencies
-    query_period = period
-    unless is_infantil?
-      query_period = Periods::FULL
-    end
-
-    global_absence = false
-    # class_numbers = 5
     frequencies = DailyFrequencyQuery.call(
       classroom_id: classroom_id,
-      period: query_period,
+      period: period_for_frequency_query,
       frequency_date: start_at..end_at,
       discipline_id: !global_absence? && discipline_id,
-      class_numbers: !global_absence? && class_numbers
+      class_numbers: !global_absence? && normalized_class_numbers
     ).group_by(&:frequency_date).map do |frequency_date, frequencies_aux|
-      if frequencies_aux.map(&:class_number).uniq.size > 1
-        frequencies_aux
-      else
-        daily_frequency = frequencies_aux.find { |f| f.period == Periods::FULL.to_i }
-        daily_frequency || frequencies_aux.first
-      end
+      collapse_frequencies_for_date(frequencies_aux)
     end.flatten
 
     # Aplica filtros baseado no checkbox e tipo de frequência
@@ -74,6 +62,36 @@ class AttendanceRecordReportForm
     end
 
     frequencies
+  end
+
+  # Usa o período escolhido no formulário. Só amplia para todos os turnos quando o período
+  # é Integral (ou está em branco em turma que não é infantil).
+  def period_for_frequency_query
+    selected = period.presence
+    return selected if selected.present? && selected.to_s != Periods::FULL.to_s
+    return selected if is_infantil?
+
+    Periods::FULL
+  end
+
+  def normalized_class_numbers
+    return if class_numbers.blank?
+    return class_numbers if class_numbers.is_a?(String)
+    return class_numbers.join(',') if class_numbers.respond_to?(:join)
+
+    class_numbers.to_s
+  end
+
+  def collapse_frequencies_for_date(frequencies_aux)
+    return frequencies_aux if frequencies_aux.map(&:class_number).uniq.size > 1
+
+    # Com período específico (matutino/vespertino), não preferir registro Integral.
+    if period.present? && period.to_s != Periods::FULL.to_s
+      return frequencies_aux.find { |f| f.period.to_s == period.to_s } || frequencies_aux.first
+    end
+
+    daily_frequency = frequencies_aux.find { |f| f.period == Periods::FULL.to_i }
+    daily_frequency || frequencies_aux.first
   end
 
   def has_lesson_board?
