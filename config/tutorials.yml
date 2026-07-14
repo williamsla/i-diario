@@ -1,0 +1,91 @@
+# Cadastre os vídeos em cada perfil.
+# - url: link de embed (ex: https://www.youtube.com/embed/VIDEO_ID)
+# - external_url: link externo quando não houver embed disponível
+profiles:
+  professor:
+    label: "Professor"
+    videos:
+      - title: "Plano de ensino bimestral"
+        description: "Como elaborar e registrar o plano de ensino bimestral no i-Diário."
+        url: "https://www.youtube.com/embed/-jhaXN5Yvkk"
+        external_url: "https://youtu.be/-jhaXN5Yvkk"
+      - title: "Como acessar o i-Diário, perfil e planejamento"
+        description: "Primeiros passos no sistema, seleção de perfil e organização do planejamento pedagógico."
+        external_url: "https://conteudos.portabilis.com.br/portabilis-i-diario"
+        duration: "Aula 13"
+      - title: "Plano de ensino, plano de aula e registro de conteúdo"
+        description: "Como aproveitar os menus de planejamento no dia a dia da sala de aula."
+        external_url: "https://conteudos.portabilis.com.br/portabilis-i-diario"
+        duration: "Aula 01"
+      - title: "Menu de avaliações"
+        description: "Avaliações numéricas, conceituais, descritivas e demais funcionalidades do menu."
+        external_url: "https://conteudos.portabilis.com.br/portabilis-i-diario"
+        duration: "Aula 02"
+      - title: "Recuperações e frequência"
+        description: "Registro de recuperações e controle de frequência dos alunos."
+        external_url: "https://conteudos.portabilis.com.br/portabilis-i-diario"
+        duration: "Aula 03"
+      - title: "Frequência, aplicativo e diário de observações"
+        description: "Uso do app Portabilis Diário e registro de observações dos estudantes."
+        external_url: "https://conteudos.portabilis.com.br/portabilis-i-diario"
+        duration: "Aula 15"
+
+  professor_educacao_infantil:
+    label: "Professor de Educação Infantil"
+    videos:
+      - title: "Plano de ensino bimestral"
+        description: "Como elaborar e registrar o plano de ensino bimestral no i-Diário."
+        url: "https://www.youtube.com/embed/-jhaXN5Yvkk"
+        external_url: "https://youtu.be/-jhaXN5Yvkk"
+      - title: "Planos e registros de conteúdo na Educação Infantil"
+        description: "Revisão das aulas 1 e 2 com foco em plano de aula, plano de ensino e registros de conteúdo."
+        external_url: "https://conteudos.portabilis.com.br/portabilis-i-diario"
+        duration: "Aula 06"
+      - title: "Avaliações na Educação Infantil"
+        description: "Orientações sobre avaliações descritivas e parecer para a Educação Infantil."
+        external_url: "https://conteudos.portabilis.com.br/portabilis-i-diario"
+        duration: "Aula 06"
+      - title: "Plano de aula, plano de ensino e registro de conteúdo"
+        description: "Como aproveitar ao máximo os menus de planejamento na Educação Infantil."
+        external_url: "https://conteudos.portabilis.com.br/portabilis-i-diario"
+        duration: "Aula 01"
+
+  professor_aee:
+    label: "Professor de AEE"
+    videos:
+      - title: "Plano de ensino bimestral AEE"
+        description: "Como elaborar e registrar o plano de ensino bimestral no i-Diário."
+        url: "https://www.youtube.com/embed/-jhaXN5Yvkk"
+        external_url: "https://youtu.be/-jhaXN5Yvkk"
+      - title: "Registro diário de conteúdo AEE"
+        description: "Como registrar o conteúdo diário no i-Diário para o Atendimento Educacional Especializado."
+        url: "https://www.youtube.com/embed/7SPZVeSZb_I"
+        external_url: "https://youtu.be/7SPZVeSZb_I"          
+
+  coordenador:
+    label: "Coordenador"
+    videos:
+      - title: "Plano de ensino bimestral"
+        description: "Como elaborar e registrar o plano de ensino bimestral no i-Diário."
+        url: "https://www.youtube.com/embed/-jhaXN5Yvkk"
+        external_url: "https://youtu.be/-jhaXN5Yvkk"
+      - title: "Registro diário de conteúdo AEE"
+        description: "Como registrar o conteúdo diário no i-Diário para o Atendimento Educacional Especializado."
+        url: "https://www.youtube.com/embed/7SPZVeSZb_I"
+        external_url: "https://youtu.be/7SPZVeSZb_I"
+
+  assistente_social:
+    label: "Assistente Social"
+    videos:
+      - title: "Diário de observações"
+        description: "Como registrar e acompanhar observações sobre os estudantes."
+        external_url: "https://conteudos.portabilis.com.br/portabilis-i-diario"
+        duration: "Aula 15"
+      - title: "Acompanhamento de infrequências"
+        description: "Monitoramento de faltas e acompanhamento dos casos de infrequência."
+        external_url: "https://conteudos.portabilis.com.br/portabilis-i-diario"
+        duration: "Aula 03"
+      - title: "Relatórios de frequência e observações"
+        description: "Emissão de relatórios para acompanhamento social dos estudantes."
+        external_url: "https://conteudos.portabilis.com.br/portabilis-i-diario"
+        duration: "Aula 15"

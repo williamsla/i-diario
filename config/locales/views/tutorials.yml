@@ -1,0 +1,10 @@
+pt-BR:
+  tutorials:
+    index:
+      subtitle: "Vídeos tutoriais organizados por perfil de acesso."
+      recommended_for_you: "Recomendados para o seu perfil"
+      all_profiles: "Todos os perfis"
+      no_videos: "Nenhum vídeo cadastrado para este perfil ainda."
+      duration: "Duração"
+      watch_video: "Assistir vídeo"
+      close: "Fechar"

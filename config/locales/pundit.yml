@@ -1,3 +1,5 @@
 pt-BR:
  pundit:
     default: 'Você não possui permissão para realizar esta ação.'
+    tutorials_policy:
+      index?: 'Seu perfil de acesso não possui permissão para visualizar os tutoriais.'

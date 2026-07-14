@@ -96,6 +96,8 @@ Rails.application.routes.draw do
 
     resources :system_notifications, only: :index
 
+    get '/tutoriais', to: 'tutorials#index', as: :tutorials
+
     root 'dashboard#index'
 
     namespace :dashboard do

@@ -1,0 +1,120 @@
+<% content_for :js do %>
+  <%= javascript_include_tag 'views/tutorials/index' %>
+<% end %>
+
+<div class="tutorials-page">
+
+  <p class="text-muted"><%= t('.subtitle') %></p>
+
+  <% if @profiles.size > 1 %>
+    <ul class="nav nav-tabs" role="tablist" style="margin-bottom: 20px;">
+      <% @profiles.each do |profile_key, profile_data| %>
+        <li role="presentation" class="<%= 'active' if profile_key.to_s == @current_profile.to_s %>">
+          <a href="#profile-<%= profile_key %>" aria-controls="profile-<%= profile_key %>" role="tab" data-toggle="tab">
+            <%= profile_data['label'] %>
+          </a>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+
+  <div class="tab-content">
+    <% @profiles.each do |profile_key, profile_data| %>
+      <div
+        role="tabpanel"
+        class="tab-pane <%= 'active' if profile_key.to_s == @current_profile.to_s || @profiles.size == 1 %>"
+        id="profile-<%= profile_key %>"
+      >
+        <% videos = profile_data['videos'] || [] %>
+
+        <% if videos.any? %>
+          <div class="tutorials-grid">
+            <% videos.each do |video| %>
+              <% embed_url = tutorial_embed_url(video) %>
+              <div class="tutorial-card-wrap">
+                <% if embed_url.present? %>
+                  <div
+                    class="tutorial-card js-open-tutorial-video"
+                    role="button"
+                    tabindex="0"
+                    data-title="<%= video['title'] %>"
+                    data-embed-url="<%= embed_url %>"
+                    aria-label="<%= t('.watch_video') %>: <%= video['title'] %>"
+                  >
+                    <div class="tutorial-card-preview">
+                      <i class="fa fa-play-circle"></i>
+                    </div>
+                    <div class="tutorial-card-body">
+                      <span class="tutorial-card-title"><%= video['title'] %></span>
+                      <% if video['description'].present? %>
+                        <p class="tutorial-card-description"><%= video['description'] %></p>
+                      <% end %>
+                      <% if video['duration'].present? %>
+                        <span class="tutorial-card-meta"><%= t('.duration') %>: <%= video['duration'] %></span>
+                      <% end %>
+                    </div>
+                  </div>
+                <% else %>
+                  <a
+                    class="tutorial-card"
+                    href="<%= video['external_url'] %>"
+                    target="_blank"
+                    rel="noopener"
+                    style="display: block; text-decoration: none;"
+                  >
+                    <div class="tutorial-card-preview">
+                      <i class="fa fa-external-link"></i>
+                    </div>
+                    <div class="tutorial-card-body">
+                      <span class="tutorial-card-title"><%= video['title'] %></span>
+                      <% if video['description'].present? %>
+                        <p class="tutorial-card-description"><%= video['description'] %></p>
+                      <% end %>
+                      <% if video['duration'].present? %>
+                        <span class="tutorial-card-meta"><%= t('.duration') %>: <%= video['duration'] %></span>
+                      <% end %>
+                    </div>
+                  </a>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        <% else %>
+          <div class="alert alert-info">
+            <i class="fa fa-info-circle"></i> <%= t('.no_videos') %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</div>
+
+<div
+  class="modal fade"
+  id="tutorial-video-modal"
+  tabindex="-1"
+  role="dialog"
+  aria-labelledby="tutorial-video-title"
+  aria-hidden="true"
+>
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title" id="tutorial-video-title"></h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="<%= t('.close') %>">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <iframe
+          id="tutorial-video-frame"
+          class="tutorial-video-frame"
+          src=""
+          title="<%= t('.watch_video') %>"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen
+        ></iframe>
+      </div>
+    </div>
+  </div>
+</div>

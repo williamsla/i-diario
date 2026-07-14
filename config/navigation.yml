@@ -6,6 +6,10 @@ navigation:
       visible: true
       breadcrumb: false
   - menu:
+      type: "tutorials"
+      icon: "fa-play-circle"
+      path: "tutorials_path"
+  - menu:
       type: "accounts"
       icon: "fa-user"
       path: "edit_account_path"
