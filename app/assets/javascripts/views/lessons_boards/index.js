@@ -69,4 +69,49 @@ $(function () {
     $('#search_by_grade').select2('val', '');
     $('#search_by_classroom').select2('val', '');
   }
+
+  $(document).on('click', '.archive-lessons-board', function (e) {
+    e.preventDefault();
+
+    var url = $(this).data('url');
+    if (!url) {
+      return;
+    }
+
+    var today = new Date().toISOString().slice(0, 10);
+
+    bootbox.dialog({
+      title: 'Arquivar quadro de aula',
+      message:
+        '<p><strong>Até que dia esse quadro de aulas funcionou?</strong></p>' +
+        '<input type="date" class="form-control" id="lessons-board-archive-date" value="' + today + '">',
+      buttons: {
+        cancel: {
+          label: 'Cancelar',
+          className: 'btn-default'
+        },
+        confirm: {
+          label: 'Arquivar',
+          className: 'btn-primary',
+          callback: function () {
+            var archivedUntil = $('#lessons-board-archive-date').val();
+            if (!archivedUntil) {
+              flashMessages.error('Informe até que dia esse quadro de aulas funcionou.');
+              return false;
+            }
+
+            var form = $('<form>', { method: 'POST', action: url });
+            form.append($('<input>', { type: 'hidden', name: '_method', value: 'delete' }));
+            form.append($('<input>', {
+              type: 'hidden',
+              name: 'authenticity_token',
+              value: $('meta[name="csrf-token"]').attr('content')
+            }));
+            form.append($('<input>', { type: 'hidden', name: 'archived_until', value: archivedUntil }));
+            form.appendTo('body').submit();
+          }
+        }
+      }
+    });
+  });
 })

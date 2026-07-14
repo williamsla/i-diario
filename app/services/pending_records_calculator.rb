@@ -407,9 +407,8 @@ class PendingRecordsCalculator
         # Obter weekdays do professor específico para frequência geral
         current_teacher_weekdays = is_general_frequency ? (teacher_weekdays_by_teacher[teacher.id] || []) : []
         
-        # Se a disciplina não está no quadro de aulas, verificar se há frequências ou conteúdos registrados
-        # Se houver, significa que há um quadro de aulas mesmo que não tenhamos encontrado os weekdays
-        if discipline_weekdays.empty?
+        # Sem weekdays no ativo nem no arquivado: fallback por lançamentos existentes
+        if discipline_weekdays.empty? && discipline_discarded_weekdays.empty?
           # Verificar se há frequências ou conteúdos registrados para esta disciplina
           # IMPORTANTE: Verificar ANTES de calcular school_days, mas DEPOIS de all_frequencies_by_discipline ser calculado
           frequency_dates_set_for_check = if is_general_frequency
@@ -457,10 +456,11 @@ class PendingRecordsCalculator
             school_days_for_frequency = []
           end
         else
-          # Filtrar apenas os dias letivos que correspondem aos dias da semana da disciplina (quadro ativo)
-          # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
-          school_days_for_content = all_school_days.select { |date| weekday_numbers.include?(get_equivalent_weekday_number(date)) }
-          # Para frequência geral, usar os weekdays do professor; senão, usar os da disciplina
+          # data <= arquivamento (até quando funcionou) => arquivado; depois => ativo
+          archive_date = lessons_board_archive_date(classroom.id)
+          school_days_for_content = school_days_by_board_archive_date(
+            all_school_days, weekday_numbers, discarded_weekday_numbers, archive_date
+          )
           if is_general_frequency
             teacher_weekday_numbers = current_teacher_weekdays.map do |wd|
               case wd
@@ -473,8 +473,6 @@ class PendingRecordsCalculator
               when 'saturday' then 6
               end
             end.compact
-            # Se a disciplina não tem weekdays, não há pendências
-            # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
             school_days_for_frequency = teacher_weekday_numbers.any? ? all_school_days.select { |date| teacher_weekday_numbers.include?(get_equivalent_weekday_number(date)) } : []
           else
             school_days_for_frequency = school_days_for_content
@@ -1112,6 +1110,34 @@ class PendingRecordsCalculator
     week_number
   end
 
+  # discarded_at do último quadro arquivado da turma (data de troca do quadro).
+  def lessons_board_archive_date(classroom_id)
+    @lessons_board_archive_dates ||= {}
+    return @lessons_board_archive_dates[classroom_id] if @lessons_board_archive_dates.key?(classroom_id)
+
+    query = LessonsBoard.unscoped
+      .joins(classrooms_grade: :classroom)
+      .where(classrooms_grades: { classroom_id: classroom_id })
+      .where.not(discarded_at: nil)
+
+    query = query.where(classrooms: { year: @school_year }) if @school_year.present?
+
+    @lessons_board_archive_dates[classroom_id] = query.maximum(:discarded_at)&.to_date
+  end
+
+  # Regra: date <= archive_date (até quando funcionou) => arquivado; date > archive_date => ativo.
+  def school_days_by_board_archive_date(all_school_days, active_weekdays, archived_weekdays, archive_date)
+    all_school_days.select do |date|
+      wd = get_equivalent_weekday_number(date)
+      numbers = if archive_date && date <= archive_date
+                  archived_weekdays.presence || active_weekdays
+                else
+                  active_weekdays.presence || archived_weekdays
+                end
+      numbers.include?(wd)
+    end
+  end
+
   def has_record_in_same_week_from_discarded_board?(pending_date, loaded_discarded_dates, school_days_discarded, classroom, discipline, is_general_frequency, today, discarded_weekday_numbers)
     # Verifica se há registro na mesma semana que esteja em um dia de quadro excluído
     # IMPORTANTE: Só retorna true se realmente houver um registro em um quadro excluído na mesma semana
@@ -1555,12 +1581,10 @@ class PendingRecordsCalculator
         end
       end.compact
       
-      if area_weekdays.empty?
-        # Se a área de conhecimento não está no quadro de aulas, não há pendências
+      if area_weekdays.empty? && area_discarded_weekdays.empty?
         school_days_for_content = []
         school_days_for_frequency = []
       else
-        # Mapear weekdays para números (0=domingo, 1=segunda, etc)
         weekday_numbers = area_weekdays.map do |wd|
           case wd
           when 'sunday' then 0
@@ -1572,10 +1596,12 @@ class PendingRecordsCalculator
           when 'saturday' then 6
           end
         end.compact
-        
-        # Filtrar apenas os dias letivos que correspondem aos dias da semana da área de conhecimento
-        # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
-        school_days_for_content = all_school_days.select { |date| weekday_numbers.include?(get_equivalent_weekday_number(date)) }
+
+        # data <= arquivamento (até quando funcionou) => arquivado; depois => ativo
+        archive_date = lessons_board_archive_date(classroom.id)
+        school_days_for_content = school_days_by_board_archive_date(
+          all_school_days, weekday_numbers, discarded_weekday_numbers, archive_date
+        )
         school_days_for_frequency = is_general_frequency ? school_days_for_content : []
       end
       

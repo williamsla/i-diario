@@ -69,7 +69,15 @@ class LessonsBoardsController < ApplicationController
   def destroy
     authorize resource
 
+    archived_until = parse_archived_until(params[:archived_until])
+    if archived_until.blank?
+      flash[:alert] = 'Informe até que dia esse quadro de aulas funcionou.'
+      return redirect_to lessons_boards_path
+    end
+
+    discard_time = archived_until.end_of_day
     resource.discard
+    resource.update_column(:discarded_at, discard_time)
 
     respond_with resource, location: lessons_boards_path
   end
@@ -406,6 +414,14 @@ class LessonsBoardsController < ApplicationController
     end
 
     grades_to_select2
+  end
+
+  def parse_archived_until(value)
+    return if value.blank?
+
+    Date.parse(value.to_s)
+  rescue ArgumentError
+    nil
   end
 
 end

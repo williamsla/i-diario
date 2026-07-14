@@ -19,11 +19,11 @@
                     class: "btn btn-success apply_tooltip", style: "width: 32%;",
                     data: { original_title: t('views.index.tooltips.edit') } %>
 
-        <%= link_to "<i class='fa fa-archive'></i> ".html_safe, lessons_board_path(lesson_board),
-                    class: "btn apply_tooltip", method: "delete",
+        <%= link_to "<i class='fa fa-archive'></i> ".html_safe, '#',
+                    class: "btn apply_tooltip archive-lessons-board",
                     style: "width: 32%; background-color: #6c757d; border-color: #6c757d; color: #fff;",
                     data: {
-                      confirm: "Você tem certeza que deseja arquivar esse quadro de aula?",
+                      url: lessons_board_path(lesson_board),
                       original_title: "Arquivar"
                     } %>
       </td>
