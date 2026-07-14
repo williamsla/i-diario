@@ -58,7 +58,7 @@ module ApplicationHelper
 
   def shortcuts
     key = [
-      'HomeShortcuts',
+      'HomeShortcutsV2',
       Entity.current&.id,
       current_user.admin?,
       navigation_cache_version,
@@ -66,9 +66,13 @@ module ApplicationHelper
       Translation.cache_key
     ]
 
-    Rails.cache.fetch(key, expires_in: 1.day) do
-      Navigation.draw_shortcuts(current_user)
-    end
+    cached = Rails.cache.read(key)
+    return cached if cached.present?
+
+    html = Navigation.draw_shortcuts(current_user)
+    # Nunca grava HTML vazio: evita esconder atalhos válidos por cache contaminado
+    Rails.cache.write(key, html, expires_in: 1.day) if html.present?
+    html
   end
 
   def navigation_cache_version

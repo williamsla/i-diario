@@ -1,9 +1,10 @@
-<% if Rails.application.secrets.shortcuts_enabled && shortcuts.present? %>
+<% shortcuts_html = shortcuts %>
+<% if Rails.application.secrets.shortcuts_enabled && shortcuts_html.present? %>
   <div class="row">
     <div class="col col-sm-12">
       <legend>Atalhos</legend>
       <div class="row">
-        <%= shortcuts %>
+        <%= shortcuts_html %>
       </div>
     </div>
   </div>
