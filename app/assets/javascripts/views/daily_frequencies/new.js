@@ -8,7 +8,8 @@ $(function () {
         disciplinesForDate: $form.data('disciplinesForDateUrl'),
         scheduleForDate: $form.data('scheduleForDateUrl'),
         fetchFrequencyType: $form.data('fetchFrequencyTypeUrl'),
-        classNumbersByDiscipline: $form.data('classNumbersByDisciplineUrl')
+        classNumbersByDiscipline: $form.data('classNumbersByDisciplineUrl'),
+        currentDisciplineId: $form.data('currentDisciplineId')
       },
       $disciplineField = $(".discipline_field"),
       $classNumbersField = $(".class_numbers_field"),
@@ -462,6 +463,17 @@ $(function () {
     }
   });
 
+  var examRuleParams = function(classroomId) {
+    var params = { classroom_id: classroomId };
+    var disciplineId = getInputValue($discipline) || apiPaths.currentDisciplineId;
+
+    if (!_.isEmpty(disciplineId)) {
+      params.discipline_id = disciplineId;
+    }
+
+    return params;
+  };
+
   var checkExamRule = function(params){
     fetchExamRule(params, function(data){
       var examRule = data.exam_rule;
@@ -528,10 +540,6 @@ $(function () {
   };
 
   $classroom.on('change', function (e) {
-    var params = {
-      classroom_id: e.val
-    };
-
     window.disciplines = [];
     window.avaliations = [];
     $discipline.val('').select2({ data: [] });
@@ -539,7 +547,7 @@ $(function () {
     toggleFrequencyDateAlert(null);
 
     if (!_.isEmpty(e.val)) {
-      checkExamRule(params);
+      checkExamRule(examRuleParams(e.val));
     }
 
     toggleClassNumbersByFrequencyType();
@@ -577,7 +585,7 @@ $(function () {
   $classNumbersField.hide();
 
   if($classroom.length && $classroom.val().length){
-    checkExamRule({classroom_id: $classroom.val()});
+    checkExamRule(examRuleParams($classroom.val()));
   }
 
   if ($discipline.length && $discipline.val().length && $frequencyDate.length && $frequencyDate.val().length) {

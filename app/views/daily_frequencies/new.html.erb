@@ -11,7 +11,8 @@
             disciplines_for_date_url: disciplines_for_frequency_date_daily_frequencies_path,
             schedule_for_date_url: schedule_for_frequency_date_daily_frequencies_path,
             fetch_frequency_type_url: fetch_frequency_type_daily_frequencies_path,
-            class_numbers_by_discipline_url: class_numbers_by_discipline_daily_frequencies_path
+            class_numbers_by_discipline_url: class_numbers_by_discipline_daily_frequencies_path,
+            current_discipline_id: current_user.current_discipline_id
           }
         } do |f| %>
     <%= f.hidden_field :period, value: @period %>

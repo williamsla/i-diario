@@ -1070,7 +1070,12 @@ class DailyFrequenciesController < ApplicationController
     )
     return { available: true, message: nil } if infantil_classroom?(classroom)
 
-    unless frequency_by_discipline_for_classroom?(classroom)
+    frequency_type = frequency_type_for_classroom_and_discipline(
+      classroom: classroom,
+      discipline_id: current_user.current_discipline_id
+    )
+
+    unless frequency_type == FrequencyTypes::BY_DISCIPLINE
       return build_general_schedule_availability_result(
         classroom: classroom,
         frequency_date: frequency_date
