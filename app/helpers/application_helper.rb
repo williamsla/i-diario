@@ -1,5 +1,6 @@
 module ApplicationHelper
   include ActiveSupport::Inflector
+  include AeeHelper
 
   DEFAULT_LOGO = 'brasil.png'.freeze
   PROFILE_DEFAULT_PICTURE_PATH = '/assets/profile-default.jpg'.freeze

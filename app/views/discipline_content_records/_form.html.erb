@@ -86,7 +86,7 @@
 
     </fieldset>
     <fieldset>
-      <legend><%= @discipline_content_record.class.human_attribute_name(:contents) %></legend>
+      <legend><%= aee_label(:contents, @discipline_content_record.class.human_attribute_name(:contents)) %></legend>
       <% if content_record.object.errors[:contents].any? %>
         <div class="alert alert-danger fade in">
           <i class="fa-fw fa fa-times"></i>
@@ -128,7 +128,7 @@
             <% translation = Translator.t('activerecord.attributes.discipline_content_record.contents') %>
             <%= content_record.input :contents_tags,
                 as: :string,
-                label: "Adicionar #{translation}",
+                label: "Adicionar #{aee_label(:area_short, translation)}",
                 input_html: {
                   class: 'select2-content-tags-ajax',
                   value: '',
@@ -200,6 +200,7 @@
         <div class="row">
           <div class="col col-sm-12">
             <%= content_record.input :daily_activities_record, as: :text,
+                  label: aee_label(:daily_activities_record, ContentRecord.human_attribute_name(:daily_activities_record)),
                   required: f.object.decorator.daily_activities_required? %>
           </div>
         </div>

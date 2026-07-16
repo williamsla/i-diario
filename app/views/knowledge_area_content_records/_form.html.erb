@@ -86,6 +86,7 @@
       <div class="row">
         <div class="col col-sm-12">
           <%= content_record.input :daily_activities_record, as: :text,
+                 label: aee_label(:daily_activities_record, ContentRecord.human_attribute_name(:daily_activities_record)),
                  required: f.object.decorator.daily_activities_required? %>
         </div>
       </div>
@@ -93,7 +94,7 @@
     </fieldset>
     <fieldset>
       <legend>
-        <%= show_aee_area_label? ? 'Área do AEE' : @knowledge_area_content_record.class.human_attribute_name(:contents) %>
+        <%= aee_label(:contents, @knowledge_area_content_record.class.human_attribute_name(:contents)) %>
         <abbr title="obrigatório">*</abbr>
       </legend>
       <% if content_record.object.errors[:contents].any? %>
@@ -128,7 +129,7 @@
         <div class="row textarea contents-select2-container">
           <div class="col col-sm-12">
             <% translation = Translator.t('activerecord.attributes.knowledge_area_content_record.contents') %>
-            <% label_content = "#{show_aee_area_label? ? 'Área' : translation}" %>
+            <% label_content = aee_label(:area_short, translation) %>
             <%= content_record.input :contents_tags,
                 as: :string,
                 label: "Adicionar #{label_content}",
@@ -180,7 +181,7 @@
               <% if !action_name.eql?('show') %>
                 <div class="row textarea">
                   <div class="col col-sm-12 objectives-select2-container">
-                    <% label_objective = "#{show_aee_area_label? ? 'Objetivo' : 'Habilidade'}" %>
+                    <% label_objective = aee_label(:objective_short, 'Habilidade') %>
                     <%= content_record.input :objectives_tags,
                         as: :string,
                         label: "Adicionar #{label_objective}",

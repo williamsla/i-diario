@@ -62,7 +62,9 @@
 
     <% if lesson_plan.object.persisted? %>
       <div style="position: absolute; margin-top: 11px; <%= action_name == 'show' ? 'right: 340px;' : 'right: 340px;' %>">
-        <%= lesson_plan.input :validated, as: :boolean, label: false, inline_label: true, disabled: current_user.teacher? %>
+        <%= lesson_plan.input :validated, as: :boolean, label: false,
+              inline_label: aee_label(:validated_lesson_plan, LessonPlan.human_attribute_name(:validated)),
+              disabled: current_user.teacher? %>
       </div>
     <% end %>
   <% end %>

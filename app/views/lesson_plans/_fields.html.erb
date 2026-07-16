@@ -1,13 +1,13 @@
 <fieldset>
   <legend style="margin-bottom: -10px;">
-    <%= model.class.human_attribute_name(:contents) %> <abbr title="obrigatório">*</abbr>
+    <%= aee_label(:contents, model.class.human_attribute_name(:contents)) %> <abbr title="obrigatório">*</abbr>
   </legend>
   <div class="alert alert-danger"
        id="lesson_plan_copy_from_teaching_plan_alert"
        style="display: none;"
   >
     <i class="fa-fw fa fa-times"></i>
-    Não foi possível copiar do(a) <%= Translator.t('navigation.teaching_plans_menu').downcase %>
+    Não foi possível copiar do(a) <%= aee_label(:copy_from_teaching_plan, Translator.t('navigation.teaching_plans_menu').downcase) %>
     pois não existem registros para a data informada.
   </div>
 
@@ -20,7 +20,7 @@
 
   <% if action_name != 'show' %>
     <a href="#" id="copy-from-teaching-plan-link">
-      Copiar de <%= Translator.t('navigation.teaching_plans_menu').downcase %>
+      Copiar de <%= aee_label(:copy_from_teaching_plan, Translator.t('navigation.teaching_plans_menu').downcase) %>
     </a>
   <% end %>
 
@@ -54,7 +54,7 @@
         <% translation = Translator.t("activerecord.attributes.#{model.class.to_s.underscore}.contents") %>
         <%= f.input :contents_tags,
             as: :string,
-            label: "Adicionar #{translation}",
+            label: "Adicionar #{aee_label(:area_short, translation)}",
             input_html: {
               'data-content-type': 'conteúdo',
               class: 'select2-tags',
@@ -69,7 +69,7 @@
 <% unless f.object.decorator.removed_objectives? %>
   <fieldset>
     <legend style="margin-bottom: -10px;">
-      <%= model.class.human_attribute_name(:objectives) %>
+      <%= aee_label(:objectives, model.class.human_attribute_name(:objectives)) %>
     </legend>
 
     <div class="alert alert-danger"
@@ -77,7 +77,7 @@
          style="display: none;"
     >
       <i class="fa-fw fa fa-times"></i>
-      Não foi possível copiar do(a) <%= Translator.t('navigation.teaching_plans_menu').downcase %>
+      Não foi possível copiar do(a) <%= aee_label(:copy_from_teaching_plan, Translator.t('navigation.teaching_plans_menu').downcase) %>
       pois não existem registros para a data informada.
     </div>
 
@@ -90,7 +90,7 @@
 
     <% if action_name != 'show' %>
       <a href="#" id="copy-from-objectives-teaching-plan-link">
-        Copiar de <%= Translator.t('navigation.teaching_plans_menu').downcase %>
+        Copiar de <%= aee_label(:copy_from_teaching_plan, Translator.t('navigation.teaching_plans_menu').downcase) %>
       </a>|
       <a href="#" data-toggle="modal" data-target="<%= modal_id %>">
         Copiar objetivos/habilidades por área
@@ -131,7 +131,7 @@
           <% translation = Translator.t("activerecord.attributes.#{model.class.to_s.underscore}.objectives") %>
           <%= f.input :objectives_tags,
                       as: :string,
-                      label: "Adicionar #{translation}",
+                      label: "Adicionar #{aee_label(:objective_short, translation)}",
                       input_html: {
                         class: 'select2-content-tags-ajax',
                         value: '',
@@ -162,25 +162,25 @@
 
 <div class="row textarea">
   <div class="col col-sm-12">
-    <%= f.input :activities, label: @methodology_translation, input_html: { class: 'col col-sm-12' }, readonly: action_name == 'show' %>
+    <%= f.input :activities, label: aee_or_translation(:activities, @methodology_translation), input_html: { class: 'col col-sm-12' }, readonly: action_name == 'show' %>
   </div>
 </div>
 
 <div class="row textarea">
   <div class="col col-sm-12">
-    <%= f.input :resources, label: @resources_translation, input_html: { class: 'col col-sm-12' }, readonly: action_name == 'show' %>
+    <%= f.input :resources, label: aee_or_translation(:resources, @resources_translation), input_html: { class: 'col col-sm-12' }, readonly: action_name == 'show' %>
   </div>
 </div>
 
 <div class="row textarea">
   <div class="col col-sm-12">
-    <%= f.input :evaluation, label: @evaluation_translation, input_html: { class: 'col col-sm-12' }, readonly: action_name == 'show' %>
+    <%= f.input :evaluation, label: aee_or_translation(:evaluation, @evaluation_translation), input_html: { class: 'col col-sm-12' }, readonly: action_name == 'show' %>
   </div>
 </div>
 
 <div class="row textarea">
   <div class="col col-sm-12">
-    <%= f.input :bibliography, label: @references_translation, input_html: { class: 'col col-sm-12' }, readonly: action_name == 'show' %>
+    <%= f.input :bibliography, label: aee_or_translation(:bibliography, @references_translation), input_html: { class: 'col col-sm-12' }, readonly: action_name == 'show' %>
   </div>
 </div>
 

@@ -64,13 +64,29 @@ module Navigation
       def menu_text(menu_type)
         if menu_type == 'school_term_recovery_diary_records'
           if GeneralConfiguration.semestral_recovery?
-            'Recuperação Semestral'
-          else
-            Translator.t("navigation.#{menu_type}")
+            return 'Recuperação Semestral'
           end
-        else
-          Translator.t("navigation.#{menu_type}")
         end
+
+        aee_text = aee_menu_text(menu_type)
+        return aee_text if aee_text.present?
+
+        Translator.t("navigation.#{menu_type}")
+      end
+
+      def aee_menu_text(menu_type)
+        return unless aee_navigation_context?
+
+        i18n_key = "aee.navigation.#{menu_type}"
+        return I18n.t(i18n_key) if I18n.exists?(i18n_key)
+
+        nil
+      end
+
+      def aee_navigation_context?
+        return current_user.is_aee if current_user.respond_to?(:is_aee)
+
+        Thread.current[:navigation_is_aee]
       end
     end
   end
