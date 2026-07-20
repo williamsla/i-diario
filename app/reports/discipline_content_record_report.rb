@@ -26,7 +26,7 @@ class DisciplineContentRecordReport < BaseReport
   def header
     entity_name = @entity_configuration ? @entity_configuration.entity_name : ''
     organ_name = @entity_configuration ? @entity_configuration.organ_name : ''
-    title =  'Registros de conteúdos por disciplina - Registros de conteúdo'
+    title =  'Registros de conteúdos por disciplina - Registro diário de conteúdo'
 
     header_cell = make_cell(
       content: title,

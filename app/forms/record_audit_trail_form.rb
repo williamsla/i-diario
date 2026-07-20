@@ -29,4 +29,8 @@ class RecordAuditTrailForm
 
     types & RECORD_TYPES
   end
+
+  def unity
+    Unity.find_by(id: unity_id)
+  end
 end
