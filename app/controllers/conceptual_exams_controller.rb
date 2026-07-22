@@ -713,11 +713,13 @@ class ConceptualExamsController < ApplicationController
     start_date = current_year_steps.first.start_date_for_posting
     end_date = current_year_steps.last.end_date_for_posting
 
-    return if (start_date..end_date).to_a.include?(Date.current)
+    return if (start_date..end_date).cover?(Date.current)
+    return if current_school_calendar&.opened_year && !GeneralConfiguration.block_modifications_after_last_step_ended?
 
     flash[:alert] = t('errors.general.not_allowed_to_modify_prev_years')
     redirect_to root_path
   end
+
 
   def current_year_steps
     @current_year_steps ||= begin

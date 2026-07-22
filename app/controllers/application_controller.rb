@@ -361,11 +361,20 @@ class ApplicationController < ActionController::Base
   def require_allow_to_modify_prev_years
     return if can_change_school_year?
     return unless current_user.current_role_is_admin_or_employee?
-    return if (first_step_start_date_for_posting..last_step_end_date_for_posting).to_a.include?(Date.current)
+    return if allowed_to_modify_after_steps_ended?
 
     flash[:alert] = t('errors.general.not_allowed_to_modify_prev_years')
     redirect_to root_path
   end
+
+  def allowed_to_modify_after_steps_ended?
+    within_posting_period = (first_step_start_date_for_posting..last_step_end_date_for_posting).cover?(Date.current)
+    return true if within_posting_period
+
+    # Opção desmarcada só libera se o ano letivo da escola ainda estiver aberto
+    current_school_calendar&.opened_year && !GeneralConfiguration.block_modifications_after_last_step_ended?
+  end
+
 
   def valid_current_role?
     CurrentRoleForm.new(

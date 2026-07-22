@@ -49,6 +49,13 @@ class GeneralConfiguration < ActiveRecord::Base
     flag_enabled?(:conceptual_exam_batch_layout)
   end
 
+  def self.block_modifications_after_last_step_ended?
+    return true unless current.has_attribute?(:block_modifications_after_last_step_ended)
+
+    ActiveRecord::Type::Boolean.new.cast(current.block_modifications_after_last_step_ended)
+  end
+
+
   # Preferência: general_configurations (por município). Fallback: secrets.yml se a coluna ainda não existir.
   def self.flag_enabled?(attribute)
     record = current
