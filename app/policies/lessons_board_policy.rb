@@ -16,4 +16,12 @@ class LessonsBoardPolicy < ApplicationPolicy
 
     false
   end
+
+  def undiscard?
+    edit?
+  end
+
+  def purge?
+    edit?
+  end
 end

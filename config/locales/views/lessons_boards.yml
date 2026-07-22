@@ -22,6 +22,12 @@ pt-BR:
     index:
       archive_info_html: "<strong>Arquivamento do quadro de aulas:</strong> utilize o botão de arquivar (<i class='fa fa-archive'></i>) quando houver mudança no horário da turma ao longo do ano letivo. Assim você pode arquivar o quadro atual e criar um novo quadro atualizado para a mesma turma, sem perder o histórico do período anterior."
       new_html: "<i class='fa fa-plus'></i>&nbsp Novo quadro de aula"
+      show_archived_html: "<i class='fa fa-archive'></i>&nbsp Ver quadros arquivados"
+      show_active_html: "<i class='fa fa-list'></i>&nbsp Ver quadros ativos"
+      archived_until: "Arquivado até %{date}"
+      undiscard: "Reativar"
+      undiscard_confirm: "Deseja reativar este quadro de aulas?"
+      purge: "Excluir permanentemente"
       by_year: "Filtrar ano"
       by_unity: "Filtrar escola"
       by_grade: "Filtrar série"
@@ -30,6 +36,14 @@ pt-BR:
       unity: "Escola"
       grade: "Série"
       classroom: "Turma"
+    undiscard:
+      notice: "Quadro de aula reativado com sucesso."
+      conflict: "Não é possível reativar este quadro porque já existe um quadro ativo para a mesma turma, série e período. Arquive o quadro ativo antes de reativar este."
+    purge:
+      notice: "Quadro de aula excluído com sucesso. Ele não valerá para nenhum dia do calendário letivo."
+      only_archived: "Somente quadros arquivados podem ser excluídos permanentemente."
+      confirmation_required: "Confirme que entende que o histórico será perdido para excluir o quadro."
+      calendar_required: "Não foi possível excluir o quadro porque o calendário letivo da turma não foi encontrado."
     form:
       period: "Período"
       no_item_found: "Nenhum período informado"

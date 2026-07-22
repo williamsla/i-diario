@@ -3,7 +3,7 @@ class LessonsBoardsController < ApplicationController
   has_scope :per, default: 10
 
   def index
-    @lessons_boards = LessonBoardsFetcher.new(current_user).lesson_boards
+    @lessons_boards = LessonBoardsFetcher.new(current_user).lesson_boards(archived: show_archived?)
     @lessons_boards = apply_scopes(@lessons_boards).filter(filtering_params(params[:search]))
     authorize @lessons_boards
   end
@@ -60,7 +60,7 @@ class LessonsBoardsController < ApplicationController
     authorize resource
 
     if resource.save
-      respond_with resource, location: lessons_boards_path
+      respond_with resource, location: lessons_boards_path(show_archived: resource.discarded? ? 1 : nil)
     else
       render :edit
     end
@@ -82,6 +82,41 @@ class LessonsBoardsController < ApplicationController
     respond_with resource, location: lessons_boards_path
   end
 
+  def undiscard
+    authorize resource
+
+    if active_board_conflict?(resource)
+      flash[:alert] = I18n.t('lessons_boards.undiscard.conflict')
+      return redirect_to lessons_boards_path(show_archived: 1)
+    end
+
+    resource.undiscard
+    flash[:notice] = I18n.t('lessons_boards.undiscard.notice')
+    redirect_to lessons_boards_path
+  end
+
+  def purge
+    authorize resource
+
+    unless resource.discarded?
+      flash[:alert] = I18n.t('lessons_boards.purge.only_archived')
+      return redirect_to lessons_boards_path
+    end
+
+    unless params[:confirm_permanent_delete].to_s == '1'
+      flash[:alert] = I18n.t('lessons_boards.purge.confirmation_required')
+      return redirect_to lessons_boards_path(show_archived: 1)
+    end
+
+    unless purge_lessons_board!(resource)
+      flash[:alert] = I18n.t('lessons_boards.purge.calendar_required')
+      return redirect_to lessons_boards_path(show_archived: 1)
+    end
+
+    flash[:notice] = I18n.t('lessons_boards.purge.notice')
+    redirect_to lessons_boards_path(show_archived: 1)
+  end
+
   def filtering_params(params)
     params = {} unless params
 
@@ -94,15 +129,17 @@ class LessonsBoardsController < ApplicationController
   end
 
   def lesson_unities
+    boards_scope = lessons_boards_for_filters
+
     lessons_unities = if user_role_administrator?
-                        LessonsBoard.by_unity(unities_id)
+                        boards_scope.by_unity(unities_id)
                                     .map(&:unity_id)
                                     .uniq
                       elsif current_user.employee?
                         roles_ids = Role.where(access_level: AccessLevel::EMPLOYEE).pluck(:id)
                         unities_user = UserRole.where(user_id: current_user.id, role_id: roles_ids).pluck(:unity_id)
 
-                        LessonsBoard.by_unity(unities_user)
+                        boards_scope.by_unity(unities_user)
                                     .map(&:unity_id)
                                     .uniq
                       else
@@ -134,7 +171,7 @@ class LessonsBoardsController < ApplicationController
   end
 
   def lesson_grades
-    lessons_grades = LessonsBoard.by_unity(unities_id)
+    lessons_grades = lessons_boards_for_filters.by_unity(unities_id)
                                  .map(&:grade_id)
                                  .uniq
 
@@ -144,7 +181,7 @@ class LessonsBoardsController < ApplicationController
   helper_method :lesson_grades
 
   def lesson_classrooms
-    lessons_classrooms = LessonsBoard.by_unity(unities_id)
+    lessons_classrooms = lessons_boards_for_filters.by_unity(unities_id)
                                      .map(&:classroom_id)
                                      .uniq
 
@@ -155,11 +192,34 @@ class LessonsBoardsController < ApplicationController
 
   def resource
     @lessons_board ||= case params[:action]
-                       when 'edit', 'update', 'show', 'destroy'
-                         LessonsBoard.find(params[:id])
+                       when 'edit', 'update', 'show', 'destroy', 'undiscard', 'purge'
+                         LessonsBoard.with_discarded.find(params[:id])
                        else
                          LessonsBoard.new
                        end.localized
+  end
+
+  def show_archived?
+    params[:show_archived].to_s == '1'
+  end
+  helper_method :show_archived?
+
+  def lessons_boards_for_filters
+    return LessonsBoard unless show_archived?
+
+    LessonsBoard.with_discarded.discarded
+                .joins(classrooms_grade: :classroom)
+                .joins(<<-SQL.squish)
+                  INNER JOIN school_calendars sc
+                    ON sc.unity_id = classrooms.unity_id
+                   AND sc.year = classrooms.year
+                  INNER JOIN (
+                    SELECT school_calendar_id, MIN(start_at) AS first_day
+                    FROM school_calendar_steps
+                    GROUP BY school_calendar_id
+                  ) sc_start ON sc_start.school_calendar_id = sc.id
+                SQL
+                .where('lessons_boards.discarded_at >= sc_start.first_day')
   end
 
   def resource_params
@@ -422,6 +482,26 @@ class LessonsBoardsController < ApplicationController
     Date.parse(value.to_s)
   rescue ArgumentError
     nil
+  end
+
+  def active_board_conflict?(lessons_board)
+    LessonsBoard.where(
+      classrooms_grade_id: lessons_board.classrooms_grade_id,
+      period: lessons_board.period
+    ).where.not(id: lessons_board.id).exists?
+  end
+
+  def purge_lessons_board!(lessons_board)
+    classroom = lessons_board.classrooms_grade.classroom
+    calendar = CurrentSchoolCalendarFetcher.new(classroom.unity, classroom, classroom.year).fetch
+    first_day = calendar&.first_day
+    return false if first_day.blank?
+
+    # Data anterior ao início do calendário: o quadro permanece no banco,
+    # mas não entra na lógica de dias letivos (date <= discarded_at).
+    exclusion_at = (first_day.to_date - 1.day).end_of_day
+    lessons_board.update_column(:discarded_at, exclusion_at)
+    true
   end
 
 end

@@ -12,6 +12,7 @@
 
 <div class="widget-body no-padding">
   <%= simple_form_for :search, { url: lessons_boards_path, method: :get, html: { class: 'filterable_search_form' } } do |f| %>
+    <%= hidden_field_tag :show_archived, 1 if show_archived? %>
     <div class="table-responsive">
       <table class="table table-bordered table-only-inner-bordered table-striped table-condensed table-hover" id="resources">
         <thead>
@@ -21,7 +22,15 @@
             <td><%= f.input :by_grade, as: :select2, elements: lesson_grades, label: false, placeholder: t('.by_grade') %></td>
             <td><%= f.input :by_classroom, as: :select2, elements: lesson_classrooms, label: false, placeholder: t('.by_classroom') %></td>
             <td></td>
-            <td><%= link_to t('.new_html'), new_lessons_board_path, class: "btn btn-primary pull-right" %></td>
+            <td class="actions" style="width: 280px; white-space: nowrap;">
+              <%= link_to t('.new_html'), new_lessons_board_path, class: "btn btn-primary pull-right" %>
+              <%= link_to (
+                    show_archived? ? t('.show_active_html') : t('.show_archived_html')
+                  ),
+                  lessons_boards_path(show_archived: show_archived? ? nil : 1),
+                  class: "btn btn-default pull-right",
+                  style: "margin-right: 8px;" %>
+            </td>
           </tr>
           <tr>
             <th style="width: 110px"><%= t('.year') %></th>
@@ -29,7 +38,7 @@
             <th><%= t('.grade') %></th>
             <th><%= t('.classroom') %></th>
             <th style="width: 150px"><%= t('lessons_boards.form.period') %></th>
-            <td style="width: 120px"></td>
+            <td style="width: <%= show_archived? ? '220px' : '180px' %>"></td>
           </tr>
         </thead>
         <%= render 'resources' %>

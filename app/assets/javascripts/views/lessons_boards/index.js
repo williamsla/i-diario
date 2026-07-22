@@ -114,4 +114,58 @@ $(function () {
       }
     });
   });
+
+  $(document).on('click', '.purge-lessons-board', function (e) {
+    e.preventDefault();
+
+    var url = $(this).data('url');
+    if (!url) {
+      return;
+    }
+
+    bootbox.dialog({
+      title: 'Excluir quadro permanentemente',
+      message:
+        '<p>Este quadro deixará de valer para <strong>qualquer dia do calendário letivo</strong> ' +
+        'e <strong>não poderá ser recuperado</strong> pela listagem.</p>' +
+        '<p class="text-muted" style="margin-top: 8px;">O registro permanece no sistema apenas para auditoria, ' +
+        'com data anterior ao início do calendário.</p>' +
+        '<div class="checkbox" style="margin-top: 15px;">' +
+          '<label>' +
+            '<input type="checkbox" id="lessons-board-purge-confirm"> ' +
+            'Entendo que o histórico será perdido' +
+          '</label>' +
+        '</div>',
+      buttons: {
+        cancel: {
+          label: 'Cancelar',
+          className: 'btn-default'
+        },
+        confirm: {
+          label: 'Excluir permanentemente',
+          className: 'btn-danger',
+          callback: function () {
+            if (!$('#lessons-board-purge-confirm').is(':checked')) {
+              flashMessages.error('Confirme que entende que o histórico será perdido.');
+              return false;
+            }
+
+            var form = $('<form>', { method: 'POST', action: url });
+            form.append($('<input>', { type: 'hidden', name: '_method', value: 'delete' }));
+            form.append($('<input>', {
+              type: 'hidden',
+              name: 'authenticity_token',
+              value: $('meta[name="csrf-token"]').attr('content')
+            }));
+            form.append($('<input>', {
+              type: 'hidden',
+              name: 'confirm_permanent_delete',
+              value: '1'
+            }));
+            form.appendTo('body').submit();
+          }
+        }
+      }
+    });
+  });
 })

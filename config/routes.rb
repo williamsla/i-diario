@@ -415,6 +415,10 @@ Rails.application.routes.draw do
     end
 
     resources :lessons_boards do
+      member do
+        post :undiscard
+        delete :purge
+      end
       collection do
         get :period
         get :number_of_lessons
