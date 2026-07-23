@@ -8,6 +8,21 @@
     <i class="fa fa-info-circle"></i>
     <%= t('.archive_info_html') %>
   </div>
+
+  <div class="lessons-boards-toolbar clearfix">
+    <div class="btn-group lessons-boards-view-toggle" role="group">
+      <%= link_to t('.tab_active'),
+                  lessons_boards_path,
+                  class: "btn btn-default #{'active' unless show_archived?}" %>
+      <%= link_to t('.tab_archived'),
+                  lessons_boards_path(show_archived: 1),
+                  class: "btn btn-default #{'active' if show_archived?}" %>
+    </div>
+
+    <% unless show_archived? %>
+      <%= link_to t('.new_html'), new_lessons_board_path, class: "btn btn-primary pull-right" %>
+    <% end %>
+  </div>
 </div>
 
 <div class="widget-body no-padding">
@@ -22,15 +37,7 @@
             <td><%= f.input :by_grade, as: :select2, elements: lesson_grades, label: false, placeholder: t('.by_grade') %></td>
             <td><%= f.input :by_classroom, as: :select2, elements: lesson_classrooms, label: false, placeholder: t('.by_classroom') %></td>
             <td></td>
-            <td class="actions" style="width: 280px; white-space: nowrap;">
-              <%= link_to t('.new_html'), new_lessons_board_path, class: "btn btn-primary pull-right" %>
-              <%= link_to (
-                    show_archived? ? t('.show_active_html') : t('.show_archived_html')
-                  ),
-                  lessons_boards_path(show_archived: show_archived? ? nil : 1),
-                  class: "btn btn-default pull-right",
-                  style: "margin-right: 8px;" %>
-            </td>
+            <td style="width: <%= show_archived? ? '220px' : '180px' %>"></td>
           </tr>
           <tr>
             <th style="width: 110px"><%= t('.year') %></th>

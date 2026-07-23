@@ -22,8 +22,8 @@ pt-BR:
     index:
       archive_info_html: "<strong>Arquivamento do quadro de aulas:</strong> utilize o botão de arquivar (<i class='fa fa-archive'></i>) quando houver mudança no horário da turma ao longo do ano letivo. Assim você pode arquivar o quadro atual e criar um novo quadro atualizado para a mesma turma, sem perder o histórico do período anterior."
       new_html: "<i class='fa fa-plus'></i>&nbsp Novo quadro de aula"
-      show_archived_html: "<i class='fa fa-archive'></i>&nbsp Ver quadros arquivados"
-      show_active_html: "<i class='fa fa-list'></i>&nbsp Ver quadros ativos"
+      tab_active: "Quadros ativos"
+      tab_archived: "Quadros arquivados"
       archived_until: "Arquivado até %{date}"
       edit_archived_until: "Alterar data de arquivamento"
       undiscard: "Reativar"
