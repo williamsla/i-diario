@@ -24,4 +24,8 @@ class LessonsBoardPolicy < ApplicationPolicy
   def purge?
     edit?
   end
+
+  def update_archived_until?
+    edit?
+  end
 end

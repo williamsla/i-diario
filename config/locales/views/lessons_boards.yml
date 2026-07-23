@@ -25,6 +25,7 @@ pt-BR:
       show_archived_html: "<i class='fa fa-archive'></i>&nbsp Ver quadros arquivados"
       show_active_html: "<i class='fa fa-list'></i>&nbsp Ver quadros ativos"
       archived_until: "Arquivado até %{date}"
+      edit_archived_until: "Alterar data de arquivamento"
       undiscard: "Reativar"
       undiscard_confirm: "Deseja reativar este quadro de aulas?"
       purge: "Excluir permanentemente"
@@ -39,9 +40,13 @@ pt-BR:
     undiscard:
       notice: "Quadro de aula reativado com sucesso."
       conflict: "Não é possível reativar este quadro porque já existe um quadro ativo para a mesma turma, série e período. Arquive o quadro ativo antes de reativar este."
+    update_archived_until:
+      notice: "Data de arquivamento atualizada com sucesso."
+      only_archived: "Somente quadros arquivados podem ter a data de arquivamento alterada."
+      date_required: "Informe até que dia esse quadro de aulas funcionou."
+      before_calendar: "A data de arquivamento deve ser igual ou posterior ao início do calendário letivo. Para invalidar o quadro em todo o calendário, use a exclusão permanente."
     purge:
       notice: "Quadro de aula excluído com sucesso. Ele não valerá para nenhum dia do calendário letivo."
-      only_archived: "Somente quadros arquivados podem ser excluídos permanentemente."
       confirmation_required: "Confirme que entende que o histórico será perdido para excluir o quadro."
       calendar_required: "Não foi possível excluir o quadro porque o calendário letivo da turma não foi encontrado."
     form:

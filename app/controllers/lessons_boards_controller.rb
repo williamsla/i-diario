@@ -95,26 +95,48 @@ class LessonsBoardsController < ApplicationController
     redirect_to lessons_boards_path
   end
 
-  def purge
+  def update_archived_until
     authorize resource
 
     unless resource.discarded?
-      flash[:alert] = I18n.t('lessons_boards.purge.only_archived')
+      flash[:alert] = I18n.t('lessons_boards.update_archived_until.only_archived')
       return redirect_to lessons_boards_path
     end
 
-    unless params[:confirm_permanent_delete].to_s == '1'
-      flash[:alert] = I18n.t('lessons_boards.purge.confirmation_required')
+    archived_until = parse_archived_until(params[:archived_until])
+    if archived_until.blank?
+      flash[:alert] = I18n.t('lessons_boards.update_archived_until.date_required')
       return redirect_to lessons_boards_path(show_archived: 1)
     end
+
+    first_day = calendar_first_day_for(resource)
+    if first_day.present? && archived_until < first_day
+      flash[:alert] = I18n.t('lessons_boards.update_archived_until.before_calendar')
+      return redirect_to lessons_boards_path(show_archived: 1)
+    end
+
+    resource.update_column(:discarded_at, archived_until.end_of_day)
+    flash[:notice] = I18n.t('lessons_boards.update_archived_until.notice')
+    redirect_to lessons_boards_path(show_archived: 1)
+  end
+
+  def purge
+    authorize resource
+
+    unless params[:confirm_permanent_delete].to_s == '1'
+      flash[:alert] = I18n.t('lessons_boards.purge.confirmation_required')
+      return redirect_to lessons_boards_path(show_archived: resource.discarded? ? 1 : nil)
+    end
+
+    resource.discard if resource.kept?
 
     unless purge_lessons_board!(resource)
       flash[:alert] = I18n.t('lessons_boards.purge.calendar_required')
-      return redirect_to lessons_boards_path(show_archived: 1)
+      return redirect_to lessons_boards_path(show_archived: resource.discarded? ? 1 : nil)
     end
 
     flash[:notice] = I18n.t('lessons_boards.purge.notice')
-    redirect_to lessons_boards_path(show_archived: 1)
+    redirect_to lessons_boards_path
   end
 
   def filtering_params(params)
@@ -192,7 +214,7 @@ class LessonsBoardsController < ApplicationController
 
   def resource
     @lessons_board ||= case params[:action]
-                       when 'edit', 'update', 'show', 'destroy', 'undiscard', 'purge'
+                       when 'edit', 'update', 'show', 'destroy', 'undiscard', 'purge', 'update_archived_until'
                          LessonsBoard.with_discarded.find(params[:id])
                        else
                          LessonsBoard.new
@@ -492,16 +514,22 @@ class LessonsBoardsController < ApplicationController
   end
 
   def purge_lessons_board!(lessons_board)
-    classroom = lessons_board.classrooms_grade.classroom
-    calendar = CurrentSchoolCalendarFetcher.new(classroom.unity, classroom, classroom.year).fetch
-    first_day = calendar&.first_day
+    first_day = calendar_first_day_for(lessons_board)
     return false if first_day.blank?
 
     # Data anterior ao início do calendário: o quadro permanece no banco,
     # mas não entra na lógica de dias letivos (date <= discarded_at).
-    exclusion_at = (first_day.to_date - 1.day).end_of_day
+    exclusion_at = (first_day - 1.day).end_of_day
     lessons_board.update_column(:discarded_at, exclusion_at)
     true
+  end
+
+  def calendar_first_day_for(lessons_board)
+    classroom = lessons_board.classrooms_grade.classroom
+    calendar = CurrentSchoolCalendarFetcher.new(classroom.unity, classroom, classroom.year).fetch
+    calendar&.first_day&.to_date
+  rescue StandardError
+    nil
   end
 
 end

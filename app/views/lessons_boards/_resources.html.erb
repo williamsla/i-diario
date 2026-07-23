@@ -14,9 +14,15 @@
         <%= Periods.translate(Periods.key_for(lesson_board.period.to_s)) %>
         <% if lesson_board.discarded? %>
           <br>
-          <span class="label label-default">
+          <a href="#"
+             class="label label-default edit-archive-date-lessons-board apply_tooltip"
+             style="cursor: pointer; display: inline-block; margin-top: 4px;"
+             data-url="<%= update_archived_until_lessons_board_path(lesson_board) %>"
+             data-current-date="<%= lesson_board.discarded_at.to_date.iso8601 %>"
+             data-original-title="<%= t('lessons_boards.index.edit_archived_until') %>">
             <%= t('lessons_boards.index.archived_until', date: l(lesson_board.discarded_at.to_date)) %>
-          </span>
+            <i class="fa fa-pencil" style="margin-left: 4px;"></i>
+          </a>
         <% end %>
       </td>
       <td class="actions" style="width: <%= lesson_board.discarded? ? '220px' : '180px' %>">
@@ -52,6 +58,7 @@
                       style: "width: 32%; background-color: #6c757d; border-color: #6c757d; color: #fff;",
                       data: {
                         url: lessons_board_path(lesson_board),
+                        purge_url: purge_lessons_board_path(lesson_board),
                         original_title: "Arquivar"
                       } %>
         <% end %>

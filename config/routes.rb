@@ -417,6 +417,7 @@ Rails.application.routes.draw do
     resources :lessons_boards do
       member do
         post :undiscard
+        patch :update_archived_until
         delete :purge
       end
       collection do
