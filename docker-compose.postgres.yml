@@ -1,0 +1,128 @@
+version: "3.7"
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    container_name: postgres-idiario
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ~/Downloads/2025-idiario.sql:/tmp/2025-idiario.sql
+    environment:
+      - POSTGRES_DB=idiario_development
+      - POSTGRES_USER=idiario
+      - POSTGRES_PASSWORD=idiario
+    restart: unless-stopped
+
+volumes:
+  pg_data:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

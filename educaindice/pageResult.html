@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+
+      <base target="_top">
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+      <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+      <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/0.7.0/chartjs-plugin-datalabels.min.js"></script>
+
+      <?!= include('styleResult') ?>    
+      <?!= include('styleResultMenus') ?>    
+  </head>
+
+  <body>	
+    <div id="header-image"></div>
+    <div id="btnSair">
+      <input type="button" name="btn-sair" value="Sair" onclick="callPageHome();" style="background-color:lightgray"/>
+    </div>
+    <div class="container">
+      <div class="row text-center">
+        <h2>Resultados</h2>
+        <h4><p id="title"></p></h4>
+        <input type="hidden" id="instituicao" value="" />
+        <input type="hidden" id="inep" value="" />
+        <input type="hidden" id="escola" value="-1" />
+        <h4><p id="escola_label"></p></h4>
+      </div>
+      <br/>
+      <div id="toggleMenuResult">
+          <label class="toggle">
+            <input id="checkbox-reading" name="reading" onclick="chooseOption(this)" class="toggle-checkbox" type="checkbox" checked>
+            <div class="toggle-switch"></div>
+            <span class="toggle-label">Leitura, compreensão e interpretação de texto</span>
+          </label>
+          
+          <label class="toggle">
+            <input id="checkbox-writing" name="writing" onclick="chooseOption(this)" class="toggle-checkbox" type="checkbox">
+            <div class="toggle-switch"></div>
+            <span class="toggle-label">Escrita</span>
+          </label>          
+      </div>
+
+      <form id="filter">	
+        <ul>
+            <li>
+              <label for="avaliacao">Avaliação</label>
+              <div>
+              <select id="avaliacao" name="avaliacao" class="element select medium" required> 
+                <option value="-1">-- Selecione uma avaliação --</option>
+              </select>
+              </div> 
+            </li>
+            
+            <li>
+              <label for="serie">Ano Escolar*</label>
+              <div>
+                <select id="serie" name="serie" class="element select medium" required> 
+                  <option value="-1" selected="selected">Selecione uma série</option>
+                </select>
+              </div> 
+            </li>		
+            
+            <li>
+              <label for="disciplina">Disciplina*</label>
+              <div>
+                <select id="disciplina" name="disciplina" class="element select" required>               
+                  <option value="-1" selected="selected"></option>
+                </select>
+              </div> 
+            </li>
+            <br><br>
+            <li id="filter-escolas">
+              <label for="escolas">Escola</label>
+              <div>
+                <select id="escolas" name="escolas" class="element select" required>               
+                  <option value="-1" selected="selected"></option>
+                </select>
+              </div> 
+            </li>
+        </ul>
+      </form>
+      <br><br>
+      <div><p id="loading" class=""></p></div>
+      <div id="results">
+        <div id="results-reading" class="hidden">
+          <p>LEITURA, COMPREENSÃO E INTERPRETAÇÃO DE TEXTO</p>
+          <div class="section">
+            <h2>COMO FOI A PARTICIPAÇÃO DOS ESTUDANTES?</h2>
+            <div class="column">
+                <canvas id="graphParticipation" style="width:100%;max-width:700px"></canvas>
+            </div>
+            <div class="column">
+              <h3>Taxa de participação</h3>
+              <p>
+                A taxa de participação informa o alcance da avaliação entre os estudantes. De forma prática, o indicador mede o percentual daqueles que efetivamente fizeram os testes, considerando todos os estudantes aptos a participar. Nas Avaliações Diagnósticas e Formativas, são considerados previstos os estudantes cadastrados em turmas nas quais pelo menos um deles foi avaliado. Já os participantes efetivos são aqueles que responderam a pelo menos um item do teste.
+              </p>
+            </div>
+          </div>
+          
+          <br/><br/>
+
+          <div class="section">
+            <h2>COMO FOI O DESEMPENHO DOS ESTUDANTES?</h2>
+            <div class="column">
+                <canvas id="graphPerformance" style="width:100%;max-width:700px"></canvas>
+            </div> 
+            <div class="column">
+              <h3>Taxa de desempenho</h3>
+              <p>
+                O percentual de acertos dos estudantes em uma avaliação é a relação entre a quantidade de itens que o estudante acertou e o total de itens que compõe o teste. Esse indicador é calculado com base na Teoria Clássica dos Testes (TCT) e é simples de ser compreendido: por exemplo, se um teste possui 10 itens e o estudante acertou 7, seu percentual de acerto é de 70%.         </p>
+            </div>
+          </div>
+
+          <br/><br/>
+
+          <div class="section">
+            <h2>DISTRIBUIÇÃO DOS ESTUDANTES POR CATEGORIAS DE DESEMPENHO</h2>
+            
+            <div class="column">
+                  <h1 id="index"></h1>
+            </div>
+            <div class="graph-column">
+                <canvas id="graphCategory" style="width:100%;max-width:700px"></canvas>
+            </div>
+              
+            <div class="column">
+                <h3>Níveis de desempenho</h3>
+                <p>
+                  De acordo com o percentual de acerto no teste, é possível situar os estudantes em categorias ou níveis de desempenho. Para o Ensino Fundamental, há quatro categoriais de desempenho: muito baixo, que inclui aqueles que acertaram até 25% do teste; baixo, que acomoda estudantes que tiveram entre 25% e 50% de acerto; médio, que agrupa os que tiveram entre 50% e 75% de acerto; e alto, que engloba estudantes que acertaram mais do que 75% do teste.
+                </p>
+                <p>
+                  No Ensino Fundamental, as avaliações de Língua Portuguesa e de Matemática tem uma natureza distinta. Em vez de considerarem as habilidades previstas na Base Nacional Comum Curricular (BNCC) para a própria etapa de escolarização, identificando como está o desempenho do estudante em relação aos objetivos de aprendizagem do ano em que está matriculado, os testes dos anos finais têm o objetivo de mensurar defasagens. 
+                  
+                  <!-- Em outras palavras, nos anos finais, a proposta oferece avaliações que permitem identificar quais habilidades consideradas essenciais na trajetória escolar ainda precisam ser desenvolvidas pelos estudantes. Por isso, nos testes do 6º ao 9º ano de Língua Portuguesa e de Matemática, as categorias recebem os nomes de níveis e estão relacionadas aos quatro grupos definidos para intervenção.</p>
+                    
+                    <p>Os níveis de 1 a 4 traduzem defasagens apresentadas pelos estudantes e originam grupos respectivos de Acompanhamento Personalizado da Aprendizagem. O nível 5 não é objeto de intervenção, uma vez que pode indicar desempenho adequado, dependendo da etapa, ou grau de defasagem que pode ser trabalhada de forma não individualizada.
+                    Para conhecer as habilidades foco de intervenção que compõem cada um dos níveis, Em ciências da natureza e língua inglesa há quatro categoriais de desempenho: muito baixo,
+                  que inclui aqueles que acertaram até 25% do teste; baixo, que acomoda estudantes que tiveram entre 25% e 50% de acerto; médio, que agrupa os que tiveram entre 50% e 75% de acerto; e alto, que engloba estudantes que acertaram mais do que 75% do teste.-->
+                </p>
+              </div>
+
+          </div>
+
+          <div class="section">
+            <h2>DESEMPENHO POR HABILIDADE</h2>
+            <div class="column">
+                <canvas id="graphObjective" style="width:100%;max-width:900px"></canvas>
+            </div>
+            <div class="column">
+              <h3>Habilidades</h3>
+              <p>
+                Nível dos alunos em cada habilidade
+              </p>
+              <p id="objectiveDescription"></p>
+            </div>
+
+          </div>
+
+          <div class="section">
+            <h2>SABE ESCREVER O NOME</h2>
+            <div class="column">
+                <canvas id="graphKnowWriteName" style="width:100%;max-width:900px"></canvas>
+            </div>
+            <div class="column">
+              <!-- <h3>Sabe escrever o nome</h3> -->
+              <p>
+                Percentual de alunos que sabem escrever o nome
+              </p>
+            </div>
+          </div>
+
+          <div id="turmas" class="section bySchool hidden">
+            <h2>TURMAS</h2>
+            <center>
+              <table id="tableClass" border="1" cellpadding="4">
+                <tr>
+                  <td><b>Turma</b></td>
+                </tr>
+              </table>
+            </center>
+            <br/><br/><br/>
+            <center>
+              <table id="tableStudent" border="1" cellpadding="2">
+                <tr>
+                  <td><b>Nome</b></td>
+                  <td><b>Participação</b></td>
+                  <td><b>Sabe escrever o nome</b></td>
+                  <td><b>Acertos</b></td>
+                  <td><b>Erros</b></td>
+                  <td><b>Nível</b></td>
+                </tr>
+              </table>
+            </center>
+            <br/><br/><br/>
+            <center>
+              <table id="tableStudentObjectives" border="1" cellpadding="2">
+              </table>
+            </center>
+          </div>
+        </div>
+        <br><br>
+        <div id="results-writing" class="hidden">
+          <p>ESCRITA</p>
+          <form id="filter">	
+            <ul>
+              <li>
+                <label for="questao">Questão</label>
+                <div>
+                  <select id="questao" name="questao" class="element select medium" required> 
+                    <option value="-1" selected="selected">Selecione uma questão</option>
+                  </select>
+                </div> 
+              </li>                
+            </ul>
+          </form>
+
+          <div class="section">
+            <h2>DESEMPENHO NA QUESTÃO</h2>
+            <div class="column">
+                <canvas id="graphCategoryConceptual" style="width:100%;max-width:900px"></canvas>
+            </div>
+            <div class="column">
+              <h3>Níveis/Categorias</h3>
+              <p>
+                Quantidade de alunos em cada nível/categoria
+              </p>
+              <p id="graphCategoryConceptualDesc"></p>
+            </div>
+          </div>
+          
+        </div>  
+      </div>
+
+      <br><br><br>
+
+    </div>
+    <div id="modal" class="modal"></div>
+
+    <script>
+      Chart.defaults.global.showTooltips = false;
+      const colors = ['#fb0505','orange','#79dd75','#1388ea','#f82a9a','#9e48a1','#b21c99','#ddda78','#91d6d3','#5b46a4',
+      '#442c1a','#c2f708','#3a6e81', '#1c17ed']
+
+      init();
+
+      function getColors(qtd){
+        let c = [];
+        for (var i=0;i<qtd;i++) {
+          c.push(colors[i]);
+        }
+        return c;
+      }
+
+      function calculateIndex(categories) {
+        let sum = 0;
+        for(var i=0; i<categories.length;i++){
+          sum += categories[i];
+        }
+
+        const percentual_muito_baixo = (categories[0]/sum)*100 * 0;
+        const percentual_baixo = (categories[1]/sum)*100 * 4;
+        const percentual_medio = (categories[2]/sum)*100 * 6;
+        const percentual_alto = (categories[3]/sum)*100 * 10;
+
+        const result = (percentual_muito_baixo + percentual_baixo + percentual_medio + percentual_alto ) / 100;
+        return result.toFixed(2);
+      }
+
+      function init() {
+        loadAvaliacoes();
+
+        var instituicao = "<?=inep?>"; 
+        document.getElementById('inep').value = instituicao;
+        
+        if (instituicao == "semed" || instituicao == -1) {
+          document.getElementById('escola_label').innerHTML = "SEMED";
+          document.getElementById('filter-escolas').classList.remove('hidden');
+          loadEscolas();
+          loadSeries(instituicao);
+          loadDisciplinas();
+        } else {
+          document.getElementById('filter-escolas').classList.add('hidden');
+          loadEscola(instituicao);
+          loadSeries(instituicao);
+          loadDisciplinas();
+          showSectionBySchool();
+        }
+        // loadCabecalho();
+      }
+
+      var chartParticipation = null;
+      var chartPerformance = null;
+      var chartKnowWriteName = null;
+      var chartCategory = null;
+      var chartObjective = null;
+      var chartCategoryConceptual = null;
+
+      function loadGraphParticipation(){
+        if (chartParticipation != null) {
+          chartParticipation.destroy();
+        }
+
+        const graphId = 'graphParticipation';
+        document.getElementById(graphId).appendChild(createEmptyOption());
+        console.log('carregando grafico de participação');
+        var avaliacao = document.getElementById('avaliacao').value;
+        var inep_escola = document.getElementById('inep').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value; 
+      
+        google.script.run.withSuccessHandler(response => {
+            chartParticipation = new Chart(graphId, {
+              type: "pie",
+              data: {
+                labels: ['Participação','Ausência'],
+                datasets: [{
+                  backgroundColor: [getColors(4)[3],getColors(4)[0]],
+                  data: response
+                }]
+              },
+              options: {
+                title: {
+                  display: false                    
+                },
+                plugins: {
+                  datalabels: dataLabelsObj()
+                }               
+              }
+            });
+            
+            //showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("load Alunos ERROR: " + error.message);
+            console.error(error);
+            
+            //showHideLoading();
+        }).getParticipacao(avaliacao, inep_escola, serie, disciplina);
+      }
+
+      function loadGraphPerformance(){
+        //showHideLoading();
+        if (chartPerformance != null) {
+          chartPerformance.destroy();
+        }
+        
+        var avaliacao = document.getElementById('avaliacao').value;
+        var inep_escola = document.getElementById('inep').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value; 
+        console.log('carregando grafico de desempenho:' + inep_escola + " " + serie + " " + disciplina);
+      
+        google.script.run.withSuccessHandler(response => {
+            chartPerformance = new Chart("graphPerformance", {
+              type: "pie",
+              data: {
+                labels: ['Acertos','Erros'],
+                datasets: [{
+                  backgroundColor: [getColors(4)[3],getColors(4)[0]],
+                  data: response
+                }]
+              },
+              options: {
+                title: {
+                  display: false
+                },
+                plugins: {
+                  datalabels: dataLabelsObj()
+                }
+              }
+            });
+            
+            //showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("load Alunos ERROR: " + error.message);
+            console.error(error);
+            
+            //showHideLoading();
+        }).getDesempenho(avaliacao, inep_escola, serie, disciplina);
+      }
+
+      function loadGraphKnowWriteName(){
+        //showHideLoading();
+        if (chartKnowWriteName != null) {
+          chartKnowWriteName.destroy();
+        }
+
+        var avaliacao = document.getElementById('avaliacao').value;
+        var escola = document.getElementById('escola').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value; 
+        console.log('carregando grafico de sabe escrever o nome:' + escola + " " + serie + " " + disciplina);
+      
+        google.script.run.withSuccessHandler(response => {
+            chartKnowWriteName = new Chart("graphKnowWriteName", {
+              type: "pie",
+              data: {
+                labels: ['Acertos','Erros'],
+                datasets: [{
+                  backgroundColor: [getColors(4)[3],getColors(4)[0]],
+                  data: response
+                }]
+              },
+              options: {
+                title: {
+                  display: false
+                },
+                plugins: {
+                  datalabels: dataLabelsObj()
+                }
+              }
+            });
+            
+            //showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("load Alunos ERROR: " + error.message);
+            console.error(error);
+            
+            //showHideLoading();
+        }).getResultadoSabeEscreverONome(avaliacao, escola, serie, disciplina);
+      }
+
+      function loadGraphCategory(){
+        //showHideLoading();
+        if (chartCategory != null) {
+          chartCategory.destroy();
+        }
+        console.log('carregando gráfico de categorias');
+        var avaliacao = document.getElementById('avaliacao').value;
+        var inep_escola = document.getElementById('inep').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value; 
+        console.log('carregando grafico de categorias:' + inep_escola + " " + serie + " " + disciplina);
+      
+        google.script.run.withSuccessHandler(dataset => {    
+          chartCategory = new Chart("graphCategory", {
+            type: "bar",
+            data: {
+              labels: ['MUITO BAIXO','BAIXO', 'MÉDIO', 'ALTO'],
+              datasets: [{
+                            backgroundColor: getColors(4),
+                            data: dataset
+                          }]
+            },
+            options: {
+              legend: {
+                display: false,
+              },
+              scales: {
+                yAxes: [{
+                    display: true,
+                    ticks: {
+                        suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                        // OR //
+                        beginAtZero: true,   // minimum value will be 0.
+                        stepSize: 10
+                    }
+                }]
+              },
+              plugins: {
+                datalabels: dataLabelsObj()
+              }
+            }
+          });
+
+          document.getElementById('index').innerText = 'Índice ' + calculateIndex(dataset);  
+      
+            //showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("load Alunos ERROR: " + error.message);
+            console.error(error);
+            
+            //showHideLoading();
+        }).getCategorias(avaliacao, inep_escola, serie, disciplina);
+      }
+
+      function loadGraphObjetives(){
+        showHideLoading();
+        if (chartObjective != null) {
+          chartObjective.destroy();
+        }
+        console.log('carregando gráfico de Objetivos');
+        var avaliacao = document.getElementById('avaliacao').value;
+        var escola = document.getElementById('escola').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value; 
+        
+        google.script.run.withSuccessHandler(response => {
+    
+          chartObjective = new Chart("graphObjective", {
+            type: "bar",
+            data: response,
+            options: {
+              legend: {
+                display: true,
+              },
+              scales: {
+                xAxes: [{
+                    stacked: true
+                }],
+                yAxes: [{
+                    stacked: true
+                }]
+              },
+              plugins: {
+                datalabels: dataLabelsObj(onlyPercent=true, stack=true)
+              }
+            }
+          });
+      
+            showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("load GraphObjective ERROR: " + error.message);
+            console.error(error);
+            
+            showHideLoading();
+        }).getDesempenhoPorHabilidade(avaliacao, escola, serie, disciplina);
+      }
+
+      function loadObjetivesDescription(){
+        showHideLoading();
+        
+        var avaliacao = document.getElementById('avaliacao').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value; 
+        
+        google.script.run.withSuccessHandler(response => {
+            document.getElementById('objectiveDescription').innerHTML = "";
+
+            for (var i=0; i < response.length; i++) {
+              let opt = document.createElement('span');
+              opt.innerHTML = response[i];
+        
+              document.getElementById('objectiveDescription').appendChild(opt);
+              document.getElementById('objectiveDescription').appendChild(document.createElement('br'));
+            }
+
+            showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("load Objective Description ERROR: " + error.message);
+            console.error(error);
+            document.getElementById('objectiveDescription').innerHTML = "";
+
+            showHideLoading();
+        }).getHabilidades(avaliacao, serie, disciplina);
+      }
+
+      function dataLabelsObj(onlyPercent=false, stack=false){
+        return {
+                  formatter: (value, ctx) => {
+                    
+                    let total = 0;
+                    if (stack) {
+                      let index = ctx.dataIndex;
+                      ctx.chart.data.datasets.map((d, i) => {
+                          // if (i === 2) return;
+                          total += d.data[index];
+                      });
+                    } else {
+                      const datapoints = ctx.chart.data.datasets[0].data;
+                      total = datapoints.reduce((total, datapoint) => total + datapoint, 0);
+                    }
+                    
+                    const percentage = value / total * 100;
+
+                    if (stack) {
+                      if (value == 0 || percentage == 0) {
+                        return "";
+                      }
+                    }
+                    return onlyPercent ? percentage.toFixed(1) + "%" : value + " (" + percentage.toFixed(1) + "%)";
+                  },
+                  color: 'black',
+                  labels: {
+                    title: {
+                      font: {
+                        weight: 'bold',
+                        resizable: true,
+                        minSize: 18,
+                        maxSize: 36
+                      }
+                    }
+                  }
+                };
+      }
+
+      function loadGraphCategoryConceptual(){
+        showHideLoading();
+
+        console.log('carregando gráfico de questão conceitual');
+        var avaliacao = document.getElementById('avaliacao').value;
+        var inep_escola = document.getElementById('inep').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value;
+        
+        var questaoElemento = document.getElementById('questao');
+        var selectedOption = questaoElemento.options[questaoElemento.selectedIndex];
+        var tipo = selectedOption.dataset.tipo;
+        var questao = questaoElemento.value;
+        
+        if (tipo != 'conceitual') {
+          showHideLoading();
+          return;
+        }
+        console.log('carregando grafico de questão conceitual:' + inep_escola + " serie " + serie + " disciplina " + disciplina + " questao " + questao);
+        if (chartCategoryConceptual != null) {
+          chartCategoryConceptual.destroy();
+        }
+        
+      
+        google.script.run.withSuccessHandler(response => {          
+          chartCategoryConceptual = new Chart("graphCategoryConceptual", {
+            type: "bar",
+            data: {
+              labels: response['descricao'],
+              datasets: [{
+                            backgroundColor: getColors(response['alternativas'].length).reverse(),
+                            data: response['qtd']
+                          }]
+            },
+            options: {
+              legend: {
+                display: false,
+              },
+              scales: {
+                yAxes: [{
+                    display: true,
+                    ticks: {
+                        suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                        // OR //
+                        beginAtZero: true,   // minimum value will be 0.
+                        stepSize: 10
+                    }
+                }]
+              },
+              plugins: {
+                datalabels: dataLabelsObj()
+              }
+            }
+          });
+      
+            showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("load dados p/ grafico categorias conceituais ERROR: " + error.message);
+            console.error(error);
+            
+            showHideLoading();
+        }).getCategoriasConceituais(avaliacao, inep_escola, serie, disciplina, questao);
+      }
+
+      function loadGraphCategoryConceptualNivel(){
+        showHideLoading();
+
+        console.log('carregando gráfico de questão conceitual nível');
+        var avaliacao = document.getElementById('avaliacao').value;
+        var inep_escola = document.getElementById('inep').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value;
+        
+        var questaoElemento = document.getElementById('questao');
+        var selectedOption = questaoElemento.options[questaoElemento.selectedIndex];
+        var tipo = selectedOption.dataset.tipo;
+        var questao = questaoElemento.value;
+        
+        if (tipo != 'conceitual-nivel') {
+          showHideLoading();
+          return;
+        }
+        console.log('carregando grafico de questão conceitual nível:' + inep_escola + " serie " + serie + " disciplina " + disciplina + " questao " + questao);
+        if (chartCategoryConceptual != null) {
+          chartCategoryConceptual.destroy();
+        }
+      
+        google.script.run.withSuccessHandler(response => {       
+
+          chartCategoryConceptual = new Chart("graphCategoryConceptual", {
+            type: "bar",
+            data: {
+              labels: response['alternativas'],
+              datasets: [{
+                            backgroundColor: getColors(response['alternativas'].length),
+                            data: response['qtd']
+                          }]
+            },
+            options: {
+              legend: {
+                display: false,
+              },
+              scales: {
+                yAxes: [{
+                    display: true,
+                    ticks: {
+                        suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                        // OR //
+                        beginAtZero: true,   // minimum value will be 0.
+                        stepSize: 10
+                    }
+                }]
+              },
+              plugins: {
+                datalabels: dataLabelsObj()
+              }
+            }
+          });
+      
+            showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("load dados p/ grafico categorias conceituais ERROR: " + error.message);
+            console.error(error);
+            
+            showHideLoading();
+        }).getCategoriasConceituaisNiveis(avaliacao, inep_escola, serie, disciplina, questao);
+      }
+      
+      function loadTurmas() {
+        //showHideLoading();
+
+        var inep = document.getElementById('inep').value;
+
+        var escola = document.getElementById('escola').value; 
+        var serie = document.getElementById('serie').value; 
+
+        var tableClass = document.getElementById("tableClass");
+        var tableStudent = document.getElementById("tableStudent");
+        tableClass.innerHTML = "";
+        tableStudent.innerHTML = "";
+        tableStudentObjectives.innerHTML = "";
+      
+        google.script.run.withSuccessHandler(response => {
+            tableClass.insertRow().insertCell().innerHTML = "-- clique em uma turma -- ";
+
+            for (var i = 0; i < response.length; i++) {
+              let turmaNome = response[i]; 
+              addTableClassRow(turmaNome);
+            }
+
+            // document.getElementById('turmas').classList.remove('hidden');
+            
+            //showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("load Turmas ERROR: " + error.message);
+            console.error(error);
+            
+            //showHideLoading();
+        }).getTurmas(escola, serie);
+      }
+
+      function addTableClassRow(nomeTurma) {
+        var table = document.getElementById("tableClass");
+        var rowCount = table.rows.length;
+        var row = table.insertRow(rowCount);
+        var cellNome = row.insertCell(0);
+        cellNome.innerHTML= "<a>"+nomeTurma+"</a>";
+
+        cellNome.addEventListener("click",function(){
+          console.log("carregando alunos");
+          loadCorrecaoAlunos(nomeTurma);
+          loadCorrecaoAlunosPorHabilidade(nomeTurma);
+        });
+      }
+      
+      function addTableStudentRow(nome, participou, escrevenome, acertos, erros, nivel) {
+        var table = document.getElementById("tableStudent");
+        var rowCount = table.rows.length;
+        var row = table.insertRow(rowCount);
+        row.insertCell(0).innerHTML= nome;
+
+        if (participou) row.insertCell(1).innerHTML= participou;
+        if (escrevenome) row.insertCell(2).innerHTML= escrevenome;
+        if (acertos) row.insertCell(3).innerHTML= acertos;
+        if (erros) row.insertCell(4).innerHTML= erros;
+        if (nivel) row.insertCell(5).innerHTML= nivel;
+      }
+
+      function showHideLoading(){
+        $('body').toggleClass('loading');
+      }
+
+      function createEmptyOption(){
+        let opt = document.createElement('option');
+        opt.value = "-1";
+        opt.innerHTML = "-- Selecione uma opção --";
+        
+        return opt;
+      }
+
+      function removeAllChildNodes(parent) {
+          while (parent.firstChild) {
+              parent.removeChild(parent.firstChild);
+          }
+      }
+
+      function removeWhiteSpaces(text) {
+        return text.replace(/\s/g, "");
+      }
+
+      function loadEscolas() {
+        //showHideLoading();
+
+        removeAllChildNodes(document.getElementById('escolas'));
+        document.getElementById('escolas').appendChild(createEmptyOption());
+
+        var serie = document.getElementById('serie').value;
+        
+        google.script.run.withSuccessHandler(response => {
+          let escolas = response.message;
+
+          // preenchendo as opções de escolas
+          for (var i = 0; i < escolas.length; i++) {
+            let escola = escolas[i];
+            let opt = document.createElement('option');
+            opt.value = escola['inep'];
+            opt.innerHTML = escola['nome'];
+      
+            document.getElementById('escolas').appendChild(opt);
+          }
+          //showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("Init ERROR: " + error.message);
+            console.error(error);
+            //showHideLoading();
+        }).getEscolasTodas();
+      }
+
+      document.getElementById('avaliacao').addEventListener('change', () => {
+                  var disciplina = document.getElementById('disciplina').value; 
+                  if (disciplina != null && disciplina != -1){
+                    $.when(
+                      document.getElementById('results-reading').classList.add('hidden'),
+                    ).then(
+                      loadResults()
+                    );
+                  } 
+                });
+
+      document.getElementById('serie').addEventListener('change', () => {
+                  var disciplina = document.getElementById('disciplina').value; 
+                  if (disciplina != null && disciplina != -1){
+                    $.when(
+                      document.getElementById('results-reading').classList.add('hidden'),
+                    ).then(
+                      loadQuestoes(),
+                      loadResults()
+                    );
+                  } 
+                });
+
+      document.getElementById('disciplina').addEventListener('change', () => {
+            var serie = document.getElementById('serie').value; 
+            if (serie != null && serie != -1){
+              $.when(
+                document.getElementById('results-reading').classList.add('hidden'),
+              ).then(
+                () => {
+                  loadQuestoes();
+                  loadResults();                  
+                }
+              );
+            }
+          });
+        
+        document.getElementById('questao').addEventListener('change', () => {
+            var serie = document.getElementById('serie').value; 
+            if (serie != null && serie != -1){
+              $.when(
+                document.getElementById('results-reading').classList.add('hidden'),
+              ).then(
+                () => {
+                  loadResults();
+                }
+              );
+            }
+          });
+
+          function showSectionBySchool(){
+            $(".bySchool").each(function(i,el){
+                  el.classList.remove('hidden')
+                });
+          }
+
+      document.getElementById('escolas').addEventListener('change', (event) => {
+            let inep_escola = event.target.value;
+            
+            if (inep_escola == null || inep_escola == "semed" || inep_escola == -1) {
+              $(".bySchool").each(function(i,el){
+                  el.classList.add('hidden')
+                });
+              
+            } else {
+              $(".bySchool").each(function(i,el){
+                  el.classList.remove('hidden')
+                });
+            }
+
+            $.when(
+              document.getElementById('results-reading').classList.add('hidden'),
+              document.getElementById('inep').value = inep_escola,
+              document.getElementById('escola').value = document.getElementById('escolas').options[document.getElementById('escolas').selectedIndex].text,
+              document.getElementById('escola_label').innerHTML = document.getElementById('escolas').options[document.getElementById('escolas').selectedIndex].text,
+            ).then(
+              () => {
+                let serie = document.getElementById('serie').value;
+                let disciplina = document.getElementById('disciplina').value;
+                if (serie != -1 && disciplina != -1) {
+                  loadResults();
+                }
+              }
+            );
+          });
+      
+      function loadResults(){
+        if (document.getElementById('checkbox-reading').hasAttribute('checked')) {
+          $.when(
+            loadGraphParticipation(),
+            loadGraphPerformance(),
+            loadGraphCategory(),
+            loadGraphObjetives(),
+            loadObjetivesDescription(),
+            loadTurmas(),
+            loadGraphKnowWriteName(),
+          ).then(
+            document.getElementById('results-reading').classList.remove('hidden'),
+          )
+        } else {
+          document.getElementById('results-reading').classList.add('hidden');
+        }
+
+        if (document.getElementById('checkbox-writing').hasAttribute('checked')) {
+          $.when(
+            // loadGraphCategoryConceptual()
+            loadGraphCategoryConceptualNivel()
+          ).then(
+            document.getElementById('results-writing').classList.remove('hidden'),
+          )
+        } else {
+          document.getElementById('results-writing').classList.add('hidden');
+        }
+      }
+
+      function loadCabecalho() {
+        //showHideLoading();
+        
+        google.script.run.withSuccessHandler(response => {
+              document.querySelector('#title').innerHTML = response[0];
+              document.querySelector('#logo-prefeitura').src = response[1];
+              document.querySelector('#logo-semed').src = response[2];
+
+              //showHideLoading();
+          }).withFailureHandler(error => {
+              console.error("load Series ERROR: " + error.message);
+              console.error(error);
+
+              //showHideLoading();
+          }).getCabecalho();
+      }
+
+      function loadEscola(inep) {
+        if (inep == -1) {
+          document.getElementById('inep').value = "semed";
+          document.getElementById('escola').value = "SEMED";
+          document.getElementById('escola_label').innerHTML = "SEMED";
+        } else {
+          google.script.run.withSuccessHandler(response => {
+              document.getElementById('inep').value = inep;
+              document.getElementById('escola').value = response[0];
+              document.getElementById('escola_label').innerHTML = response[0];
+          }).withFailureHandler(error => {
+              console.error("load ESCOLA ERROR: " + error.message);
+              console.error(error);                
+          }).getEscola(inep);
+        }
+
+        return;          
+      }
+
+      function loadAvaliacoes() {
+        let inep = "<?=inep?>";
+        
+        google.script.run.withSuccessHandler(response => {
+            for (var i = 0; i < response.length; i++) {
+              let ava = response[i];
+              let opt = document.createElement('option');
+              opt.value = ava.id;
+              opt.innerHTML = ava.nome;
+
+              if ((i +1) == response.length) {
+                opt.selected="selected";
+              }
+        
+              document.getElementById('avaliacao').appendChild(opt);
+            }
+              
+          }).withFailureHandler(error => {
+              console.error("load AVALIAÇÕES ERROR: " + error.message);
+              console.error(error);
+              
+          }).getAvaliacoes("resultado", inep);
+      }
+
+      function loadSeries(inep) {
+        //showHideLoading();
+
+        document.getElementById('serie').innerHTML = "";
+        
+        document.getElementById('serie').appendChild(createEmptyOption());
+                  
+          google.script.run.withSuccessHandler(response => {
+            for (var i = 0; i < response.length; i++) {
+              let s = response[i];
+              let opt = document.createElement('option');
+              opt.value = s;
+              opt.innerHTML = s;
+        
+              document.getElementById('serie').appendChild(opt);
+            }
+            
+            //showHideLoading();
+          }).withFailureHandler(error => {
+              console.error("load Series ERROR: " + error.message);
+              console.error(error);
+              
+              //showHideLoading();
+          }).getSeriesPorEscolaINEP(inep);
+      }
+
+      function loadDisciplinas() {
+        showHideLoading();
+
+        document.getElementById('disciplina').innerHTML = "";
+        var inep = document.getElementById('inep').value;
+
+        document.getElementById('disciplina').appendChild(createEmptyOption());
+      
+            google.script.run.withSuccessHandler(response => {
+              for (var i = 0; i < response.length; i++) {
+                let disciplinaNome = response[i];
+                let opt = document.createElement('option');
+                opt.value = disciplinaNome;
+                opt.innerHTML = disciplinaNome;
+          
+                document.getElementById('disciplina').appendChild(opt);
+              }
+              
+              showHideLoading();
+          }).withFailureHandler(error => {
+              console.error("load Disciplinas ERROR: " + error.message);
+              console.error(error);
+              
+              showHideLoading();
+          }).getDisciplinas(inep);
+      }
+
+      function loadQuestoes() {
+        showHideLoading();
+
+        var avaliacao = document.getElementById('avaliacao').value;
+        var serie = document.getElementById('serie').value;
+        var disciplina = document.getElementById('disciplina').value;
+        
+        removeAllChildNodes(document.getElementById('questao'));
+        document.getElementById('questao').appendChild(createEmptyOption());
+
+        if (disciplina == -1) return;
+      
+        google.script.run.withSuccessHandler(response => {
+            for (var i = 0; i < response.length; i++) {
+              let questao = response[i];
+              
+              let opt = document.createElement('option');
+              opt.value = questao['index'];
+              opt.dataset.tipo = questao['tipo'];
+              if (questao['tipo'] == 'conceitual-nivel') {
+                opt.innerHTML = questao['questao'];
+              } else {
+                opt.innerHTML = questao['questao'] + " - " +questao['enunciado'];
+              }
+              
+              if (response.length == 1) {
+                opt.selected = true;
+              }
+        
+              document.getElementById('questao').appendChild(opt);
+            }
+
+            if (response.length == 1) {
+              loadGraphCategoryConceptual();
+              loadGraphCategoryConceptualNivel();
+            }
+            
+            showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("load Questões ERROR: " + error.message);
+            console.error(error);
+            
+            showHideLoading();
+        }).getQuestoesConceituais(avaliacao, serie, disciplina);
+      }
+
+      function loadCorrecaoAlunos(turma) {
+        showHideLoading();
+
+        var avaliacao = document.getElementById('avaliacao').value;
+        var escola = document.getElementById('escola').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value; 
+      
+        google.script.run.withSuccessHandler(response => {
+            var tableStudent = document.getElementById("tableStudent");
+            tableStudent.innerHTML = "";
+            addTableStudentRow(`Turma: <b>${turma}</b>`,null,null,null,null,null);
+            addTableStudentRow("<b>Aluno</b>","<b>Participou</b>","<b>Sabe escrever o nome</b>","<b>Acertos</b>","<b>Erros</b>","<b>Nível</b>");
+            
+            for (var i = 0; i < response.length; i++) {
+              let alunoNomeID = response[i].split('|');
+              let nome = alunoNomeID[0];
+              let participou = alunoNomeID[1] == 1 ? "SIM" : "NÃO";
+              let escrevenome = alunoNomeID[2] == "NAO" ? "<b style='color:red !important;'>NAO</b>" : alunoNomeID[2];
+              let acertos = alunoNomeID[3];
+              let erros = alunoNomeID[4];
+              let nivel = ["MUITO BAIXO", "BAIXO"].includes(alunoNomeID[5]) ? `<b style='color:red !important;'>${alunoNomeID[5]}</b>` : alunoNomeID[5];
+              
+              addTableStudentRow(nome, participou, escrevenome, acertos, erros, nivel);
+            }
+            
+            showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("load Alunos ERROR: " + error.message);
+            console.error(error);
+            
+            showHideLoading();
+        }).getAlunosCorrecao(avaliacao, escola, serie, turma, disciplina);
+      }
+
+      function loadCorrecaoAlunosPorHabilidade(turma) {
+        showHideLoading();
+
+        var avaliacao = document.getElementById('avaliacao').value;
+        var escola = document.getElementById('escola').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value; 
+      
+        google.script.run.withSuccessHandler(response => {
+            let habilidades = response[0];
+            let alunos = response[1];
+            
+            let tableObj = document.getElementById("tableStudentObjectives");
+            tableObj.innerHTML = "";
+
+            let row = tableObj.insertRow(-1);
+            row.insertCell().innerHTML= `Turma: <b>${turma}</b>`;              
+
+            row = tableObj.insertRow(-1);
+            row.insertCell().innerHTML= `<b>NOME</b>`;              
+            for (var i = 0; i < habilidades.length; i++) {
+              let h = habilidades[i];
+            
+              row.insertCell().innerHTML= `<b>${h}</b>`;              
+            }
+            
+            for (var i = 0; i < alunos.length; i++) {
+              let rowAluno = tableObj.insertRow();
+              let result = alunos[i];
+              let alunoNome = result['nome'];
+              let desempenho = result['desempenho'];
+
+              rowAluno.insertCell().innerHTML= alunoNome;
+              
+              for (var x=0; x<desempenho.length; x++){
+                rowAluno.insertCell().innerHTML= desempenho[x];
+              }
+            }
+            
+            showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("load Alunos por Habilidade ERROR: " + error.message);
+            console.error(error);
+            
+            showHideLoading();
+        }).getAlunosCorrecaoPorHabilidade(avaliacao, escola, serie, turma, disciplina);
+      }
+
+      function callPageHome() {
+        google.script.run.withSuccessHandler(url => {
+          window.top.location.href = url; 
+
+        }).withFailureHandler(error => {
+          console.error("ERROR: " + error.message);
+          console.error(error);
+
+        }).getScriptUrl();
+      }
+
+      function chooseOption(element) {
+        if (element.hasAttribute("checked")) {
+          element.removeAttribute('checked');
+          document.getElementById(`results-${element.name}`).classList.add('hidden');
+        } else {
+          element.setAttribute('checked', true);
+          document.getElementById(`results-${element.name}`).classList.remove('hidden');
+        }        
+      }
+
+    </script>
+  
+  </body>
+  
+</html>

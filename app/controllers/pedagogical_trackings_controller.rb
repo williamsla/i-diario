@@ -181,16 +181,9 @@ class PedagogicalTrackingsController < ApplicationController
 		FROM public.teachers t 
 		inner join public.teacher_discipline_classrooms tdc on tdc.teacher_id = t.id and tdc.discarded_at is null and tdc.active = true
 		inner join public.classrooms c on c.id = tdc.classroom_id
-		inner join public.classrooms_grades cg on cg.classroom_id = c.id 
-		inner join public.grades g on g.id = cg.grade_id 
-		inner join public.courses c2 on c2.id = g.course_id
 		inner join public.disciplines d ON d.id = tdc.discipline_id and (d.descriptor = false and d.grouper = false)
-		inner join public.users u ON u.teacher_id = t.id
-		inner join public.user_roles ur ON ur.user_id = u.id 
-		inner join public.roles r ON r.id = ur.role_id and r.access_level = 'teacher'
 		inner join public.unities unity ON unity.id = c.unity_id 
 		WHERE tdc.year = #{current_user_school_year} 
-		AND u.current_school_year = #{current_user_school_year}
 		and c.year = #{current_user_school_year}
 		and unity.id = #{unity_id}
     and (CASE WHEN #{classroom_id} > 0 THEN c.id = #{classroom_id} ELSE TRUE END)

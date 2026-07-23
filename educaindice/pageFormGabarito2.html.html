@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <base target="_top">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+
+    <!-- <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady();"></script> -->
+
+    
+    <!-- <?!= include('stylesheet') ?> -->
+    <?!= include('styleFormGabarito') ?>
+</head>
+
+<body>	
+	<div class="container">
+    <div class="box">
+      <div class="box-itens">
+        <img id="logo-prefeitura" class="group-images" src="" alt="">
+        <img id="logo-semed" class="group-images" src="">
+      </div>
+      <div style="margin-left:auto;padding-top:0px;display:flex;align-items:center;gap:12px;">
+        <button type="button" onclick="cacheClear(); alert('Cache dos filtros limpo. Recarregue a página.');" style="background:none;border:none;color:#666;cursor:pointer;font-size:12px;text-decoration:underline;">Limpar cache</button>
+        <input type="button" name="btn-sair" value="Sair" onclick="callPageHome();" style="background-color:lightgray"/>
+      </div>
+    </div>
+    <div class="row text-center">
+      <h2>Gabarito Prova Coité</h2>
+      <h4><p id="title"></p></h4>
+      <input type="hidden" id="inep" value="" />
+      <div class="escola-select-wrapper">
+        <label for="escola" class="escola-label">Unidade escolar</label>
+        <select id="escola" name="escola" class="element select medium escola-select" required> 
+        </select>
+      </div> 
+      <input type="hidden" id="questoes" value="" />
+    </div>
+    <br/>
+		<form id="form" class="form-inline">	
+    	<div class="filtros-gabarito">
+          <p class="filtros-gabarito-titulo">Filtros</p>
+          <ul id="form-inputs">
+            <li class="filtro-item">
+              <label class="description label-inputs" for="avaliacao">Avaliação</label>
+              <div>
+                <select id="avaliacao" name="avaliacao" class="element select medium" required> 
+                  <option value="-1">Selecione uma avaliação</option>
+                </select>
+              </div> 
+            </li>
+            <li class="filtro-item">
+              <label class="description label-inputs" for="serie">Ano Escolar</label>
+              <div>
+                <select id="serie" name="serie" class="element select medium" required> 
+                  <option value="-1" selected="selected">Selecione uma série</option>
+                </select>
+              </div> 
+            </li>		
+            
+            <li id="li_6" class="filtro-item complement">
+              <label class="description label-inputs" for="disciplina">Disciplina</label>
+              <div>
+                <select id="disciplina" name="disciplina" class="element select" required>               
+                  <option value="-1" selected="selected"></option>
+                </select>
+              </div> 
+            </li>
+
+            <li id="li_5" class="filtro-item complement">
+              <label class="description label-inputs" for="turma">Turma</label>
+              <div>
+                <select id="turma" name="turma" class="element select medium" required>               
+                  <option value="-1" selected="selected"></option>
+                </select>
+              </div> 
+            </li>
+
+            <li id="li_7" class="filtro-item complement">
+              <label class="description label-inputs" for="aluno">Aluno</label>
+              <div>
+                <select id="aluno" name="aluno" class="element select medium" required>               
+                  <option value="-1" selected="selected"></option>
+                </select>
+              </div> 
+            </li>
+
+            <li class="filtro-hr" aria-hidden="true"><hr/></li>
+          
+          <li id="li_8" class="complement">
+            <label class="description label-inputs" for="escrevenome">O aluno sabe escrever o nome completo?</label>
+            <div class="radio-group">
+              <input type="radio" name="escrevenome" value="SIM"> SIM</input>
+              <input type="radio" name="escrevenome" value="NAO"> NÃO</input>
+            </div> 
+          </li>
+          <br/>
+          <br/>
+          
+          <!-- <div> -->
+            <!-- <input type="file" id="upload" class="form-control" />
+            <canvas id="canvas" style="border:1px solid #ccc; width:100%; max-width:600px;"></canvas> -->
+            
+            <!-- <div id="respostas" style="margin-top: 20px; font-family: sans-serif;"></div>
+          </div> -->
+
+          <li class="complement">
+            <label class="description label-inputs" for="gabarito">Respostas do(a) aluno(a)</label>
+            
+            <div class="table-wrapper">
+              <div style="margin-bottom:10px;">
+                <button type="button" id="btnFotoGabarito" class="button_text" style="background:#2196F3;padding:10px 16px;">📷 Preencher a partir de foto</button>
+              </div>
+              <pre id="saida"></pre>
+              <table id="gabarito" name="gabarito" border="1">
+                </table>
+            </div>
+          </li>
+
+          <br>
+          <br>
+          <br>
+					<li class="buttons complement">
+            <input id="submit" class="button_text" type="submit" name="submit" value="SALVAR" />
+          </li>
+          <br>
+          <div id="result"></div>
+          
+			</ul>
+    	</div>
+		</form>		
+    <p id="message" class=""></p>
+    <br><br><br>
+  
+	</div>
+    <!-- Modal: foto do gabarito para detecção automática -->
+    <div id="modalFotoGabarito" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;">
+      <div style="background:#fff;border-radius:12px;max-width:95vw;max-height:95vh;overflow:auto;padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="margin:0;">Preencher gabarito a partir da foto</h3>
+          <button type="button" id="modalFotoGabaritoFechar" style="font-size:24px;background:none;border:none;cursor:pointer;">&times;</button>
+        </div>
+        <p style="color:#666;margin-bottom:12px;">Envie uma foto do gabarito preenchido, com as bolhas bem visíveis. Deixe a primeira questão no topo e a primeira alternativa à esquerda. Arraste na imagem para selecionar só a área das bolhas (opcional).</p>
+        <div style="margin-bottom:12px;">
+          <input type="file" id="inputFotoGabarito" accept="image/*" capture="environment" style="margin-right:8px;">
+          <button type="button" id="btnCapturarCamera" style="padding:8px 12px;background:#2196F3;color:#fff;border:none;border-radius:6px;cursor:pointer;">📷 Câmera</button>
+        </div>
+        <div style="position:relative;display:inline-block;max-width:100%;">
+          <canvas id="canvasFotoGabarito" style="max-width:100%;height:auto;border:1px solid #ccc;display:block;"></canvas>
+          <canvas id="canvasCropOverlay" style="position:absolute;left:0;top:0;pointer-events:none;display:none;"></canvas>
+        </div>
+        <p id="modalFotoGabaritoStatus" style="margin:8px 0;min-height:1.2em;font-size:14px;"></p>
+        <div style="margin-top:12px;">
+          <button type="button" id="btnDetectarRespostas" disabled style="padding:10px 20px;background:#04aa6d;color:#fff;border:none;border-radius:6px;cursor:pointer;margin-right:8px;">Detectar respostas</button>
+          <button type="button" id="modalFotoGabaritoFechar2" style="padding:8px 16px;background:#888;color:#fff;border:none;border-radius:6px;cursor:pointer;">Fechar</button>
+        </div>
+      </div>
+    </div>
+    <div id="modalCameraFoto" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:10000;align-items:center;justify-content:center;padding:20px;">
+      <div style="background:#000;border-radius:12px;overflow:hidden;max-width:95vw;">
+        <video id="videoCameraGabarito" autoplay playsinline style="display:block;max-width:100%;"></video>
+        <div style="padding:12px;text-align:center;">
+          <button type="button" id="btnCapturarFotoCamera" style="padding:12px 24px;background:#04aa6d;color:#fff;border:none;border-radius:6px;cursor:pointer;">📸 Capturar</button>
+          <button type="button" id="btnCancelarCamera" style="padding:12px 24px;background:#666;color:#fff;border:none;border-radius:6px;cursor:pointer;margin-left:8px;">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function showHideLoading(){
+        $('body').toggleClass('loading');
+      }
+
+      function showInputsComplement(){
+        document.querySelectorAll('#form-inputs .complement').forEach(function(node) {
+          node.classList.remove('hidden');
+        });
+      }
+
+      function hideInputsComplement(){
+        document.querySelectorAll('#form-inputs .complement').forEach(function(node) {
+          node.classList.add('hidden');
+        });
+      }
+
+      function createEmptyOption(){
+        let opt = document.createElement('option');
+        opt.value = "-1";
+        opt.innerHTML = "-- Selecione uma opção --";
+        
+        return opt;
+      }
+
+      function removeAllChildNodes(parent) {
+          while (parent.firstChild) {
+              parent.removeChild(parent.firstChild);
+          }
+      }
+
+      function removeWhiteSpaces(text) {
+        return text.replace(/\s/g, "");
+      }
+
+      // Cache de 24h para dados dos filtros (localStorage)
+      var CACHE_PREFIX = 'gabarito_filtro_';
+      var CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
+
+      function cacheGet(key) {
+        try {
+          var raw = localStorage.getItem(CACHE_PREFIX + key);
+          if (!raw) return null;
+          var obj = JSON.parse(raw);
+          if (obj.expiresAt && Date.now() < obj.expiresAt) return obj.data;
+          localStorage.removeItem(CACHE_PREFIX + key);
+        } catch (e) { /* ignore */ }
+        return null;
+      }
+
+      function cacheSet(key, data) {
+        try {
+          localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({
+            data: data,
+            expiresAt: Date.now() + CACHE_TTL_MS
+          }));
+        } catch (e) { /* ignore */ }
+      }
+
+      function cacheClear() {
+        try {
+          var keys = [];
+          for (var i = 0; i < localStorage.length; i++) {
+            var k = localStorage.key(i);
+            if (k && k.indexOf(CACHE_PREFIX) === 0) keys.push(k);
+          }
+          keys.forEach(function(k) { localStorage.removeItem(k); });
+          return keys.length;
+        } catch (e) { return 0; }
+      }
+
+      function init() {
+         var inep = "<?=inep?>"; 
+
+        loadCabecalho();
+        loadAvaliacoes();
+
+        if (inep == 'semed'){
+          carregarEscolas();
+        } else {
+          loadEscola(inep);
+        }
+      }
+      init();
+
+      function domEscolaNome(){
+        var escola_el = document.getElementById('escola');
+        return escola_el.options[escola_el.selectedIndex].text;
+      }
+
+      function domEscolaINEP(){
+        return document.getElementById('escola').value;
+      }
+
+      function carregarEscolas() {
+        var cacheKey = 'escolas_todas';
+        var cached = cacheGet(cacheKey);
+        if (cached) {
+          removeAllChildNodes(document.getElementById('escola'));
+          if (cached.length > 1) document.getElementById('escola').appendChild(createEmptyOption());
+          for (var i = 0; i < cached.length; i++) {
+            var escola = cached[i];
+            var opt = document.createElement('option');
+            opt.value = escola.inep;
+            opt.innerHTML = escola.nome;
+            document.getElementById('escola').appendChild(opt);
+          }
+          return;
+        }
+
+        showHideLoading();
+        removeAllChildNodes(document.getElementById('escola'));
+        google.script.run.withSuccessHandler(response => {
+          let escolas = response.message;
+          if (escolas && escolas.length > 0) cacheSet(cacheKey, escolas);
+
+          if (escolas.length > 1) {
+            document.getElementById('escola').appendChild(createEmptyOption());
+          }
+          for (var i = 0; i < escolas.length; i++) {
+            let escola = escolas[i];
+            let opt = document.createElement('option');
+            opt.value = escola.inep;
+            opt.innerHTML = escola.nome;
+            document.getElementById('escola').appendChild(opt);
+          }
+          showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("Init ERROR: " + error.message);
+            console.error(error);
+            showHideLoading();
+        }).getEscolasTodas();
+      }
+
+      document.getElementById('escola').addEventListener('change', () => {
+                  let inepEscola = document.getElementById('escola').value;
+                  loadEscola(inepEscola);
+                  clearInputsFiltro();
+                  clearInputsGabarito();
+                });
+
+      document.getElementById('avaliacao').addEventListener('change', () => {
+                  hideResult();
+                  loadDisciplinas();
+                });
+
+      document.getElementById('serie').addEventListener('change', () => {
+                  hideResult(); 
+                  loadTurmas();
+                  loadDisciplinas();
+                  loadAlunos();
+                });
+      document.getElementById('turma').addEventListener('change', () => { 
+                  loadAlunos();
+                  hideResult();
+                });
+      document.getElementById('disciplina').addEventListener('change', () => { 
+                  loadQuestoes();
+                  loadAlunos();
+                });
+      var lastAlunoValue = null;
+      function onAlunoChange() {
+        if (window.restaurandoAlunoAposFoto) return;
+        var current = document.getElementById('aluno').value;
+        if (current === lastAlunoValue) return;
+        lastAlunoValue = current;
+        clearInputsGabarito(true);
+        loadGabarito();
+        hideResult();
+      }
+      document.getElementById('aluno').addEventListener('change', onAlunoChange);
+      
+      document.querySelector('form').addEventListener('submit', handleSubmit);
+      
+      function loadCabecalho() {
+        showHideLoading();
+        
+        google.script.run.withSuccessHandler(response => {
+              document.querySelector('#title').innerHTML = response[0];
+              document.querySelector('#logo-prefeitura').src = response[1];
+              document.querySelector('#logo-semed').src = response[2];
+            
+              
+              showHideLoading();
+          }).withFailureHandler(error => {
+              console.error("load Series ERROR: " + error.message);
+              console.error(error);
+              
+              showHideLoading();
+          }).getCabecalho();
+      }
+
+       function loadAvaliacoes() {
+        var cacheKey = 'avaliacoes_gabarito';
+        var cached = cacheGet(cacheKey);
+        if (cached) {
+          for (var i = 0; i < cached.length; i++) {
+            var ava = cached[i];
+            var opt = document.createElement('option');
+            opt.value = ava.id;
+            opt.innerHTML = ava.nome;
+            if ((i + 1) == cached.length) opt.selected = "selected";
+            document.getElementById('avaliacao').appendChild(opt);
+          }
+          return;
+        }
+
+        google.script.run.withSuccessHandler(response => {
+            if (response && response.length > 0) cacheSet(cacheKey, response);
+            for (var i = 0; i < response.length; i++) {
+              let ava = response[i];
+              let opt = document.createElement('option');
+              opt.value = ava.id;
+              opt.innerHTML = ava.nome;
+              if ((i +1) == response.length) opt.selected="selected";
+              document.getElementById('avaliacao').appendChild(opt);
+            }
+          }).withFailureHandler(error => {
+              console.error("load AVALIAÇÕES ERROR: " + error.message);
+              console.error(error);
+          }).getAvaliacoes("gabarito");
+      }
+
+      function loadEscola(inep) {
+        var cacheKey = 'escola_' + inep;
+        var cached = cacheGet(cacheKey);
+        if (cached) {
+          document.getElementById('inep').value = inep;
+          var opt = document.createElement('option');
+          opt.value = inep;
+          opt.innerHTML = cached;
+          opt.setAttribute('selected', 'selected');
+          document.getElementById('escola').appendChild(opt);
+          loadSeries();
+          return;
+        }
+
+        google.script.run.withSuccessHandler(response => {
+              if (response && response[0]) cacheSet(cacheKey, response[0]);
+              document.getElementById('inep').value = inep;
+              let opt = document.createElement('option');
+              opt.value = inep;
+              opt.innerHTML = response[0];
+              opt.setAttribute('selected', 'selected');
+              document.getElementById('escola').appendChild(opt);
+              loadSeries();
+          }).withFailureHandler(error => {
+              console.error("load ESCOLA ERROR: " + error.message);
+              console.error(error);
+          }).getEscola(inep);
+      }
+
+
+      function loadSeries() {
+        document.getElementById('serie').innerHTML = "";
+        document.getElementById('serie').appendChild(createEmptyOption());
+        var escola = domEscolaINEP();
+
+        var cacheKey = 'series_' + escola;
+        var cached = cacheGet(cacheKey);
+        if (cached) {
+          for (var i = 0; i < cached.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = cached[i];
+            opt.innerHTML = cached[i];
+            document.getElementById('serie').appendChild(opt);
+          }
+          return;
+        }
+
+        showHideLoading();
+        google.script.run.withSuccessHandler(response => {
+            if (response && response.length > 0) cacheSet(cacheKey, response);
+            for (var i = 0; i < response.length; i++) {
+              let s = response[i];
+              let opt = document.createElement('option');
+              opt.value = s;
+              opt.innerHTML = s;
+              document.getElementById('serie').appendChild(opt);
+            }
+            showHideLoading();
+          }).withFailureHandler(error => {
+              console.error("load Series ERROR: " + error.message);
+              console.error(error);
+              showHideLoading();
+          }).getSeriesPorEscolaINEP(escola);
+      }
+
+      function loadTurmas() {
+        document.getElementById('turma').innerHTML = "";
+        var escola_nome = domEscolaNome();
+        var serie = document.getElementById('serie').value;
+        document.getElementById('turma').appendChild(createEmptyOption());
+
+        var cacheKey = 'turmas_' + escola_nome + '_' + serie;
+        var cached = cacheGet(cacheKey);
+        if (cached) {
+          for (var i = 0; i < cached.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = cached[i];
+            opt.innerHTML = cached[i];
+            document.getElementById('turma').appendChild(opt);
+          }
+          return;
+        }
+
+        showHideLoading();
+        google.script.run.withSuccessHandler(response => {
+              if (response && response.length > 0) cacheSet(cacheKey, response);
+              for (var i = 0; i < response.length; i++) {
+                let turmaNome = response[i];
+                let opt = document.createElement('option');
+                opt.value = turmaNome;
+                opt.innerHTML = turmaNome;
+                document.getElementById('turma').appendChild(opt);
+              }
+              showHideLoading();
+          }).withFailureHandler(error => {
+              console.error("load Turmas ERROR: " + error.message);
+              console.error(error);
+              showHideLoading();
+          }).getTurmas(escola_nome, serie);
+      }
+
+      function loadDisciplinas() {
+        document.getElementById('disciplina').innerHTML = "";
+        var avaliacao = document.getElementById('avaliacao').value;
+        var serie = document.getElementById('serie').value;
+        document.getElementById('disciplina').appendChild(createEmptyOption());
+
+        if (!avaliacao || avaliacao === '-1' || !serie || serie === '-1') return;
+
+        var cacheKey = 'disciplinas_' + avaliacao + '_' + serie;
+        var cached = cacheGet(cacheKey);
+        if (cached) {
+          for (var i = 0; i < cached.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = cached[i];
+            opt.innerHTML = cached[i];
+            document.getElementById('disciplina').appendChild(opt);
+          }
+          return;
+        }
+
+        showHideLoading();
+        google.script.run.withSuccessHandler(response => {
+              if (response && response.length > 0) cacheSet(cacheKey, response);
+              for (var i = 0; i < response.length; i++) {
+                let opt = document.createElement('option');
+                opt.value = response[i];
+                opt.innerHTML = response[i];
+                document.getElementById('disciplina').appendChild(opt);
+              }
+              showHideLoading();
+          }).withFailureHandler(error => {
+              console.error("load Disciplinas ERROR: " + error.message);
+              console.error(error);
+              showHideLoading();
+          }).getDisciplinasPorSerie2(avaliacao, serie);
+      }
+
+      function loadQuestoes() {
+        showHideLoading();
+
+        document.getElementById('aluno').innerHTML = "";
+        var avaliacao = document.getElementById('avaliacao').value;
+        var serie = document.getElementById('serie').value; 
+        var turma = document.getElementById('turma').value; 
+        var disciplina = document.getElementById('disciplina').value;
+        
+        document.getElementById('aluno').appendChild(createEmptyOption());
+       
+        google.script.run.withSuccessHandler(response => {
+            document.getElementById('questoes').dataset.questoes = JSON.stringify(response);
+              
+            showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("load Questões ERROR: " + error.message);
+            console.error(error);
+            
+            showHideLoading();
+        }).getQuestoes(avaliacao, serie, disciplina);
+
+      }
+
+      function loadAlunos() {
+        document.getElementById('aluno').innerHTML = "";
+        var avaliacao = document.getElementById('avaliacao').value;
+        var escola = domEscolaNome();
+        var serie = document.getElementById('serie').value;
+        var turma = document.getElementById('turma').value;
+        var disciplina = document.getElementById('disciplina').value;
+        document.getElementById('aluno').appendChild(createEmptyOption());
+
+        var cacheKey = 'alunos_' + avaliacao + '_' + escola + '_' + serie + '_' + turma + '_' + disciplina;
+        var cached = cacheGet(cacheKey);
+        if (cached) {
+          for (var i = 0; i < cached.length; i++) {
+            var alunoNomeID = cached[i].split('|');
+            var opt = document.createElement('option');
+            opt.value = alunoNomeID[1];
+            opt.innerHTML = alunoNomeID[2] == 1 ? alunoNomeID[0] + " (FEITO)" : alunoNomeID[0];
+            opt.style.color = alunoNomeID[2] == 1 ? 'blue' : 'black';
+            document.getElementById('aluno').appendChild(opt);
+          }
+          return;
+        }
+
+        showHideLoading();
+        google.script.run.withSuccessHandler(response => {
+            if (response && response.length > 0) cacheSet(cacheKey, response);
+            for (var i = 0; i < response.length; i++) {
+              let alunoNomeID = response[i].split('|');
+              let opt = document.createElement('option');
+              opt.value = alunoNomeID[1];
+              opt.innerHTML = alunoNomeID[2] == 1 ? alunoNomeID[0] + " (FEITO)" : alunoNomeID[0];
+              opt.style.color = alunoNomeID[2] == 1 ? 'blue' : 'black';
+              document.getElementById('aluno').appendChild(opt);
+            }
+            showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("load Alunos ERROR: " + error.message);
+            console.error(error);
+            showHideLoading();
+        }).getAlunos(avaliacao, escola, serie, turma, disciplina);
+      }
+
+      function loadQuestaoObjetiva(indexQuestao, questao) {
+            let elementQuestao =`<td class="text-center">${questao.questao} ${questao.enunciado}</td>
+              <td align="center">
+                <div id="questao-${indexQuestao}" data-subquestoes="0" class="resposta radio-group">`;
+                  
+                  for (var j=0; j < questao.alternativas.length; j++) {
+                    let alternativa = questao.alternativas[j];
+
+                    elementQuestao += `<label for="${alternativa.alternativa}-${indexQuestao}">
+                                        <input id="${alternativa.alternativa}-${indexQuestao}" type="radio" name="resposta-${indexQuestao}-1" value="${alternativa.alternativa}"/><br/><span class="alternativa-letra">${alternativa.alternativa}</span><br><span class="alternativa-desc">${alternativa.descricao}</span>
+                                </label>`;
+                  }
+
+            elementQuestao += `</div>
+              </td>`;
+        
+        return elementQuestao;
+      }
+
+      function loadQuestaoConceitualNivel(indexQuestao, questao) {
+        let subquestoesSet = new Set();
+        for (let alt of questao.alternativas) {
+          subquestoesSet.add(alt.subquestao);
+        }
+        let listaSubquestoes = Array.from(subquestoesSet).sort();
+
+        let linhasHTML = `
+          <td class="text-center" style="vertical-align: top;">
+            ${questao.questao}<br><br><br>              
+          </td>`;
+
+        // Coluna 2: Campo conceitual + subquestões
+        linhasHTML += `<td class="text-center" style="vertical-align: top;">`;
+
+        // Linha do campo conceitual
+        linhasHTML += `
+          <div class="conceitual-nivel-linha">
+            <div class="conceitual-nivel-linha-enunciado">
+              <span></span>
+            </div>
+            <div class="conceitual-nivel-linha-alternativas">
+               <select id="head-conceitual-nivel-${indexQuestao}" class="select-head" onchange="configurarConceitualSelect(${indexQuestao}, this.value)">
+                <option value="0">A</option>
+                <option value="-1">B</option>
+                <option value="-2">C</option>
+                <option value="-3">D</option>
+                <option value="-4">E</option>
+                <option value="-5">F</option>
+                <option value="-6">G</option>
+                <option value="-7">H</option>
+              </select>
+            </div>
+          </div>`;
+
+        // Linhas para cada subquestão
+        for (let sub of listaSubquestoes) {
+
+          linhasHTML += `
+            <div class="conceitual-nivel-linha-${indexQuestao}">
+              <div class="conceitual-nivel-linha-enunciado">
+                <span>${questao.enunciado[sub - 1]}</span>
+              </div>
+              <div id="questao-${indexQuestao}-${sub}" data-subquestoes="${listaSubquestoes.length}" class="resposta radio-group conceitual-nivel-linha-alternativas">`;
+  
+          let alternativas = questao.alternativas.filter(alt => alt.subquestao === sub);
+
+          for (let alt of alternativas) {
+            linhasHTML += `
+              <label for="${alt.alternativa}-${indexQuestao}-${sub}">
+                <input id="${alt.alternativa}-${indexQuestao}-${sub}" type="radio" name="resposta-${indexQuestao}-${sub}" class="questao-${indexQuestao}" value="${alt.alternativa}"/><br/>
+                <span class="alternativa-letra">${alt.alternativa}</span><br/>
+                <span class="alternativa-desc">${alt.descricao}</span>
+              </label><br/>`;
+          }
+
+          linhasHTML += `
+              </div>
+            </div>`;
+        }
+
+        linhasHTML += `</td>`;
+
+        return linhasHTML;
+
+      }
+      
+      function configurarConceitualSelect(indexQuestao, value) {
+        
+        const radios = document.querySelectorAll(`input[class="questao-${indexQuestao}"]`);
+
+        const desabilitar = value !== "0";
+        radios.forEach(radio => {
+          radio.checked = false;
+          radio.disabled = desabilitar;
+          radio.dataset.select_head = value;
+        });
+      }
+
+      function loadGabarito() {
+        showHideLoading();
+
+        var tabela = document.getElementById('gabarito');
+        tabela.innerHTML = "";
+        var avaliacao = document.getElementById('avaliacao').value;
+        var disciplina = document.getElementById('disciplina').value;
+        let idAluno = document.getElementById('aluno').value;
+
+        var questoes = JSON.parse(document.getElementById('questoes').dataset.questoes);
+
+        var cabecalho = document.createElement('thead');
+        var trCabecalho = document.createElement('tr');
+        trCabecalho.innerHTML='<th scope="col">Questão</th><th scope="col">Resposta</th>';
+        cabecalho.appendChild(trCabecalho);
+
+        var corpo = document.createElement('tbody');
+        var map = {};
+        for (var i=0; i< questoes.length; i++) {
+          var questao = questoes[i];
+          let tipo = questao.tipo;
+          var trCorpo = document.createElement('tr');
+          map[i]= tipo;
+
+          let elementQuestao;
+          if (tipo === "conceitual-nivel") {
+            elementQuestao = loadQuestaoConceitualNivel(i, questao);
+          } else {
+            elementQuestao = loadQuestaoObjetiva(i, questao);
+          }
+              
+          trCorpo.innerHTML = elementQuestao;
+
+          corpo.appendChild(trCorpo);
+        }
+
+        tabela.appendChild(cabecalho);
+        tabela.appendChild(corpo);
+
+
+        google.script.run.withSuccessHandler(response => {
+            if (response != null && response.escreveonome) {
+              let escreveonome = response.escreveonome;
+              let respostas = response.respostas;
+              $(`[name=escrevenome]`).filter(`[value=${escreveonome}]`).prop('checked', true);
+
+              let aux_questao;
+              let aux_questao_subquestao = 1;
+              for (var i = 0; i < respostas.length; i++) {
+                  let alternativa = respostas[i];
+                  if (map[i] === "objetiva" || map[i] === "conceitual") {
+                    aux_questao = undefined;
+                    aux_questao_subquestao = 1;
+                    $(`[name=resposta-${i}-1]`).filter(`[id=${alternativa}-${i}]`).prop('checked', true);
+
+                  } else {
+
+                    if (aux_questao === undefined) {
+                      aux_questao = i;
+                    }
+
+                    $(`[name=resposta-${aux_questao}-${aux_questao_subquestao}]`).filter(`[id=${alternativa}-${aux_questao}-${aux_questao_subquestao}]`).prop('checked', true);
+                    aux_questao_subquestao += 1;
+                    
+                  }
+              }
+            }
+    
+            showHideLoading();
+
+        }).withFailureHandler(error => {
+            console.error("load Alunos ERROR: " + error.message);
+            console.error(error);
+            
+            showHideLoading();
+        }).getRespostaAluno(avaliacao, disciplina, idAluno);
+  
+      }
+
+      function handleSubmit(event) {
+        event.preventDefault();
+        
+        showHideLoading();
+
+        let avaliacao = document.getElementById('avaliacao').value;
+        let escola = domEscolaNome();
+        let aluno = document.getElementById('aluno').value;
+        let serie = document.getElementById('serie').value;
+        let turma = document.getElementById('turma').value;
+        let disciplina = document.getElementById('disciplina').value;
+
+        let escrevenomeInput = document.getElementsByName('escrevenome');
+        let escrevenomeVal = -1;
+        for(i = 0; i < escrevenomeInput.length; i++) {
+            if(escrevenomeInput[i].checked) {
+              escrevenomeVal = escrevenomeInput[i].value.toUpperCase();
+            }            
+        }
+
+        if (avaliacao == -1) {
+          showHideLoading();
+          alert("Escolha uma avaliação.");
+          return;
+        }
+
+        if (disciplina == -1) {
+          showHideLoading();
+          alert("Escolha uma disciplina.");
+          return;
+        }
+
+        if (aluno == -1) {
+          showHideLoading();
+          alert("Selecione um aluno.");
+          return;
+        }
+
+        if (escrevenomeVal == -1) {
+          showHideLoading();
+          alert("Responda se o aluno sabe escrever o nome.");
+          return;
+        }
+
+        let divRespostas = document.getElementsByClassName('resposta');
+        
+        let respostas = [];
+        for (var j=0; j< divRespostas.length; j++) {
+          let div = divRespostas[j];
+
+          let subquestoes = div.dataset.subquestoes;
+
+          if (subquestoes == "0") {
+            subquestoes = 1;
+          }
+          
+          for (var sub=1; sub <= subquestoes; sub++) {
+            let alternativas = document.getElementsByName(`resposta-${j}-${sub}`);
+            let resp;
+            for (var a = 0; a < alternativas.length; a++) {
+                if (alternativas[a].checked) {
+                  resp = alternativas[a].value.toUpperCase();
+                }
+            }
+
+            if (resp === undefined && subquestoes > 1 && alternativas.length > 0) {
+
+                let select_head = alternativas[0].dataset.select_head;
+                if (select_head != '0') {
+                  resp = select_head;
+                }
+            }
+            
+            respostas.push(resp);
+          }
+        }
+        
+        google.script.run.withSuccessHandler(response => {
+          $('select[id=aluno] option:selected').html($('select[id=aluno] option:selected').text() + " (FEITO)");
+
+          clearInputsGabarito();
+          showHideLoading();          
+        }).withFailureHandler(error => {
+          console.error("handleSubmit ERROR: " + error.message);
+          console.error(error);
+
+          showHideLoading();
+        }).submit(avaliacao, escola, turma, serie, aluno, disciplina, escrevenomeVal, respostas);
+      }
+
+      function encontrarSelectAcima(elemento) {
+        let pai = elemento.closest('.conceitual-nivel-linha-12');
+        if (!pai) return null;
+        return pai.previousElementSibling?.tagName === 'SELECT'
+          ? pai.previousElementSibling
+          : pai.parentElement.querySelector('select');
+      }
+
+      function showResult(status, message) {
+        showHideLoading();
+
+        document.getElementById('result').innerHTML = '';
+        document.getElementById('result').style.display = 'block';
+
+        if (status == true) {
+          clearInputsGabarito();
+          document.getElementById('result').classList.add('ok');
+          document.getElementById('result').classList.remove('wrong');
+        } else {
+          document.getElementById('result').classList.add('wrong');
+          document.getElementById('result').classList.remove('ok');
+        }
+        let el = document.createElement('p');
+        el.innerHTML = message;
+        document.getElementById('result').appendChild(el);
+
+        document.getElementById("result").scrollIntoView();
+        
+        showHideLoading();
+      }
+
+      function hideResult() {
+        showHideLoading();
+
+        document.getElementById('result').innerHTML = '';
+        document.getElementById('result').style.display = 'none';
+        
+        showHideLoading();
+      }
+
+      function clearInputsFiltro() {
+        showHideLoading();
+
+        document.getElementById('disciplina').value = '-1';
+        document.getElementById('turma').value = '-1';
+        
+        
+        showHideLoading();
+      }
+
+      function clearInputsGabarito(manterAluno) {
+        showHideLoading();
+
+        if (!manterAluno) {
+          document.getElementById('aluno').value = '-1';
+          lastAlunoValue = null;
+        }
+        $('[name=escrevenome]').prop("checked", false);
+        $('.select-head').val('0');
+
+        let inputRespostas = document.getElementsByClassName('resposta');
+        for (var j=0; j<= inputRespostas.length; j++){
+          let input = inputRespostas[j];
+          if (input != undefined){
+            let subquestoes = input.dataset.subquestoes;
+            if (subquestoes == "0") {
+              subquestoes = 1;
+            }
+            
+            for (var sub=1; sub <= subquestoes; sub++) {
+              $(`[name=resposta-${j}-${sub}]`).prop("checked",false);
+            }
+          }
+        }
+        showHideLoading();
+      }
+
+      function showMessage(status, message){
+            document.getElementById('message').innerHTML = message;
+            if (status == true) {
+              document.getElementById('message').style='color:green';
+            } else {
+              document.getElementById('message').style='color:red';
+            }
+        }
+
+          function callPageHome() {
+            google.script.run.withSuccessHandler(url => {
+              window.top.location.href = url; 
+
+            }).withFailureHandler(error => {
+              console.error("ERROR: " + error.message);
+              console.error(error);
+
+            }).getScriptUrl();
+          }
+
+      // ---- Preencher gabarito a partir de foto (OMR) ----
+      const LETRAS_ALTERNATIVAS = ['A','B','C','D','E','F','G','H'];
+      let imagemGabaritoCarregada = false;
+      let cropRect = null;
+      let cropDrag = { ativo: false, inicioX: 0, inicioY: 0 };
+
+      function getTotalSlotsERespostaDivs() {
+        let totalSlots = 0;
+        const divs = [];
+        document.querySelectorAll('.resposta').forEach(div => {
+          let sub = parseInt(div.dataset.subquestoes || '0', 10) || 1;
+          totalSlots += sub;
+          divs.push({ div, sub });
+        });
+        return { totalSlots, divs };
+      }
+
+      function getNumColunasAlternativas() {
+        try {
+          const q = JSON.parse(document.getElementById('questoes').dataset.questoes || '[]');
+          let maxAlt = 4;
+          q.forEach(questao => {
+            const n = (questao.alternativas || []).length;
+            if (n > maxAlt) maxAlt = n;
+          });
+          return Math.min(Math.max(maxAlt, 4), 8);
+        } catch (e) { return 5; }
+      }
+
+      function setStatusModalFoto(msg, isError) {
+        const el = document.getElementById('modalFotoGabaritoStatus');
+        if (el) { el.textContent = msg || ''; el.style.color = isError ? '#c00' : '#333'; }
+      }
+
+      function abrirModalFotoGabarito() {
+        const questoes = document.getElementById('questoes').dataset.questoes;
+        if (!questoes) {
+          alert('Selecione Avaliação, Série, Disciplina e carregue as questões antes.');
+          return;
+        }
+        const { totalSlots } = getTotalSlotsERespostaDivs();
+        if (totalSlots === 0) {
+          alert('Carregue o gabarito (escolha Turma e Aluno) antes de usar a foto.');
+          return;
+        }
+        document.getElementById('modalFotoGabarito').style.display = 'flex';
+        document.getElementById('inputFotoGabarito').value = '';
+        imagemGabaritoCarregada = false;
+        cropRect = null;
+        document.getElementById('btnDetectarRespostas').disabled = true;
+        setStatusModalFoto('');
+      }
+
+      function fecharModalFotoGabarito() {
+        document.getElementById('modalFotoGabarito').style.display = 'none';
+      }
+
+      function desenharImagemNoCanvas(img) {
+        const canvas = document.getElementById('canvasFotoGabarito');
+        const ctx = canvas.getContext('2d');
+        const maxW = 800, maxH = 600;
+        let w = img.width, h = img.height;
+        if (w > maxW || h > maxH) {
+          const r = Math.min(maxW / w, maxH / h);
+          w = Math.round(w * r); h = Math.round(h * r);
+        }
+        canvas.width = w; canvas.height = h;
+        ctx.drawImage(img, 0, 0, w, h);
+        imagemGabaritoCarregada = true;
+        cropRect = null;
+        document.getElementById('btnDetectarRespostas').disabled = false;
+        setStatusModalFoto('Imagem carregada. Opcional: arraste na imagem para selecionar só a área das bolhas.');
+      }
+
+      function processarArquivoFoto(file) {
+        if (!file || !file.type.startsWith('image/')) return;
+        const img = new Image();
+        img.onload = () => desenharImagemNoCanvas(img);
+        img.onerror = () => setStatusModalFoto('Erro ao carregar a imagem.', true);
+        img.src = URL.createObjectURL(file);
+      }
+
+      function grayAt(data, cw, x, y) {
+        const i = (y * cw + x) * 4;
+        return 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+      }
+      function setWhite(data, cw, x, y) {
+        const i = (y * cw + x) * 4;
+        data[i] = 255; data[i+1] = 255; data[i+2] = 255;
+      }
+
+      function removerLinhasRetas(data, cw, ch) {
+        const TOL = 28;
+        const minRunH = Math.max(15, 0.12 * cw);
+        const minRunV = Math.max(15, 0.12 * ch);
+        for (let y = 0; y < ch; y++) {
+          let runStart = 0, runGray = grayAt(data, cw, 0, y);
+          for (let x = 1; x <= cw; x++) {
+            const g = x < cw ? grayAt(data, cw, x, y) : runGray - TOL - 1;
+            if (Math.abs(g - runGray) <= TOL && x < cw) continue;
+            const runLen = x - runStart;
+            if (runLen >= minRunH && runGray >= 10 && runGray <= 250) {
+              for (let px = runStart; px < x; px++) setWhite(data, cw, px, y);
+            }
+            if (x < cw) { runStart = x; runGray = g; }
+          }
+        }
+        for (let x = 0; x < cw; x++) {
+          let runStart = 0, runGray = grayAt(data, cw, x, 0);
+          for (let y = 1; y <= ch; y++) {
+            const g = y < ch ? grayAt(data, cw, x, y) : runGray - TOL - 1;
+            if (Math.abs(g - runGray) <= TOL && y < ch) continue;
+            const runLen = y - runStart;
+            if (runLen >= minRunV && runGray >= 10 && runGray <= 250) {
+              for (let py = runStart; py < y; py++) setWhite(data, cw, x, py);
+            }
+            if (y < ch) { runStart = y; runGray = g; }
+          }
+        }
+      }
+
+      function detectarRespostasDaFoto() {
+        const canvas = document.getElementById('canvasFotoGabarito');
+        const ctx = canvas.getContext('2d');
+        if (!canvas.width || !canvas.height) return;
+        const { totalSlots, divs } = getTotalSlotsERespostaDivs();
+        const numCols = getNumColunasAlternativas();
+        const w = canvas.width, h = canvas.height;
+        const x0 = cropRect ? cropRect.x : 0;
+        const y0 = cropRect ? cropRect.y : 0;
+        const cw = cropRect ? cropRect.w : w;
+        const ch = cropRect ? cropRect.h : h;
+        const imgData = ctx.getImageData(x0, y0, cw, ch);
+        const data = imgData.data;
+        removerLinhasRetas(data, cw, ch);
+        const rows = totalSlots;
+        const cols = Math.min(numCols, 8);
+        const cellW = cw / cols;
+        const cellH = ch / rows;
+        const respostas = [];
+        for (let r = 0; r < rows; r++) {
+          let melhorCol = 0;
+          let maiorEscuro = -1;
+          for (let c = 0; c < cols; c++) {
+            const x1 = Math.floor(c * cellW);
+            const y1 = Math.floor(r * cellH);
+            const x2 = Math.min(x1 + Math.ceil(cellW), cw);
+            const y2 = Math.min(y1 + Math.ceil(cellH), ch);
+            let soma = 0, n = 0;
+            for (let py = y1; py < y2; py++) {
+              for (let px = x1; px < x2; px++) {
+                const i = (py * cw + px) * 4;
+                const gray = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+                soma += (255 - gray);
+                n++;
+              }
+            }
+            const media = n > 0 ? soma / n : 0;
+            if (media > maiorEscuro) { maiorEscuro = media; melhorCol = c; }
+          }
+            respostas.push(LETRAS_ALTERNATIVAS[melhorCol]);
+        }
+        const selectAluno = document.getElementById('aluno');
+        const alunoAntes = selectAluno.value;
+        window.restaurandoAlunoAposFoto = true;
+        selectAluno.removeEventListener('change', onAlunoChange);
+        aplicarRespostasNoFormulario(respostas, divs);
+        selectAluno.value = alunoAntes;
+        lastAlunoValue = alunoAntes;
+        selectAluno.addEventListener('change', onAlunoChange);
+        window.restaurandoAlunoAposFoto = false;
+        setStatusModalFoto('Respostas detectadas e preenchidas. Revise e salve.');
+        setTimeout(fecharModalFotoGabarito, 1500);
+      }
+
+      function aplicarRespostasNoFormulario(respostas, divs) {
+        let idx = 0;
+        for (let k = 0; k < divs.length; k++) {
+          const { sub } = divs[k];
+          for (let s = 1; s <= sub; s++) {
+            const name = `resposta-${k}-${s}`;
+            const alternativa = respostas[idx];
+            if (alternativa) {
+              const radio = document.querySelector(`input[name="${name}"][value="${alternativa}"], input[name="${name}"][value="${alternativa.toUpperCase()}"]`);
+              if (radio) { radio.checked = true; }
+            }
+            idx++;
+          }
+        }
+      }
+
+      function iniciarSelecaoCrop(e) {
+        if (!imagemGabaritoCarregada) return;
+        const canvas = document.getElementById('canvasFotoGabarito');
+        const r = canvas.getBoundingClientRect();
+        cropDrag.ativo = true;
+        cropDrag.inicioX = e.clientX - r.left;
+        cropDrag.inicioY = e.clientY - r.top;
+        cropRect = null;
+      }
+      function moverSelecaoCrop(e) {
+        if (!cropDrag.ativo || !imagemGabaritoCarregada) return;
+        const canvas = document.getElementById('canvasFotoGabarito');
+        const r = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / r.width, scaleY = canvas.height / r.height;
+        const x = (e.clientX - r.left) * scaleX, y = (e.clientY - r.top) * scaleY;
+        const x0 = Math.max(0, Math.min(cropDrag.inicioX, x));
+        const y0 = Math.max(0, Math.min(cropDrag.inicioY, y));
+        const x1 = Math.min(canvas.width, Math.max(cropDrag.inicioX, x));
+        const y1 = Math.min(canvas.height, Math.max(cropDrag.inicioY, y));
+        cropRect = { x: Math.round(x0), y: Math.round(y0), w: Math.round(x1 - x0), h: Math.round(y1 - y0) };
+        const overlay = document.getElementById('canvasCropOverlay');
+        overlay.width = canvas.width; overlay.height = canvas.height;
+        overlay.style.display = 'block';
+        overlay.style.pointerEvents = 'none';
+        const ctxOver = overlay.getContext('2d');
+        ctxOver.clearRect(0, 0, overlay.width, overlay.height);
+        ctxOver.fillStyle = 'rgba(0,0,0,0.4)';
+        ctxOver.fillRect(0, 0, overlay.width, overlay.height);
+        ctxOver.clearRect(cropRect.x, cropRect.y, cropRect.w, cropRect.h);
+        ctxOver.strokeStyle = '#04aa6d';
+        ctxOver.lineWidth = 2;
+        ctxOver.strokeRect(cropRect.x, cropRect.y, cropRect.w, cropRect.h);
+      }
+      function terminarSelecaoCrop() {
+        cropDrag.ativo = false;
+      }
+
+      document.getElementById('btnFotoGabarito').addEventListener('click', abrirModalFotoGabarito);
+      document.getElementById('modalFotoGabaritoFechar').addEventListener('click', fecharModalFotoGabarito);
+      document.getElementById('modalFotoGabaritoFechar2').addEventListener('click', fecharModalFotoGabarito);
+      document.getElementById('inputFotoGabarito').addEventListener('change', function() { processarArquivoFoto(this.files[0]); });
+      document.getElementById('btnDetectarRespostas').addEventListener('click', detectarRespostasDaFoto);
+
+      document.getElementById('canvasFotoGabarito').addEventListener('mousedown', iniciarSelecaoCrop);
+      document.getElementById('canvasFotoGabarito').addEventListener('mousemove', moverSelecaoCrop);
+      document.getElementById('canvasFotoGabarito').addEventListener('mouseup', terminarSelecaoCrop);
+      document.getElementById('canvasFotoGabarito').addEventListener('mouseleave', terminarSelecaoCrop);
+
+      (function() {
+        const btnCam = document.getElementById('btnCapturarCamera');
+
+        function receberFotoGabarito(dataUrl) {
+          if (!dataUrl) return;
+          const img = new Image();
+          img.onload = function() {
+            desenharImagemNoCanvas(img);
+            document.getElementById('modalFotoGabarito').style.display = 'flex';
+          };
+          img.src = dataUrl;
+        }
+        window.addEventListener('message', function(e) {
+          if (e.data && e.data.type === 'fotoGabarito' && e.data.dataUrl) {
+            receberFotoGabarito(e.data.dataUrl);
+          }
+        });
+        window.addEventListener('storage', function(e) {
+          if (e.key === 'fotoGabaritoCaptura' && e.newValue) {
+            receberFotoGabarito(e.newValue);
+          }
+        });
+
+        btnCam.addEventListener('click', function() {
+          var popup = window.open('', '_blank', 'width=640,height=560,scrollbars=no');
+          if (!popup) {
+            setStatusModalFoto('Permita pop-ups para este site e tente novamente.', true);
+            return;
+          }
+          google.script.run.withSuccessHandler(function(url) {
+            var sep = url.indexOf('?') >= 0 ? '&' : '?';
+            popup.location.href = url + sep + 'page=pageCameraCapture';
+          }).withFailureHandler(function() {
+            popup.close();
+            setStatusModalFoto('Não foi possível abrir a câmera.', true);
+          }).getScriptUrl();
+        });
+      })();
+
+    </script>
+
+    <script type="text/javascript">
+
+      const modal = document.getElementById('cameraModal');
+      const openModal = document.getElementById('openModal');
+      const closeBtn = document.getElementById('closeBtn');
+      const video = document.getElementById('camera');
+      const canvas = document.getElementById('canvas');
+      const photo = document.getElementById('photo');
+      const captureBtn = document.getElementById('captureBtn');
+      let stream;
+
+      // Abre modal e inicia câmera
+      /*openModal.addEventListener('click', async () => {
+        modal.style.display = "flex";
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: "environment" } // preferencia a camera traseira
+            }
+          });
+          video.srcObject = stream;
+        } catch (err) {
+          console.error("Erro ao acessar câmera:", err);
+        }
+      });
+
+      // Fecha modal e para câmera
+      closeBtn.addEventListener('click', () => {
+        modal.style.display = "none";
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+        }
+      });
+
+      // Captura a foto
+      captureBtn.addEventListener('click', () => {
+        if (video.videoWidth === 0) return;
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        photo.src = canvas.toDataURL("image/png");
+        
+        closeBtn.click();
+
+        if (typeof window.processFromPhoto === "function") {
+          window.processFromPhoto();
+        } else {
+          console.warn("OpenCV ainda não inicializou, tente novamente em instantes...");
+        }
+      });
+
+      function onOpenCvReady() {
+        console.log("OpenCV script carregado!");
+        cv['onRuntimeInitialized'] = () => {
+          console.log("OpenCV inicializado!");
+          
+          const photo = document.getElementById('photo');
+
+          function processFromPhoto() {
+            console.log('iniciando processamento');
+            if (!photo.src) return;
+            const img = new Image();
+            img.onload = () => process(img);
+            img.src = photo.src;
+          }
+
+          // deixa acessível fora
+          window.processFromPhoto = processFromPhoto;
+        };
+      }*/
+
+      function getLetra(largura_imagem, posicao_circulo_atual){
+      let espaco_por_letra = largura_imagem / letras.length;
+      console.log("\n\n--\n Espaço por letra:", espaco_por_letra);
+
+      for (let i = 1; i <= letras.length; i++) {
+        let x_atual = espaco_por_letra * i;
+        console.log(`I: ${i}, X atual: ${x_atual}, Posição círculo: ${posicao_circulo_atual}`);
+        if (posicao_circulo_atual <= x_atual) {
+          return letras[i-1];
+        } 
+      }
+      return 0;
+    }
+
+    function process(img) {
+      const canvas = document.getElementById('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+
+      let src = cv.imread(canvas);
+      let largura = src.cols;   // largura da imagem
+
+      let gray = new cv.Mat();
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+
+      // binariza
+      let thresh = new cv.Mat();
+      cv.threshold(gray, thresh, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
+
+      // contornos
+      let contours = new cv.MatVector();
+      let hierarchy = new cv.Mat();
+      cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+      // filtra círculos      
+      let circles = [];
+      for (let i = 0; i < contours.size(); i++) {
+        let cnt = contours.get(i);
+        let area = cv.contourArea(cnt);
+        if (area < 50) { // || area > 20000
+            continue; // pulando áreas muito pequenas ou muito grandes
+        }
+
+        let circle = cv.minEnclosingCircle(cnt);
+
+        let expectedArea = Math.PI * circle.radius * circle.radius;
+        let circularidade = area / expectedArea;
+
+        if (circularidade > 0.6) { // se circulo bem formado
+            circles.push({x: circle.center.x, y: circle.center.y, r: circle.radius, full_width: largura});
+        } 
+      }
+
+      if (circles.length === 0) {
+        document.getElementById('saida').textContent = "Nenhum círculo detectado.";
+        return;
+      }
+
+      // agrupar por linhas (Y parecido)
+      circles.sort((a,b) => a.y - b.y);
+      let linhas = [];
+      
+      console.log('circles');
+      console.log(circles);
+      
+      let atual = [circles[0]];
+      for (let i=1; i<circles.length; i++) {
+        if (Math.abs(circles[i].y - atual[0].y) < 50) {
+          atual.push(circles[i]);
+        } else {
+          linhas.push(atual);
+          atual = [circles[i]];
+        }
+      }
+      linhas.push(atual);
+
+      let resultados = [];
+      for (let linha of linhas) {
+        linha.sort((a,b) => a.x - b.x);
+        let marcados = [];
+        for (let j=0; j<linha.length && j<4; j++) {
+          let c = linha[j];
+          let mask = new cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC1);
+          cv.circle(mask, new cv.Point(c.x, c.y), c.r*0.6, new cv.Scalar(255), -1);
+          let mean = cv.mean(gray, mask);
+          mask.delete();
+
+          // limiar mais flexível
+          let isFilled = mean[0] < 180;
+          let color = new cv.Scalar(255,0,0,255); // desenha no canvas (vermelho = não)
+          if (isFilled) {
+            color = new cv.Scalar(0,255,0,255);   // desenha no canvas (verde = marcado)
+
+            marcados.push(getLetra(largura, c.x));
+          }
+          
+          cv.circle(src, new cv.Point(c.x, c.y), Math.round(c.r), color, 2);
+        }
+        resultados.push(marcados.join(", "));
+      }
+
+      document.getElementById('saida').textContent = resultados.join("\n");
+      cv.imshow(canvas, src);
+
+      src.delete(); gray.delete(); thresh.delete(); contours.delete(); hierarchy.delete();
+    }
+
+
+      function mostrarRespostas(respostas) {
+        const container = document.getElementById('respostas');
+        container.innerHTML = '<h3>Gabarito Detectado:</h3><ul>' +
+          Object.entries(respostas)
+            .sort((a, b) => a[0] - b[0])
+            .map(([q, r]) => `<li><strong>Questão ${q}:</strong> ${r}</li>`)
+            .join('') + '</ul>';
+      }
+    </script>
+	</body>
+  
+</html>

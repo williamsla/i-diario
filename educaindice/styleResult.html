@@ -1,0 +1,421 @@
+<style>
+  /* CSS reset */
+*, *:before, *:after { 
+  margin:0;
+  padding:0;
+  font-family: Arial,sans-serif;
+}
+
+html {
+  height: 100%;
+}
+
+#btnSair {
+  width:20%;
+  float:right;
+  margin-right:0;
+  padding-top: 10px;
+}
+
+.hidden {
+  display: none;
+  visibility: hidden;
+}
+
+#results {
+  padding-top: 20px;
+}
+
+li {
+  display: inline-block;
+  list-style: none;
+  padding-right: 10px;
+  font-size: 36px;
+}
+
+.header {
+  display: block;
+  padding-right: 10px;
+  width: 100%;
+}
+
+#header-image {
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+  background-size: cover;
+  width:100%;
+}
+
+select {
+  padding: 10px;
+}
+
+.container {
+  height: 100%;
+  width: 100%;
+  font-size: 36px;
+  /* background-color: gray; */
+  white-space: normal; 
+}
+
+.section {
+  padding: 20px;  
+}
+
+.section div {
+  width: 50%;
+  display: inline-block;
+}
+
+.section:nth-of-type(odd){
+    background: lightyellow;
+}
+
+.section:nth-of-type(even){
+    background: white;
+}
+
+.column { 
+  display: inline-block; 
+  width: 50%; 
+  white-space: normal; 
+}
+
+ 
+/* remove a linha dos links */
+a{
+  text-decoration: none;
+}
+ 
+/* esconde as ancoras da tela */
+a.links{
+  display: none;
+}
+
+.content{
+  width: 500px;
+  min-height: 560px;    
+  margin: 10px auto;
+  position: relative;   
+}
+
+th, td {
+  padding: 5px;
+}
+
+h1 {
+  color: #066a75;
+  padding: 2px 0 10px 0;
+  font-family: Arial,sans-serif;
+  font-weight: bold;
+  text-align: center;
+  padding-bottom: 10px;
+}
+
+h1:after {
+  content: ' ';
+  display: block;
+  width: 100%;
+  height: 2px;
+  margin-top: 10px;
+  background: -webkit-linear-gradient(left, rgba(147,184,189,0) 0%,rgba(147,184,189,0.8) 20%,rgba(147,184,189,1) 53%,rgba(147,184,189,0.8) 79%,rgba(147,184,189,0) 100%); 
+  background: linear-gradient(left, rgba(147,184,189,0) 0%,rgba(147,184,189,0.8) 20%,rgba(147,184,189,1) 53%,rgba(147,184,189,0.8) 79%,rgba(147,184,189,0) 100%); 
+}
+
+h3 {
+  font-size: 18px;
+  color: #066a75;
+  padding: 2px 0 10px 0;
+  font-family: Arial,sans-serif;
+  font-weight: bold;
+  text-align: center;
+  padding-bottom: 10px;
+}
+
+p {
+  margin-bottom:15px;
+  font-size: 18px;
+}
+ 
+.content p:first-child{
+  margin: 0px;
+}
+ 
+label{
+  color: #405c60;
+  position: relative;
+}
+
+/* placeholder */
+::-webkit-input-placeholder  {
+  color: #bebcbc; 
+  font-style: italic;
+}
+ 
+input:-moz-placeholder,
+textarea:-moz-placeholder{
+  color: #bebcbc;
+  font-style: italic;
+}
+
+input {
+  outline: none;
+}
+
+#objectiveDescription span {
+  font-size: 13px;
+}
+ 
+/*estilo dos input,  menos o checkbox */
+input:not([type="checkbox"]){
+  width: 95%;
+  margin-top: 4px;
+  padding: 10px;    
+  border: 1px solid #b2b2b2;
+ 
+  -webkit-border-radius: 3px;
+  border-radius: 3px;
+ 
+  -webkit-box-shadow: 0px 1px 4px 0px rgba(168, 168, 168, 0.6) inset;
+  box-shadow: 0px 1px 4px 0px rgba(168, 168, 168, 0.6) inset;
+ 
+  -webkit-transition: all 0.2s linear;
+  transition: all 0.2s linear;
+}
+ 
+/*estilo do botão submit */
+input[type="submit"]{
+  width: 100%!important;
+  cursor: pointer;  
+  background: rgb(61, 157, 179);
+  padding: 8px 5px;
+  color: #fff;
+  font-size: 20px;  
+  border: 1px solid #fff;   
+  margin-bottom: 10px;  
+  text-shadow: 0 1px 1px #333;
+ 
+  -webkit-border-radius: 5px;
+  border-radius: 5px;
+ 
+  transition: all 0.2s linear;
+}
+ 
+/*estilo do botão submit no hover */
+input[type="submit"]:hover{
+  background: #4ab3c6;
+}
+
+.link{
+  position: absolute;
+  background: #e1eaeb;
+  color: #7f7c7c;
+  left: 0px;
+  height: 20px;
+  width: 440px;
+  padding: 17px 30px 20px 30px;
+  font-size: 16px;
+  text-align: right;
+  border-top: 1px solid #dbe5e8;
+ 
+  -webkit-border-radius: 0 0  5px 5px;
+  border-radius: 0 0  5px 5px;
+}
+ 
+.link a {
+  font-weight: bold;
+  background: #f7f8f1;
+  padding: 6px;
+  color: rgb(29, 162, 193);
+  margin-left: 10px;
+  border: 1px solid #cbd518;
+ 
+  -webkit-border-radius: 4px;
+  border-radius: 4px;  
+ 
+  -webkit-transition: all 0.4s linear;
+  transition: all 0.4s  linear;
+}
+ 
+.link a:hover {
+  color: #39bfd7;
+  background: #f7f7f7;
+  border: 1px solid #4ab3c6;
+}
+
+#cadastro, 
+#login{
+  position: absolute;
+  top: 0px;
+  width: 88%;   
+  padding: 18px 6% 60px 6%;
+  margin: 0 0 35px 0;
+  background: #f7f7f7;
+  border: 1px solid rgba(147, 184, 189,0.8);
+   
+  -webkit-box-shadow: 5px;
+  border-radius: 5px;
+   
+  -webkit-animation-duration: 0.5s;
+  -webkit-animation-timing-function: ease;
+  -webkit-animation-fill-mode: both;
+ 
+  animation-duration: 0.5s;
+  animation-timing-function: ease;
+  animation-fill-mode: both;
+}
+
+/* Efeito ao clicar no botão ( Ir para Login ) */
+#paracadastro:target ~ .content #cadastro,
+#paralogin:target ~ .content #login{
+  z-index: 2;
+  -webkit-animation-name: fadeInLeft;
+  animation-name: fadeInLeft;
+ 
+  -webkit-animation-delay: .1s;
+  animation-delay: .1s;
+}
+ 
+/* Efeito ao clicar no botão ( Cadastre-se ) */
+#registro:target ~ .content #login,
+#paralogin:target ~ .content #cadastro{
+  -webkit-animation-name: fadeOutLeft;
+  animation-name: fadeOutLeft;
+}
+
+.modal {
+    display:    none;
+    position:   fixed;
+    z-index:    1000;
+    top:        0;
+    left:       0;
+    height:     100%;
+    width:      100%;
+    background: rgba( 255, 255, 255, .8 )
+    url('https://i.stack.imgur.com/FhHRx.gif')
+    50% 50%
+    no-repeat;
+}
+
+body.loading {
+    overflow: hidden;
+}
+
+body.loading .modal {
+    display: block;
+}
+
+/*fadeInLeft*/
+@-webkit-keyframes fadeInLeft {
+  0% {
+    opacity: 0;
+    -webkit-transform: translateX(-20px);
+  }
+  100% {
+    opacity: 1;
+    -webkit-transform: translateX(0);
+  }
+}
+ 
+@keyframes fadeInLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+ 
+/*fadeOutLeft*/
+@-webkit-keyframes fadeOutLeft {
+  0% {
+    opacity: 1;
+    -webkit-transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    -webkit-transform: translateX(-20px);
+  }
+}
+ 
+@keyframes fadeOutLeft {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+}
+
+
+@media screen and (min-width: 1024px) {
+  #header-image {
+    /* background-image: url('https://raw.githubusercontent.com/semed-al/cdn-config/main/images/coitedonoia/provacoite-head-222px-alt.png'); */
+    background-image: url('https://raw.githubusercontent.com/semed-al/cdn-config/main/images/coitedonoia/Capa prova Coité .png');
+    margin-top: 0px;
+    margin-left: 0px;
+    height: 100px;
+  }
+
+  select {
+    padding: 15px;
+    padding-bottom: 30px;
+  }
+
+  .container {
+    font-size: 18px;
+    /* background-color: blue; */
+    white-space: normal;
+  }
+
+  li {
+    display: inline-block;
+    list-style: none;
+    padding-right: 10px;
+    width: 30%;
+    font-size: 18px;
+  }
+
+  .section {
+    padding-bottom: 20px;
+    white-space: normal;
+  }
+
+  .section div {
+    width: 100%;
+    display: block;
+  }
+
+  .column {
+    display: block; 
+    width: 100%; 
+    white-space: normal; 
+  }
+
+  h2 {
+    font-size: 24px; 
+    font-weight: 700;
+  }
+
+  h3 {
+    font-size: 18px;
+  }
+
+  p {
+    font-size: 16px;
+  }
+
+  #btnSair {
+    width:10%;
+    padding-top: 10px;
+  }
+
+}
+
+
+</style>
