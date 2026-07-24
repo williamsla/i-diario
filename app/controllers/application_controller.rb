@@ -16,6 +16,7 @@ class ApplicationController < ActionController::Base
   before_action :set_honeybadger_context
   around_action :set_user_current
   around_action :set_thread_origin_type
+  around_action :with_report_query_cache
 
   respond_to :html, :json
 
@@ -466,6 +467,13 @@ class ApplicationController < ActionController::Base
     end
   end
 
+  def with_report_query_cache
+    ReportQueryCache.clear!
+    yield
+  ensure
+    ReportQueryCache.clear!
+  end
+
   def allowed_api_header?
     header_name1 = Rails.application.secrets[:AUTH_HEADER_NAME1] || 'TOKEN'
     validation_method1 = Rails.application.secrets[:AUTH_VALIDATION_METHOD1] || '=='
@@ -621,22 +629,21 @@ class ApplicationController < ActionController::Base
   end
 
   def add_pdf_to_merge(pdfTarget, name, render)
-    file_path = "#{Rails.root}/public#{name}"
-    
-    File.open(file_path, 'wb') do |f|
-      f.write(render)
+    require 'stringio' unless defined?(StringIO)
+
+    localpdf = HexaPDF::Document.new(io: StringIO.new(render.to_s))
+    localpdf.pages.each { |page| pdfTarget.pages << pdfTarget.import(page) }
+  rescue StandardError => error
+    Rails.logger.warn("HexaPDF merge via StringIO falhou (#{error.message}), usando arquivo temporário")
+    require 'tempfile'
+
+    Tempfile.create(['pdf_merge', '.pdf']) do |file|
+      file.binmode
+      file.write(render)
+      file.flush
+      localpdf = HexaPDF::Document.open(file.path)
+      localpdf.pages.each { |page| pdfTarget.pages << pdfTarget.import(page) }
     end
-
-    # last_page_number = pdfTarget.pages.size
-
-    localpdf = HexaPDF::Document.open(file_path)
-    localpdf.pages.each {|page| pdfTarget.pages << pdfTarget.import(page)}
-
-    # pdfTarget.outline.add_item("Main") do |main|
-    #   main.add_item(name, destination: last_page_number)      
-    # end
-
-    File.delete(file_path)
   end
 
   def merge_pdf(pdfTarget, name)

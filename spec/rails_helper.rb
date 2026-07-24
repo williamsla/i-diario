@@ -33,6 +33,10 @@ RSpec.configure do |config|
   config.default_retry_count = 3
   config.exceptions_to_retry = [Net::ReadTimeout]
 
+  config.after(:each) do
+    ReportQueryCache.clear! if defined?(ReportQueryCache)
+  end
+
   # RSpec Rails can automatically mix in different behaviours to your tests
   # based on their file location, for example enabling you to call `get` and
   # `post` in specs under `spec/controllers`.

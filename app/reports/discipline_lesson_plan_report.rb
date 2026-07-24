@@ -40,7 +40,7 @@ class DisciplineLessonPlanReport < BaseReport
 
     begin
       entity_logo_cell = make_cell(
-        image: open(@entity_configuration.logo.url),
+        image: entity_logo_io,
         fit: [50, 50],
         width: 70,
         rowspan: 4,

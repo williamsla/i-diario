@@ -1,6 +1,12 @@
 class TestSettingFetcher
   def self.current(classroom, step = nil, discipline: nil)
-    new(classroom, step, discipline: discipline).current
+    step_key = step.respond_to?(:id) ? step.id : step.object_id
+    discipline_key = discipline.respond_to?(:id) ? discipline.id : discipline
+    cache_key = [:test_setting, classroom.id, step_key, discipline_key]
+
+    ReportQueryCache.fetch(cache_key) do
+      new(classroom, step, discipline: discipline).current
+    end
   end
 
   def initialize(classroom, step = nil, discipline: nil)

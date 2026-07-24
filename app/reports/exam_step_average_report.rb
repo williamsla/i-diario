@@ -48,7 +48,7 @@ class ExamStepAverageReport < BaseReport
   def header
     exam_header = make_cell(content: 'Avaliações numéricas', size: 12, font_style: :bold, background_color: 'DEDEDE', height: 20, padding: [2, 2, 4, 4], align: :center, colspan: 5)
     begin
-      logo_cell = make_cell(image: open(@entity_configuration.logo.url), fit: [50, 50], width: 70, rowspan: 4, position: :center, vposition: :center)
+      logo_cell = make_cell(image: entity_logo_io, fit: [50, 50], width: 70, rowspan: 4, position: :center, vposition: :center)
     rescue
       logo_cell = make_cell(content: '', width: 70, rowspan: 4)
     end
@@ -231,17 +231,28 @@ class ExamStepAverageReport < BaseReport
   end
 
   def student_uses_conceptual_evaluation?(student)
+    @conceptual_evaluation_by_student ||= {}
+    return @conceptual_evaluation_by_student[student.id] if @conceptual_evaluation_by_student.key?(student.id)
+
     exam_rule = ExamRuleFetcher.fetch(classroom, student)
-    return false if exam_rule.blank?
+    result = if exam_rule.blank?
+               false
+             elsif exam_rule.score_type == ScoreTypes::CONCEPT
+               true
+             elsif exam_rule.score_type == ScoreTypes::NUMERIC_AND_CONCEPT
+               teacher_discipline_classroom&.score_type == ScoreTypes::CONCEPT
+             else
+               false
+             end
 
-    return true if exam_rule.score_type == ScoreTypes::CONCEPT
+    @conceptual_evaluation_by_student[student.id] = result
+  end
 
-    if exam_rule.score_type == ScoreTypes::NUMERIC_AND_CONCEPT
-      teacher_discipline = TeacherDisciplineClassroom.find_by(classroom: classroom, discipline: discipline)
-      return teacher_discipline&.score_type == ScoreTypes::CONCEPT
-    end
-
-    false
+  def teacher_discipline_classroom
+    @teacher_discipline_classroom ||= TeacherDisciplineClassroom.find_by(
+      classroom: classroom,
+      discipline: discipline
+    )
   end
 
   def fetch_conceptual_score_from_exam(student, conceptual_exam)

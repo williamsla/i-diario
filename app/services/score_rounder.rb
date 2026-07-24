@@ -43,18 +43,23 @@ class ScoreRounder
 
     return if rounding_table_id.blank?
 
-    CustomRoundingTableValue.find_by(
-      custom_rounding_table_id: rounding_table_id,
-      label: score_decimal_part
-    )
+    values_by_label = ReportQueryCache.fetch([:custom_rounding_table_values, rounding_table_id]) do
+      CustomRoundingTableValue
+        .where(custom_rounding_table_id: rounding_table_id)
+        .index_by { |value| value.label.to_s }
+    end
+
+    values_by_label[score_decimal_part.to_s]
   end
 
   def custom_rounding_table_id
-    CustomRoundingTable.by_year(@classroom.year)
-                       .by_unity(@classroom.unity_id)
-                       .by_grade(@classroom.grade_ids)
-                       .by_avaliation(@rounded_avaliation)
-                       .first.try(:id)
+    ReportQueryCache.fetch([:custom_rounding_table_id, @classroom.id, @rounded_avaliation]) do
+      CustomRoundingTable.by_year(@classroom.year)
+                         .by_unity(@classroom.unity_id)
+                         .by_grade(@classroom.grade_ids)
+                         .by_avaliation(@rounded_avaliation)
+                         .first.try(:id)
+    end
   end
 
   def decimal_part(value)

@@ -30,7 +30,9 @@ class GeneralConfiguration < ActiveRecord::Base
   belongs_to :employees_default_role, class_name: 'Role', foreign_key: 'employees_default_role_id'
 
   def self.current
-    self.first.presence || new
+    ReportQueryCache.fetch(:general_configuration_current) do
+      self.first.presence || new
+    end
   end
 
   def self.annual_conceptual_evaluation?

@@ -216,7 +216,7 @@ class AttendanceRecordReportForm
   end
 
   def student_enrollment_ids
-    @student_enrollment_ids ||= @enrollment_classrooms_list.map { |student_enrollment|
+    @student_enrollment_ids ||= enrollment_classrooms_list.map { |student_enrollment|
       student_enrollment[:student_enrollment].id
     }
   end
@@ -268,11 +268,11 @@ class AttendanceRecordReportForm
   end
 
   def classroom
-    Classroom.find(@classroom_id)
+    @classroom ||= Classroom.find(@classroom_id)
   end
 
   def teacher
-    Teacher.find(@current_teacher_id)
+    @teacher ||= Teacher.find(@current_teacher_id)
   end
 
   def frequency_type_for_classroom_and_discipline
@@ -406,7 +406,7 @@ class AttendanceRecordReportForm
     daily_frequencies.each do |daily_frequency|
       frequency_date = daily_frequency.frequency_date
 
-      enrollments_on_date = @enrollment_classrooms_list.select { |enrollment_classroom|
+      enrollments_on_date = enrollment_classrooms_list.select { |enrollment_classroom|
         joined_at = enrollment_classroom[:student_enrollment_classroom].joined_at.to_date
         left_at = enrollment_classroom[:student_enrollment_classroom].left_at
 
@@ -433,7 +433,7 @@ class AttendanceRecordReportForm
   def exempted_from_discipline?(daily_frequency, student_enrollment)
     return false if exempts.empty?
 
-    step = daily_frequency.school_calendar.step(daily_frequency.frequency_date).try(:to_number)
+    step = step_number_for_date(daily_frequency.frequency_date)
 
     return false if exempts[student_enrollment].nil?
 
@@ -451,11 +451,9 @@ class AttendanceRecordReportForm
     enrollments_ids = student_enrollment_ids
     exempteds_from_discipline = {}
 
-    steps = daily_frequencies.map { |daily_frequency|
-      daily_frequency.school_calendar.step(daily_frequency.frequency_date).try(:to_number)
-    }
-
-    unique_steps = steps.uniq
+    unique_steps = daily_frequencies.map { |daily_frequency|
+      step_number_for_date(daily_frequency.frequency_date)
+    }.uniq.compact
 
     unique_steps.each do |step_number|
       StudentEnrollmentExemptedDiscipline.by_discipline(discipline_id)
@@ -469,5 +467,25 @@ class AttendanceRecordReportForm
     end
 
     exempteds_from_discipline
+  end
+
+  def step_number_for_date(date)
+    step_numbers_by_date[date.to_date]
+  end
+
+  def step_numbers_by_date
+    @step_numbers_by_date ||= begin
+      calendar = school_calendar || daily_frequencies.first.try(:school_calendar)
+      return {} if calendar.blank?
+
+      steps = calendar.steps.to_a
+      daily_frequencies.each_with_object({}) do |daily_frequency, hash|
+        date = daily_frequency.frequency_date.to_date
+        next if hash.key?(date)
+
+        step = steps.detect { |item| date >= item.start_at.to_date && date <= item.end_at.to_date }
+        hash[date] = step.try(:to_number)
+      end
+    end
   end
 end
