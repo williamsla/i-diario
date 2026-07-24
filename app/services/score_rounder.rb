@@ -75,7 +75,7 @@ class ScoreRounder
   end
 
   def number_of_decimal_places
-    TestSettingFetcher.current(@classroom, @step).number_of_decimal_places
+    TestSettingFetcher.current(@classroom, @step)&.number_of_decimal_places || 1
   end
 
   def truncate_score(score)
