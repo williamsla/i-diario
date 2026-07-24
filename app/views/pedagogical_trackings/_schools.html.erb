@@ -1,8 +1,4 @@
 <section class="pedagogical-panel pedagogical-schools-panel">
-  <header class="pedagogical-panel__header">
-    <h2 class="pedagogical-panel__title"><%= t('pedagogical_trackings.index.schools_list') %></h2>
-    <p class="pedagogical-panel__description"><%= t('pedagogical_trackings.index.schools_list_description') %></p>
-  </header>
 
   <%= simple_form_for :filter, { url: pedagogical_trackings_path, method: :get, html: { class: 'percent_filterable_search_form' } } do |f| %>
     <%= hidden_field_tag 'start_date', @start_date %>

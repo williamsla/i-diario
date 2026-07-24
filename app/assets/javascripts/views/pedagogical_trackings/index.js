@@ -728,6 +728,15 @@ $(document).ready(function() {
   $('#tag-cloud-form').on('submit', openTagCloudModal);
   $('#tag_cloud_grade_id').on('change', onTagCloudGradeChange);
   resetTagCloudDependentFilters();
+
+  $('a[href="#pedagogical-content-analysis"][data-toggle="tab"]').on('shown.bs.tab', function() {
+    $('#pedagogical-content-analysis').find('input.select2, select.select2').each(function() {
+      var $field = $(this);
+      if ($field.data('select2')) {
+        $field.select2('val', $field.val());
+      }
+    });
+  });
 });
 
 function onTagCloudGradeChange(event) {
