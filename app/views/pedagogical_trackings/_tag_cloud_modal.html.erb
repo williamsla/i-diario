@@ -1,0 +1,23 @@
+<div class="tag-cloud-modal-result">
+  <div class="row">
+    <div class="col col-sm-6">
+      <div class="tag-cloud-card">
+        <div class="tag-cloud-card__header">
+          <h3><%= t('pedagogical_trackings.index.most_used_contents') %></h3>
+          <span class="tag-cloud-card__count"><%= @content_tags.size %></span>
+        </div>
+        <%= render 'tag_cloud', tags: @content_tags, title: t('pedagogical_trackings.index.most_used_contents') %>
+      </div>
+    </div>
+    <div class="col col-sm-6">
+      <div class="tag-cloud-card">
+        <div class="tag-cloud-card__header">
+          <h3><%= t('pedagogical_trackings.index.most_used_skills') %></h3>
+          <span class="tag-cloud-card__count"><%= @objective_tags.size %></span>
+        </div>
+        <%= render 'tag_cloud', tags: @objective_tags, title: t('pedagogical_trackings.index.most_used_skills') %>
+      </div>
+    </div>
+  </div>
+</div>
+<span class="hidden" id="tag-cloud-summary-data" data-summary="<%= h(@tag_cloud_summary) %>"></span>

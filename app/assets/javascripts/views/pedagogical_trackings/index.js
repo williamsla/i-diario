@@ -652,3 +652,130 @@ function closeClassCouncilModal(event) {
   modal.style.display = "none";
   document.getElementById("classCouncilModalBody").innerHTML = "";
 }
+
+function openTagCloudModal(event) {
+  if (event) event.preventDefault();
+
+  var gradeId = $('#tag_cloud_grade_id').val();
+  var disciplineId = $('#tag_cloud_discipline_id').val();
+
+  if (!gradeId || gradeId === 'empty' || !disciplineId || disciplineId === 'empty') {
+    alert('Selecione uma série e uma disciplina para analisar.');
+    return false;
+  }
+
+  var unityId = $('#tag_cloud_unity_id').val();
+  var stepNumber = $('#tag_cloud_step_number').val();
+  var modal = document.getElementById('tagCloudModal');
+  var body = document.getElementById('tagCloudModalBody');
+  var summary = document.getElementById('tagCloudModalSummary');
+
+  if (!modal) return false;
+
+  modal.style.display = 'flex';
+  summary.textContent = '';
+  body.innerHTML = '<p class="pedagogical-modal__loading">Carregando análise...</p>';
+
+  var params = new URLSearchParams({
+    grade_id: gradeId,
+    discipline_id: disciplineId
+  });
+
+  if (unityId && unityId !== 'empty') {
+    params.append('unity_id', unityId);
+  }
+
+  if (stepNumber && stepNumber !== 'empty') {
+    params.append('step_number', stepNumber);
+  }
+
+  fetch('/pedagogical_trackings/tag_cloud_modal?' + params.toString())
+    .then(function(response) {
+      if (!response.ok) {
+        return response.text().then(function(text) {
+          throw new Error(text || 'Erro ao carregar análise');
+        });
+      }
+      return response.text();
+    })
+    .then(function(html) {
+      body.innerHTML = html;
+      var summaryData = document.getElementById('tag-cloud-summary-data');
+      if (summaryData) {
+        summary.textContent = summaryData.getAttribute('data-summary') || '';
+      }
+    })
+    .catch(function(err) {
+      console.error('Erro ao carregar tag cloud:', err);
+      body.innerHTML = '<p style="color:#b91c1c;">Erro ao carregar a análise: ' + err.message + '</p>';
+    });
+
+  return false;
+}
+
+function closeTagCloudModal(event) {
+  if (event) event.preventDefault();
+
+  var modal = document.getElementById('tagCloudModal');
+  if (!modal) return;
+
+  modal.style.display = 'none';
+  document.getElementById('tagCloudModalBody').innerHTML = '';
+  document.getElementById('tagCloudModalSummary').textContent = '';
+}
+
+$(document).ready(function() {
+  $('#tag-cloud-form').on('submit', openTagCloudModal);
+  $('#tag_cloud_grade_id').on('change', onTagCloudGradeChange);
+  resetTagCloudDependentFilters();
+});
+
+function onTagCloudGradeChange(event) {
+  clear_empty(event);
+
+  var gradeId = $('#tag_cloud_grade_id').val();
+  resetTagCloudDependentFilters();
+
+  if (!gradeId || gradeId === 'empty') {
+    return;
+  }
+
+  fetch('/pedagogical_trackings/tag_cloud_filters?grade_id=' + encodeURIComponent(gradeId))
+    .then(function(response) {
+      if (!response.ok) {
+        throw new Error('Erro ao carregar filtros');
+      }
+      return response.json();
+    })
+    .then(function(data) {
+      setTagCloudSelectOptions('#tag_cloud_discipline_id', data.disciplines || []);
+      setTagCloudSelectOptions('#tag_cloud_unity_id', data.unities || []);
+    })
+    .catch(function(err) {
+      console.error('Erro ao carregar filtros da tag cloud:', err);
+      alert('Ocorreu um erro ao carregar disciplinas e escolas da série selecionada.');
+    });
+}
+
+function resetTagCloudDependentFilters() {
+  setTagCloudSelectOptions('#tag_cloud_discipline_id', []);
+  setTagCloudSelectOptions('#tag_cloud_unity_id', []);
+}
+
+function setTagCloudSelectOptions(selector, items) {
+  var $field = $(selector);
+  var options = [{ id: 'empty', name: '<option></option>', text: '' }].concat(
+    (items || []).map(function(item) {
+      return {
+        id: item.id,
+        name: item.name || item.text,
+        text: item.text || item.name
+      };
+    })
+  );
+
+  $field.prop('disabled', items.length === 0);
+  $field.select2('val', '');
+  $field.select2({ data: options, width: '100%' });
+}
+

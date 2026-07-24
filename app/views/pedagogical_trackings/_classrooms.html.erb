@@ -2,31 +2,58 @@
   <%= javascript_include_tag 'views/pedagogical_trackings/teacher_detail' %>
 <% end %>
 
-<div class="widget-body" style="border: 1px solid;border-color: #CCC;padding: 10px;margin-bottom: 15px;">
+<section class="pedagogical-panel pedagogical-schools-panel">
+  <header class="pedagogical-panel__header">
+    <h2 class="pedagogical-panel__title"><%= t('pedagogical_trackings.index.classrooms_list') %></h2>
+    <p class="pedagogical-panel__description"><%= t('pedagogical_trackings.index.classrooms_list_description') %></p>
+  </header>
+
   <%= simple_form_for :filter, { url: pedagogical_trackings_path, method: :get, html: { class: 'percent_filterable_search_form' } } do |f| %>
     <%= hidden_field_tag 'unity_id', @percents.first.unity_id %>
     <%= hidden_field_tag 'start_date', @start_date %>
     <%= hidden_field_tag 'end_date', @end_date %>
     <%= hidden_field_tag 'step_start_date', @percents.first.start_date.strftime('%d/%m/%Y') %>
     <%= hidden_field_tag 'step_end_date', @percents.first.end_date.strftime('%d/%m/%Y') %>
+
+    <div class="pedagogical-schools-panel__filters pedagogical-schools-panel__filters--classrooms">
+      <%= f.input :classroom_id,
+                  as: :select2,
+                  elements: @classrooms,
+                  label: t('pedagogical_trackings.index.filter_classrooms'),
+                  placeholder: t('pedagogical_trackings.index.filter_classrooms'),
+                  wrapper_html: { class: 'pedagogical-schools-panel__filter' } %>
+
+      <div class="pedagogical-schools-panel__filter pedagogical-schools-panel__filter--percent">
+        <%= f.input :frequency_operator,
+                    as: :select2,
+                    elements: ComparativeOperators.to_select.to_json,
+                    label: t('pedagogical_trackings.index.filter_frequency'),
+                    placeholder: t('pedagogical_trackings.index.filter_frequency') %>
+        <%= f.input :frequency_percentage, label: false, input_html: { type: 'number' } %>
+      </div>
+
+      <div class="pedagogical-schools-panel__filter pedagogical-schools-panel__filter--percent">
+        <%= f.input :content_record_operator,
+                    as: :select2,
+                    elements: ComparativeOperators.to_select.to_json,
+                    label: t('pedagogical_trackings.index.filter_content_record'),
+                    placeholder: t('pedagogical_trackings.index.filter_content_record') %>
+        <%= f.input :content_record_percentage, label: false, input_html: { type: 'number' } %>
+      </div>
+    </div>
+
     <div class="table-responsive">
-      <table class="table table-bordered table-only-inner-bordered table-striped table-condensed table-hover" id="resources">
+      <table class="table table-bordered table-only-inner-bordered table-striped table-condensed table-hover pedagogical-schools-table" id="resources">
         <thead>
           <tr>
-            <td>
-              <%= f.input :classroom_id, as: :select2, elements: @classrooms, label: false, placeholder: t('pedagogical_trackings.index.filter_classrooms') %>
-            </td>
-            <td>
-              <%= f.input :frequency_operator, as: :select2, elements: ComparativeOperators.to_select.to_json, label: false, placeholder: t('pedagogical_trackings.index.filter_frequency') %>
-              <%= f.input :frequency_percentage, label: false, input_html: { type: 'number' } %>
-            </td>
-            <td>
-              <%= f.input :content_record_operator, as: :select2, elements: ComparativeOperators.to_select.to_json, label: false, placeholder: t('pedagogical_trackings.index.filter_content_record') %>
-              <%= f.input :content_record_percentage, label: false, input_html: { type: 'number' } %>
-            </td>
-            <td style="text-align: center;">
-              <span>Ação</span>
-            </td>
+            <th class="pedagogical-schools-table__school-col" scope="col">
+              <%= t('pedagogical_trackings.index.filter_classrooms') %>
+            </th>
+            <th scope="col"><%= t('pedagogical_trackings.index.filter_frequency') %></th>
+            <th scope="col"><%= t('pedagogical_trackings.index.filter_content_record') %></th>
+            <th class="pedagogical-schools-table__actions-col" scope="col">
+              <%= t('pedagogical_trackings.index.action') %>
+            </th>
           </tr>
         </thead>
 
@@ -45,6 +72,7 @@
       </table>
     </div>
   <% end %>
-</div>
+</section>
 
+<%= render 'action_modals' %>
 <%= render 'classroom_detail_modal' %>

@@ -1,38 +1,41 @@
-<div class="widget-body" style="border: 1px solid;border-color: #CCC;padding: 10px;margin-bottom: 15px;">
+<section class="pedagogical-panel pedagogical-schools-panel">
+  <header class="pedagogical-panel__header">
+    <h2 class="pedagogical-panel__title"><%= t('pedagogical_trackings.index.schools_list') %></h2>
+    <p class="pedagogical-panel__description"><%= t('pedagogical_trackings.index.schools_list_description') %></p>
+  </header>
+
   <%= simple_form_for :filter, { url: pedagogical_trackings_path, method: :get, html: { class: 'percent_filterable_search_form' } } do |f| %>
     <%= hidden_field_tag 'start_date', @start_date %>
     <%= hidden_field_tag 'end_date', @end_date %>
     <%= hidden_field_tag 'step_start_date', @start_date && @start_date.strftime('%d/%m/%Y') %>
     <%= hidden_field_tag 'step_end_date', @end_date && @end_date.strftime('%d/%m/%Y') %>
+
+    <div class="pedagogical-schools-panel__filters">
+      <%= f.input :unity_id,
+                  as: :select2,
+                  elements: all_unities,
+                  label: t('pedagogical_trackings.index.filter_unities'),
+                  placeholder: t('pedagogical_trackings.index.filter_unities'),
+                  wrapper_html: { class: 'pedagogical-schools-panel__filter' } %>
+    </div>
+
     <div class="table-responsive">
-      <table class="table table-bordered table-only-inner-bordered table-striped table-condensed table-hover" id="resources">
+      <table class="table table-bordered table-only-inner-bordered table-striped table-condensed table-hover pedagogical-schools-table" id="resources">
         <thead>
           <tr>
-            <td>
-              <%= f.input :unity_id, as: :select2, elements: all_unities, label: false, placeholder: t('pedagogical_trackings.index.filter_unities') %>
-            </td>
-
-            <!--
-            <td>
-              <%= f.input :frequency_operator, as: :select2, elements: ComparativeOperators.to_select.to_json, label: false, placeholder: t('pedagogical_trackings.index.filter_frequency') %>
-              <%= f.input :frequency_percentage, label: false, input_html: { type: 'number' } %>
-            </td>
-            <td>
-              <%= f.input :content_record_operator, as: :select2, elements: ComparativeOperators.to_select.to_json, label: false, placeholder: t('pedagogical_trackings.index.filter_content_record') %>
-              <%= f.input :content_record_percentage, label: false, input_html: { type: 'number' } %>
-            </td>
-            -->
-            
-            <td style="text-align: center;">
-              <span>Ação</span>
-            </td>
+            <th class="pedagogical-schools-table__school-col" scope="col">
+              <%= t('pedagogical_trackings.index.filter_unities') %>
+            </th>
+            <th class="pedagogical-schools-table__actions-col" scope="col">
+              <%= t('pedagogical_trackings.index.action') %>
+            </th>
           </tr>
         </thead>
 
-        <%= render 'resources'%>
+        <%= render 'resources' %>
 
         <tfoot id="paginator" class="remote">
-          <td colspan="4">
+          <td colspan="2">
             <div id="page_entries_info" class="pull-left hidden-xs">
               <%= page_entries_info @percents %>
             </div>
@@ -44,23 +47,6 @@
       </table>
     </div>
   <% end %>
-</div>
+</section>
 
-<div id="resumeModal" style="display:none; position:fixed; inset:0; background-color:rgba(0,0,0,0.7);
-                             justify-content:center; align-items:center; z-index:9999;">
-  <div style="background:white; padding:20px; border-radius:15px; height:95vh; overflow:auto; width:90%; box-shadow:0 5px 15px rgba(0,0,0,0.3);">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-      <h2 style="margin:0; font-size:1.5em;">Resumo de Lançamentos</h2>
-      <!-- Botão de baixar planilha -->
-      
-      <button id="downloadXlsxBtn" style="background-color:#1D72B8; color:white; padding:10px 15px; border-radius:8px; border:none; cursor:pointer;" type="button">Baixar planilha</button>
-      <button onclick="closeResumeModal(event)" style="background:none; border:none; font-size:3.5em; cursor:pointer;">&times;</button>      
-    </div>
-
-    <div id="resumeModalBody" style="margin-bottom:15px;">
-      <!-- Conteúdo da planilha será injetado aqui -->
-    </div>
-
-  </div>
-</div>
-
+<%= render 'action_modals' %>

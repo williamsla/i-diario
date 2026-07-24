@@ -347,6 +347,423 @@ nav ul span.menu-item-parent {
   width: 20%;
 }
 
+.pedagogical-panel {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  margin: 20px 0;
+  padding: 16px 18px 12px;
+}
+
+.pedagogical-panel__header {
+  margin-bottom: 14px;
+}
+
+.pedagogical-panel__title {
+  border: 0;
+  color: #1e293b;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  padding: 0;
+}
+
+.pedagogical-panel__description {
+  color: #64748b;
+  font-size: 13px;
+  margin: 0;
+}
+
+.pedagogical-tag-cloud-panel {
+  margin-bottom: 24px;
+}
+
+.pedagogical-tag-cloud-panel .control-group {
+  margin-bottom: 12px;
+}
+
+.pedagogical-tag-cloud-filters__submit {
+  align-items: flex-end;
+  display: flex;
+  min-height: 68px;
+  padding-bottom: 12px;
+}
+
+.pedagogical-charts {
+  margin-bottom: 20px;
+  width: 80%;
+}
+
+.pedagogical-schools-panel {
+  margin-top: 8px;
+}
+
+.pedagogical-schools-panel__filters {
+  margin-bottom: 14px;
+  max-width: 360px;
+}
+
+.pedagogical-schools-panel__filters--classrooms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  max-width: none;
+}
+
+.pedagogical-schools-panel__filter {
+  margin-bottom: 0;
+  min-width: 220px;
+}
+
+.pedagogical-schools-panel__filter--percent {
+  align-items: flex-end;
+  display: flex;
+  gap: 8px;
+}
+
+.pedagogical-schools-panel__filter--percent .control-group {
+  float: none;
+  margin-bottom: 0;
+  width: auto;
+}
+
+.pedagogical-schools-panel__filter--percent .filter_frequency_percentage,
+.pedagogical-schools-panel__filter--percent .filter_content_record_percentage {
+  float: none;
+  width: 90px;
+}
+
+.pedagogical-schools-table {
+  margin-bottom: 0;
+}
+
+.pedagogical-schools-table thead th {
+  background: #f8fafc;
+  border-bottom-width: 1px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.pedagogical-schools-table__school-col {
+  width: 28%;
+}
+
+.pedagogical-schools-table__actions-col {
+  text-align: right;
+  white-space: nowrap;
+  width: 1%;
+}
+
+.pedagogical-schools-table__school {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  max-width: 280px;
+  overflow-wrap: anywhere;
+  vertical-align: middle;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.pedagogical-schools-table__actions {
+  text-align: right;
+  vertical-align: middle;
+  white-space: nowrap;
+  width: 1%;
+}
+
+.pedagogical-actions {
+  display: inline-flex;
+  justify-content: flex-end;
+}
+
+.pedagogical-actions__buttons {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.pedagogical-actions__dropdown {
+  display: none;
+}
+
+.pedagogical-action-btn,
+.pedagogical-actions__buttons > .btn {
+  display: inline-block;
+  flex: 0 0 auto;
+  float: none;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.pedagogical-details-link {
+  color: #5b6b7c;
+  font-weight: 400;
+  opacity: 0.85;
+  padding-left: 8px;
+  padding-right: 8px;
+  text-decoration: none;
+}
+
+.pedagogical-details-link:hover,
+.pedagogical-details-link:focus {
+  color: #3276b1;
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.pedagogical-modal__header-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+@media (max-width: 991px) {
+  .pedagogical-actions__buttons {
+    display: none;
+  }
+
+  .pedagogical-actions__dropdown {
+    display: inline-block;
+  }
+
+  .pedagogical-schools-table__actions-col,
+  .pedagogical-schools-table__actions {
+    width: 96px;
+  }
+
+  .pedagogical-charts {
+    width: 100%;
+  }
+
+  .pedagogical-tag-cloud-filters__submit {
+    min-height: 0;
+    padding-bottom: 0;
+  }
+}
+
+.pedagogical-modal {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.55);
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 9999;
+}
+
+.pedagogical-modal__dialog {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+  max-height: 92vh;
+  overflow: auto;
+  padding: 0;
+  width: min(960px, 94vw);
+}
+
+.pedagogical-modal__dialog--wide {
+  width: min(1100px, 96vw);
+}
+
+.pedagogical-modal__header {
+  align-items: flex-start;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  padding: 18px 22px 14px;
+}
+
+.pedagogical-modal__title {
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.pedagogical-modal__summary {
+  color: #64748b;
+  font-size: 13px;
+  margin: 0;
+}
+
+.pedagogical-modal__close {
+  background: none;
+  border: 0;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 34px;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.pedagogical-modal__close:hover {
+  color: #475569;
+}
+
+.pedagogical-modal__body {
+  padding: 18px 22px 22px;
+}
+
+.pedagogical-modal__loading {
+  color: #64748b;
+  margin: 30px 0;
+  text-align: center;
+}
+
+.tag-cloud-card {
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 48%);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  height: 100%;
+  min-height: 360px;
+  padding: 14px;
+}
+
+.tag-cloud-card__header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.tag-cloud-card__header h3 {
+  color: #334155;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.tag-cloud-card__count {
+  background: #e2e8f0;
+  border-radius: 999px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 28px;
+  padding: 2px 8px;
+  text-align: center;
+}
+
+.pedagogical-tag-cloud {
+  align-content: flex-start;
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-start;
+  min-height: 280px;
+}
+
+.pedagogical-tag-cloud__item {
+  align-items: center;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  color: #1d4ed8;
+  display: inline-flex;
+  gap: 8px;
+  line-height: 1.2;
+  max-width: 100%;
+  padding: 6px 10px 6px 12px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pedagogical-tag-cloud__item:hover {
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+  transform: translateY(-1px);
+}
+
+.pedagogical-tag-cloud__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pedagogical-tag-cloud__badge {
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+}
+
+.pedagogical-tag-cloud__item--1 {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.pedagogical-tag-cloud__item--2 {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #475569;
+  font-size: 13px;
+}
+
+.pedagogical-tag-cloud__item--3 {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
+  font-size: 14px;
+}
+
+.pedagogical-tag-cloud__item--4 {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.pedagogical-tag-cloud__item--5 {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border-color: #1d4ed8;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.pedagogical-tag-cloud__item--5 .pedagogical-tag-cloud__badge {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.pedagogical-tag-cloud__empty {
+  align-items: center;
+  color: #94a3b8;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  min-height: 260px;
+  text-align: center;
+  width: 100%;
+}
+
+.pedagogical-tag-cloud__empty i {
+  font-size: 28px;
+}
+
+.pedagogical-tag-cloud__empty p {
+  margin: 0;
+}
+
 div#classroom-detail-modal .control-group {
   margin-bottom: 0px;
 }

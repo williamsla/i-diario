@@ -24,7 +24,9 @@ class PedagogicalTrackingsController < ApplicationController
 
     @end_date = params.dig(:search, :end_date).presence
     end_date = (@end_date || params[:end_date]).try(:to_date)
-    
+
+    load_tag_cloud_filters
+
     if unity_id
       fetch_school_days_by_unity(unity_id, start_date, end_date)
 
@@ -626,7 +628,177 @@ class PedagogicalTrackingsController < ApplicationController
     respond_with @teacher_percents
   end
 
+  def tag_cloud_modal
+    grade_id = params[:grade_id].presence
+    discipline_id = params[:discipline_id].presence
+
+    if grade_id.blank? || discipline_id.blank?
+      return render plain: t('pedagogical_trackings.index.select_grade_and_discipline'), status: :bad_request
+    end
+
+    unless tag_cloud_grade_allowed?(grade_id)
+      return render plain: 'Sem permissão para a série selecionada.', status: :forbidden
+    end
+
+    unity_id = params[:unity_id].presence
+    if unity_id.present? && !tag_cloud_unity_allowed?(unity_id)
+      return render plain: 'Sem permissão para a escola selecionada.', status: :forbidden
+    end
+
+    step_number = params[:step_number].presence
+    start_date = params[:start_date].presence.try(:to_date)
+    end_date = params[:end_date].presence.try(:to_date)
+
+    tag_clouds = PedagogicalTrackingTagCloudFetcher.new(
+      grade_id: grade_id,
+      discipline_id: discipline_id,
+      year: current_user_school_year,
+      unity_id: unity_id,
+      unity_ids: unity_id.present? ? nil : tag_cloud_restricted_unity_ids,
+      step_number: step_number,
+      start_date: start_date,
+      end_date: end_date
+    ).fetch
+
+    @content_tags = tag_clouds[:contents]
+    @objective_tags = tag_clouds[:objectives]
+    @tag_cloud_summary = tag_cloud_summary(grade_id, discipline_id, unity_id, step_number)
+
+    render partial: 'pedagogical_trackings/tag_cloud_modal', layout: false
+  rescue StandardError => e
+    Rails.logger.error "Erro no tag_cloud_modal: #{e.message}"
+    Rails.logger.error e.backtrace.join("\n")
+    render plain: "Erro ao carregar análise: #{e.message}", status: :internal_server_error
+  end
+
+  def tag_cloud_filters
+    grade_id = params[:grade_id].presence
+
+    if grade_id.blank? || !tag_cloud_grade_allowed?(grade_id)
+      return render json: { disciplines: [], unities: [] }
+    end
+
+    year = current_user_school_year
+    accessible_unity_ids = tag_cloud_accessible_unities.map(&:id)
+
+    disciplines_scope = Discipline
+      .by_grade(grade_id)
+      .joins(teacher_discipline_classrooms: :classroom)
+      .where(classrooms: { year: year })
+
+    unless tag_cloud_full_access?
+      disciplines_scope = disciplines_scope.where(classrooms: { unity_id: accessible_unity_ids })
+    end
+
+    disciplines = disciplines_scope
+      .distinct
+      .ordered
+      .map { |discipline| { id: discipline.id, name: discipline.to_s, text: discipline.to_s } }
+
+    unities_scope = Unity
+      .joins(classrooms: :classrooms_grades)
+      .where(classrooms: { year: year }, classrooms_grades: { grade_id: grade_id })
+      .where(id: accessible_unity_ids)
+      .distinct
+      .ordered
+
+    unities = unities_scope.map { |unity| { id: unity.id, name: unity.to_s, text: unity.to_s } }
+
+    render json: { disciplines: disciplines, unities: unities }
+  end
+
   private
+
+  def load_tag_cloud_filters
+    @tag_cloud_grades = grades_to_select(tag_cloud_accessible_grades)
+    @tag_cloud_disciplines = []
+    @tag_cloud_unities = []
+    @tag_cloud_steps = tag_cloud_step_options
+  end
+
+  def tag_cloud_full_access?
+    current_user.admin? || current_user.administrator? || current_user.has_administrator_access_level?
+  end
+
+  def tag_cloud_accessible_unities
+    @tag_cloud_accessible_unities ||= begin
+      if tag_cloud_full_access?
+        all_unities.to_a
+      elsif current_user.employee?
+        unities = Array(employee_unities)
+        unities = [current_unity].compact if unities.blank?
+        unities.compact.uniq
+      else
+        [current_unity].compact
+      end
+    end
+  end
+
+  def tag_cloud_restricted_unity_ids
+    return nil if tag_cloud_full_access?
+
+    tag_cloud_accessible_unities.map(&:id)
+  end
+
+  def tag_cloud_accessible_grades
+    year = current_user_school_year
+    grades_scope = Grade.joins(:classrooms).where(classrooms: { year: year })
+
+    unless tag_cloud_full_access?
+      grades_scope = grades_scope.where(classrooms: { unity_id: tag_cloud_accessible_unities.map(&:id) })
+    end
+
+    Grade.where(id: grades_scope.select(:id))
+  end
+
+  def tag_cloud_grade_allowed?(grade_id)
+    tag_cloud_accessible_grades.where(id: grade_id).exists?
+  end
+
+  def tag_cloud_unity_allowed?(unity_id)
+    tag_cloud_accessible_unities.any? { |unity| unity.id.to_s == unity_id.to_s }
+  end
+
+  def grades_to_select(grades_scope)
+    grades_scope.ordered.includes(:course).map do |grade|
+      OpenStruct.new(
+        id: grade.id,
+        name: "#{grade.description} - #{grade.course.description}",
+        text: "#{grade.description} - #{grade.course.description}"
+      )
+    end
+  end
+
+  def tag_cloud_step_options
+    steps_scope = SchoolCalendarStep.by_year(current_user_school_year)
+
+    unless tag_cloud_full_access?
+      steps_scope = steps_scope.by_unity(tag_cloud_accessible_unities.map(&:id))
+    end
+
+    steps_scope
+      .distinct
+      .order(:step_number)
+      .pluck(:step_number)
+      .compact
+      .uniq
+      .map do |step_number|
+        OpenStruct.new(
+          id: step_number,
+          name: "#{step_number}ª etapa",
+          text: "#{step_number}ª etapa"
+        )
+      end
+  end
+
+  def tag_cloud_summary(grade_id, discipline_id, unity_id, step_number)
+    parts = []
+    parts << Grade.find_by(id: grade_id)&.to_s
+    parts << Discipline.find_by(id: discipline_id)&.to_s
+    parts << Unity.find_by(id: unity_id)&.to_s if unity_id.present?
+    parts << "#{step_number}ª etapa" if step_number.present?
+    parts.compact.join(' · ')
+  end
 
   def minimum_year
     return if current_user_school_year >= 2020
@@ -640,8 +812,8 @@ class PedagogicalTrackingsController < ApplicationController
     return unless current_user.employee?
 
     roles_ids = Role.where(access_level: AccessLevel::EMPLOYEE).pluck(:id)
-    unities_ids = UserRole.where(user_id: current_user.id, role_id: roles_ids).pluck(:unity_id)
-    @employee_unities ||= Unity.find(unities_ids)
+    unities_ids = UserRole.where(user_id: current_user.id, role_id: roles_ids).pluck(:unity_id).compact
+    @employee_unities ||= Unity.where(id: unities_ids).ordered
   end
   helper_method :employee_unities
 

@@ -224,6 +224,8 @@ Rails.application.routes.draw do
         get :frequency_report_modal
         get :class_council_modal
         get :class_council_pdf
+        get :tag_cloud_modal
+        get :tag_cloud_filters
       end
     end
 

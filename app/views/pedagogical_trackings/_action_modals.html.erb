@@ -1,0 +1,40 @@
+<div id="resumeModal" class="pedagogical-modal" style="display:none;">
+  <div class="pedagogical-modal__dialog pedagogical-modal__dialog--wide">
+    <div class="pedagogical-modal__header">
+      <div>
+        <h2 class="pedagogical-modal__title"><%= t('pedagogical_trackings.index.resume_entries') %></h2>
+      </div>
+      <div class="pedagogical-modal__header-actions">
+        <button id="downloadXlsxBtn" class="btn btn-primary btn-sm" type="button">
+          <%= t('pedagogical_trackings.index.download_spreadsheet') %>
+        </button>
+        <button type="button" class="pedagogical-modal__close" onclick="closeResumeModal(event)" aria-label="Fechar">&times;</button>
+      </div>
+    </div>
+    <div id="resumeModalBody" class="pedagogical-modal__body"></div>
+  </div>
+</div>
+
+<div id="frequencyReportModal" class="pedagogical-modal" style="display:none;">
+  <div class="pedagogical-modal__dialog pedagogical-modal__dialog--wide">
+    <div class="pedagogical-modal__header">
+      <div>
+        <h2 class="pedagogical-modal__title"><%= t('pedagogical_trackings.index.absent_students') %></h2>
+      </div>
+      <button type="button" class="pedagogical-modal__close" onclick="closeFrequencyReportModal(event)" aria-label="Fechar">&times;</button>
+    </div>
+    <div id="frequencyReportModalBody" class="pedagogical-modal__body"></div>
+  </div>
+</div>
+
+<div id="classCouncilModal" class="pedagogical-modal" style="display:none;">
+  <div class="pedagogical-modal__dialog">
+    <div class="pedagogical-modal__header">
+      <div>
+        <h2 class="pedagogical-modal__title"><%= t('pedagogical_trackings.index.class_council') %></h2>
+      </div>
+      <button type="button" class="pedagogical-modal__close" onclick="closeClassCouncilModal(event)" aria-label="Fechar">&times;</button>
+    </div>
+    <div id="classCouncilModalBody" class="pedagogical-modal__body"></div>
+  </div>
+</div>
