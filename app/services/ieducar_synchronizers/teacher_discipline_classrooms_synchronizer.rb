@@ -133,6 +133,9 @@ class TeacherDisciplineClassroomsSynchronizer < BaseSynchronizer
     teacher_discipline_classroom.changed_at = teacher_discipline_classroom_record.updated_at
     teacher_discipline_classroom.period = teacher_discipline_classroom_record.turno_id
     teacher_discipline_classroom.score_type = score_type
+    teacher_discipline_classroom.start_at = parse_api_date(teacher_discipline_classroom_record.data_inicial)
+    teacher_discipline_classroom.end_at = parse_api_date(teacher_discipline_classroom_record.data_fim)
+    teacher_discipline_classroom.allocation_left_at = parse_api_date(teacher_discipline_classroom_record.data_saida)
     teacher_discipline_classroom.active = true if teacher_discipline_classroom.active.nil?
 
     teacher_discipline_classroom.save! if teacher_discipline_classroom.changed?
@@ -224,7 +227,10 @@ class TeacherDisciplineClassroomsSynchronizer < BaseSynchronizer
 
       link_teacher.assign_attributes(
         period: teacher_discipline_classroom.period,
-        changed_at: teacher_discipline_classroom.changed_at
+        changed_at: teacher_discipline_classroom.changed_at,
+        start_at: teacher_discipline_classroom.start_at,
+        end_at: teacher_discipline_classroom.end_at,
+        allocation_left_at: teacher_discipline_classroom.allocation_left_at
       )
 
       link_teacher.undiscard if link_teacher.discarded?
@@ -241,5 +247,13 @@ class TeacherDisciplineClassroomsSynchronizer < BaseSynchronizer
     ).map(&:link_id)
 
     TeacherDisciplineClassroom.where(id: grouped_link_id).each(&:destroy)
+  end
+
+  def parse_api_date(value)
+    return nil if value.blank? || value == []
+
+    value.to_date
+  rescue ArgumentError, TypeError
+    nil
   end
 end

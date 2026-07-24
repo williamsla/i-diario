@@ -88,11 +88,13 @@ class CurrentProfile
   end
 
   def teacher_as_json
-    teacher.as_json(TEACHER_JSON)
+    return unless teacher
+
+    teacher_json_with_left_status(teacher)
   end
 
   def teachers_as_json
-    teachers.as_json(TEACHER_JSON)
+    teachers.map { |teacher_record| teacher_json_with_left_status(teacher_record) }
   end
 
   def teachers
@@ -178,6 +180,20 @@ class CurrentProfile
   end
 
   private
+
+  def teacher_json_with_left_status(teacher_record)
+    name = teacher_record.name.to_s
+    left_at = TeacherDisciplineClassroom.left_at_for(
+      teacher_id: teacher_record.id,
+      classroom_id: classroom&.id
+    )
+
+    if left_at.present? && left_at <= Date.current
+      name = "#{name} (saiu em #{I18n.l(left_at.to_date)})"
+    end
+
+    { id: teacher_record.id, name: name }
+  end
 
   def initial_value(options, model)
     underscored_model = model.to_s.underscore

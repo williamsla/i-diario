@@ -112,7 +112,14 @@ class PedagogicalTrackingsController < ApplicationController
       subquery_lesson_plan = "SELECT ''"
     end
     
-    rows = connection.select_rows("SELECT distinct c.description as TURMA, upper(t.name) as PROFESSOR, d.description as DISCIPLINA,
+    rows = connection.select_rows("SELECT distinct c.description as TURMA,
+      CASE
+        WHEN left_at IS NOT NULL AND left_at <= CURRENT_DATE THEN
+          upper(t.name) || ' (saiu em ' || to_char(left_at, 'DD/MM/YYYY') || ')'
+        ELSE
+          upper(t.name)
+      END as PROFESSOR,
+      d.description as DISCIPLINA,
 			(
           select count(df.id) 
           from public.daily_frequencies df, step_by_classroom(c.id, df.frequency_date) as step
@@ -183,6 +190,12 @@ class PedagogicalTrackingsController < ApplicationController
 		inner join public.classrooms c on c.id = tdc.classroom_id
 		inner join public.disciplines d ON d.id = tdc.discipline_id and (d.descriptor = false and d.grouper = false)
 		inner join public.unities unity ON unity.id = c.unity_id 
+    LEFT JOIN LATERAL (
+      SELECT CASE
+        WHEN tdc.end_at IS NOT NULL AND tdc.allocation_left_at IS NOT NULL THEN LEAST(tdc.end_at, tdc.allocation_left_at)
+        ELSE COALESCE(tdc.end_at, tdc.allocation_left_at)
+      END AS left_at
+    ) teacher_left ON true
 		WHERE tdc.year = #{current_user_school_year} 
 		and c.year = #{current_user_school_year}
 		and unity.id = #{unity_id}
@@ -275,7 +288,7 @@ class PedagogicalTrackingsController < ApplicationController
         if index_col == 0 # turma
           worksheet.set_column(index_col, index_col, 25, format_center)
         elsif index_col == 1 # professor
-          worksheet.set_column(index_col, index_col, 32, format_left)
+          worksheet.set_column(index_col, index_col, 45, format_left)
         elsif index_col == 2 # disciplina
           worksheet.set_column(index_col, index_col, 23, format_left)
         elsif index_col >= 3 && index_col <= 6 # FREQUENCIAS
