@@ -262,26 +262,142 @@ function openResumeModal(unityId, classroomId) {
   const modal = document.getElementById("resumeModal");
   if (!modal) return;
 
-  // mostra modal
   modal.style.display = "flex";
 
-  // atualiza botão de download
   const downloadBtn = document.getElementById("downloadXlsxBtn");
   downloadBtn.onclick = function() {
     const url = '/pedagogical_trackings/resume_xlsx?unity_id=' + unityId + '&classroom_id=' + (classroomId || 0);
-    window.location.href = url; // força download
+    window.location.href = url;
   }
 
-  // busca conteúdo via fetch
+  document.getElementById("resumeModalBody").innerHTML =
+    "<p class='pedagogical-modal__loading'>Carregando resumo...</p>";
+
   fetch('/pedagogical_trackings/resume_modal?unity_id=' + unityId + '&classroom_id=' + (classroomId || 0))
     .then(response => response.text())
     .then(html => {
       document.getElementById("resumeModalBody").innerHTML = html;
+      initResumeReportFilters();
     })
     .catch(err => {
       console.error("Erro ao carregar modal:", err);
       document.getElementById("resumeModalBody").innerHTML =
         "<p style='color:red;'>Erro ao carregar o resumo.</p>";
+    });
+}
+
+function initResumeReportFilters() {
+  var $report = $('#resumeReport');
+  if (!$report.length) return;
+
+  function teacherCellHtml(label, pending) {
+    var pendingClass = pending ? ' resume-table__sticky--teacher-pending' : '';
+    return '<td class="resume-table__sticky resume-table__sticky--teacher resume-table__text' +
+      pendingClass + '" rowspan="1">' + $('<div>').text(label || '').html() + '</td>';
+  }
+
+  function flattenTeacherCells($table) {
+    $table.find('.resume-table__classroom-group').each(function() {
+      $(this).find('.resume-table__data-row').each(function() {
+        var $row = $(this);
+        var label = $row.attr('data-teacher-label') || '';
+        var pending = String($row.data('teacher-pending')) === 'true';
+        var $cell = $row.children('.resume-table__sticky--teacher');
+
+        if ($cell.length) {
+          $cell.attr('rowspan', 1).show();
+          $cell.text(label);
+          $cell.toggleClass('resume-table__sticky--teacher-pending', pending);
+        } else {
+          $row.prepend(teacherCellHtml(label, pending));
+        }
+      });
+    });
+  }
+
+  function mergeTeacherCells($table) {
+    $table.find('.resume-table__classroom-group').each(function() {
+      var currentTeacher = null;
+      var $firstCell = null;
+      var count = 0;
+
+      $(this).find('.resume-table__data-row').removeClass('resume-table__data-row--teacher-start');
+
+      $(this).find('.resume-table__data-row:visible').each(function() {
+        var $row = $(this);
+        var teacher = String($row.data('teacher') || '');
+        var $cell = $row.children('.resume-table__sticky--teacher');
+
+        if (teacher === currentTeacher && $firstCell) {
+          $cell.remove();
+          count += 1;
+          $firstCell.attr('rowspan', count);
+        } else {
+          currentTeacher = teacher;
+          $firstCell = $cell;
+          count = 1;
+          $row.addClass('resume-table__data-row--teacher-start');
+          if ($firstCell.length) {
+            $firstCell.attr('rowspan', 1).show();
+          }
+        }
+      });
+    });
+  }
+
+  function applySearchFilter() {
+    var $table = $('#resumeTable');
+    var search = $.trim($report.find('#resumeSearchInput').val() || '').toLowerCase();
+    var visibleRows = 0;
+
+    flattenTeacherCells($table);
+
+    $table.find('.resume-table__classroom-group').each(function() {
+      var $group = $(this);
+      var groupVisible = 0;
+
+      $group.find('.resume-table__data-row').each(function() {
+        var $row = $(this);
+        var teacher = String($row.data('teacher') || '');
+        var discipline = String($row.data('discipline') || '');
+        var classroom = String($row.data('classroom') || '');
+        var visible = !search ||
+          teacher.indexOf(search) !== -1 ||
+          discipline.indexOf(search) !== -1 ||
+          classroom.indexOf(search) !== -1;
+
+        $row.toggle(visible);
+        if (visible) groupVisible += 1;
+      });
+
+      $group.toggle(groupVisible > 0);
+      visibleRows += groupVisible;
+    });
+
+    mergeTeacherCells($table);
+
+    $report.find('.resume-report__empty--filtered').prop('hidden', visibleRows > 0);
+    $report.find('.resume-report__table-wrap').toggle(visibleRows > 0);
+  }
+
+  $report.find('#resumeSearchInput').on('input', applySearchFilter);
+
+  $report
+    .on('mouseenter', '.resume-table__data-row', function() {
+      var $row = $(this);
+      var $group = $row.closest('.resume-table__classroom-group');
+      var teacher = String($row.data('teacher') || '');
+
+      $group.find('.is-teacher-hover').removeClass('is-teacher-hover');
+      $row.addClass('is-teacher-hover');
+
+      $group.find('.resume-table__data-row').filter(function() {
+        return String($(this).data('teacher') || '') === teacher &&
+          $(this).children('.resume-table__sticky--teacher').length > 0;
+      }).children('.resume-table__sticky--teacher').addClass('is-teacher-hover');
+    })
+    .on('mouseleave', '.resume-table__classroom-group', function() {
+      $(this).find('.is-teacher-hover').removeClass('is-teacher-hover');
     });
 }
 
@@ -724,6 +840,34 @@ function closeTagCloudModal(event) {
   document.getElementById('tagCloudModalSummary').textContent = '';
 }
 
+function isPedagogicalModalOpen(modal) {
+  return modal && modal.style.display === 'flex';
+}
+
+function closeActivePedagogicalModal(event) {
+  if (isPedagogicalModalOpen(document.getElementById('resumeModal'))) {
+    closeResumeModal(event);
+    return true;
+  }
+
+  if (isPedagogicalModalOpen(document.getElementById('frequencyReportModal'))) {
+    closeFrequencyReportModal(event);
+    return true;
+  }
+
+  if (isPedagogicalModalOpen(document.getElementById('classCouncilModal'))) {
+    closeClassCouncilModal(event);
+    return true;
+  }
+
+  if (isPedagogicalModalOpen(document.getElementById('tagCloudModal'))) {
+    closeTagCloudModal(event);
+    return true;
+  }
+
+  return false;
+}
+
 $(document).ready(function() {
   $('#tag-cloud-form').on('submit', openTagCloudModal);
   $('#tag_cloud_grade_id').on('change', onTagCloudGradeChange);
@@ -736,6 +880,18 @@ $(document).ready(function() {
         $field.select2('val', $field.val());
       }
     });
+  });
+
+  $(document).on('click', '.pedagogical-modal', function(event) {
+    if (event.target !== this) return;
+    closeActivePedagogicalModal(event);
+  });
+
+  $(document).on('keydown', function(event) {
+    if (event.key !== 'Escape' && event.keyCode !== 27) return;
+    if (closeActivePedagogicalModal(event)) {
+      event.preventDefault();
+    }
   });
 });
 

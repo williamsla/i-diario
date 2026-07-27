@@ -634,6 +634,18 @@ nav ul span.menu-item-parent {
   width: min(1100px, 96vw);
 }
 
+.pedagogical-modal__dialog--resume {
+  width: min(1280px, 98vw);
+}
+
+.pedagogical-modal__dialog--resume .pedagogical-modal__header {
+  padding: 12px 16px 10px;
+}
+
+.pedagogical-modal__dialog--resume .pedagogical-modal__title {
+  margin: 0;
+}
+
 .pedagogical-modal__header {
   align-items: flex-start;
   border-bottom: 1px solid #e2e8f0;
@@ -671,6 +683,10 @@ nav ul span.menu-item-parent {
 
 .pedagogical-modal__body {
   padding: 18px 22px 22px;
+}
+
+.pedagogical-modal__body--resume {
+  padding: 10px 16px 14px;
 }
 
 .pedagogical-modal__loading {
@@ -819,6 +835,365 @@ nav ul span.menu-item-parent {
 
 .pedagogical-tag-cloud__empty p {
   margin: 0;
+}
+
+.resume-report__summary {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  margin-bottom: 16px;
+}
+
+.resume-summary-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.resume-summary-card__value {
+  color: #0f172a;
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.resume-summary-card__label {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.resume-summary-card--warning {
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.resume-summary-card--warning .resume-summary-card__value {
+  color: #c2410c;
+}
+
+.resume-summary-card--danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.resume-summary-card--danger .resume-summary-card__value {
+  color: #b91c1c;
+}
+
+.resume-summary-card--alert {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.resume-summary-card--alert .resume-summary-card__value {
+  color: #b45309;
+}
+
+.resume-report__toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 8px;
+}
+
+.resume-report__filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.resume-report__filter-group--search {
+  flex: 0 1 260px;
+  min-width: 180px;
+}
+
+.resume-report__search {
+  margin: 0;
+  max-width: 280px;
+}
+
+.resume-report__legend {
+  color: #64748b;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 12px;
+  margin: 0;
+}
+
+.resume-legend-item {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.resume-legend-swatch {
+  border-radius: 3px;
+  display: inline-block;
+  height: 12px;
+  width: 12px;
+}
+
+.resume-legend-swatch--done {
+  background: #cbd5e1;
+}
+
+.resume-legend-swatch--missing {
+  background: #fecaca;
+}
+
+.resume-legend-swatch--alert {
+  background: #fbbf24;
+}
+
+.resume-report__table-wrap {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  max-height: calc(92vh - 160px);
+  overflow: auto;
+}
+
+.resume-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+  min-width: 100%;
+  width: max-content;
+}
+
+.resume-table th,
+.resume-table td {
+  border-bottom: 1px solid #eef2f7;
+  border-right: 0;
+  padding: 8px 10px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.resume-table thead th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  overflow-wrap: normal;
+  text-transform: uppercase;
+  white-space: normal !important;
+  word-break: normal;
+}
+
+.resume-table__group-header th {
+  vertical-align: middle;
+}
+
+.resume-table__sub-header th {
+  background: #f8fafc;
+  vertical-align: middle;
+}
+
+.resume-table__group {
+  border-bottom: 0 !important;
+  text-align: center;
+}
+
+.resume-table__group--freq,
+.resume-table__group--eval {
+  background: #eff6ff;
+  color: #1d4ed8;
+  max-width: none;
+  padding-bottom: 4px;
+}
+
+.resume-table__sub-header th[data-step-group="freq"],
+.resume-table__sub-header th[data-step-group="eval"] {
+  background: #eff6ff;
+  border-top: 0 !important;
+  color: #1d4ed8;
+  font-size: 10px;
+  padding-top: 2px;
+}
+
+.resume-table__col--content,
+.resume-table__col--opinion,
+.resume-table__col--lesson {
+  background: #f8fafc !important;
+  max-width: 78px;
+  min-width: 72px;
+  padding-left: 6px;
+  padding-right: 6px;
+  vertical-align: middle;
+  width: 76px;
+}
+
+.resume-table__group-header .resume-table__col--content,
+.resume-table__group-header .resume-table__col--opinion,
+.resume-table__group-header .resume-table__col--lesson {
+  border-bottom: 0 !important;
+  padding-bottom: 2px;
+  vertical-align: bottom;
+}
+
+.resume-table__col--continued {
+  border-top: 0 !important;
+  font-size: 10px;
+  font-weight: 600;
+  padding-top: 0;
+  text-transform: none;
+  vertical-align: top;
+}
+
+.resume-table__sticky {
+  background: #fff;
+  position: sticky;
+  z-index: 2;
+}
+
+.resume-table thead .resume-table__sticky {
+  background: #f8fafc;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.resume-table__sticky--teacher,
+.resume-table td.resume-table__sticky--teacher,
+.resume-table th.resume-table__sticky--teacher {
+  left: 0;
+  max-width: 133px;
+  min-width: 133px;
+  overflow-wrap: anywhere;
+  vertical-align: middle;
+  white-space: normal !important;
+  width: 133px;
+  word-break: break-word;
+}
+
+.resume-table__sticky--discipline,
+.resume-table td.resume-table__sticky--discipline,
+.resume-table th.resume-table__sticky--discipline {
+  left: 133px;
+  max-width: 312px;
+  min-width: 312px;
+  overflow-wrap: anywhere;
+  white-space: normal !important;
+  width: 312px;
+  word-break: break-word;
+  box-shadow: 4px 0 8px -6px rgba(15, 23, 42, 0.25);
+}
+
+.resume-table__classroom-row td {
+  background: #e2e8f0;
+  border-bottom: 1px solid #cbd5e1;
+  color: #0f172a;
+  font-size: 13px;
+  padding: 10px 12px;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.resume-table__classroom-meta {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 400;
+  margin-left: 8px;
+}
+
+.resume-table__text {
+  line-height: 1.35;
+  white-space: normal !important;
+}
+
+.resume-table__data-row--teacher-start > td {
+  border-top: 2px solid #94a3b8;
+}
+
+.resume-table__data-row.is-teacher-hover > td,
+.resume-table__sticky--teacher.is-teacher-hover {
+  background: #dbeafe !important;
+}
+
+.resume-table__data-row--pending > td.resume-table__sticky,
+.resume-table td.resume-table__sticky--teacher-pending {
+  box-shadow: inset 3px 0 0 #f97316;
+}
+
+.resume-cell,
+.resume-table th[data-step] {
+  max-width: 40px;
+  min-width: 36px;
+  padding-left: 4px;
+  padding-right: 4px;
+  text-align: center;
+  width: 38px;
+}
+
+.resume-cell--content,
+.resume-table__col--content {
+  max-width: 78px;
+  min-width: 72px;
+  padding-left: 6px;
+  padding-right: 6px;
+  width: 76px;
+  white-space: normal;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.resume-cell--opinion,
+.resume-table__col--opinion {
+  max-width: 78px;
+  min-width: 72px;
+  padding-left: 6px;
+  padding-right: 6px;
+  width: 76px;
+  white-space: normal;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.resume-cell--done {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.resume-cell--missing {
+  background: #fef2f2;
+  color: #991b1b;
+  font-weight: 600;
+}
+
+.resume-cell--alert {
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.resume-opinion-badge {
+  background: #f59e0b;
+  border-radius: 999px;
+  color: #fff;
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 22px;
+  padding: 2px 5px;
+}
+
+.resume-table[data-active-step="1"] [data-step]:not([data-step="1"]),
+.resume-table[data-active-step="2"] [data-step]:not([data-step="2"]),
+.resume-table[data-active-step="3"] [data-step]:not([data-step="3"]),
+.resume-table[data-active-step="4"] [data-step]:not([data-step="4"]) {
+  display: none;
+}
+
+.resume-report__empty {
+  color: #64748b;
+  margin: 24px 0 8px;
+  text-align: center;
 }
 
 div#classroom-detail-modal .control-group {
