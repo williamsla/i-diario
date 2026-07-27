@@ -365,10 +365,6 @@
     </p>
     <p style="margin-bottom: 0;">
       <strong>Disciplina:</strong> <%= @batch[:discipline_label] %>
-      <% if @batch[:recorded_at].present? %>
-        &nbsp;|&nbsp;
-        <strong><%= t('avaliations.batch.reference_date') %>:</strong> <%= l(@batch[:recorded_at].to_date) %>
-      <% end %>
     </p>
   </div>
 

@@ -38,7 +38,6 @@ pt-BR:
       assessments_count_reduction_blocked: 'Não é possível reduzir para %{min} avaliação(ões) ou menos enquanto existirem notas lançadas nas colunas atuais. Deixe em branco as notas das colunas que serão removidas ou exclua a avaliação.'
       unexpected_error: 'Ocorreu um erro inesperado ao salvar o lançamento. Tente novamente.'
       duplicate_destroy_failed: 'Não foi possível remover uma avaliação duplicada do mesmo instrumento. Exclua a cópia manualmente (botão × na coluna) e tente salvar novamente.'
-      reference_date: 'Situação dos alunos em'
     by_step:
       title: 'Lançamento por etapa'
       subtitle: 'Selecione a etapa para lançar as avaliações numéricas da turma.'
