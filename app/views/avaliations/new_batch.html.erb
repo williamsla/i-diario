@@ -1,5 +1,47 @@
-<% if @batch[:weighted_sum_mode] %>
-  <% content_for :js do %>
+<% content_for :js do %>
+  <script>
+    (function () {
+      function setRowUnlocked(row, unlocked) {
+        if (!row) return;
+        row.setAttribute('data-unlocked', unlocked ? 'true' : 'false');
+        var inputs = row.querySelectorAll('input.batch-note-input');
+        for (var i = 0; i < inputs.length; i++) {
+          inputs[i].readOnly = !unlocked;
+          if (!unlocked) inputs[i].value = '';
+        }
+        var flag = row.querySelector('input.batch-unlock-flag');
+        if (flag) flag.disabled = !unlocked;
+        var unlockBtn = row.querySelector('.batch-unlock-notes');
+        var lockBtn = row.querySelector('.batch-lock-notes');
+        if (unlockBtn) unlockBtn.style.display = unlocked ? 'none' : '';
+        if (lockBtn) lockBtn.style.display = unlocked ? '' : 'none';
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        var table = document.querySelector('.avaliation-batch-grades-table');
+        if (!table) return;
+
+        table.addEventListener('click', function (evt) {
+          var unlockBtn = evt.target.closest('.batch-unlock-notes');
+          var lockBtn = evt.target.closest('.batch-lock-notes');
+          if (!unlockBtn && !lockBtn) return;
+
+          evt.preventDefault();
+          var row = (unlockBtn || lockBtn).closest('tr');
+          if (!row || row.getAttribute('data-can-unlock') !== 'true') return;
+          setRowUnlocked(row, !!unlockBtn);
+          if (unlockBtn) {
+            var first = row.querySelector('input.batch-note-input');
+            if (first) {
+              first.focus();
+              if (first.select) first.select();
+            }
+          }
+        });
+      });
+    })();
+  </script>
+  <% if @batch[:weighted_sum_mode] %>
     <script>
       (function () {
         function parseBr(s) {
@@ -147,8 +189,41 @@
     width: 100%;
   }
   .avaliation-batch-grades-table .batch-student-name.inactive-student {
-    color: darkgray;
-    white-space: pre-line;
+    color: #6b6b6b;
+  }
+  .avaliation-batch-grades-table tr.batch-student-inactive-row {
+    background-color: #f0f0f0 !important;
+  }
+  .avaliation-batch-grades-table tr.batch-student-inactive-row > td {
+    background-color: #f0f0f0;
+    color: #666;
+  }
+  .avaliation-batch-grades-table .batch-student-status {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    color: #888;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .avaliation-batch-grades-table .batch-unlock-actions {
+    margin-top: 4px;
+  }
+  .avaliation-batch-grades-table .batch-unlock-actions .btn-link {
+    padding: 0;
+    font-size: 11px;
+    font-weight: 500;
+    color: #7a7a7a;
+    text-decoration: underline;
+  }
+  .avaliation-batch-grades-table .batch-unlock-actions .btn-link:hover,
+  .avaliation-batch-grades-table .batch-unlock-actions .btn-link:focus {
+    color: #555;
+    text-decoration: underline;
+  }
+  .avaliation-batch-grades-table tr.batch-student-inactive-row .batch-note-input[readonly] {
+    background-color: #e8e8e8;
+    cursor: not-allowed;
   }
   .avaliation-batch-grades-table .batch-note-cell {
     width: 120px;
@@ -290,6 +365,10 @@
     </p>
     <p style="margin-bottom: 0;">
       <strong>Disciplina:</strong> <%= @batch[:discipline_label] %>
+      <% if @batch[:recorded_at].present? %>
+        &nbsp;|&nbsp;
+        <strong><%= t('avaliations.batch.reference_date') %>:</strong> <%= l(@batch[:recorded_at].to_date) %>
+      <% end %>
     </p>
   </div>
 
@@ -412,9 +491,38 @@
         </thead>
         <tbody>
           <% @batch[:students].each do |student| %>
-            <tr>
+            <% inactive = !student[:active] %>
+            <% can_unlock = student[:can_unlock_notes] %>
+            <% unlocked = student[:notes_unlocked] %>
+            <% inputs_editable = student[:active] || unlocked %>
+            <tr class="<%= 'batch-student-inactive-row' if inactive %>"
+                data-student-id="<%= student[:id] %>"
+                data-can-unlock="<%= can_unlock ? 'true' : 'false' %>"
+                data-unlocked="<%= unlocked ? 'true' : 'false' %>">
               <td>
-                <span class="batch-student-name <%= 'inactive-student' unless student[:active] %>"><%= student[:name] %></span>
+                <span class="batch-student-name <%= 'inactive-student' if inactive %>"><%= student[:name] %></span>
+                <% if student[:status_message].present? %>
+                  <span class="batch-student-status"><%= student[:status_message] %></span>
+                <% end %>
+                <% if can_unlock %>
+                  <div class="batch-unlock-actions">
+                    <button type="button"
+                            class="btn btn-link btn-xs batch-unlock-notes"
+                            style="<%= 'display:none;' if unlocked %>">
+                      <%= t('avaliations.batch.unlock_notes') %>
+                    </button>
+                    <button type="button"
+                            class="btn btn-link btn-xs batch-lock-notes"
+                            style="<%= 'display:none;' unless unlocked %>">
+                      <%= t('avaliations.batch.cancel_unlock_notes') %>
+                    </button>
+                    <%= hidden_field_tag 'avaliation_batch[unlocked_student_ids][]',
+                          student[:id],
+                          class: 'batch-unlock-flag',
+                          disabled: !unlocked,
+                          id: "avaliation_batch_unlocked_student_#{student[:id]}" %>
+                  </div>
+                <% end %>
               </td>
               <% student[:notes].each_with_index do |note, idx| %>
                 <td class="batch-note-cell">
@@ -423,7 +531,7 @@
                         class: 'form-control input-sm batch-note-input',
                         data: { inputmask: "'digits': #{decimal_places}" },
                         autocomplete: 'off',
-                        readonly: !student[:active] %>
+                        readonly: !inputs_editable %>
                 </td>
               <% end %>
               <td class="batch-average-cell">
@@ -442,6 +550,10 @@
     <% if @batch[:any_inactive_student] %>
       <p style="margin: 12px 16px 0; color: #666;">
         <span class="daily-note-student-legend"><%= t('avaliations.batch.inactive_students_legend') %></span>
+        <% if @batch[:any_unlockable_student] %>
+          <br>
+          <span class="daily-note-student-legend"><%= t('avaliations.batch.unlockable_students_legend') %></span>
+        <% end %>
       </p>
     <% end %>
 
