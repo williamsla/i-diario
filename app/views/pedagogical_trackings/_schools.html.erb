@@ -9,7 +9,7 @@
     <div class="pedagogical-schools-panel__filters">
       <%= f.input :unity_id,
                   as: :select2,
-                  elements: all_unities,
+                  elements: unities_for_filter,
                   label: t('pedagogical_trackings.index.filter_unities'),
                   placeholder: t('pedagogical_trackings.index.filter_unities'),
                   required: false,

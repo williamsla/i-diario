@@ -68,16 +68,7 @@
                           required: true,
                           input_html: { disabled: true } %>
             </div>
-            <div class="col col-sm-2">
-              <%= f.input :unity_id,
-                          as: :select2,
-                          elements: @tag_cloud_unities,
-                          label: t('.filter_unities'),
-                          placeholder: t('.filter_unities'),
-                          required: false,
-                          input_html: { disabled: true } %>
-            </div>
-            <div class="col col-sm-2">
+            <div class="col col-sm-3">
               <%= f.input :step_number,
                           as: :select2,
                           elements: @tag_cloud_steps,
@@ -85,10 +76,21 @@
                           placeholder: t('.filter_step'),
                           required: false %>
             </div>
-            <div class="col col-sm-2">
+            <div class="col col-sm-3">
               <div class="pedagogical-tag-cloud-filters__submit">
                 <%= f.button :submit, t('.analyze'), class: 'btn-primary btn-block', id: 'tag-cloud-analyze' %>
               </div>
+            </div>
+          </div>
+          <div class="row pedagogical-tag-cloud-filters">
+            <div class="col col-sm-3">
+              <%= f.input :unity_id,
+                          as: :select2,
+                          elements: @tag_cloud_unities,
+                          label: t('.filter_unities'),
+                          placeholder: t('.filter_unities'),
+                          required: false,
+                          input_html: { disabled: true } %>
             </div>
           </div>
         <% end %>

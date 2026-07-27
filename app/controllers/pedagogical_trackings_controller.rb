@@ -734,6 +734,11 @@ class PedagogicalTrackingsController < ApplicationController
     end
   end
 
+  def unities_for_filter
+    tag_cloud_accessible_unities
+  end
+  helper_method :unities_for_filter
+
   def tag_cloud_restricted_unity_ids
     return nil if tag_cloud_full_access?
 
@@ -760,13 +765,17 @@ class PedagogicalTrackingsController < ApplicationController
   end
 
   def grades_to_select(grades_scope)
-    grades_scope.ordered.includes(:course).map do |grade|
-      OpenStruct.new(
-        id: grade.id,
-        name: "#{grade.description} - #{grade.course.description}",
-        text: "#{grade.description} - #{grade.course.description}"
-      )
-    end
+    grades_scope
+      .joins(:course)
+      .includes(:course)
+      .order(Course.arel_table[:description].asc, Grade.arel_table[:description].asc)
+      .map do |grade|
+        OpenStruct.new(
+          id: grade.id,
+          name: "#{grade.description} - #{grade.course.description}",
+          text: "#{grade.description} - #{grade.course.description}"
+        )
+      end
   end
 
   def tag_cloud_step_options
@@ -943,7 +952,7 @@ class PedagogicalTrackingsController < ApplicationController
 
     if @school_days_by_unity.blank?
 
-      unities = employee_unities || all_unities
+      unities = unities_for_filter
 
       unities.each do |unity|
         if classrooms_ids.present?
