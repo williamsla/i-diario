@@ -19,12 +19,12 @@ class TeacherAbsence < ApplicationRecord
   has_enumeration_for :coverage, with: TeacherAbsenceCoverage, skip_validation: true, create_helpers: true
   has_enumeration_for :period, with: Periods, skip_validation: true
 
-  validates_date :absence_date, :make_up_date
+  validates_date :absence_date
+  validates_date :make_up_date, allow_blank: true
   validates :unity, :school_calendar, :teacher, :user, :reason, presence: true
   validates :absence_date, presence: true
   validates :classroom, presence: true, if: :coverage_by_classroom?
-  validates :make_up_date, presence: true, if: :will_make_up?
-  validate :make_up_date_after_absence_date, if: :will_make_up?
+  validate :make_up_date_after_absence_date
   validate :periods_presence, if: :requires_periods?
 
   scope :ordered, -> { order(absence_date: :desc) }
@@ -82,6 +82,10 @@ class TeacherAbsence < ApplicationRecord
   # Apenas "Todas as turmas em um turno" exige seleção de turno; "Todo o dia" aplica a todos
   def requires_periods?
     coverage_all_classrooms?
+  end
+
+  def pending_make_up?
+    will_make_up? && make_up_date.blank?
   end
 
   # Condição de disciplina: falta sem disciplina (nil) aplica a todas as disciplinas da turma
