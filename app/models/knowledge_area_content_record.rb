@@ -25,6 +25,13 @@ class KnowledgeAreaContentRecord < ActiveRecord::Base
   scope :by_knowledge_area_description, lambda { |description| joins(:knowledge_areas).where('unaccent(knowledge_areas.description) ILIKE unaccent(?)', "%#{description}%" ) }
   scope :by_date, lambda { |date| joins(:content_record).where(content_records: { record_date: date.to_date }) }
   scope :by_date_range, lambda { |start_at, end_at| joins(:content_record).where("record_date <= ? AND record_date >= ?", end_at, start_at) }
+  scope :by_student_id, lambda { |student_id|
+    if student_id.to_i.positive?
+      joins(:content_record).where(content_records: { student_id: student_id })
+    else
+      joins(:content_record).where(content_records: { student_id: nil })
+    end
+  }
 
   scope :ordered, -> { joins(:content_record).order(ContentRecord.arel_table[:record_date].desc) }
   scope :order_by_content_record_date, -> { joins(:content_record).order(ContentRecord.arel_table[:record_date]) }
@@ -79,10 +86,11 @@ class KnowledgeAreaContentRecord < ActiveRecord::Base
     current_knowledge_area_ids = knowledge_areas.map(&:id).sort
     return if current_knowledge_area_ids.empty?
 
-    # Busca registros existentes com mesma turma, professor e data
+    # Busca registros existentes com mesma turma, professor, data e aluno AEE
     base_query = KnowledgeAreaContentRecord.by_teacher_id(content_record.teacher_id)
       .by_classroom_id(content_record.classroom_id)
       .by_date(content_record.record_date)
+      .by_student_id(content_record.student_id)
 
     base_query = base_query.where.not(id: id) if persisted?
 
