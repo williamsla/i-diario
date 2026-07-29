@@ -38,7 +38,14 @@
       <% if @teacher_absence.will_make_up? %>
         <tr>
           <th><%= TeacherAbsence.human_attribute_name :make_up_date %></th>
-          <td><%= l(@teacher_absence.make_up_date) %></td>
+          <td>
+            <% if @teacher_absence.pending_make_up? %>
+              <i class="fa fa-exclamation-triangle text-warning"></i>
+              <%= t('views.teacher_absences.index.make_up_date_pending') %>
+            <% else %>
+              <%= l(@teacher_absence.make_up_date) %>
+            <% end %>
+          </td>
         </tr>
       <% end %>
       <% if @teacher_absence.teacher_absence_attachments.any? %>

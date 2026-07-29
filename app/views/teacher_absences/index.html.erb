@@ -3,6 +3,7 @@
     <table class="table table-bordered table-only-inner-bordered table-striped table-condensed table-hover" id="resources">
       <thead>
         <tr>
+          <th style="width: 36px;"></th>
           <th><%= TeacherAbsence.human_attribute_name :absence_date %></th>
           <th><%= TeacherAbsence.human_attribute_name :coverage %></th>
           <th><%= TeacherAbsence.human_attribute_name :classroom %></th>
@@ -19,6 +20,13 @@
       <tbody>
         <% @teacher_absences.each do |teacher_absence| %>
           <tr>
+            <td class="text-center">
+              <% if teacher_absence.pending_make_up? %>
+                <i class="fa fa-exclamation-triangle text-warning"
+                   title="<%= t('views.teacher_absences.index.make_up_date_pending') %>"
+                   aria-label="<%= t('views.teacher_absences.index.make_up_date_pending') %>"></i>
+              <% end %>
+            </td>
             <td><%= l(teacher_absence.absence_date) %></td>
             <td><%= teacher_absence.coverage_humanize %></td>
             <td><%= teacher_absence.classroom&.description || '-' %></td>
@@ -37,12 +45,12 @@
         <% end %>
         <% if @teacher_absences.empty? %>
           <tr>
-            <td colspan="9"><%= t('views.teacher_absences.index.no_records') %></td>
+            <td colspan="10"><%= t('views.teacher_absences.index.no_records') %></td>
           </tr>
         <% end %>
       </tbody>
       <tfoot id="paginator" class="remote">
-        <td colspan="9">
+        <td colspan="10">
           <div id="page_entries_info" class="pull-left hidden-xs">
             <%= page_entries_info @teacher_absences %>
           </div>

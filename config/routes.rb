@@ -224,6 +224,8 @@ Rails.application.routes.draw do
         get :frequency_report_modal
         get :class_council_modal
         get :class_council_pdf
+        get :tag_cloud_modal
+        get :tag_cloud_filters
       end
     end
 
@@ -415,6 +417,11 @@ Rails.application.routes.draw do
     end
 
     resources :lessons_boards do
+      member do
+        post :undiscard
+        patch :update_archived_until
+        delete :purge
+      end
       collection do
         get :period
         get :number_of_lessons

@@ -86,6 +86,12 @@ class BaseReport
     value.truncate(precision)
   end
 
+  def entity_logo_io
+    return if @entity_configuration.blank?
+
+    @entity_configuration.logo_io_for_report
+  end
+
   def text_box_truncate(title, information)
     start_new_page if cursor < 45
 

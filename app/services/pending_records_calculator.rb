@@ -849,12 +849,14 @@ class PendingRecordsCalculator
     # Buscar weekdays de quadros excluídos (discarded_at IS NOT NULL)
     # Usar unscoped para ignorar default_scope e joins diretos nas tabelas
     # Verificar primeiro se há quadros excluídos no banco
+    archived_since = effective_archived_since(classroom_id)
     sql_check = <<-SQL
       SELECT COUNT(*) 
       FROM lessons_boards lb
       INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id
       WHERE cg.classroom_id = #{classroom_id}
       AND lb.discarded_at IS NOT NULL
+      #{archived_since ? "AND lb.discarded_at >= '#{archived_since}'" : ''}
     SQL
     discarded_boards_count = ActiveRecord::Base.connection.exec_query(sql_check).first&.dig('count') || 0
     
@@ -873,6 +875,7 @@ class PendingRecordsCalculator
       .where(tdc: { discarded_at: nil })
       .where.not(weekday: nil)
       .where.not(teacher_discipline_classroom_id: nil)
+    query_discarded = filter_effective_archived_boards(query_discarded, archived_since)
     
     # IMPORTANTE: Filtrar por ano do quadro de aulas para garantir que está buscando do ano correto
     if @school_year.present?
@@ -936,6 +939,7 @@ class PendingRecordsCalculator
         .where(tdc: { discarded_at: nil })
         .where.not(weekday: nil)
         .where.not(teacher_discipline_classroom_id: nil)
+      weekdays_data_discarded_fallback = filter_effective_archived_boards(weekdays_data_discarded_fallback, archived_since)
       
       # IMPORTANTE: Filtrar por ano do quadro de aulas para garantir que está buscando do ano correto
       if @school_year.present?
@@ -966,6 +970,7 @@ class PendingRecordsCalculator
       .where(tdc: { discarded_at: nil })
       .where.not(weekday: nil)
       .where.not(teacher_discipline_classroom_id: nil)
+    weekdays_data_discarded_all = filter_effective_archived_boards(weekdays_data_discarded_all, archived_since)
     
     # IMPORTANTE: Filtrar por ano do quadro de aulas para garantir que está buscando do ano correto
     if @school_year.present?
@@ -1111,6 +1116,7 @@ class PendingRecordsCalculator
   end
 
   # discarded_at do último quadro arquivado da turma (data de troca do quadro).
+  # Ignora quadros "excluídos" (discarded_at anterior ao início do calendário).
   def lessons_board_archive_date(classroom_id)
     @lessons_board_archive_dates ||= {}
     return @lessons_board_archive_dates[classroom_id] if @lessons_board_archive_dates.key?(classroom_id)
@@ -1122,7 +1128,33 @@ class PendingRecordsCalculator
 
     query = query.where(classrooms: { year: @school_year }) if @school_year.present?
 
+    archived_since = effective_archived_since(classroom_id)
+    query = query.where('lessons_boards.discarded_at >= ?', archived_since) if archived_since
+
     @lessons_board_archive_dates[classroom_id] = query.maximum(:discarded_at)&.to_date
+  end
+
+  def effective_archived_since(classroom_id)
+    @effective_archived_since ||= {}
+    return @effective_archived_since[classroom_id] if @effective_archived_since.key?(classroom_id)
+
+    classroom = Classroom.find_by(id: classroom_id)
+    unless classroom
+      @effective_archived_since[classroom_id] = nil
+      return nil
+    end
+
+    year = @school_year.presence || classroom.year
+    calendar = CurrentSchoolCalendarFetcher.new(classroom.unity, classroom, year).fetch
+    @effective_archived_since[classroom_id] = calendar&.first_day&.to_date&.beginning_of_day
+  rescue StandardError
+    @effective_archived_since[classroom_id] = nil
+  end
+
+  def filter_effective_archived_boards(relation, archived_since)
+    return relation if archived_since.blank?
+
+    relation.where('lb.discarded_at >= ?', archived_since)
   end
 
   # Regra: date <= archive_date (até quando funcionou) => arquivado; date > archive_date => ativo.

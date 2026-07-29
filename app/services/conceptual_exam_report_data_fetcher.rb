@@ -73,15 +73,27 @@ class ConceptualExamReportDataFetcher
         .pluck(:id)
     end
 
+    student_ids = students.map(&:id)
+    grade_ids_by_student = ClassroomsGrade
+      .by_classroom_id(classroom.id)
+      .by_student_id(student_ids)
+      .joins(:student_enrollments)
+      .pluck('student_enrollments.student_id', :grade_id)
+      .each_with_object({}) do |(student_id, grade_id), hash|
+        hash[student_id] ||= grade_id
+      end
+
+    grade_ids = grade_ids_by_student.values.uniq
+    disciplines_by_grade = SchoolCalendarDisciplineGrade
+      .where(school_calendar_id: school_calendar.id, grade_id: grade_ids)
+      .pluck(:grade_id, :discipline_id)
+      .each_with_object(Hash.new { |h, k| h[k] = [] }) do |(grade_id, discipline_id), hash|
+        hash[grade_id] << discipline_id
+      end
+
     result_ids = []
-    students.each do |student|
-      cg = ClassroomsGrade.by_student_id(student.id).by_classroom_id(classroom.id).first
-      next if cg.blank?
-
-      grade_discipline_ids = SchoolCalendarDisciplineGrade
-        .where(school_calendar_id: school_calendar.id, grade_id: cg.grade_id)
-        .pluck(:discipline_id)
-
+    grade_ids_by_student.each_value do |grade_id|
+      grade_discipline_ids = disciplines_by_grade[grade_id] || []
       result_ids = (result_ids + (discipline_ids_global & grade_discipline_ids)).uniq
     end
 

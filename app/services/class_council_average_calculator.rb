@@ -28,15 +28,18 @@ class ClassCouncilAverageCalculator
     avaliations = []
 
     @daily_note_students.each do |daily_note_student|
-      avaliation = daily_note_student.daily_note.avaliation
+      avaliation = daily_note_student.daily_note&.avaliation
+      next if avaliation.blank?
       next if exempted?(avaliation.id)
-      next if daily_note_student.note.blank? && daily_note_student.transfer_note.present?
+      # Ignora lançamentos sem nota (placeholders do diário) e transferências sem valor local.
+      next if daily_note_student.note.blank?
 
       avaliations << { value: daily_note_student.recovered_note.to_f, avaliation_id: avaliation.id }
     end
 
     @recovery_scores.each do |avaliation_id, score|
       next if exempted?(avaliation_id)
+      next if score.blank?
 
       avaliations << { value: score.to_f, avaliation_id: avaliation_id }
     end
@@ -50,8 +53,11 @@ class ClassCouncilAverageCalculator
     weights = []
 
     @daily_note_students.each do |daily_note_student|
-      avaliation = daily_note_student.daily_note.avaliation
+      avaliation = daily_note_student.daily_note&.avaliation
+      next if avaliation.blank?
       next if exempted?(avaliation.id)
+      next if daily_note_student.note.blank?
+      next if avaliation.weight.blank?
 
       weights << { value: avaliation.weight, avaliation_id: avaliation.id }
     end

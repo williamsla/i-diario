@@ -67,7 +67,8 @@ class GeneralConfigurationsController < ApplicationController
       :annual_conceptual_evaluation,
       :show_objectives,
       :semestral_recovery,
-      :conceptual_exam_batch_layout
+      :conceptual_exam_batch_layout,
+      :block_modifications_after_last_step_ended
     )
 
     parameters[:types_of_teaching] = parameters[:types_of_teaching].split(',')

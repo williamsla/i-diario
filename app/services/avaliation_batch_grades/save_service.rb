@@ -9,7 +9,8 @@ module AvaliationBatchGrades
 
     def initialize(classroom:, discipline:, step:, teacher:, current_user:, school_calendar:,
                    test_setting:, recorded_at:, assessments_count:, notes_params:,
-                   teacher_calculation: nil, column_weights: nil, column_labels: nil)
+                   teacher_calculation: nil, column_weights: nil, column_labels: nil,
+                   unlocked_student_ids: nil)
       @classroom = classroom
       @discipline = discipline
       @step = step
@@ -23,6 +24,7 @@ module AvaliationBatchGrades
       @column_weights = normalize_column_weights(column_weights)
       @column_labels = normalize_column_labels(column_labels)
       @notes_params = normalize_notes(notes_params)
+      @unlocked_student_ids = normalize_unlocked_student_ids(unlocked_student_ids)
       @errors = []
       @resolved_weights = nil
     end
@@ -100,6 +102,18 @@ module AvaliationBatchGrades
       h = h.to_unsafe_h if h.respond_to?(:to_unsafe_h)
       h = h.with_indifferent_access
       h.transform_values { |arr| Array(arr).map(&:presence) }
+    end
+
+    def normalize_unlocked_student_ids(raw)
+      Array(raw).map(&:to_i).reject(&:zero?).uniq
+    end
+
+    def intentional_note_for_inactive?(student_id)
+      return false unless @unlocked_student_ids.include?(student_id)
+      return false unless student_attended_step_by_student_id?(student_id)
+      return false if student_active_in_step_by_student_id?(student_id)
+
+      true
     end
 
     def normalize_column_labels(raw)
@@ -404,8 +418,19 @@ module AvaliationBatchGrades
         raw = arr[column_index]
 
         dns = find_or_initialize_daily_note_student(daily_note, sid)
-        dns.active = student_active_in_step_by_student_id?(sid)
-        dns.note = parse_note(raw)
+        note = parse_note(raw)
+
+        if student_active_in_step_by_student_id?(sid)
+          dns.active = true
+          dns.note = note
+        elsif intentional_note_for_inactive?(sid) && note.present?
+          # Professor liberou explicitamente e informou nota para quem saiu na etapa.
+          dns.active = true
+          dns.note = note
+        else
+          dns.active = false
+          dns.note = nil
+        end
         dns.save!
       end
     end

@@ -3,9 +3,12 @@ class LessonBoardsFetcher
     @user = user
   end
 
-  def lesson_boards
-    @lesson_boards = LessonsBoard.by_unity(unities).by_year(@user.current_school_year)
-    @lesson_boards.joins(classrooms_grade: :classroom).order('classrooms.description')
+  def lesson_boards(archived: false)
+    scope = archived ? LessonsBoard.with_discarded.discarded : LessonsBoard
+    @lesson_boards = scope.by_unity(unities).by_year(@user.current_school_year)
+    @lesson_boards = @lesson_boards.joins(classrooms_grade: :classroom).order('classrooms.description')
+    @lesson_boards = exclude_purged_boards(@lesson_boards) if archived
+    @lesson_boards
   end
 
   def unities
@@ -82,8 +85,15 @@ class LessonBoardsFetcher
         AND lb.discarded_at IS NULL
       SQL
     else
+      calendar_start = calendar_first_day_sql(turma_id)
+      purged_filter = if calendar_start
+                        "AND lb.discarded_at >= '#{calendar_start}'"
+                      else
+                        ''
+                      end
       <<~SQL
         AND lb.discarded_at IS NOT NULL
+        #{purged_filter}
       SQL
     end
 
@@ -139,6 +149,33 @@ class LessonBoardsFetcher
     CurrentSchoolCalendarFetcher.new(classroom.unity, classroom, date.year).fetch
   rescue StandardError
     SchoolCalendar.find_by(unity_id: classroom.unity_id, year: date.year)
+  end
+
+  def calendar_first_day_sql(classroom_id)
+    classroom = Classroom.find_by(id: classroom_id)
+    return nil unless classroom
+
+    calendar = CurrentSchoolCalendarFetcher.new(classroom.unity, classroom, classroom.year).fetch
+    calendar&.first_day&.to_date&.beginning_of_day
+  rescue StandardError
+    nil
+  end
+
+  # Quadros com discarded_at anterior ao início do calendário foram "excluídos"
+  # logicamente e não devem aparecer na listagem de arquivados.
+  def exclude_purged_boards(relation)
+    relation
+      .joins(<<-SQL.squish)
+        INNER JOIN school_calendars sc
+          ON sc.unity_id = classrooms.unity_id
+         AND sc.year = classrooms.year
+        INNER JOIN (
+          SELECT school_calendar_id, MIN(start_at) AS first_day
+          FROM school_calendar_steps
+          GROUP BY school_calendar_id
+        ) sc_start ON sc_start.school_calendar_id = sc.id
+      SQL
+      .where('lessons_boards.discarded_at >= sc_start.first_day')
   end
 
 end

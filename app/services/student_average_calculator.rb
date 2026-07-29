@@ -72,9 +72,14 @@ class StudentAverageCalculator
 
     recovery_diary_records.each do |recovery_diary_record|
       next if avaliation_exempted?(recovery_diary_record.avaliation_recovery_diary_record.avaliation)
-      next unless (score = recovery_diary_record.students.find_by(student_id: student.id)&.score)
 
-      avaliations << { value: score, avaliation_id: recovery_diary_record.avaliation_recovery_diary_record.avaliation.id }
+      recovery_student = recovery_diary_record.students.detect { |item| item.student_id == student.id }
+      next unless recovery_student && recovery_student.score
+
+      avaliations << {
+        value: recovery_student.score,
+        avaliation_id: recovery_diary_record.avaliation_recovery_diary_record.avaliation.id
+      }
     end
 
     @scores = extract_note_avaliations(avaliations)
@@ -136,7 +141,8 @@ class StudentAverageCalculator
   end
 
   def avaliation_exempted?(avaliation)
-    StudentAvaliationExemptionQuery.new(student).is_exempted(avaliation)
+    @exemption_query ||= StudentAvaliationExemptionQuery.new(student)
+    @exemption_query.is_exempted(avaliation)
   end
 
   def test_setting(classroom, step)
@@ -160,17 +166,21 @@ class StudentAverageCalculator
   end
 
   def fetch_average_from_ieducar(classroom, discipline, step)
-    ieducar_api_configuration = IeducarApiConfiguration.current
+    ieducar_api_configuration = ReportQueryCache.fetch(:ieducar_api_configuration) do
+      IeducarApiConfiguration.current
+    end
     return nil if ieducar_api_configuration.blank?
 
-    fetcher = StudentAverageFromIeducarFetcher.new(ieducar_api_configuration)
-    average = fetcher.fetch(student.id, classroom.id, discipline.id, step.step_number)
-    
-    # Arredondar a média conforme as configurações da turma
-    if average.present?
-      ScoreRounder.new(classroom, RoundedAvaliations::NUMERICAL_EXAM, step).round(average)
-    else
-      nil
+    cache_key = [:ieducar_student_average, student.id, classroom.id, discipline.id, step.step_number]
+    ReportQueryCache.fetch(cache_key) do
+      fetcher = StudentAverageFromIeducarFetcher.new(ieducar_api_configuration)
+      average = fetcher.fetch(student.id, classroom.id, discipline.id, step.step_number)
+
+      if average.present?
+        ScoreRounder.new(classroom, RoundedAvaliations::NUMERICAL_EXAM, step).round(average)
+      else
+        nil
+      end
     end
   rescue StandardError => error
     Rails.logger.error "Erro ao buscar média do i-educar para aluno #{student.id}, turma #{classroom.id}, disciplina #{discipline.id}, etapa #{step.step_number}: #{error.message}"

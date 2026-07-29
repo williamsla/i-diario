@@ -1,7 +1,7 @@
 class ComplementaryExamCalculator
   def initialize(affected_score, student_id, discipline_id, classroom_id, step)
     @affected_score = affected_score
-    @student_id = student_id
+    @student_id = student_id.respond_to?(:id) ? student_id.id : student_id
     @discipline_id = discipline_id
     @classroom_id = classroom_id
     @step = step
@@ -15,11 +15,12 @@ class ComplementaryExamCalculator
   private
 
   def calculate_integral(score)
-    integral_score = exams_by_calculation(CalculationTypes::INTEGRAL)
+    integral_records = exams_by_calculation(CalculationTypes::INTEGRAL)
 
-    return score if integral_score.blank?
+    return score if integral_records.blank?
 
-    ((score + integral_score.sum(:score).to_f) / 2)
+    integral_total = integral_records.map(&:score).compact.sum.to_f
+    ((score + integral_total) / 2)
   end
 
   def maximum_score
@@ -27,11 +28,16 @@ class ComplementaryExamCalculator
   end
 
   def test_setting
-    classroom = Classroom.find_by(id: classroom_id)
-
+    classroom = cached_classroom
     return if classroom.blank?
 
-    @test_setting = TestSettingFetcher.current(classroom, @step)
+    @test_setting ||= TestSettingFetcher.current(classroom, @step)
+  end
+
+  def cached_classroom
+    ReportQueryCache.fetch([:classroom, classroom_id]) do
+      Classroom.find_by(id: classroom_id)
+    end
   end
 
   def make_calculations(score)
@@ -48,26 +54,52 @@ class ComplementaryExamCalculator
   attr_accessor :affected_score, :student_id, :discipline_id, :classroom_id, :step
 
   def substitution_score
-    @substitution_score ||= exams_by_calculation(CalculationTypes::SUBSTITUTION).first.try(:score)
+    @substitution_score ||= begin
+      record = exams_by_calculation(CalculationTypes::SUBSTITUTION).first
+      record.try(:score)
+    end
   end
 
   def substitution_if_greather_score
-    @substitution_if_greather_score ||=
-      exams_by_calculation(CalculationTypes::SUBSTITUTION_IF_GREATER).first.try(:score)
+    @substitution_if_greather_score ||= begin
+      record = exams_by_calculation(CalculationTypes::SUBSTITUTION_IF_GREATER).first
+      record.try(:score)
+    end
   end
 
   def sum_substitution_score
-    @sum_substitution_score ||= exams_by_calculation(CalculationTypes::SUM).sum(:score).to_f
+    @sum_substitution_score ||= exams_by_calculation(CalculationTypes::SUM).map(&:score).compact.sum.to_f
   end
 
   def exams_by_calculation(calculation)
-    ComplementaryExamStudent.by_complementary_exam_id(
+    exam_ids = complementary_exam_ids(calculation)
+    return [] if exam_ids.blank?
+
+    students_by_id = ReportQueryCache.fetch([:complementary_exam_students, exam_ids]) do
+      ComplementaryExamStudent.by_complementary_exam_id(exam_ids).group_by(&:student_id)
+    end
+
+    students_by_id[student_id] || []
+  end
+
+  def complementary_exam_ids(calculation)
+    cache_key = [
+      :complementary_exam_ids,
+      classroom_id,
+      discipline_id,
+      step.start_at,
+      step.end_at,
+      affected_score,
+      calculation
+    ]
+
+    ReportQueryCache.fetch(cache_key) do
       ComplementaryExam.by_classroom_id(classroom_id)
                        .by_discipline_id(discipline_id)
                        .by_date_range(step.start_at, step.end_at)
                        .by_affected_score(affected_score)
                        .by_calculation_type(calculation)
                        .pluck(:id)
-    ).by_student_id(student_id)
+    end
   end
 end

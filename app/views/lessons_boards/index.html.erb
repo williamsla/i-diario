@@ -8,10 +8,26 @@
     <i class="fa fa-info-circle"></i>
     <%= t('.archive_info_html') %>
   </div>
+
+  <div class="lessons-boards-toolbar clearfix">
+    <div class="btn-group lessons-boards-view-toggle" role="group">
+      <%= link_to t('.tab_active'),
+                  lessons_boards_path,
+                  class: "btn btn-default #{'active' unless show_archived?}" %>
+      <%= link_to t('.tab_archived'),
+                  lessons_boards_path(show_archived: 1),
+                  class: "btn btn-default #{'active' if show_archived?}" %>
+    </div>
+
+    <% unless show_archived? %>
+      <%= link_to t('.new_html'), new_lessons_board_path, class: "btn btn-primary pull-right" %>
+    <% end %>
+  </div>
 </div>
 
 <div class="widget-body no-padding">
   <%= simple_form_for :search, { url: lessons_boards_path, method: :get, html: { class: 'filterable_search_form' } } do |f| %>
+    <%= hidden_field_tag :show_archived, 1 if show_archived? %>
     <div class="table-responsive">
       <table class="table table-bordered table-only-inner-bordered table-striped table-condensed table-hover" id="resources">
         <thead>
@@ -21,7 +37,7 @@
             <td><%= f.input :by_grade, as: :select2, elements: lesson_grades, label: false, placeholder: t('.by_grade') %></td>
             <td><%= f.input :by_classroom, as: :select2, elements: lesson_classrooms, label: false, placeholder: t('.by_classroom') %></td>
             <td></td>
-            <td><%= link_to t('.new_html'), new_lessons_board_path, class: "btn btn-primary pull-right" %></td>
+            <td style="width: <%= show_archived? ? '220px' : '180px' %>"></td>
           </tr>
           <tr>
             <th style="width: 110px"><%= t('.year') %></th>
@@ -29,7 +45,7 @@
             <th><%= t('.grade') %></th>
             <th><%= t('.classroom') %></th>
             <th style="width: 150px"><%= t('lessons_boards.form.period') %></th>
-            <td style="width: 120px"></td>
+            <td style="width: <%= show_archived? ? '220px' : '180px' %>"></td>
           </tr>
         </thead>
         <%= render 'resources' %>

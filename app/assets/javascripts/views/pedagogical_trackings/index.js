@@ -262,26 +262,142 @@ function openResumeModal(unityId, classroomId) {
   const modal = document.getElementById("resumeModal");
   if (!modal) return;
 
-  // mostra modal
   modal.style.display = "flex";
 
-  // atualiza botão de download
   const downloadBtn = document.getElementById("downloadXlsxBtn");
   downloadBtn.onclick = function() {
     const url = '/pedagogical_trackings/resume_xlsx?unity_id=' + unityId + '&classroom_id=' + (classroomId || 0);
-    window.location.href = url; // força download
+    window.location.href = url;
   }
 
-  // busca conteúdo via fetch
+  document.getElementById("resumeModalBody").innerHTML =
+    "<p class='pedagogical-modal__loading'>Carregando resumo...</p>";
+
   fetch('/pedagogical_trackings/resume_modal?unity_id=' + unityId + '&classroom_id=' + (classroomId || 0))
     .then(response => response.text())
     .then(html => {
       document.getElementById("resumeModalBody").innerHTML = html;
+      initResumeReportFilters();
     })
     .catch(err => {
       console.error("Erro ao carregar modal:", err);
       document.getElementById("resumeModalBody").innerHTML =
         "<p style='color:red;'>Erro ao carregar o resumo.</p>";
+    });
+}
+
+function initResumeReportFilters() {
+  var $report = $('#resumeReport');
+  if (!$report.length) return;
+
+  function teacherCellHtml(label, pending) {
+    var pendingClass = pending ? ' resume-table__sticky--teacher-pending' : '';
+    return '<td class="resume-table__sticky resume-table__sticky--teacher resume-table__text' +
+      pendingClass + '" rowspan="1">' + $('<div>').text(label || '').html() + '</td>';
+  }
+
+  function flattenTeacherCells($table) {
+    $table.find('.resume-table__classroom-group').each(function() {
+      $(this).find('.resume-table__data-row').each(function() {
+        var $row = $(this);
+        var label = $row.attr('data-teacher-label') || '';
+        var pending = String($row.data('teacher-pending')) === 'true';
+        var $cell = $row.children('.resume-table__sticky--teacher');
+
+        if ($cell.length) {
+          $cell.attr('rowspan', 1).show();
+          $cell.text(label);
+          $cell.toggleClass('resume-table__sticky--teacher-pending', pending);
+        } else {
+          $row.prepend(teacherCellHtml(label, pending));
+        }
+      });
+    });
+  }
+
+  function mergeTeacherCells($table) {
+    $table.find('.resume-table__classroom-group').each(function() {
+      var currentTeacher = null;
+      var $firstCell = null;
+      var count = 0;
+
+      $(this).find('.resume-table__data-row').removeClass('resume-table__data-row--teacher-start');
+
+      $(this).find('.resume-table__data-row:visible').each(function() {
+        var $row = $(this);
+        var teacher = String($row.data('teacher') || '');
+        var $cell = $row.children('.resume-table__sticky--teacher');
+
+        if (teacher === currentTeacher && $firstCell) {
+          $cell.remove();
+          count += 1;
+          $firstCell.attr('rowspan', count);
+        } else {
+          currentTeacher = teacher;
+          $firstCell = $cell;
+          count = 1;
+          $row.addClass('resume-table__data-row--teacher-start');
+          if ($firstCell.length) {
+            $firstCell.attr('rowspan', 1).show();
+          }
+        }
+      });
+    });
+  }
+
+  function applySearchFilter() {
+    var $table = $('#resumeTable');
+    var search = $.trim($report.find('#resumeSearchInput').val() || '').toLowerCase();
+    var visibleRows = 0;
+
+    flattenTeacherCells($table);
+
+    $table.find('.resume-table__classroom-group').each(function() {
+      var $group = $(this);
+      var groupVisible = 0;
+
+      $group.find('.resume-table__data-row').each(function() {
+        var $row = $(this);
+        var teacher = String($row.data('teacher') || '');
+        var discipline = String($row.data('discipline') || '');
+        var classroom = String($row.data('classroom') || '');
+        var visible = !search ||
+          teacher.indexOf(search) !== -1 ||
+          discipline.indexOf(search) !== -1 ||
+          classroom.indexOf(search) !== -1;
+
+        $row.toggle(visible);
+        if (visible) groupVisible += 1;
+      });
+
+      $group.toggle(groupVisible > 0);
+      visibleRows += groupVisible;
+    });
+
+    mergeTeacherCells($table);
+
+    $report.find('.resume-report__empty--filtered').prop('hidden', visibleRows > 0);
+    $report.find('.resume-report__table-wrap').toggle(visibleRows > 0);
+  }
+
+  $report.find('#resumeSearchInput').on('input', applySearchFilter);
+
+  $report
+    .on('mouseenter', '.resume-table__data-row', function() {
+      var $row = $(this);
+      var $group = $row.closest('.resume-table__classroom-group');
+      var teacher = String($row.data('teacher') || '');
+
+      $group.find('.is-teacher-hover').removeClass('is-teacher-hover');
+      $row.addClass('is-teacher-hover');
+
+      $group.find('.resume-table__data-row').filter(function() {
+        return String($(this).data('teacher') || '') === teacher &&
+          $(this).children('.resume-table__sticky--teacher').length > 0;
+      }).children('.resume-table__sticky--teacher').addClass('is-teacher-hover');
+    })
+    .on('mouseleave', '.resume-table__classroom-group', function() {
+      $(this).find('.is-teacher-hover').removeClass('is-teacher-hover');
     });
 }
 
@@ -652,3 +768,179 @@ function closeClassCouncilModal(event) {
   modal.style.display = "none";
   document.getElementById("classCouncilModalBody").innerHTML = "";
 }
+
+function openTagCloudModal(event) {
+  if (event) event.preventDefault();
+
+  var gradeId = $('#tag_cloud_grade_id').val();
+  var disciplineId = $('#tag_cloud_discipline_id').val();
+
+  if (!gradeId || gradeId === 'empty' || !disciplineId || disciplineId === 'empty') {
+    alert('Selecione uma série e uma disciplina para analisar.');
+    return false;
+  }
+
+  var unityId = $('#tag_cloud_unity_id').val();
+  var stepNumber = $('#tag_cloud_step_number').val();
+  var modal = document.getElementById('tagCloudModal');
+  var body = document.getElementById('tagCloudModalBody');
+  var summary = document.getElementById('tagCloudModalSummary');
+
+  if (!modal) return false;
+
+  modal.style.display = 'flex';
+  summary.textContent = '';
+  body.innerHTML = '<p class="pedagogical-modal__loading">Carregando análise...</p>';
+
+  var params = new URLSearchParams({
+    grade_id: gradeId,
+    discipline_id: disciplineId
+  });
+
+  if (unityId && unityId !== 'empty') {
+    params.append('unity_id', unityId);
+  }
+
+  if (stepNumber && stepNumber !== 'empty') {
+    params.append('step_number', stepNumber);
+  }
+
+  fetch('/pedagogical_trackings/tag_cloud_modal?' + params.toString())
+    .then(function(response) {
+      if (!response.ok) {
+        return response.text().then(function(text) {
+          throw new Error(text || 'Erro ao carregar análise');
+        });
+      }
+      return response.text();
+    })
+    .then(function(html) {
+      body.innerHTML = html;
+      var summaryData = document.getElementById('tag-cloud-summary-data');
+      if (summaryData) {
+        summary.textContent = summaryData.getAttribute('data-summary') || '';
+      }
+    })
+    .catch(function(err) {
+      console.error('Erro ao carregar tag cloud:', err);
+      body.innerHTML = '<p style="color:#b91c1c;">Erro ao carregar a análise: ' + err.message + '</p>';
+    });
+
+  return false;
+}
+
+function closeTagCloudModal(event) {
+  if (event) event.preventDefault();
+
+  var modal = document.getElementById('tagCloudModal');
+  if (!modal) return;
+
+  modal.style.display = 'none';
+  document.getElementById('tagCloudModalBody').innerHTML = '';
+  document.getElementById('tagCloudModalSummary').textContent = '';
+}
+
+function isPedagogicalModalOpen(modal) {
+  return modal && modal.style.display === 'flex';
+}
+
+function closeActivePedagogicalModal(event) {
+  if (isPedagogicalModalOpen(document.getElementById('resumeModal'))) {
+    closeResumeModal(event);
+    return true;
+  }
+
+  if (isPedagogicalModalOpen(document.getElementById('frequencyReportModal'))) {
+    closeFrequencyReportModal(event);
+    return true;
+  }
+
+  if (isPedagogicalModalOpen(document.getElementById('classCouncilModal'))) {
+    closeClassCouncilModal(event);
+    return true;
+  }
+
+  if (isPedagogicalModalOpen(document.getElementById('tagCloudModal'))) {
+    closeTagCloudModal(event);
+    return true;
+  }
+
+  return false;
+}
+
+$(document).ready(function() {
+  $('#tag-cloud-form').on('submit', openTagCloudModal);
+  $('#tag_cloud_grade_id').on('change', onTagCloudGradeChange);
+  resetTagCloudDependentFilters();
+
+  $('a[href="#pedagogical-content-analysis"][data-toggle="tab"]').on('shown.bs.tab', function() {
+    $('#pedagogical-content-analysis').find('input.select2, select.select2').each(function() {
+      var $field = $(this);
+      if ($field.data('select2')) {
+        $field.select2('val', $field.val());
+      }
+    });
+  });
+
+  $(document).on('click', '.pedagogical-modal', function(event) {
+    if (event.target !== this) return;
+    closeActivePedagogicalModal(event);
+  });
+
+  $(document).on('keydown', function(event) {
+    if (event.key !== 'Escape' && event.keyCode !== 27) return;
+    if (closeActivePedagogicalModal(event)) {
+      event.preventDefault();
+    }
+  });
+});
+
+function onTagCloudGradeChange(event) {
+  clear_empty(event);
+
+  var gradeId = $('#tag_cloud_grade_id').val();
+  resetTagCloudDependentFilters();
+
+  if (!gradeId || gradeId === 'empty') {
+    return;
+  }
+
+  fetch('/pedagogical_trackings/tag_cloud_filters?grade_id=' + encodeURIComponent(gradeId))
+    .then(function(response) {
+      if (!response.ok) {
+        throw new Error('Erro ao carregar filtros');
+      }
+      return response.json();
+    })
+    .then(function(data) {
+      setTagCloudSelectOptions('#tag_cloud_discipline_id', data.disciplines || []);
+      setTagCloudSelectOptions('#tag_cloud_unity_id', data.unities || []);
+    })
+    .catch(function(err) {
+      console.error('Erro ao carregar filtros da tag cloud:', err);
+      alert('Ocorreu um erro ao carregar disciplinas e escolas da série selecionada.');
+    });
+}
+
+function resetTagCloudDependentFilters() {
+  setTagCloudSelectOptions('#tag_cloud_discipline_id', []);
+  setTagCloudSelectOptions('#tag_cloud_unity_id', []);
+}
+
+function setTagCloudSelectOptions(selector, items) {
+  var $field = $(selector);
+  var options = [{ id: 'empty', name: '<option></option>', text: '' }].concat(
+    (items || []).map(function(item) {
+      return {
+        id: item.id,
+        name: item.name || item.text,
+        text: item.text || item.name
+      };
+    })
+  );
+
+  $field.prop('disabled', items.length === 0);
+  $field.select2('val', '');
+  $field.select2({ data: options, width: '100%' });
+}
+

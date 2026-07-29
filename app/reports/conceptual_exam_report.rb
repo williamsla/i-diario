@@ -35,7 +35,7 @@ class ConceptualExamReport < BaseReport
       colspan: @disciplines.size + 1
     )
     begin
-      logo_cell = make_cell(image: open(@entity_configuration.logo.url), fit: [50, 50], width: 70, rowspan: 3, position: :center, vposition: :center)
+      logo_cell = make_cell(image: entity_logo_io, fit: [50, 50], width: 70, rowspan: 3, position: :center, vposition: :center)
     rescue
       logo_cell = make_cell(content: '', width: 70, rowspan: 3)
     end

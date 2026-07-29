@@ -2,6 +2,8 @@
 
 module AvaliationBatchGrades
   # Alunos da turma/disciplina na etapa, incluindo inativos (transferido, fora do período).
+  # "Ativo" = enturmado na data de referência (último dia da etapa).
+  # Pode liberar nota = inativo na data de referência, mas com overlap na etapa.
   module StudentEnrollmentsForStep
     extend ActiveSupport::Concern
 
@@ -18,7 +20,25 @@ module AvaliationBatchGrades
       ).student_enrollments
     end
 
+    def batch_reference_date
+      (step.end_at.presence || step.start_at).to_date
+    end
+
     def student_active_in_step?(student_enrollment)
+      enrollment_active_on_date?(student_enrollment, batch_reference_date)
+    end
+
+    def student_active_in_step_by_student_id?(student_id)
+      StudentEnrollment
+        .by_classroom(classroom)
+        .by_discipline(discipline)
+        .by_student(student_id)
+        .by_date(batch_reference_date)
+        .active
+        .any?
+    end
+
+    def student_attended_step?(student_enrollment)
       StudentEnrollment
         .where(id: student_enrollment)
         .by_classroom(classroom)
@@ -28,7 +48,7 @@ module AvaliationBatchGrades
         .any?
     end
 
-    def student_active_in_step_by_student_id?(student_id)
+    def student_attended_step_by_student_id?(student_id)
       StudentEnrollment
         .by_classroom(classroom)
         .by_discipline(discipline)
@@ -38,27 +58,51 @@ module AvaliationBatchGrades
         .any?
     end
 
-    def batch_student_display_name(enrollment, active)
-      student = enrollment.student
-      return student.name if active
-
-      left_at_text = batch_student_left_at_label(enrollment)
-      "***#{student.name}#{left_at_text}"
+    def student_can_unlock_notes?(student_enrollment)
+      !student_active_in_step?(student_enrollment) && student_attended_step?(student_enrollment)
     end
 
-    def batch_student_left_at_label(enrollment)
+    def enrollment_active_on_date?(student_enrollment, date)
+      StudentEnrollment
+        .where(id: student_enrollment)
+        .by_classroom(classroom)
+        .by_discipline(discipline)
+        .by_date(date)
+        .active
+        .any?
+    end
+
+    def batch_student_display_name(enrollment, _active = nil)
+      enrollment.student.name
+    end
+
+    def batch_student_left_at(enrollment)
       classroom_id = classroom.is_a?(Classroom) ? classroom.id : classroom
       sec = StudentEnrollmentClassroom
         .by_classroom(classroom_id)
         .by_student_enrollment(enrollment.id)
-        .first
+        .ordered
+        .last
       left_at = sec&.left_at
-      return '' if left_at.blank?
+      return nil if left_at.blank?
 
-      left_at_date = left_at.is_a?(String) ? Date.parse(left_at) : left_at.to_date
-      "\nSaiu em: #{I18n.l(left_at_date, format: :default)}"
+      left_at.is_a?(String) ? Date.parse(left_at) : left_at.to_date
     rescue ArgumentError, TypeError
-      ''
+      nil
+    end
+
+    def batch_student_status_message(enrollment, active)
+      return nil if active
+
+      left_at = batch_student_left_at(enrollment)
+      if left_at.present?
+        I18n.t(
+          'avaliations.batch.transferred_on',
+          date: I18n.l(left_at, format: :default)
+        )
+      else
+        I18n.t('avaliations.batch.inactive_student_status')
+      end
     end
   end
 end

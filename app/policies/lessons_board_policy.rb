@@ -16,4 +16,16 @@ class LessonsBoardPolicy < ApplicationPolicy
 
     false
   end
+
+  def undiscard?
+    edit?
+  end
+
+  def purge?
+    edit?
+  end
+
+  def update_archived_until?
+    edit?
+  end
 end

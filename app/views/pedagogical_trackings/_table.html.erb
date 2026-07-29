@@ -1,35 +1,152 @@
-<div style="overflow-y: auto; border: 1px solid #ccc;">
-  <table style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 13px;">
-    <% previous_class = nil
-       current_bg = '#ffffff' # cor inicial do grupo %>
+<% resume = PedagogicalTrackingResumeTable.new(sheet) %>
 
-    <% @sheet.each_with_index do |row, i| %>
-      <% if i == 0 %>
-        <tr>
-          <% row.each_with_index do |cell, j| %>
-            <% strong_border = [2, 6, 8, 12].include?(j) ? 'border-right: 4px solid #000;' : '' %>
-            <th style="border: 1px solid #000; padding: 8px; font-weight: bold; text-align: center; background-color: #FFD966;
-                       position: sticky; top: 0; z-index: 2; <%= strong_border %>">
-              <%= cell %>
-            </th>
-          <% end %>
-        </tr>
-      <% else %>
-        <% # Alterna a cor do grupo quando a primeira coluna muda %>
-        <% if row[0] != previous_class %>
-          <% current_bg = current_bg == '#ffffff' ? '#e6f7ff' : '#ffffff' %>
-          <% previous_class = row[0] %>
-        <% end %>
+<div class="resume-report" id="resumeReport"
+     data-has-lesson-plan="<%= resume.has_lesson_plan %>"
+     data-has-opinion="<%= resume.has_opinion %>">
+  <div class="resume-report__toolbar">
+    <div class="resume-report__filter-group resume-report__filter-group--search">
+      <input id="resumeSearchInput"
+             type="search"
+             class="form-control input-sm resume-report__search"
+             placeholder="<%= t('pedagogical_trackings.resume.filter_search_placeholder') %>"
+             aria-label="<%= t('pedagogical_trackings.resume.filter_search') %>">
+    </div>
 
-        <tr style="background-color: <%= current_bg %>;">
-          <% row.each_with_index do |cell, j| %>
-            <% strong_border = [2, 6, 8, 12].include?(j) ? 'border-right: 4px solid #000;' : '' %>
-            <td style="border: 1px solid #444; padding: 6px; text-align: center; <%= strong_border %>">
-              <%= cell %>
-            </td>
-          <% end %>
-        </tr>
+    <div class="resume-report__legend">
+      <span class="resume-legend-item"><i class="resume-legend-swatch resume-legend-swatch--missing"></i><%= t('pedagogical_trackings.resume.legend_missing') %></span>
+      <% if resume.has_opinion %>
+        <span class="resume-legend-item"><i class="resume-legend-swatch resume-legend-swatch--alert"></i><%= t('pedagogical_trackings.resume.legend_alert') %></span>
       <% end %>
-    <% end %>
-  </table>
+    </div>
+  </div>
+
+  <% if resume.records.empty? %>
+    <p class="resume-report__empty"><%= t('views.index.no_record_found') %></p>
+  <% else %>
+    <div class="resume-report__table-wrap">
+      <table class="resume-table" id="resumeTable">
+        <thead>
+          <tr class="resume-table__group-header">
+            <th class="resume-table__sticky resume-table__sticky--teacher" rowspan="2">
+              <%= t('pedagogical_trackings.resume.col_teacher') %>
+            </th>
+            <th class="resume-table__sticky resume-table__sticky--discipline" rowspan="2">
+              <%= t('pedagogical_trackings.resume.col_discipline') %>
+            </th>
+            <th class="resume-table__group resume-table__group--freq" colspan="4" data-step-group="freq">
+              <%= t('pedagogical_trackings.resume.col_frequency') %>
+            </th>
+            <% if resume.has_lesson_plan %>
+              <th class="resume-table__group resume-table__col--lesson"><%= t('pedagogical_trackings.resume.col_lesson_plans') %></th>
+            <% end %>
+            <th class="resume-table__group resume-table__col--content">
+              <%= t('pedagogical_trackings.resume.col_content_line1') %>
+            </th>
+            <th class="resume-table__group resume-table__group--eval" colspan="4" data-step-group="eval">
+              <%= t('pedagogical_trackings.resume.col_evaluation') %>
+            </th>
+            <% if resume.has_opinion %>
+              <th class="resume-table__group resume-table__col--opinion">
+                <%= t('pedagogical_trackings.resume.col_without_opinion_line1') %>
+              </th>
+            <% end %>
+          </tr>
+          <tr class="resume-table__sub-header">
+            <% PedagogicalTrackingResumeTable::STEPS.each do |step| %>
+              <th data-step="<%= step %>" data-step-group="freq"><%= t('pedagogical_trackings.resume.step_short', step: step) %></th>
+            <% end %>
+            <% if resume.has_lesson_plan %>
+              <th class="resume-table__col--lesson resume-table__col--continued" aria-hidden="true"></th>
+            <% end %>
+            <th class="resume-table__col--content resume-table__col--continued">
+              <%= t('pedagogical_trackings.resume.col_content_line2') %>
+            </th>
+            <% PedagogicalTrackingResumeTable::STEPS.each do |step| %>
+              <th data-step="<%= step %>" data-step-group="eval"><%= t('pedagogical_trackings.resume.step_short', step: step) %></th>
+            <% end %>
+            <% if resume.has_opinion %>
+              <th class="resume-table__col--opinion resume-table__col--continued">
+                <%= t('pedagogical_trackings.resume.col_without_opinion_line2') %>
+              </th>
+            <% end %>
+          </tr>
+        </thead>
+
+        <% resume.grouped_records.each do |classroom, classroom_records| %>
+          <tbody class="resume-table__classroom-group"
+                 data-classroom="<%= classroom %>"
+                 data-classroom-pending="<%= classroom_records.any?(&:pending) %>">
+            <tr class="resume-table__classroom-row">
+              <td colspan="<%= 11 + (resume.has_lesson_plan ? 1 : 0) + (resume.has_opinion ? 1 : 0) %>">
+                <strong><%= classroom %></strong>
+              </td>
+            </tr>
+
+            <% classroom_records.group_by(&:teacher).each do |teacher, teacher_records| %>
+              <% teacher_records.each_with_index do |record, index| %>
+                <tr class="resume-table__data-row<%= ' resume-table__data-row--teacher-start' if index.zero? %><%= ' resume-table__data-row--pending' if record.pending %>"
+                    data-pending="<%= record.pending %>"
+                    data-pending-steps="<%= record.pending_steps.join(',') %>"
+                    data-teacher="<%= record.teacher.downcase %>"
+                    data-teacher-label="<%= teacher %>"
+                    data-teacher-pending="<%= teacher_records.any?(&:pending) %>"
+                    data-discipline="<%= record.discipline.downcase %>"
+                    data-classroom="<%= classroom.downcase %>">
+                  <% if index.zero? %>
+                    <td class="resume-table__sticky resume-table__sticky--teacher resume-table__text<%= ' resume-table__sticky--teacher-pending' if teacher_records.any?(&:pending) %>"
+                        rowspan="<%= teacher_records.size %>">
+                      <%= teacher %>
+                    </td>
+                  <% end %>
+                  <td class="resume-table__sticky resume-table__sticky--discipline resume-table__text">
+                    <%= record.discipline %>
+                  </td>
+
+                  <% record.frequencies.each_with_index do |value, step_index| %>
+                    <td class="resume-cell resume-cell--<%= resume.metric_status(value) %>"
+                        data-step="<%= step_index + 1 %>"
+                        data-step-group="freq">
+                      <%= resume.display_value(value) %>
+                    </td>
+                  <% end %>
+
+                  <% if resume.has_lesson_plan %>
+                    <td class="resume-cell resume-cell--<%= resume.metric_status(record.lesson_plans) %>">
+                      <%= resume.display_value(record.lesson_plans) %>
+                    </td>
+                  <% end %>
+
+                  <td class="resume-cell resume-cell--content resume-cell--<%= resume.metric_status(record.content_hours) %>">
+                    <%= resume.display_value(record.content_hours) %>
+                  </td>
+
+                  <% record.evaluations.each_with_index do |value, step_index| %>
+                    <td class="resume-cell resume-cell--<%= resume.metric_status(value) %>"
+                        data-step="<%= step_index + 1 %>"
+                        data-step-group="eval">
+                      <%= resume.display_value(value) %>
+                    </td>
+                  <% end %>
+
+                  <% if resume.has_opinion %>
+                    <td class="resume-cell resume-cell--opinion resume-cell--<%= resume.opinion_status(record.students_without_opinion) %>">
+                      <% if resume.opinion_alert?(record.students_without_opinion) %>
+                        <span class="resume-opinion-badge"><%= resume.display_value(record.students_without_opinion) %></span>
+                      <% else %>
+                        <%= resume.display_value(record.students_without_opinion) %>
+                      <% end %>
+                    </td>
+                  <% end %>
+                </tr>
+              <% end %>
+            <% end %>
+          </tbody>
+        <% end %>
+      </table>
+    </div>
+
+    <p class="resume-report__empty resume-report__empty--filtered" hidden>
+      <%= t('pedagogical_trackings.resume.no_filtered_results') %>
+    </p>
+  <% end %>
 </div>

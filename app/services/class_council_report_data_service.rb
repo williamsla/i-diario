@@ -32,11 +32,7 @@ class ClassCouncilReportDataService
   }.freeze
 
   def self.reportable?(classroom)
-    classroom.classrooms_grades.includes(exam_rule: :differentiated_exam_rule).any? do |classrooms_grade|
-      exam_rules_for(classrooms_grade).any? do |exam_rule|
-        SCORE_TYPES_WITH_GRADES.include?(exam_rule.score_type)
-      end
-    end
+    classrooms_grades_with_scores(classroom).any?
   end
 
   def self.header_payload(classroom)
@@ -49,6 +45,24 @@ class ClassCouncilReportDataService
       period_name: service.send(:period_label),
       grade_name: service.send(:grade_name_for_header)
     }
+  end
+
+  def self.classrooms_grades_with_scores(classroom)
+    rounding_includes = [
+      { rounding_table: :rounding_table_values },
+      { rounding_table_concept: :rounding_table_values }
+    ]
+
+    classroom.classrooms_grades.includes(
+      exam_rule: [
+        { differentiated_exam_rule: rounding_includes },
+        *rounding_includes
+      ]
+    ).select do |classrooms_grade|
+      exam_rules_for(classrooms_grade).any? do |exam_rule|
+        SCORE_TYPES_WITH_GRADES.include?(exam_rule.score_type.to_s)
+      end
+    end
   end
 
   def self.exam_rules_for(classrooms_grade)
@@ -113,7 +127,40 @@ class ClassCouncilReportDataService
       show_inactive: false
     ).student_enrollments
 
-    StudentEnrollment.where(id: enrollments.map(&:id)).includes(:student).ordered
+    student_enrollments = StudentEnrollment.where(id: enrollments.map(&:id))
+                                           .includes(:student)
+                                           .ordered
+                                           .to_a
+
+    # Multisseriada: ignora alunos de séries sem nota numérica/conceitual (ex.: 1ª série DONT_USE).
+    filter_enrollments_with_gradable_exam_rule(student_enrollments)
+  end
+
+  def filter_enrollments_with_gradable_exam_rule(student_enrollments)
+    return student_enrollments if student_enrollments.blank?
+
+    grade_ids_with_scores = classrooms_grades_with_scores.map(&:grade_id)
+    return [] if grade_ids_with_scores.blank?
+
+    enrollment_ids = student_enrollments.map(&:id)
+    enrollment_grade_ids = StudentEnrollmentClassroom
+      .by_classroom(@classroom.id)
+      .where(student_enrollment_id: enrollment_ids)
+      .includes(:classrooms_grade)
+      .each_with_object({}) do |sec, hash|
+        next if sec.classrooms_grade.blank?
+
+        hash[sec.student_enrollment_id] ||= []
+        hash[sec.student_enrollment_id] << sec.classrooms_grade.grade_id
+      end
+
+    student_enrollments.select do |enrollment|
+      (enrollment_grade_ids[enrollment.id] || []).any? { |grade_id| grade_ids_with_scores.include?(grade_id) }
+    end
+  end
+
+  def classrooms_grades_with_scores
+    @classrooms_grades_with_scores ||= self.class.classrooms_grades_with_scores(@classroom)
   end
 
   def preload_frequency_data!
@@ -206,14 +253,16 @@ class ClassCouncilReportDataService
 
   def preload_scores_data!
     @test_settings_by_step = @steps.each_with_object({}) do |step, hash|
-      hash[step] = TestSettingFetcher.current(@classroom, step)
+      hash[step.id] = TestSettingFetcher.current(@classroom, step)
     end
+    @test_settings_by_step_discipline = {}
     preload_minimum_scores_by_step!
     @exemptions_by_student = load_exemptions_by_student
     @daily_notes_index = load_daily_notes_index
     @recovery_scores_index = load_recovery_scores_index
     @conceptual_exams_index = load_conceptual_exams_index
     @teacher_discipline_score_types = load_teacher_discipline_score_types
+    @student_grade_ids = load_student_grade_ids
     @scores_cache = {}
 
     @student_enrollments.each do |enrollment|
@@ -246,10 +295,21 @@ class ClassCouncilReportDataService
       .joins(daily_note: :avaliation)
       .merge(Avaliation.by_discipline_id(@discipline_ids))
       .by_test_date_between(@year_start, @year_end)
-      .includes(daily_note: { avaliation: [:test_setting_test, :recovery_diary_record] })
+      .where.not(note: nil)
+      .includes(
+        daily_note: {
+          avaliation: [
+            :test_setting_test,
+            :discipline,
+            :recovery_diary_record,
+            :avaliation_recovery_diary_record
+          ]
+        }
+      )
       .to_a
 
-    notes.group_by { |note| [note.student_id, note.discipline_id] }
+    # Usa avaliation.discipline_id (não o delegate) para evitar chave nil após joins compostos.
+    notes.group_by { |note| [note.student_id, note.daily_note.avaliation.discipline_id] }
   end
 
   def load_recovery_scores_index
@@ -289,21 +349,100 @@ class ClassCouncilReportDataService
 
   def load_teacher_discipline_score_types
     TeacherDisciplineClassroom
-      .where(classroom_id: @classroom.id, discipline_id: @discipline_ids, active: true)
-      .pluck(:discipline_id, :score_type)
-      .to_h
+      .where(classroom_id: @classroom.id, discipline_id: @discipline_ids)
+      .pluck(:discipline_id, :grade_id, :score_type)
+      .each_with_object({}) do |(discipline_id, grade_id, score_type), hash|
+        normalized = score_type.to_s
+        hash[[discipline_id, grade_id]] = normalized
+        # Fallback para vínculos antigos sem série ou lookup sem grade_id.
+        hash[discipline_id] ||= normalized
+      end
+  end
+
+  def load_student_grade_ids
+    return {} if @student_ids.blank?
+
+    grade_ids_with_scores = classrooms_grades_with_scores.map(&:grade_id)
+
+    StudentEnrollmentClassroom
+      .by_classroom(@classroom.id)
+      .joins(:student_enrollment)
+      .where(student_enrollments: { student_id: @student_ids })
+      .includes(:classrooms_grade)
+      .order(:id)
+      .each_with_object({}) do |sec, hash|
+        student_id = sec.student_enrollment.student_id
+        grade_id = sec.classrooms_grade&.grade_id
+        next if student_id.blank? || grade_id.blank?
+
+        current = hash[student_id]
+        # Prefer a series that has numeric/concept scores when the student has multiple links.
+        if current.blank? || (!grade_ids_with_scores.include?(current) && grade_ids_with_scores.include?(grade_id))
+          hash[student_id] = grade_id
+        end
+      end
+  end
+
+  def student_grade_id(student)
+    @student_grade_ids[student.id]
+  end
+
+  def student_exam_rule(student)
+    @student_exam_rules ||= {}
+    return @student_exam_rules[student.id] if @student_exam_rules.key?(student.id)
+
+    @student_exam_rules[student.id] = resolve_student_exam_rule(student)
+  end
+
+  # Prefere a regra da série já identificada no relatório (multisseriada-safe).
+  # ExamRuleFetcher fica como fallback quando a série do aluno não está no índice local.
+  def resolve_student_exam_rule(student)
+    grade_id = student_grade_id(student)
+    classrooms_grade = find_classrooms_grade_for_score(grade_id) if grade_id.present?
+
+    if classrooms_grade&.exam_rule.present?
+      exam_rule = classrooms_grade.exam_rule
+      if student.uses_differentiated_exam_rule
+        return exam_rule.differentiated_exam_rule.presence || exam_rule
+      end
+
+      return exam_rule
+    end
+
+    ExamRuleFetcher.fetch(@classroom, student)
+  end
+
+  def find_classrooms_grade_for_score(grade_id)
+    classrooms_grades_with_scores.find { |cg| cg.grade_id == grade_id } ||
+      @classroom.classrooms_grades.find { |cg| cg.grade_id == grade_id }
   end
 
   def student_uses_conceptual_evaluation?(student, discipline)
-    exam_rule = ExamRuleFetcher.fetch(@classroom, student)
+    exam_rule = student_exam_rule(student)
     return false if exam_rule.blank?
-    return true if exam_rule.score_type == ScoreTypes::CONCEPT
 
-    if exam_rule.score_type == ScoreTypes::NUMERIC_AND_CONCEPT
-      return @teacher_discipline_score_types[discipline.id] == ScoreTypes::CONCEPT
+    score_type = exam_rule.score_type.to_s
+    return true if score_type == ScoreTypes::CONCEPT
+
+    if score_type == ScoreTypes::NUMERIC_AND_CONCEPT
+      return teacher_discipline_is_concept?(discipline, student_grade_id(student))
     end
 
     false
+  end
+
+  def teacher_discipline_is_concept?(discipline, grade_id)
+    score_type = @teacher_discipline_score_types[[discipline.id, grade_id]]
+    score_type = @teacher_discipline_score_types[discipline.id] if score_type.blank?
+    score_type.to_s == ScoreTypes::CONCEPT
+  end
+
+  def student_has_gradable_score_type?(student)
+    exam_rule = student_exam_rule(student)
+    # Aluno já filtrado por série com nota; se a regra não resolver, não bloqueia o cálculo.
+    return true if exam_rule.blank?
+
+    SCORE_TYPES_WITH_GRADES.include?(exam_rule.score_type.to_s)
   end
 
   def conceptual_score(student, discipline, step)
@@ -317,7 +456,7 @@ class ClassCouncilReportDataService
   def concept_display_name(student, value)
     return nil if value.blank?
 
-    exam_rule = ExamRuleFetcher.fetch(@classroom, student)
+    exam_rule = student_exam_rule(student)
     rounding_table = exam_rule&.conceptual_rounding_table
     return value.to_s if rounding_table.blank?
 
@@ -326,13 +465,16 @@ class ClassCouncilReportDataService
   end
 
   def calculate_score(student, discipline, step)
+    return nil unless student_has_gradable_score_type?(student)
     return conceptual_score(student, discipline, step) if student_uses_conceptual_evaluation?(student, discipline)
 
     notes = daily_notes_in_step(student.id, discipline.id, step)
     recoveries = @recovery_scores_index[[student.id, discipline.id]] || []
+    step_start = step.start_at.to_date
+    step_end = step.end_at.to_date
 
     step_recoveries = recoveries.each_with_object({}) do |entry, hash|
-      next unless entry[:test_date].between?(step.start_at, step.end_at)
+      next unless entry[:test_date].to_date.between?(step_start, step_end)
 
       avaliation_id = entry[:avaliation_id]
       current = hash[avaliation_id]
@@ -342,18 +484,34 @@ class ClassCouncilReportDataService
     ClassCouncilAverageCalculator.new(
       classroom: @classroom,
       step: step,
-      test_setting: @test_settings_by_step[step],
+      test_setting: test_setting_for(step, discipline),
       daily_note_students: notes,
       recovery_scores: step_recoveries,
-      exempted_avaliation_ids: @exemptions_by_student[student.id]
+      exempted_avaliation_ids: @exemptions_by_student[student.id] || Set.new
     ).calculate
+  end
+
+  def test_setting_for(step, discipline)
+    cached = @test_settings_by_step[step.id]
+    return cached if cached.present?
+
+    key = [step.id, discipline.id]
+    return @test_settings_by_step_discipline[key] if @test_settings_by_step_discipline.key?(key)
+
+    @test_settings_by_step_discipline[key] =
+      TestSettingFetcher.current(@classroom, step, discipline: discipline)
   end
 
   def daily_notes_in_step(student_id, discipline_id, step)
     notes = @daily_notes_index[[student_id, discipline_id]] || []
+    step_start = step.start_at.to_date
+    step_end = step.end_at.to_date
+
     notes.select do |note|
-      test_date = note.daily_note.avaliation.test_date
-      test_date.between?(step.start_at, step.end_at)
+      test_date = note.daily_note&.avaliation&.test_date
+      next false if test_date.blank?
+
+      test_date.to_date.between?(step_start, step_end)
     end
   end
 
@@ -401,7 +559,12 @@ class ClassCouncilReportDataService
   end
 
   def preload_minimum_scores_by_step!
-    minimum = @classroom.first_exam_rule&.average_for_promotion
+    # Prefer exam rules from series that actually have numeric/concept scores (multigrade-safe).
+    minimum = classrooms_grades_with_scores
+              .map { |cg| cg.exam_rule&.average_for_promotion }
+              .compact
+              .first
+    minimum ||= @classroom.first_exam_rule&.average_for_promotion
 
     @minimum_scores_by_step = @steps.each_with_object({}) do |step, hash|
       hash[step.step_number] = minimum.presence
@@ -451,7 +614,15 @@ class ClassCouncilReportDataService
   end
 
   def frequency_by_discipline?
-    @frequency_by_discipline = @classroom.first_exam_rule&.frequency_type == FrequencyTypes::BY_DISCIPLINE if @frequency_by_discipline.nil?
+    if @frequency_by_discipline.nil?
+      # Do not use first_exam_rule alone: in multigrade the first series may be DONT_USE / GENERAL
+      # while another series uses frequency by discipline.
+      exam_rules = classrooms_grades_with_scores.map(&:exam_rule).compact
+      exam_rules = [@classroom.first_exam_rule].compact if exam_rules.blank?
+
+      @frequency_by_discipline = exam_rules.any? { |rule| rule.frequency_type == FrequencyTypes::BY_DISCIPLINE }
+    end
+
     @frequency_by_discipline
   end
 

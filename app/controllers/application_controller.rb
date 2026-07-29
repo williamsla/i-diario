@@ -16,6 +16,7 @@ class ApplicationController < ActionController::Base
   before_action :set_honeybadger_context
   around_action :set_user_current
   around_action :set_thread_origin_type
+  around_action :with_report_query_cache
 
   respond_to :html, :json
 
@@ -361,11 +362,20 @@ class ApplicationController < ActionController::Base
   def require_allow_to_modify_prev_years
     return if can_change_school_year?
     return unless current_user.current_role_is_admin_or_employee?
-    return if (first_step_start_date_for_posting..last_step_end_date_for_posting).to_a.include?(Date.current)
+    return if allowed_to_modify_after_steps_ended?
 
     flash[:alert] = t('errors.general.not_allowed_to_modify_prev_years')
     redirect_to root_path
   end
+
+  def allowed_to_modify_after_steps_ended?
+    within_posting_period = (first_step_start_date_for_posting..last_step_end_date_for_posting).cover?(Date.current)
+    return true if within_posting_period
+
+    # Opção desmarcada só libera se o ano letivo da escola ainda estiver aberto
+    current_school_calendar&.opened_year && !GeneralConfiguration.block_modifications_after_last_step_ended?
+  end
+
 
   def valid_current_role?
     CurrentRoleForm.new(
@@ -455,6 +465,13 @@ class ApplicationController < ActionController::Base
     ensure
       Thread.current[:origin_type] = nil
     end
+  end
+
+  def with_report_query_cache
+    ReportQueryCache.clear!
+    yield
+  ensure
+    ReportQueryCache.clear!
   end
 
   def allowed_api_header?
@@ -612,22 +629,21 @@ class ApplicationController < ActionController::Base
   end
 
   def add_pdf_to_merge(pdfTarget, name, render)
-    file_path = "#{Rails.root}/public#{name}"
-    
-    File.open(file_path, 'wb') do |f|
-      f.write(render)
+    require 'stringio' unless defined?(StringIO)
+
+    localpdf = HexaPDF::Document.new(io: StringIO.new(render.to_s))
+    localpdf.pages.each { |page| pdfTarget.pages << pdfTarget.import(page) }
+  rescue StandardError => error
+    Rails.logger.warn("HexaPDF merge via StringIO falhou (#{error.message}), usando arquivo temporário")
+    require 'tempfile'
+
+    Tempfile.create(['pdf_merge', '.pdf']) do |file|
+      file.binmode
+      file.write(render)
+      file.flush
+      localpdf = HexaPDF::Document.open(file.path)
+      localpdf.pages.each { |page| pdfTarget.pages << pdfTarget.import(page) }
     end
-
-    # last_page_number = pdfTarget.pages.size
-
-    localpdf = HexaPDF::Document.open(file_path)
-    localpdf.pages.each {|page| pdfTarget.pages << pdfTarget.import(page)}
-
-    # pdfTarget.outline.add_item("Main") do |main|
-    #   main.add_item(name, destination: last_page_number)      
-    # end
-
-    File.delete(file_path)
   end
 
   def merge_pdf(pdfTarget, name)

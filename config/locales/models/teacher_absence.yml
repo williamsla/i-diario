@@ -22,6 +22,7 @@ pt-BR:
         will_make_up: "Aula será reposta?"
         will_make_up_label: "Sim, a aula será reposta"
         make_up_date: "Data da reposição"
+        make_up_date_hint: "Opcional. Deixe em branco se a data ainda não estiver definida."
         period: "Turno"
         periods: "Turnos"
         coverage: "Abrangência"

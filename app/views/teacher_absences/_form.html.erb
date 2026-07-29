@@ -52,6 +52,7 @@
       </div>
       <div class="col col-sm-4" id="teacher_absence_make_up_date_wrapper" style="<%= 'display:none' unless @teacher_absence.will_make_up? %>">
         <%= f.input :make_up_date, as: :date, label: TeacherAbsence.human_attribute_name(:make_up_date),
+          hint: t('activerecord.attributes.teacher_absence.make_up_date_hint'),
           input_html: { value: (@teacher_absence.make_up_date.present? ? l(@teacher_absence.make_up_date) : nil) } %>
       </div>
     </div>

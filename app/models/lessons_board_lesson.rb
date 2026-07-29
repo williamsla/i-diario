@@ -16,6 +16,6 @@ class LessonsBoardLesson < ActiveRecord::Base
   end
 
   after_undiscard do
-    lessons_board_lesson_weekdays.undiscard_all
+    lessons_board_lesson_weekdays.with_discarded.undiscard_all
   end
 end

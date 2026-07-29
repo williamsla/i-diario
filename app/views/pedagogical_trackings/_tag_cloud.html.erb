@@ -1,0 +1,20 @@
+<div class="pedagogical-tag-cloud" role="list" aria-label="<%= title %>">
+  <% if tags.any? %>
+    <% tags.each do |tag| %>
+      <span
+        role="listitem"
+        class="pedagogical-tag-cloud__item pedagogical-tag-cloud__item--<%= tag[:weight] %>"
+        title="<%= "#{tag[:label]} (#{t('pedagogical_trackings.index.usage_count', count: tag[:count])})" %>"
+        aria-label="<%= "#{tag[:label]}: #{t('pedagogical_trackings.index.usage_count', count: tag[:count])}" %>"
+      >
+        <span class="pedagogical-tag-cloud__label"><%= tag[:label] %></span>
+        <span class="pedagogical-tag-cloud__badge"><%= tag[:count] %></span>
+      </span>
+    <% end %>
+  <% else %>
+    <div class="pedagogical-tag-cloud__empty">
+      <i class="fa fa-cloud"></i>
+      <p><%= t('pedagogical_trackings.index.empty_tag_cloud') %></p>
+    </div>
+  <% end %>
+</div>

@@ -1,40 +1,115 @@
 <% content_for :js do %>
   <%= javascript_include_tag 'views/pedagogical_trackings/index' %>
 <% end %>
-<div class="row">
-  <%= image_tag "beta.png", class: 'hidden', id: 'image-beta' %>
-  <%= simple_form_for :search, { url: pedagogical_trackings_path, method: :get, html: { class: 'filter_tracking_search_form' } } do |f| %>    
-    <div class="col col-sm-3" style="padding-top: 12px;">
-      <span><%= @updated_at ? "#{t('.last_update') }: #{ @updated_at } às #{ @updated_at_hour }h" : t('.empty') %></span>
+
+<div class="pedagogical-tabs">
+  <ul class="nav nav-tabs" role="tablist">
+    <li class="active" role="presentation">
+      <a href="#pedagogical-school-reports" data-toggle="tab" role="tab" aria-controls="pedagogical-school-reports">
+        <%= t('.tab_school_reports') %>
+      </a>
+    </li>
+    <li role="presentation">
+      <a href="#pedagogical-content-analysis" data-toggle="tab" role="tab" aria-controls="pedagogical-content-analysis">
+        <%= t('.tab_content_analysis') %>
+      </a>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+    <div class="tab-pane active" id="pedagogical-school-reports" role="tabpanel">
+      <div class="row pedagogical-charts">
+        <%= hidden_field_tag 'done_frequencies_percentage', @school_frequency_done_percentage %>
+        <%= hidden_field_tag 'done_content_records_percentage', @school_content_record_done_percentage %>
+        <%= hidden_field_tag 'unknown_teachers', @unknown_teachers %>
+        <div class="col col-sm-6" id="section-frequency">
+          <fieldset>
+            <legend>Frequências</legend>
+            <canvas id="frequency_chart" width="200" height="200"></canvas>
+          </fieldset>
+        </div>
+        <div class="col col-sm-6" id="section-content">
+          <fieldset>
+            <legend>Registros de conteúdos</legend>
+            <canvas id="content_record_chart" width="200" height="200"></canvas>
+          </fieldset>
+        </div>
+      </div>
+
+      <% if @school_days.zero? %>
+        <em><%= t('views.index.no_record_found')%></em>
+      <% else %>
+        <%= render @partial.to_s %>
+      <% end %>
     </div>
-  <% end %>
-</div>
-<div class="row" style="width:170px">
-  <%= link_to(t('.recalculate_school_days'), recalculate_pedagogical_trackings_path,
-              id: 'recalculate',
-              class: 'btn bg-color-blue txt-color-white pull-right',
-              style: 'margin-top: 10px; margin-left: 10px;') %>
-</div>
-<div class="row" style=" margin-bottom: 20px;width:80%">
-  <%= hidden_field_tag 'done_frequencies_percentage', @school_frequency_done_percentage %>
-  <%= hidden_field_tag 'done_content_records_percentage', @school_content_record_done_percentage %>
-  <%= hidden_field_tag 'unknown_teachers', @unknown_teachers %>
-  <div class="col col-sm-6" id="section-frequency">
-    <fieldset>
-      <legend>Frequências</legend>
-      <canvas id="frequency_chart" width="200" height="200" style="border: 1px solid;border-color: #CCC;"></canvas>
-    </fieldset>
-  </div>
-  <div class="col col-sm-6" id="section-content">
-    <fieldset>
-      <legend>Registros de conteúdos</legend>
-      <canvas id="content_record_chart" width="200" height="200" style="border: 1px solid;border-color: #CCC;"></canvas>
-      </fieldset>
+
+    <div class="tab-pane" id="pedagogical-content-analysis" role="tabpanel">
+      <section class="pedagogical-panel pedagogical-tag-cloud-panel">
+        <header class="pedagogical-panel__header">
+          <h2 class="pedagogical-panel__title"><%= t('.contents_and_skills') %></h2>
+          <p class="pedagogical-panel__description"><%= t('.contents_and_skills_description') %></p>
+        </header>
+        <%= simple_form_for :tag_cloud, url: '#', method: :get, html: { id: 'tag-cloud-form', class: 'tag-cloud-form' } do |f| %>
+          <div class="row pedagogical-tag-cloud-filters">
+            <div class="col col-sm-3">
+              <%= f.input :grade_id,
+                          as: :select2,
+                          elements: @tag_cloud_grades,
+                          label: t('.filter_grade'),
+                          placeholder: t('.filter_grade'),
+                          required: true %>
+            </div>
+            <div class="col col-sm-3">
+              <%= f.input :discipline_id,
+                          as: :select2,
+                          elements: @tag_cloud_disciplines,
+                          label: t('.filter_discipline'),
+                          placeholder: t('.filter_discipline'),
+                          required: true,
+                          input_html: { disabled: true } %>
+            </div>
+            <div class="col col-sm-3">
+              <%= f.input :step_number,
+                          as: :select2,
+                          elements: @tag_cloud_steps,
+                          label: t('.filter_step'),
+                          placeholder: t('.filter_step'),
+                          required: false %>
+            </div>
+            <div class="col col-sm-3">
+              <div class="pedagogical-tag-cloud-filters__submit">
+                <%= f.button :submit, t('.analyze'), class: 'btn-primary btn-block', id: 'tag-cloud-analyze' %>
+              </div>
+            </div>
+          </div>
+          <div class="row pedagogical-tag-cloud-filters">
+            <div class="col col-sm-3">
+              <%= f.input :unity_id,
+                          as: :select2,
+                          elements: @tag_cloud_unities,
+                          label: t('.filter_unities'),
+                          placeholder: t('.filter_unities'),
+                          required: false,
+                          input_html: { disabled: true } %>
+            </div>
+          </div>
+        <% end %>
+      </section>
+    </div>
   </div>
 </div>
 
-<% if @school_days.zero? %>
-  <em><%= t('views.index.no_record_found')%></em>
-<% else %>
-  <%= render @partial.to_s  %>
-<% end %>
+<div id="tagCloudModal" class="pedagogical-modal" style="display:none;">
+  <div class="pedagogical-modal__dialog pedagogical-modal__dialog--wide">
+    <div class="pedagogical-modal__header">
+      <div>
+        <h2 class="pedagogical-modal__title"><%= t('.contents_and_skills') %></h2>
+        <p id="tagCloudModalSummary" class="pedagogical-modal__summary"></p>
+      </div>
+      <button type="button" class="pedagogical-modal__close" onclick="closeTagCloudModal(event)" aria-label="Fechar">&times;</button>
+    </div>
+    <div id="tagCloudModalBody" class="pedagogical-modal__body">
+      <p class="pedagogical-modal__loading"><%= t('.loading_analysis') %></p>
+    </div>
+  </div>
+</div>

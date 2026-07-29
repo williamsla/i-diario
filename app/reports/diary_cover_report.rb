@@ -35,10 +35,8 @@ class DiaryCoverReport < BaseReport
       canvas.rectangle(20, 20, page_box.width - 40, page_box.height - 40, radius: 5).stroke
       
       begin
-        # unless @entity_configuration.logo.url.nil?
-          # path = "#{Rails.root}/public#{@entity_configuration.logo.url}"
-        canvas.image(open(@entity_configuration.logo.url), at: [250, 670], width: 70, height: 70)
-        # end      
+        logo_io = @entity_configuration.logo_io_for_report
+        canvas.image(logo_io, at: [250, 670], width: 70, height: 70) if logo_io
       rescue
         Rails.logger.error "Não não conseguiu carregar a imagem"
       end

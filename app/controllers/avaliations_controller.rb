@@ -159,7 +159,8 @@ class AvaliationsController < ApplicationController
       notes_params: batch_notes_params,
       teacher_calculation: batch_params[:batch_calculation],
       column_weights: batch_column_weights_param,
-      column_labels: batch_column_labels_param
+      column_labels: batch_column_labels_param,
+      unlocked_student_ids: batch_unlocked_student_ids_param
     )
 
     if service.call
@@ -439,6 +440,12 @@ class AvaliationsController < ApplicationController
     return {} if raw.blank?
 
     raw.respond_to?(:permit!) ? raw.permit!.to_h : raw.to_h
+  end
+
+  def batch_unlocked_student_ids_param
+    raw = params.to_unsafe_h.dig(:avaliation_batch, :unlocked_student_ids) ||
+          params.to_unsafe_h.dig('avaliation_batch', 'unlocked_student_ids')
+    Array(raw)
   end
 
   def batch_step_end_date(step)

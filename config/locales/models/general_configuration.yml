@@ -44,6 +44,7 @@ pt-BR:
         show_objectives: "Exibir campo 'Objetivos' no Registro de conteúdos (por disciplina e por área)"
         semestral_recovery: "Recuperação semestral — renomeia o menu 'Recuperações de etapas' e usa o relatório de médias com MP/Rec por semestre"
         conceptual_exam_batch_layout: "Layout por turma nas avaliações conceituais (preencher matriz de todos os alunos de uma vez)"
+        block_modifications_after_last_step_ended: "Bloquear lançamentos após o encerramento da última etapa do calendário letivo (anos letivos encerrados continuam bloqueados)"
 
   backup:
     completed: "Exportação de dados realizada com sucesso! Clique %{link} para fazer download!"
