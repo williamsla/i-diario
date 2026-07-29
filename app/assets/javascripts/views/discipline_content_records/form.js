@@ -20,6 +20,19 @@ $(function () {
   var $class_number = $('#discipline_content_record_class_number');
   var idContentsCounter = 1;
   var isDisciplineReadonly = $discipline.prop('readonly');
+  // Registro novo: limpa a lista inteira ao trocar data/disciplina.
+  // Edição: preserva .manual (salvos/usuário) e só substitui itens vindos do plano via AJAX.
+  var isPersistedRecord = !!$('#discipline_content_record_content_record_attributes_id').val();
+
+  var clearContentsAndObjectivesLists = function () {
+    if (isPersistedRecord) {
+      $('#contents-list .list-group-item:not(.manual)').remove();
+      $('#objectives-list .list-group-item:not(.manual)').remove();
+    } else {
+      $('#contents-list .list-group-item').remove();
+      $('#objectives-list .list-group-item').remove();
+    }
+  };
 
   var getInputValue = function ($input) {
     if (!$input || !$input.length) {
@@ -148,16 +161,16 @@ $(function () {
 
 
   var handleFetchContentsSuccess = function (data) {
-    // Remove só itens vindos do AJAX (sem .manual). Itens .manual vêm do servidor ou foram
-    // adicionados pelo usuário — não apagar aqui, senão a tela de edição perde conteúdos salvos.
-    $('#contents-list .list-group-item:not(.manual)').remove();
+    if (isPersistedRecord) {
+      $('#contents-list .list-group-item:not(.manual)').remove();
+    }
 
     // Adiciona os novos conteúdos retornados pelo servidor
     if (!_.isEmpty(data.contents)) {
       _.each(data.contents, function (content) {
         // Verifica se o conteúdo já existe (incluindo os manuais)
         // Se já existe, não adiciona novamente para evitar duplicatas
-        var contentExists = $('input[type=checkbox][data-content_description="' + content.description + '"]').length > 0;
+        var contentExists = $('#contents-list input[type=checkbox][data-content_description="' + content.description + '"]').length > 0;
         
         if (!contentExists) {
           var html = JST['templates/discipline_content_records/contents_list_item'](content);
@@ -166,7 +179,6 @@ $(function () {
       });
       $('.list-group.checked-list-box .list-group-item:not(.initialized)').each(initializeListEvents);
     }
-    // Se data.contents estiver vazio, a lista já foi limpa acima, então não há nada a fazer
   }
 
   var handleFetchContentsError = function () {
@@ -190,14 +202,16 @@ $(function () {
   }
 
   var handleFetchObjectivesSuccess = function (data) {
-    $('#objectives-list .list-group-item:not(.manual)').remove();
+    if (isPersistedRecord) {
+      $('#objectives-list .list-group-item:not(.manual)').remove();
+    }
 
     // Adiciona os novos objetivos retornados pelo servidor
     if (!_.isEmpty(data.objectives)) {
       _.each(data.objectives, function (objective) {
         // Verifica se o objetivo já existe (incluindo os manuais)
         // Se já existe, não adiciona novamente para evitar duplicatas
-        var objectiveExists = $('input[type=checkbox][data-objective_description="' + objective.description + '"]').length > 0;
+        var objectiveExists = $('#objectives-list input[type=checkbox][data-objective_description="' + objective.description + '"]').length > 0;
         
         if (!objectiveExists) {
           var html = JST['templates/discipline_content_records/objectives_list_item'](objective);
@@ -206,7 +220,6 @@ $(function () {
       });
       $('.list-group.checked-list-box .list-group-item:not(.initialized)').each(initializeListEvents);
     }
-    // Se data.objectives estiver vazio, a lista já foi limpa acima, então não há nada a fazer
   }
 
   var fetchObjectives = function (classroom_id, discipline_id, date) {
@@ -235,10 +248,7 @@ $(function () {
       !_.isEmpty(date) &&
       !_.isEmpty(date.match(dateRegex))) {
 
-      // Só remove itens vindos dos planos (AJAX); preserva linhas .manual (servidor / usuário).
-      $('#contents-list .list-group-item:not(.manual)').remove();
-      $('#objectives-list .list-group-item:not(.manual)').remove();
-
+      clearContentsAndObjectivesLists();
       fetchContents(classroom_id, discipline_id, date);
       fetchObjectives(classroom_id, discipline_id, date);
     }

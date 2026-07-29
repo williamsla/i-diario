@@ -23,6 +23,17 @@ $(function () {
   var $objectives = $('#knowledge_area_content_record_content_record_attributes_objectives_tags');
   var idContentsCounter = 1;
   var idObjectivesCounter = 1;
+  var isPersistedRecord = !!$('#knowledge_area_content_record_content_record_attributes_id').val();
+
+  var clearContentsAndObjectivesLists = function () {
+    if (isPersistedRecord) {
+      $('#contents-list .list-group-item:not(.manual)').remove();
+      $('#objectives-list .list-group-item:not(.manual)').remove();
+    } else {
+      $('#contents-list .list-group-item').remove();
+      $('#objectives-list .list-group-item').remove();
+    }
+  };
 
   $classroom.on('change', function(){
     var classroom_id = $classroom.select2('val');
@@ -145,9 +156,9 @@ $(function () {
 
 
   var handleFetchContentsSuccess = function(data){
-    // Remove só itens vindos do AJAX (sem .manual). Itens .manual vêm do servidor ou foram
-    // adicionados pelo usuário — não apagar aqui, senão a tela de edição perde conteúdos salvos.
-    $('#contents-list .list-group-item:not(.manual)').remove();
+    if (isPersistedRecord) {
+      $('#contents-list .list-group-item:not(.manual)').remove();
+    }
     
     // Adiciona os novos conteúdos retornados pelo servidor
     if (!_.isEmpty(data.contents)) {
@@ -155,7 +166,7 @@ $(function () {
       _.each(data.contents, function(content) {
         // Verifica se o conteúdo já existe (incluindo os manuais)
         // Se já existe, não adiciona novamente para evitar duplicatas
-        var contentExists = $('input[type=checkbox][data-content_description="'+content.description+'"]').length > 0;
+        var contentExists = $('#contents-list input[type=checkbox][data-content_description="'+content.description+'"]').length > 0;
         
         if (!contentExists) {
           var html = JST['templates/knowledge_area_content_records/contents_list_item'](content);
@@ -193,14 +204,16 @@ $(function () {
   }
 
   var handleFetchObjectivesSuccess = function(data){
-    $('#objectives-list .list-group-item:not(.manual)').remove();
+    if (isPersistedRecord) {
+      $('#objectives-list .list-group-item:not(.manual)').remove();
+    }
 
     // Adiciona os novos objetivos retornados pelo servidor
     if (!_.isEmpty(data.objectives)) {
       _.each(data.objectives, function(objective) {
         // Verifica se o objetivo já existe (incluindo os manuais)
         // Se já existe, não adiciona novamente para evitar duplicatas
-        var objectiveExists = $('input[type=checkbox][data-objective_description="'+objective.description+'"]').length > 0;
+        var objectiveExists = $('#objectives-list input[type=checkbox][data-objective_description="'+objective.description+'"]').length > 0;
         
         if (!objectiveExists) {
           var html = JST['templates/knowledge_area_content_records/objectives_list_item'](objective);
@@ -267,9 +280,7 @@ $(function () {
         !_.isEmpty(knowledge_area_ids) &&
         !_.isEmpty(date) &&
         !_.isEmpty(date.match(dateRegex))) {
-      // Só remove itens vindos dos planos (AJAX); preserva linhas .manual (servidor / usuário).
-      $('#contents-list .list-group-item:not(.manual)').remove();
-      $('#objectives-list .list-group-item:not(.manual)').remove();
+      clearContentsAndObjectivesLists();
 
       var knowledge_area_ids_array = _.isArray(knowledge_area_ids) ? knowledge_area_ids : knowledge_area_ids.split(',').filter(function(id) { return id.trim() !== ''; });
 
