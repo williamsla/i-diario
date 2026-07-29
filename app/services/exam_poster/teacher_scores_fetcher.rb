@@ -93,13 +93,17 @@ module ExamPoster
       active_enrollment_classrooms = StudentEnrollmentClassroom.by_classroom(@classroom.id)
                                                                .joins(:student_enrollment)
                                                                .where(
-                                                                 student_enrollments: { active: IeducarBooleanState::ACTIVE }
-                                                               )
-                                                               .or(
-                                                                 StudentEnrollmentClassroom.by_classroom(@classroom.id)
-                                                                                          .joins(:student_enrollment)
-                                                                                          .where.not(left_at: nil)
-                                                                                          .where(left_at: @step.start_at..@step.end_at)
+                                                                 <<-SQL.squish,
+                                                                   student_enrollments.active = :active
+                                                                   OR (
+                                                                     COALESCE(student_enrollment_classrooms.left_at, '') <> ''
+                                                                     AND student_enrollment_classrooms.left_at::date
+                                                                       BETWEEN :start_at AND :end_at
+                                                                   )
+                                                                 SQL
+                                                                 active: IeducarBooleanState::ACTIVE,
+                                                                 start_at: @step.start_at,
+                                                                 end_at: @step.end_at
                                                                )
 
       enrollment_classroom_on_date = []
