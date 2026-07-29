@@ -239,10 +239,12 @@ module AvaliationBatchGrades
       return [] if enrollments.blank?
 
       cols = columns
-      enrollments.map do |enrollment|
+      enrollments.group_by(&:student_id).map do |_student_id, student_enrollments|
+        enrollment = student_enrollments.find { |e| student_active_in_step?(e) } ||
+                     student_enrollments.max_by(&:id)
         student = enrollment.student
-        active = student_active_in_step?(enrollment)
-        can_unlock = student_can_unlock_notes?(enrollment)
+        active = student_active_in_step_by_student_id?(student.id)
+        can_unlock = !active && student_attended_step_by_student_id?(student.id)
         notes = cols.map { |col| note_for(student.id, col) }
         notes_unlocked = can_unlock && notes.any?(&:present?)
         row = {
