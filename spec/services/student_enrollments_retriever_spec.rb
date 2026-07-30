@@ -285,10 +285,63 @@ RSpec.describe StudentEnrollmentsRetriever, type: :service do
       )
     }
 
-    it 'Is expected return more student_enrollment with for the same student' do
+    it 'returns only one student_enrollment per student prioritizing the active one on end_at' do
       student_enrollments_list = create_student_enrollments_with_students_duplicated
 
-      expect(student_enrollment_retriever).to include(student_enrollments_list.first, student_enrollments_list.last)
+      expect(student_enrollment_retriever).not_to include(student_enrollments_list.first)
+      expect(student_enrollment_retriever).to include(student_enrollments_list.last)
+    end
+  end
+
+  context 'when student left and returned to the same classroom' do
+    let(:student) { create(:student) }
+    let!(:transferred_enrollment) do
+      enrollment = create(:student_enrollment, student: student, status: 4)
+      create(
+        :student_enrollment_classroom,
+        student_enrollment: enrollment,
+        classrooms_grade: classroom_grade,
+        joined_at: '2023-02-01',
+        left_at: '2023-04-15'
+      )
+      enrollment
+    end
+    let!(:studying_enrollment) do
+      enrollment = create(:student_enrollment, student: student, status: 3)
+      create(
+        :student_enrollment_classroom,
+        student_enrollment: enrollment,
+        classrooms_grade: classroom_grade,
+        joined_at: '2023-05-10',
+        left_at: ''
+      )
+      enrollment
+    end
+
+    it 'returns the studying enrollment when date is after return' do
+      result = StudentEnrollmentsRetriever.call(
+        search_type: :by_date,
+        classrooms: classroom_grade.classroom_id,
+        disciplines: discipline,
+        date: '2023-06-01'
+      )
+
+      expect(result).to include(studying_enrollment)
+      expect(result).not_to include(transferred_enrollment)
+    end
+
+    it 'returns the transferred enrollment when date is during the first period' do
+      GeneralConfiguration.current.update(show_inactive_enrollments: true)
+
+      result = StudentEnrollmentsRetriever.call(
+        search_type: :by_date,
+        classrooms: classroom_grade.classroom_id,
+        disciplines: discipline,
+        date: '2023-03-10'
+      )
+
+      expect(result).to include(transferred_enrollment)
+      expect(result).not_to include(studying_enrollment)
     end
   end
 

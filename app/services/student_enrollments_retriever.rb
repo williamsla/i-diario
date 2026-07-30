@@ -100,23 +100,69 @@ class StudentEnrollmentsRetriever
     student_enrollments.each do |student_enrollment|
       student_id = student_enrollment.student_id
 
-      # Se já existe uma matrícula para este aluno, prioriza a que tem joined_at mais recente
-      # (nova matrícula) quando ambas estão ativas na data
       if unique_student_enrollments[student_id].present?
-        existing_enrollment = unique_student_enrollments[student_id]
-        existing_joined_at = existing_enrollment.student_enrollment_classrooms.first&.joined_at
-        current_joined_at = student_enrollment.student_enrollment_classrooms.first&.joined_at
-        
-        # Prioriza a matrícula com joined_at mais recente (nova matrícula)
-        if current_joined_at.present? && existing_joined_at.present? && current_joined_at > existing_joined_at
-          unique_student_enrollments[student_id] = student_enrollment
-        end
+        unique_student_enrollments[student_id] = prefer_enrollment(
+          unique_student_enrollments[student_id],
+          student_enrollment
+        )
       else
         unique_student_enrollments[student_id] = student_enrollment
       end
     end
 
     unique_student_enrollments.values
+  end
+
+  # Preferência: matrícula ativa na data de referência; senão a de joined_at mais recente.
+  # Evita marcar como inativo aluno que saiu e voltou para a mesma turma (duas matrículas).
+  def prefer_enrollment(existing, current)
+    reference_date = enrollment_reference_date
+    if reference_date.present?
+      existing_active = enrollment_active_on_date?(existing, reference_date)
+      current_active = enrollment_active_on_date?(current, reference_date)
+
+      return current if current_active && !existing_active
+      return existing if existing_active && !current_active
+    end
+
+    existing_joined_at = joined_at_for_classrooms(existing)
+    current_joined_at = joined_at_for_classrooms(current)
+
+    if current_joined_at.present? && existing_joined_at.present? && current_joined_at > existing_joined_at
+      current
+    else
+      existing
+    end
+  end
+
+  def enrollment_reference_date
+    if search_type.eql?(:by_date) && date.present?
+      date.to_date
+    elsif end_at.present?
+      end_at.to_date
+    elsif date.present?
+      date.to_date
+    end
+  rescue ArgumentError, TypeError
+    nil
+  end
+
+  def enrollment_active_on_date?(enrollment, reference_date)
+    StudentEnrollment.where(id: enrollment.id)
+                     .by_classroom(classrooms)
+                     .by_date(reference_date)
+                     .active
+                     .any?
+  end
+
+  def joined_at_for_classrooms(enrollment)
+    enrollment.student_enrollment_classrooms.map { |sec|
+      begin
+        sec.joined_at.to_date
+      rescue ArgumentError, TypeError
+        nil
+      end
+    }.compact.max
   end
 
   def show_inactive_enrollments

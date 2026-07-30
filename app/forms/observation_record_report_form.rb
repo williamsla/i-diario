@@ -10,6 +10,7 @@ class ObservationRecordReportForm
     :unity_id,
     :classroom_id,
     :discipline_id,
+    :student_id,
     :start_at,
     :end_at,
     :current_user_id
@@ -34,13 +35,18 @@ class ObservationRecordReportForm
   end
 
   def classroom
-    return unless classroom_id.present?
+    return if classroom_id.blank? || classroom_id.to_s.eql?('all')
     @classroom ||= Classroom.find(classroom_id)
   end
 
   def discipline
-    return unless discipline_id.present?
+    return if discipline_id.blank? || discipline_id.to_s.eql?('all')
     @discipline ||= Discipline.find(discipline_id)
+  end
+
+  def student
+    return if student_id.blank? || student_id.to_s.eql?('all')
+    @student ||= Student.find(student_id)
   end
 
   def observation_diary_records
@@ -65,7 +71,8 @@ class ObservationRecordReportForm
       discipline_id,
       start_at,
       end_at,
-      current_user_id
+      current_user_id,
+      student_id
     )
   end
 

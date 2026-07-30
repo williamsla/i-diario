@@ -22,12 +22,14 @@ module Navigation
       def can_show?(feature)
         # rubocop:todo Entender como melhorar esta questão das entidades nos testes
         entity_id = Rails.env.test? ? '1' : Entity.current.id
+        role = current_user.current_user_role&.role
 
         cache_key = [
           'MenuRender#can_show?',
           entity_id,
           current_user.admin?,
-          current_user.current_user_role&.role&.cache_key || current_user.cache_key,
+          role&.cache_key || current_user.cache_key,
+          role&.permissions_cache_key,
           feature
         ]
 

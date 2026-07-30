@@ -13,8 +13,13 @@
             <%= observation_diary_record.decorator.students_labels(params[:filter]&.fetch(:by_student_id)&.to_i) %>
           </span>
         </td>
-        <td><%= observation_diary_record.discipline %></td>
-        <td><%= l(observation_diary_record.date) %></td>
+        <td><%= observation_diary_record.discipline || t('.general') %></td>
+        <td>
+          <%= l(observation_diary_record.date) %>
+          <% if observation_diary_record.active_search? %>
+            <span class="label label-warning"><%= ObservationDiaryRecord.human_attribute_name(:active_search) %></span>
+          <% end %>
+        </td>
         <td class="actions" style="white-space: nowrap;">
           <%= link_to(
                 t('helpers.links.print_html'),

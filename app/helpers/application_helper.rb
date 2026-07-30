@@ -43,6 +43,7 @@ module ApplicationHelper
       current_user.admin?,
       controller_name,
       user_role_cache || current_user.cache_key,
+      role&.permissions_cache_key,
       Translation.cache_key,
       is_aee
     ]
@@ -58,12 +59,14 @@ module ApplicationHelper
   end
 
   def shortcuts
+    role = current_user.current_user_role&.role
     key = [
-      'HomeShortcutsV2',
+      'HomeShortcutsV3',
       Entity.current&.id,
       current_user.admin?,
       navigation_cache_version,
-      current_user.current_user_role&.role&.cache_key || current_user&.cache_key,
+      role&.cache_key || current_user&.cache_key,
+      role&.permissions_cache_key,
       Translation.cache_key
     ]
 

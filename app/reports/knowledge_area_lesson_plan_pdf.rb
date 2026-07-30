@@ -147,6 +147,18 @@ class KnowledgeAreaLessonPlanPdf < BaseReport
     @knowledge_area_header = make_cell(content: 'Áreas de conhecimento', size: 8, font_style: :bold, borders: [:top, :left, :right], padding: [2, 2, 4, 4], colspan: 2)
     @knowledge_area_cell = make_cell(content: knowledge_area_descriptions, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan: 2)
 
+    if @knowledge_area_lesson_plan.lesson_plan.student.present?
+      @student_header = make_cell(content: 'Aluno', size: 8, font_style: :bold, borders: [:top, :left, :right], padding: [2, 2, 4, 4], colspan: 4)
+      @student_cell = make_cell(
+        content: @knowledge_area_lesson_plan.lesson_plan.student.to_s,
+        size: 10,
+        font_style: :bold,
+        borders: [:bottom, :left, :right],
+        padding: [0, 2, 4, 4],
+        colspan: 4
+      )
+    end
+
     if @knowledge_area_lesson_plan.experience_fields.present?
       experience_fields_cell_content = inline_formated_cell_header(
         Translator.t('activerecord.attributes.knowledge_area_lesson_plan.experience_fields')
@@ -205,7 +217,15 @@ class KnowledgeAreaLessonPlanPdf < BaseReport
     identification_table_data = [
       [@identification_header_cell],
       [@knowledge_area_header, @classroom_header],
-      [@knowledge_area_cell, @classroom_cell],
+      [@knowledge_area_cell, @classroom_cell]
+    ]
+
+    if @student_header.present?
+      identification_table_data << [@student_header]
+      identification_table_data << [@student_cell]
+    end
+
+    identification_table_data += [
       [@teacher_header, @start_at_header, @end_at_header],
       [@teacher_cell, @start_at_cell, @end_at_cell]
     ]

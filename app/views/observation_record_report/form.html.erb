@@ -19,7 +19,8 @@
     <fieldset>
       <div class="row">
         <div class="col col-sm-4">
-          <%= f.input :unity_id, as: :select2, elements: unities, readonly: !current_user.admin?,
+          <%= f.input :unity_id, as: :select2, elements: unities,
+                      readonly: !current_user.current_role_is_admin_or_employee?,
                       input_html: { value: @observation_record_report_form.unity_id }   %>
         </div>
 
@@ -34,6 +35,10 @@
       </div>
 
       <div class="row">
+        <div class="col col-sm-4">
+          <%= f.input :student_id, as: :select2, elements: [],
+                      input_html: { value: @observation_record_report_form.student_id } %>
+        </div>
         <div class="col col-sm-4">
           <%= f.input :start_at, as: :date %>
         </div>

@@ -13,7 +13,9 @@ pt-BR:
       general_information: 'Informações gerais'
       date: 'Data'
       students: 'Alunos'
+      student: 'Aluno'
       observation: 'Observação'
+      active_search: 'Busca ativa'
       teacher_signature: |
         ______________________________________________
         Professor(a)
