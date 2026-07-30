@@ -45,23 +45,37 @@ RSpec.describe ObservationDiaryRecord do
         :observation_diary_record,
         :with_teacher_discipline_classroom,
         :with_notes,
-        classroom: classroom
+        classroom: classroom,
+        requires_discipline: true
       )
       expect(new_record).to validate_presence_of(:discipline)
     }
 
-    it 'should require unique value for date scoped to school_calendar_id, ' \
-       'teacher_id, classroom_id, discipline_id' do
+    it 'allows creating without discipline when requires_discipline is false' do
       observation_diary_record = build(
         :observation_diary_record,
         :with_notes,
         classroom: classroom,
         teacher: subject.teacher,
-        discipline: subject.discipline
+        discipline: nil,
+        requires_discipline: false
       )
 
-      expect(observation_diary_record).to_not be_valid
-      expect(observation_diary_record.errors[:date]).to include('já está em uso')
+      expect(observation_diary_record).to be_valid
+    end
+
+    it 'allows multiple records on the same date for the same classroom and discipline' do
+      observation_diary_record = build(
+        :observation_diary_record,
+        :with_notes,
+        classroom: classroom,
+        teacher: subject.teacher,
+        discipline: subject.discipline,
+        date: subject.date,
+        school_calendar: subject.school_calendar
+      )
+
+      expect(observation_diary_record).to be_valid
     end
   end
 end

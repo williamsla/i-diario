@@ -35,6 +35,7 @@ class DisciplineLessonPlanReportForm
                         .by_classroom_id(classroom_id)
                         .by_discipline_id(discipline_id)
                         .by_date_range(date_start.to_date, date_end.to_date)
+                        .includes(lesson_plan: :student)
                         .order_by_lesson_plan_date
   end
 
@@ -44,6 +45,7 @@ class DisciplineLessonPlanReportForm
                            .by_classroom_id(classroom_id)
                            .by_discipline_id(discipline_id)
                            .by_date_range(date_start.to_date, date_end.to_date)
+                           .includes(content_record: :student)
                            .order_by_content_record_date
   end
 

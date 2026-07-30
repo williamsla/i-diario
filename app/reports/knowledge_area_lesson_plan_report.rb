@@ -80,18 +80,18 @@ class KnowledgeAreaLessonPlanReport < BaseReport
 
   def attributes
     @identification_header_cell = make_cell(
-      content: 'Identificação',
+      content: '',
       size: 12,
       font_style: :bold,
-      background_color: 'DEDEDE',
-      height: 20,
+      background_color: 'FEFEFE',
+      height: 0,
       padding: [2, 2, 4, 4],
       align: :center,
       colspan: 5
     )
 
     @general_information_header_cell = make_cell(
-      content: 'Informações gerais',
+      content: 'Registros gerais',
       size: 12,
       font_style: :bold,
       background_color: 'DEDEDE',
@@ -150,51 +150,36 @@ class KnowledgeAreaLessonPlanReport < BaseReport
   end
 
   def general_information
-    title_general_information = [
-      [@general_information_header_cell]
-    ]
+    general_plans, individual_plans = partitioned_lesson_plans
 
-    general_information_headers = [
-      @start_at_header,
-      @end_at_header,
-      @knowledge_area_header,
-      @content_header
-    ]
+    render_records_section('Informações gerais', general_plans) if general_plans.any?
+    render_individual_records_section(individual_plans) if individual_plans.any?
+  end
 
-    general_information_cells = []
-    content_cell = []
+  def partitioned_lesson_plans
+    plans = @knowledge_area_lesson_plans.to_a
+    general_plans = plans.select { |plan| plan.lesson_plan.student_id.blank? }
+    individual_plans = plans.select { |plan| plan.lesson_plan.student_id.present? }
 
-    @knowledge_area_lesson_plans.each do |knowledge_area_lesson_plan|
-      texto_praticas_pedagogicas_e_habilidades = "#{knowledge_area_lesson_plan.lesson_plan.objectives_ordered.map(&:to_s).join(", ")}\n\n#{knowledge_area_lesson_plan.lesson_plan.activities.gsub(/<[^>]*>/, '')}"
-      
-      knowledge_area_lesson_plans_knowledge_areas = KnowledgeAreaLessonPlanKnowledgeArea.where knowledge_area_lesson_plan_id: knowledge_area_lesson_plan.id
+    [general_plans, individual_plans]
+  end
 
-      knowledge_area_ids = knowledge_area_lesson_plans_knowledge_areas.map(&:knowledge_area_id)
+  def render_individual_records_section(individual_plans)
+    section_header_cell = make_cell(
+      content: 'Registros individuais',
+      size: 12,
+      font_style: :bold,
+      background_color: 'DEDEDE',
+      height: 20,
+      padding: [2, 2, 4, 4],
+      align: :center,
+      colspan: 4
+    )
 
-      knowledge_areas = KnowledgeArea.where(id: knowledge_area_ids)
+    move_down GAP
+    start_new_page if cursor < 80
 
-      knowledge_area_descriptions = knowledge_areas.map(&:description).join(", ")
-
-      start_at_cell = make_cell(content: knowledge_area_lesson_plan.lesson_plan.start_at.strftime("%d/%m/%Y"), size: 8, width: 80, align: :left)
-      end_at_cell = make_cell(content: knowledge_area_lesson_plan.lesson_plan.end_at.strftime("%d/%m/%Y"), size: 8, width: 80, align: :left)
-      knowledge_area_cell = make_cell(content: knowledge_area_descriptions, size: 7, align: :left)
-      content_cell = make_cell(content: content_cell_content(knowledge_area_lesson_plan.lesson_plan), size: 8)
-      objective_cell = make_cell(content: texto_praticas_pedagogicas_e_habilidades, size: 6, align: :left, colspan: 4)
-      general_information_cells << [
-        start_at_cell,
-        end_at_cell,
-        knowledge_area_cell,
-        content_cell
-      ]
-      general_information_cells << [
-        objective_cell 
-      ]
-    end
-
-    general_information_table_data = [general_information_headers]
-    general_information_table_data.concat(general_information_cells)
-
-    table(title_general_information, width: bounds.width, header: true) do
+    table([[section_header_cell]], width: bounds.width, header: true) do
       cells.border_width = 0.25
       row(0).border_top_width = 0.25
       row(-1).border_bottom_width = 0.25
@@ -202,13 +187,122 @@ class KnowledgeAreaLessonPlanReport < BaseReport
       column(-1).border_right_width = 0.25
     end
 
-    table(general_information_table_data, row_colors: ['DEDEDE', 'FFFFFF'], width: bounds.width, header: true) do
+    grouped_by_student(individual_plans).each do |student, plans|
+      render_student_group_header(student)
+      render_records_table(plans)
+    end
+  end
+
+  def grouped_by_student(individual_plans)
+    individual_plans
+      .group_by { |plan| plan.lesson_plan.student }
+      .sort_by { |student, _plans| student.display_name.to_s }
+  end
+
+  def render_student_group_header(student)
+    student_header_cell = make_cell(
+      content: "Aluno: #{student}",
+      size: 10,
+      font_style: :bold,
+      background_color: 'EEEEEE',
+      padding: [4, 2, 4, 4],
+      colspan: 4
+    )
+
+    start_new_page if cursor < 60
+
+    table([[student_header_cell]], width: bounds.width, header: true) do
       cells.border_width = 0.25
       row(0).border_top_width = 0.25
       row(-1).border_bottom_width = 0.25
       column(0).border_left_width = 0.25
       column(-1).border_right_width = 0.25
     end
+  end
+
+  def render_records_section(title, plans)
+    section_header_cell = make_cell(
+      content: title,
+      size: 12,
+      font_style: :bold,
+      background_color: 'DEDEDE',
+      height: 20,
+      padding: [2, 2, 4, 4],
+      align: :center,
+      colspan: 4
+    )
+
+    table([[section_header_cell]], width: bounds.width, header: true) do
+      cells.border_width = 0.25
+      row(0).border_top_width = 0.25
+      row(-1).border_bottom_width = 0.25
+      column(0).border_left_width = 0.25
+      column(-1).border_right_width = 0.25
+    end
+
+    render_records_table(plans)
+  end
+
+  def render_records_table(plans)
+    contents_label = Translator.t('activerecord.attributes.knowledge_area_content_record.contents')
+    headers = [
+      make_cell(content: 'Início', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4]),
+      make_cell(content: 'Fim', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4]),
+      make_cell(content: "Áreas de conhecimento / #{contents_label}", size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4]),
+      make_cell(content: 'Habilidade', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
+    ]
+
+    table_data = [headers] + plans.flat_map { |plan| lesson_plan_rows(plan) }
+
+    table(table_data, row_colors: ['DEDEDE', 'FFFFFF'], width: bounds.width, header: true, column_widths: lesson_plan_column_widths) do
+      cells.border_width = 0.25
+      row(0).border_top_width = 0.25
+      row(-1).border_bottom_width = 0.25
+      column(0).border_left_width = 0.25
+      column(-1).border_right_width = 0.25
+    end
+  end
+
+  def lesson_plan_column_widths
+    date_width = [80 * 0.75, width_of('99/99/9999', size: 8) + 8].max
+    other_width = (bounds.width - (date_width * 2)) / 2.0
+
+    { 0 => date_width, 1 => date_width, 2 => other_width, 3 => other_width }
+  end
+
+  def lesson_plan_rows(knowledge_area_lesson_plan)
+    lesson_plan = knowledge_area_lesson_plan.lesson_plan
+    activities_text = lesson_plan.activities.to_s.gsub(/<[^>]*>/, '')
+
+    knowledge_area_lesson_plans_knowledge_areas = KnowledgeAreaLessonPlanKnowledgeArea.where(
+      knowledge_area_lesson_plan_id: knowledge_area_lesson_plan.id
+    )
+    knowledge_area_ids = knowledge_area_lesson_plans_knowledge_areas.map(&:knowledge_area_id)
+    knowledge_area_descriptions = KnowledgeArea.where(id: knowledge_area_ids).map(&:description).join(', ')
+
+    knowledge_area_and_content = [
+      knowledge_area_descriptions.to_s.gsub("\n", ' ').squeeze(' '),
+      content_cell_content(lesson_plan).to_s.gsub("\n", ' ').squeeze(' ')
+    ].reject(&:blank?).join("\n")
+
+    habilidade = lesson_plan.objectives_ordered.map(&:to_s).join("\n")
+
+    rows = [
+      [
+        make_cell(content: lesson_plan.start_at.strftime('%d/%m/%Y'), size: 8, align: :left),
+        make_cell(content: lesson_plan.end_at.strftime('%d/%m/%Y'), size: 8, align: :left),
+        make_cell(content: knowledge_area_and_content, size: 7, align: :left),
+        make_cell(content: habilidade, size: 7, align: :left)
+      ]
+    ]
+
+    if activities_text.present?
+      rows << [
+        make_cell(content: activities_text, size: 6, align: :left, colspan: 4)
+      ]
+    end
+
+    rows
   end
 
   def content_cell_content(lesson_plan)

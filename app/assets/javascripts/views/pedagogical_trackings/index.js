@@ -435,7 +435,7 @@ function openFrequencyReportModal(unityId, classroomId) {
   // mostra loading
   document.getElementById("frequencyReportModalBody").innerHTML = "<p>Carregando...</p>";
 
-  // busca conteúdo via fetch (por padrão: Abaixo do Mínimo e Crítico, filtro principal: low_frequency_only)
+  // busca conteúdo via fetch (por padrão: Abaixo do Mínimo e Crítico; filtro: low_frequency_only)
   const defaultClassifications = ['Abaixo do Mínimo', 'Crítico'];
   const params = new URLSearchParams({
     unity_id: unityId,
@@ -715,6 +715,8 @@ window.applyRiskFilter = function() {
 function closeFrequencyReportModal(event) {
   if (event) event.preventDefault();
 
+  closeObservationFromFrequencyModal();
+
   const modal = document.getElementById("frequencyReportModal");
   if (!modal) return;
   
@@ -727,6 +729,180 @@ function closeFrequencyReportModal(event) {
   modal.style.display = "none";
   modalBody.innerHTML = "";
 }
+
+function formatObservationDate(date) {
+  var day = ('0' + date.getDate()).slice(-2);
+  var month = ('0' + (date.getMonth() + 1)).slice(-2);
+  var year = date.getFullYear();
+  return day + '/' + month + '/' + year;
+}
+
+function openObservationFromFrequencyModal(button) {
+  var modal = document.getElementById('observationFromFrequencyModal');
+  if (!modal || !button) return;
+
+  var studentName = button.getAttribute('data-student-name') || '';
+  document.getElementById('observationFromFrequencyStudent').textContent =
+    'Aluno: ' + studentName;
+  document.getElementById('observation_student_id').value = button.getAttribute('data-student-id') || '';
+  document.getElementById('observation_classroom_id').value = button.getAttribute('data-classroom-id') || '';
+  document.getElementById('observation_unity_id').value = button.getAttribute('data-unity-id') || '';
+  document.getElementById('observation_date').value = formatObservationDate(new Date());
+  document.getElementById('observation_description').value = '';
+  document.getElementById('observation_active_search').checked = true;
+
+  var errors = document.getElementById('observationFromFrequencyErrors');
+  var success = document.getElementById('observationFromFrequencySuccess');
+  errors.style.display = 'none';
+  errors.innerHTML = '';
+  success.style.display = 'none';
+  success.innerHTML = '';
+
+  modal.style.display = 'flex';
+
+  var $dateField = $('#observation_date');
+  if ($dateField.length && $.fn.datepicker) {
+    $dateField.datepicker('destroy');
+    $dateField.datepicker();
+  }
+
+  document.getElementById('observation_description').focus();
+}
+
+function closeObservationFromFrequencyModal(event) {
+  if (event) event.preventDefault();
+
+  var modal = document.getElementById('observationFromFrequencyModal');
+  if (!modal) return;
+
+  modal.style.display = 'none';
+}
+
+function updateStudentObservationsCount(studentId, classroomId, count) {
+  var selector = '.student-observations-count[data-student-id="' + studentId +
+                 '"][data-classroom-id="' + classroomId + '"]';
+  var cell = document.querySelector(selector);
+  if (!cell) return;
+
+  var pdfUrl = '/pedagogical_trackings/student_observations_pdf?student_id=' +
+               encodeURIComponent(studentId) +
+               '&classroom_id=' + encodeURIComponent(classroomId);
+
+  if (count > 0) {
+    if (cell.tagName !== 'A') {
+      var link = document.createElement('a');
+      link.href = pdfUrl;
+      link.target = '_blank';
+      link.className = 'student-observations-count';
+      link.setAttribute('data-student-id', studentId);
+      link.setAttribute('data-classroom-id', classroomId);
+      link.title = 'Gerar PDF com todas as observações do aluno';
+      cell.parentNode.replaceChild(link, cell);
+      cell = link;
+    } else {
+      cell.href = pdfUrl;
+      cell.className = 'student-observations-count';
+    }
+    cell.textContent = count;
+  } else {
+    if (cell.tagName === 'A') {
+      var span = document.createElement('span');
+      span.className = 'student-observations-count';
+      span.setAttribute('data-student-id', studentId);
+      span.setAttribute('data-classroom-id', classroomId);
+      span.textContent = '0';
+      cell.parentNode.replaceChild(span, cell);
+    } else {
+      cell.className = 'student-observations-count';
+      cell.textContent = '0';
+    }
+  }
+}
+
+function csrfToken() {
+  var meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute('content') : '';
+}
+
+function submitObservationFromFrequency(event) {
+  event.preventDefault();
+
+  var submitButton = document.getElementById('observationFromFrequencySubmit');
+  var errors = document.getElementById('observationFromFrequencyErrors');
+  var success = document.getElementById('observationFromFrequencySuccess');
+
+  errors.style.display = 'none';
+  errors.innerHTML = '';
+  success.style.display = 'none';
+  success.innerHTML = '';
+
+  var payload = {
+    student_id: document.getElementById('observation_student_id').value,
+    classroom_id: document.getElementById('observation_classroom_id').value,
+    unity_id: document.getElementById('observation_unity_id').value,
+    date: document.getElementById('observation_date').value,
+    description: document.getElementById('observation_description').value,
+    active_search: document.getElementById('observation_active_search').checked ? '1' : '0'
+  };
+
+  if (!payload.description.trim()) {
+    errors.innerHTML = 'Informe a descrição da observação.';
+    errors.style.display = 'block';
+    return;
+  }
+
+  submitButton.disabled = true;
+  submitButton.textContent = 'Salvando...';
+
+  fetch('/pedagogical_trackings/create_observation', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'X-CSRF-Token': csrfToken()
+    },
+    body: JSON.stringify(payload)
+  })
+    .then(function(response) {
+      return response.json().then(function(data) {
+        return { ok: response.ok, data: data };
+      });
+    })
+    .then(function(result) {
+      if (!result.ok || !result.data.success) {
+        var messages = (result.data && result.data.errors) || ['Não foi possível salvar a observação.'];
+        errors.innerHTML = messages.join('<br>');
+        errors.style.display = 'block';
+        return;
+      }
+
+      success.innerHTML = result.data.message || 'Observação registrada com sucesso.';
+      success.style.display = 'block';
+
+      if (result.data.observations_count != null) {
+        updateStudentObservationsCount(
+          result.data.student_id,
+          result.data.classroom_id,
+          result.data.observations_count
+        );
+      }
+
+      setTimeout(function() {
+        closeObservationFromFrequencyModal();
+      }, 900);
+    })
+    .catch(function(err) {
+      console.error('Erro ao salvar observação:', err);
+      errors.innerHTML = 'Ocorreu um erro ao salvar a observação.';
+      errors.style.display = 'block';
+    })
+    .finally(function() {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Salvar';
+    });
+}
+
+$(document).on('submit', '#observationFromFrequencyForm', submitObservationFromFrequency);
 
 function openClassCouncilModal(unityId, classroomId) {
   const modal = document.getElementById("classCouncilModal");
@@ -845,6 +1021,11 @@ function isPedagogicalModalOpen(modal) {
 }
 
 function closeActivePedagogicalModal(event) {
+  if (isPedagogicalModalOpen(document.getElementById('observationFromFrequencyModal'))) {
+    closeObservationFromFrequencyModal(event);
+    return true;
+  }
+
   if (isPedagogicalModalOpen(document.getElementById('resumeModal'))) {
     closeResumeModal(event);
     return true;

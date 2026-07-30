@@ -8,15 +8,19 @@ class ObservationDiaryRecordsController < ApplicationController
 
   def index
     current_discipline = fetch_current_discipline
-    teachers_by_discipline = fetch_teachers_by_discipline(current_discipline)
+    unity_ids = unities.map(&:id)
+    unity_ids = [current_unity.id] if unity_ids.blank? && current_unity.present?
 
-    @observation_diary_records = apply_scopes(ObservationDiaryRecord)
+    relation = ObservationDiaryRecord
       .includes(:discipline, classroom: :unity)
-      .by_classroom(current_user_classroom)
-      .by_teacher(teachers_by_discipline)
-      .by_discipline([current_discipline.id, nil])
+      .by_unity(unity_ids)
       .ordered
 
+    if current_user.teacher?
+      relation = relation.by_discipline([current_discipline&.id, nil])
+    end
+
+    @observation_diary_records = apply_scopes(relation)
     @students = fetch_students_with_observation_diary_records
   end
 
@@ -25,7 +29,7 @@ class ObservationDiaryRecordsController < ApplicationController
 
     @observation_record_report_form = ObservationRecordReportForm.new(
       teacher_id: @observation_diary_record.teacher.id,
-      discipline_id: @observation_diary_record.discipline.id,
+      discipline_id: @observation_diary_record.discipline_id || 'all',
       unity_id: @observation_diary_record.unity_id,
       classroom_id: @observation_diary_record.classroom.id,
       start_at: @observation_diary_record.date,
@@ -48,12 +52,20 @@ class ObservationDiaryRecordsController < ApplicationController
     @observation_diary_record.school_calendar_id = current_school_calendar.id
     @observation_diary_record.teacher = current_teacher
     @observation_diary_record.date = Time.zone.today
-    @allow_discipline_edit = false
+    @observation_diary_record.active_search = true if general_record?
+    set_discipline_form_state
   end
 
   def create
-    @observation_diary_record = ObservationDiaryRecord.new(resource_params.to_unsafe_h)
+    set_discipline_form_state
+
+    attributes = resource_params.to_unsafe_h
+    attributes = attributes.except('discipline_id', :discipline_id) if @general_record
+
+    @observation_diary_record = ObservationDiaryRecord.new(attributes)
     @observation_diary_record.teacher = current_teacher
+    @observation_diary_record.discipline_id = nil if @general_record
+    @observation_diary_record.requires_discipline = !@general_record
 
     authorize @observation_diary_record
 
@@ -71,23 +83,30 @@ class ObservationDiaryRecordsController < ApplicationController
 
   def edit
     @observation_diary_record = ObservationDiaryRecord.find(params[:id]).localized
-    @allow_discipline_edit = @observation_diary_record.discipline.blank?
+    set_discipline_form_state(record: @observation_diary_record)
     authorize @observation_diary_record
   end
 
   def update
     @observation_diary_record = ObservationDiaryRecord.find(params[:id])
     @observation_diary_record.current_user = current_user
-    @observation_diary_record.assign_attributes(resource_params.to_unsafe_h)
+    set_discipline_form_state(record: @observation_diary_record)
+
+    attributes = resource_params.to_unsafe_h
+    attributes = attributes.except('discipline_id', :discipline_id) if @general_record
+
+    @observation_diary_record.assign_attributes(attributes)
+    @observation_diary_record.discipline_id = nil if @general_record
+    @observation_diary_record.requires_discipline = @allow_discipline_edit
 
     authorize @observation_diary_record
 
     if @observation_diary_record.save
       respond_with @observation_diary_record, location: observation_diary_records_path
     else
-      has_discipline_error = @observation_diary_record.errors[:discipline_id].present?
-      discipline_blank = @observation_diary_record.discipline.blank?
-      @allow_discipline_edit = has_discipline_error || discipline_blank
+      has_discipline_error = @observation_diary_record.errors[:discipline].present? ||
+                            @observation_diary_record.errors[:discipline_id].present?
+      set_discipline_form_state(record: @observation_diary_record, force_discipline_edit: has_discipline_error)
       render :edit
     end
   end
@@ -107,13 +126,22 @@ class ObservationDiaryRecordsController < ApplicationController
   end
 
   def unities
-    @unities ||= Unity.by_teacher(current_teacher.id).ordered
+    @unities ||= begin
+      if current_user.teacher?
+        Unity.by_teacher(current_teacher.id).ordered
+      elsif current_user.has_administrator_access_level?
+        Unity.ordered
+      else
+        Unity.by_user_id(current_user.id).ordered
+      end
+    end
   end
   helper_method :unities
 
   def classrooms
-    @classrooms ||= Classroom.where(id: current_user_classroom)
-    .ordered
+    @classrooms ||= Classroom.by_unity(unities.map(&:id))
+                             .by_year(current_user_school_year)
+                             .ordered
   end
   helper_method :classrooms
 
@@ -124,6 +152,19 @@ class ObservationDiaryRecordsController < ApplicationController
 
   private
 
+  def general_record?
+    !current_user.teacher?
+  end
+
+  def set_discipline_form_state(record: nil, force_discipline_edit: false)
+    @general_record = if record&.persisted?
+                        record.discipline.blank?
+                      else
+                        general_record?
+                      end
+    @allow_discipline_edit = force_discipline_edit || (record&.discipline.blank? && current_user.teacher?)
+  end
+
   def resource_params
     parse_params
     params.require(:observation_diary_record).permit(
@@ -133,6 +174,7 @@ class ObservationDiaryRecordsController < ApplicationController
       :classroom_id,
       :discipline_id,
       :date,
+      :active_search,
       observation_diary_record_attachments_attributes: [
         :id,
         :attachment,
@@ -151,6 +193,8 @@ class ObservationDiaryRecordsController < ApplicationController
     return unless params['observation_diary_record']['notes_attributes'].present?
 
     params['observation_diary_record']['notes_attributes'].each do |_, v|
+      next if v['student_ids'].blank? || v['student_ids'].is_a?(Array)
+
       v['student_ids'] = v['student_ids'].split(',')
     end
   end
@@ -164,14 +208,6 @@ class ObservationDiaryRecordsController < ApplicationController
     frequency_type_definer.define!
 
     current_user_discipline
-  end
-
-  def fetch_teachers_by_discipline(discipline)
-    discipline_teachers_fetcher = DisciplineTeachersFetcher.new(
-      discipline,
-      current_user_classroom
-    )
-    discipline_teachers_fetcher.teachers_by_classroom
   end
 
   def fetch_students_with_observation_diary_records

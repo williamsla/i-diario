@@ -226,6 +226,8 @@ Rails.application.routes.draw do
         get :class_council_pdf
         get :tag_cloud_modal
         get :tag_cloud_filters
+        post :create_observation
+        get :student_observations_pdf
       end
     end
 

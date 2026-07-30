@@ -30,4 +30,23 @@ RSpec.describe Role, :type => :model do
       expect(subject.to_s).to eq "administrador - Nível: Professor"
     end
   end
+
+  describe "#permissions_cache_key" do
+    let(:role) { create(:role, :administrator) }
+
+    it "changes when a permission value changes" do
+      permission = create(
+        :role_permission,
+        role: role,
+        feature: Features::PEDAGOGICAL_TRACKINGS,
+        permission: Permissions::DENIED
+      )
+
+      original_key = role.permissions_cache_key
+
+      permission.update!(permission: Permissions::READ)
+
+      expect(Role.find(role.id).permissions_cache_key).not_to eq(original_key)
+    end
+  end
 end
