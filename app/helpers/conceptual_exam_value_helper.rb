@@ -8,7 +8,17 @@ module ConceptualExamValueHelper
     rounding_table = exam_rule&.conceptual_rounding_table
     return [] if rounding_table.blank?
 
-    rounding_table.rounding_table_values.map { |rtv| [rtv.to_s, rtv.value] }
+    rounding_table.rounding_table_values.map { |rtv| [rtv.to_s, concept_option_value(rtv.value)] }
+  end
+
+  # Normaliza decimal/BigDecimal para o value do <option>, evitando mismatch na reexibição
+  # (ex.: BigDecimal#to_s => "0.1e2" vs "10.0" enviado pelo formulário).
+  def concept_option_value(value)
+    return if value.nil?
+
+    value.to_d.to_s('F')
+  rescue ArgumentError, TypeError, NoMethodError
+    value.to_s
   end
 
   def conceptual_exam_value_student_name_class(conceptual_exam_value)

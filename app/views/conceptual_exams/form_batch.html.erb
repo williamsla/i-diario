@@ -57,7 +57,7 @@
                       <% if exempted_ids.include?(discipline.id) %>
                         <span class="text-muted"><%= t('.exempted') %></span>
                       <% else %>
-                        <% existing_value = existing_values[discipline.id]&.value %>
+                        <% existing_value = concept_option_value(existing_values[discipline.id]&.value) %>
                         <%= select_tag "conceptual_exam_batch[students][#{student.id}][#{discipline.id}]",
                               options_for_select(concept_options, existing_value),
                               class: 'form-control input-sm concept-select',
