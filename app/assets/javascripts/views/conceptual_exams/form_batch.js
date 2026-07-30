@@ -11,18 +11,25 @@ $(function () {
     $conceptSelects.select2({
       width: '56px',
       allowClear: false,
+      // Impede o Select2 de tratar a opção vazia como placeholder e omiti-la da lista.
+      placeholderOption: function () { return; },
       dropdownAutoWidth: true,
       dropdownCssClass: 'concept-select-dropdown',
       formatResult: function (result, _container, _query, escapeMarkup) {
         if (!result.id) {
-          return result.text || '—';
+          // Linha vazia clicável para limpar a seleção.
+          return '&nbsp;';
         }
 
         var fullName = result.element ? $(result.element).attr('title') : null;
         return escapeMarkup(fullName || result.text);
       },
       formatSelection: function (data, _container, escapeMarkup) {
-        if (!data || data.id == null || data.id === '' || data.text == null || data.text === '') {
+        if (!data || data.id == null || data.id === '') {
+          return '';
+        }
+
+        if (data.text == null || data.text === '') {
           return '';
         }
 

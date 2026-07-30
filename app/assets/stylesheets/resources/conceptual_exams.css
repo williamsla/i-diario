@@ -180,6 +180,7 @@ table.table-condensed.table-bordered > tbody > tr > td.knowledge-area-table-data
 .concept-select-dropdown .select2-result-label {
   padding: 4px 8px;
   white-space: nowrap;
+  min-height: 1.4em;
 }
 
 .conceptual-exam-batch-legend {
