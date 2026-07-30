@@ -10,21 +10,20 @@ $(function () {
 
     $conceptSelects.select2({
       width: '56px',
-      allowClear: true,
-      placeholder: '',
+      allowClear: false,
       dropdownAutoWidth: true,
       dropdownCssClass: 'concept-select-dropdown',
       formatResult: function (result, _container, _query, escapeMarkup) {
         if (!result.id) {
-          return result.text;
+          return result.text || '—';
         }
 
         var fullName = result.element ? $(result.element).attr('title') : null;
         return escapeMarkup(fullName || result.text);
       },
       formatSelection: function (data, _container, escapeMarkup) {
-        if (!data || data.text == null || data.text === '') {
-          return undefined;
+        if (!data || data.id == null || data.id === '' || data.text == null || data.text === '') {
+          return '';
         }
 
         // Garante exibição da sigla com até 2 caracteres (ex.: PS, NS, S).
