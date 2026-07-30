@@ -16,7 +16,16 @@
       <tr>
         <td><%= @classroom.unity.name %></td>
         <td><%= @classroom.description %></td>
-        <td><%= @step.to_s %></td>
+        <td>
+          <% if @only_one_conceptual_avaliation %>
+            <%= t('conceptual_exams.index.batch_layout_annual_label') %>
+            <% if @annual_period_start.present? && @annual_period_end.present? %>
+              <span class="text-muted small">(<%= l(@annual_period_start) %> a <%= l(@annual_period_end) %>)</span>
+            <% end %>
+          <% else %>
+            <%= @step.to_s %>
+          <% end %>
+        </td>
         <td><%= l(@recorded_at) %></td>
       </tr>
     </tbody>

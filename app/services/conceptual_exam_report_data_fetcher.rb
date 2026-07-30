@@ -105,12 +105,17 @@ class ConceptualExamReportDataFetcher
   end
 
   def fetch_conceptual_exams
-    ConceptualExam
+    scope = ConceptualExam
       .by_classroom(classroom.id)
-      .by_step_number(step.step_number)
       .where(student_id: students.map(&:id))
       .includes(:conceptual_exam_values)
-      .index_by(&:student_id)
+
+    unless GeneralConfiguration.annual_conceptual_evaluation?
+      scope = scope.by_step_number(step.step_number)
+    end
+
+    # No modo anual, index_by mantém o mais recente por aluno.
+    scope.order(:student_id, updated_at: :asc).index_by(&:student_id)
   end
 
   def conceptual_exam_batch_layout?

@@ -19,7 +19,15 @@ class ConceptualExamsController < ApplicationController
 
     if @conceptual_exam_batch_layout
       @classroom = current_user_classroom
-      @steps = steps_fetcher(@classroom).steps if @classroom.present?
+      @only_one_conceptual_avaliation = GeneralConfiguration.annual_conceptual_evaluation?
+      if @classroom.present?
+        all_steps = steps_fetcher(@classroom).steps
+        @steps = @only_one_conceptual_avaliation ? Array(all_steps.first) : all_steps
+        if @only_one_conceptual_avaliation && all_steps.present?
+          @annual_period_start = all_steps.first.start_at
+          @annual_period_end = all_steps.last.end_at
+        end
+      end
       authorize ConceptualExam.new(classroom_id: @classroom&.id, student_id: nil)
     else
       @conceptual_exams = fetch_conceptual_exams
@@ -219,16 +227,23 @@ class ConceptualExamsController < ApplicationController
 
     @classroom = @batch_form.classroom
     @step = @batch_form.step
-    @recorded_at = batch_last_date_of_step(@step)
+    @only_one_conceptual_avaliation = GeneralConfiguration.annual_conceptual_evaluation?
+    all_steps = steps_fetcher(@classroom).steps
+
+    if @only_one_conceptual_avaliation
+      @step = all_steps.first || @step
+      @batch_form.step_id = @step.id if @step
+      @annual_period_start = all_steps.first&.start_at
+      @annual_period_end = all_steps.last&.end_at
+      @recorded_at = batch_last_date_of_step(all_steps.last || @step)
+    else
+      @recorded_at = batch_last_date_of_step(@step)
+    end
     @batch_form.recorded_at = @recorded_at
 
-    only_one = GeneralConfiguration.annual_conceptual_evaluation?
-    if only_one
-      # Na configuração "uma etapa só", step e recorded_at vêm do primeiro aluno; aqui usamos step_id do form
-      @step = StepsFetcher.new(@classroom).step_by_id(@batch_form.step_id)
-    end
-
-    @student_enrollments = batch_student_enrollments(@classroom, @step)
+    enrollment_start = @only_one_conceptual_avaliation ? @annual_period_start : @step.start_at
+    enrollment_end = @only_one_conceptual_avaliation ? @annual_period_end : @step.end_at
+    @student_enrollments = batch_student_enrollments(@classroom, enrollment_start, enrollment_end)
     student_ids = @student_enrollments.map(&:student_id).uniq
     @students = Student.where(id: student_ids).ordered
 
@@ -258,10 +273,15 @@ class ConceptualExamsController < ApplicationController
 
     @classroom = @batch_form.classroom
     @step = @batch_form.step
+    only_one = GeneralConfiguration.annual_conceptual_evaluation?
+
+    if only_one
+      @step = steps_fetcher(@classroom).steps.first || @step
+      @batch_form.step_id = @step.id if @step
+    end
+
     base_record_at = batch_valid_recorded_at(@step, @batch_form.recorded_at.to_date, @classroom)
     base_record_at = batch_last_date_of_step(@step) if base_record_at.blank?
-
-    only_one = GeneralConfiguration.annual_conceptual_evaluation?
     saved = 0
     errors = []
 
@@ -780,13 +800,19 @@ class ConceptualExamsController < ApplicationController
     end
   end
 
-  def batch_student_enrollments(classroom, step)
-    # Mesma base do relatório: todos os alunos conceituais da turma na etapa, sem filtrar por período.
+  def batch_student_enrollments(classroom, start_at, end_at = nil)
+    # Aceita step (legado) ou intervalo de datas (modo anual cobre o ano letivo inteiro).
+    if end_at.nil? && start_at.respond_to?(:start_at)
+      step = start_at
+      start_at = step.start_at
+      end_at = step.end_at
+    end
+
     StudentEnrollmentsList.new(
       classroom: classroom,
       discipline: current_user_discipline,
-      start_at: step.start_at,
-      end_at: step.end_at,
+      start_at: start_at,
+      end_at: end_at,
       score_type: StudentEnrollmentScoreTypeFilters::CONCEPT,
       search_type: :by_date_range,
       period: nil
