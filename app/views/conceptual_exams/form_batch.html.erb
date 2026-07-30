@@ -31,20 +31,38 @@
     <fieldset>
       <legend><%= t('.legend') %></legend>
 
-      <div class="table-responsive">
+      <div class="table-responsive conceptual-exam-batch-scroll">
         <table class="table table-bordered table-only-inner-bordered table-striped table-condensed table-hover" id="conceptual_exam_batch_table">
           <thead>
             <tr>
-              <th style="min-width: 180px;"><%= Student.human_attribute_name(:name) %></th>
+              <th class="batch-student-col"><%= Student.human_attribute_name(:name) %></th>
               <% @disciplines.each do |discipline| %>
-                <th class="discipline-cell" title="<%= discipline.description %>"><%= discipline.description %></th>
+                <th class="discipline-cell" title="<%= discipline.description %>">
+                  <%= truncate(discipline.description, length: 18, omission: '…') %>
+                </th>
               <% end %>
             </tr>
           </thead>
           <tbody>
             <% @students.each do |student| %>
               <tr data-student-id="<%= student.id %>">
-                <td><strong><%= student.name %></strong></td>
+                <td class="batch-student-col" title="<%= student.name %>">
+                  <div class="batch-student-cell">
+                    <span class="batch-student-name"><%= student.name %></span>
+                    <button type="button"
+                            class="btn btn-xs btn-default batch-replicate-btn"
+                            title="<%= t('.replicate_title') %>"
+                            aria-label="<%= t('.replicate_title') %>"
+                            data-empty-message="<%= t('.replicate_empty') %>"
+                            data-dialog-title="<%= t('.replicate_dialog_title') %>"
+                            data-dialog-message="<%= t('.replicate_dialog_message') %>"
+                            data-label-all="<%= t('.replicate_all') %>"
+                            data-label-blank="<%= t('.replicate_blank_only') %>"
+                            data-label-cancel="<%= t('.replicate_cancel') %>">
+                      <i class="fa fa-files-o"></i>
+                    </button>
+                  </div>
+                </td>
                 <% discipline_ids_for_student = @disciplines_by_student[student.id] || [] %>
                 <% exempted_ids = @exempted_by_student[student.id] || [] %>
                 <% existing_exam = @existing_by_student[student.id] %>
@@ -60,7 +78,7 @@
                         <% existing_value = concept_option_value(existing_values[discipline.id]&.value) %>
                         <%= select_tag "conceptual_exam_batch[students][#{student.id}][#{discipline.id}]",
                               options_for_select(concept_options, existing_value),
-                              class: 'form-control input-sm concept-select',
+                              class: 'concept-select',
                               data: { student_id: student.id, discipline_id: discipline.id },
                               include_blank: true %>
                       <% end %>
@@ -75,13 +93,16 @@
         </table>
       </div>
 
-      <tfoot class="exempted_students_from_discipline_legend">
-        <tr>
-          <td colspan="<%= @disciplines.count + 1 %>">
-            <span class="conceptual-exam-student-legend"><%= t('.exempted_legend') %></span>
-          </td>
-        </tr>
-      </tfoot>
+      <% concept_legend = concept_legend_items_for_classroom(@classroom, @students) %>
+      <% if concept_legend.any? %>
+        <p class="conceptual-exam-batch-legend">
+          <%= concept_legend.map { |short, full| "#{short}: #{full}" }.join(' · ') %>
+        </p>
+      <% end %>
+
+      <p class="conceptual-exam-batch-legend conceptual-exam-student-legend">
+        <%= t('.exempted_legend') %>
+      </p>
     </fieldset>
 
     <footer>

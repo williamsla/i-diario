@@ -87,6 +87,71 @@
     margin-bottom: 10px;
     color: #495057;
   }
+
+  .student-observations-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 6px;
+    border-radius: 50%;
+    font-weight: 600;
+    line-height: 1;
+    text-decoration: none !important;
+  }
+
+  a.student-observations-count {
+    background-color: #1D72B8;
+    color: #fff !important;
+    box-shadow: 0 1px 2px rgba(29, 114, 184, 0.35);
+    transition: background-color 0.15s ease, transform 0.15s ease;
+  }
+
+  a.student-observations-count:hover,
+  a.student-observations-count:focus {
+    background-color: #155a94;
+    color: #fff !important;
+    transform: scale(1.08);
+  }
+
+  span.student-observations-count {
+    color: #6c757d;
+    background: transparent;
+  }
+
+  .student-observations-cell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .student-observations-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid #ced4da;
+    border-radius: 50%;
+    background: #fff;
+    color: #495057;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .student-observations-add:hover,
+  .student-observations-add:focus {
+    background-color: #1D72B8;
+    border-color: #1D72B8;
+    color: #fff;
+  }
 </style>
 
 <div class="frequency-report-table">
@@ -122,6 +187,10 @@
           <input type="checkbox" name="risk_classifications[]" value="Crítico" <%= 'checked' if @selected_classifications.include?('Crítico') %>>
           <span style="background-color: #dc3545; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600;">Crítico</span>
         </label>
+        <label title="Professor(a) fez menos de 15 registros de frequência na turma">
+          <input type="checkbox" name="risk_classifications[]" value="Dados insuficientes" <%= 'checked' if @selected_classifications.include?('Dados insuficientes') %>>
+          <span style="background-color: #6c757d; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600;">Dados insuficientes</span>
+        </label>
       </div>
     </form>
   </div>
@@ -147,6 +216,7 @@
             <th style="text-align: center;">Percentual de<br>Frequência no Ano (%)</th>
             <th style="text-align: center;">Última<br>Presença</th>
             <th style="text-align: center;">Classificação<br>de Risco</th>
+            <th style="text-align: center;"><%= t('pedagogical_trackings.index.observations') %></th>
           </tr>
         </thead>
         <tbody>
@@ -184,13 +254,60 @@
                                   '#ffc107' # Amarelo
                                 when 'Crítico'
                                   '#dc3545' # Vermelho
+                                when 'Dados insuficientes'
+                                  '#6c757d' # Cinza
                                 else
                                   '#fd7e14' # Laranja
                                 end
                 %>
-                <span style="background-color: <%= risk_color %>; color: white; padding: 4px 8px; border-radius: 4px; font-weight: 600; display: inline-block; white-space: nowrap;">
+                <span
+                  style="background-color: <%= risk_color %>; color: white; padding: 4px 8px; border-radius: 4px; font-weight: 600; display: inline-block; white-space: nowrap;"
+                  <% if student[:risk_classification] == 'Dados insuficientes' %>
+                    title="Professor(a) fez menos de 15 registros de frequência na turma"
+                  <% end %>
+                >
                   <%= student[:risk_classification] %>
                 </span>
+              </td>
+              <td style="text-align: center;">
+                <div class="student-observations-cell">
+                  <% observations_count = student[:observations_count].to_i %>
+                  <% if observations_count.positive? %>
+                    <a
+                      href="<%= student_observations_pdf_pedagogical_trackings_path(
+                        student_id: student[:student_id],
+                        classroom_id: classroom_data[:classroom_id],
+                        unity_id: params[:unity_id]
+                      ) %>"
+                      target="_blank"
+                      class="student-observations-count"
+                      data-student-id="<%= student[:student_id] %>"
+                      data-classroom-id="<%= classroom_data[:classroom_id] %>"
+                      title="<%= t('pedagogical_trackings.index.observations_pdf_hint') %>"
+                    >
+                      <%= observations_count %>
+                    </a>
+                  <% else %>
+                    <span
+                      class="student-observations-count"
+                      data-student-id="<%= student[:student_id] %>"
+                      data-classroom-id="<%= classroom_data[:classroom_id] %>"
+                    >0</span>
+                  <% end %>
+                  <button
+                    type="button"
+                    class="student-observations-add"
+                    onclick="openObservationFromFrequencyModal(this)"
+                    data-student-id="<%= student[:student_id] %>"
+                    data-student-name="<%= student[:student_name] %>"
+                    data-classroom-id="<%= classroom_data[:classroom_id] %>"
+                    data-unity-id="<%= params[:unity_id] %>"
+                    title="<%= t('pedagogical_trackings.create_observation.button_title') %>"
+                    aria-label="<%= t('pedagogical_trackings.create_observation.button_title') %>"
+                  >
+                    +
+                  </button>
+                </div>
               </td>
             </tr>
           <% end %>

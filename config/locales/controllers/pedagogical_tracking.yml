@@ -27,6 +27,8 @@ pt-BR:
       analyze: 'Analisar'
       action: 'Ação'
       actions: 'Ações'
+      observations: 'Observações'
+      observations_pdf_hint: 'Gerar PDF com todas as observações do aluno'
       resume_entries: 'Resumo de lançamentos'
       absent_students: 'Alunos faltosos'
       see_classrooms: 'Ver turmas'
@@ -40,6 +42,18 @@ pt-BR:
       usage_count:
         one: '1 registro'
         other: '%{count} registros'
+    create_observation:
+      title: 'Registrar observação'
+      button: 'Adicionar observação'
+      button_title: 'Registrar observação'
+      cancel: 'Cancelar'
+      success: 'Observação registrada com sucesso.'
+      require_teacher: 'É necessário assumir um perfil de professor para registrar a observação.'
+      invalid_params: 'Aluno ou turma inválidos.'
+      student_label: 'Aluno: %{name}'
+    student_observations_pdf:
+      not_found: 'Nenhuma observação encontrada para o aluno.'
+      filename: 'observacoes-%{student}'
     resume:
       summary_total: 'Lançamentos'
       summary_pending: 'Com pendência'

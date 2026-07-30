@@ -28,7 +28,7 @@ class ObservationRecordReport < BaseReportOld
     discipline_header = make_row_header_cell(t(:discipline), width: 70)
     classroom_header = make_row_header_cell(t(:classroom))
 
-    discipline_name = if @form.discipline_id.eql?('all')
+    discipline_name = if @form.discipline_id.blank? || @form.discipline_id.eql?('all')
                         'Todas'
                       elsif @form.discipline.present?
                         @form.discipline.to_s
@@ -36,7 +36,11 @@ class ObservationRecordReport < BaseReportOld
                         t(:empty_discipline)
                       end
 
-    classroom_name = @form.classroom_id.eql?('all') ? 'Todas' : @form.classroom.to_s
+    classroom_name = if @form.classroom_id.blank? || @form.classroom_id.eql?('all')
+                       'Todas'
+                     else
+                       @form.classroom.to_s
+                     end
 
     discipline_cell = make_content_cell(discipline_name, width: 70)
     classroom_cell = make_content_cell(classroom_name)
@@ -45,7 +49,7 @@ class ObservationRecordReport < BaseReportOld
     teacher_cell = make_content_cell(@form.teacher.to_s)
 
     period_cell = make_content_cell(
-      t(:period_content, start_at: @form.start_at, end_at: form.end_at)
+      t(:period_content, start_at: @form.start_at, end_at: @form.end_at)
     )
 
     table_data = [
@@ -57,6 +61,13 @@ class ObservationRecordReport < BaseReportOld
       [teacher_header, period_header],
       [teacher_cell, period_cell]
     ]
+
+    if @form.student.present?
+      student_header = make_row_header_cell(t(:student), colspan: 2)
+      student_cell = make_content_cell(@form.student.to_s, colspan: 2)
+      table_data << [student_header]
+      table_data << [student_cell]
+    end
 
     table(table_data, width: bounds.width, header: true) do
       cells.border_width = 0.25
@@ -93,11 +104,19 @@ class ObservationRecordReport < BaseReportOld
 
     @form.observation_diary_records.each do |record|
       record.notes.each do |note|
-        students = note.students.map(&:to_s).join(', ')
+        next if @form.student.present? && note.students.map(&:id).exclude?(@form.student.id)
+
+        students = if @form.student.present?
+                     @form.student.to_s
+                   else
+                     note.students.map(&:to_s).join(', ')
+                   end
 
         date_cell = make_row_cell(record.localized.date, width: 62)
         students_cell = make_row_cell(students, width: 207)
-        observation_cell = make_row_cell(note.description)
+        observation_text = note.description
+        observation_text = "#{t(:active_search)}: #{observation_text}" if record.active_search?
+        observation_cell = make_row_cell(observation_text)
 
         general_information_table_data << [
           date_cell,

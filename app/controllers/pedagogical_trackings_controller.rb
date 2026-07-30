@@ -493,10 +493,16 @@ class PedagogicalTrackingsController < ApplicationController
           .group(:student_id)
           .maximum('daily_frequencies.frequency_date')
 
-        # Calcular total de dias letivos no período (uma única vez por turma)
-        total_school_days = UnitySchoolDay.by_unity_id(classroom.unity_id)
-                                          .by_date_between(year_start_date, end_date)
-                                          .count
+        observations_count_by_student = ObservationDiaryRecordNoteStudent
+          .joins(observation_diary_record_note: :observation_diary_record)
+          .where(
+            observation_diary_records: {
+              classroom_id: classroom.id,
+              date: year_start_date..end_date
+            }
+          )
+          .group(:student_id)
+          .count
 
         students_data = []
 
@@ -512,23 +518,24 @@ class PedagogicalTrackingsController < ApplicationController
           # Buscar faltas e presenças do ano (já calculadas no banco)
           absences_year = absences_year_by_student[student_id] || 0
           presences_year = presences_year_by_student[student_id] || 0
-          
-          # Calcular percentual de frequência no ano
-          # Usar total de registros (presenças + faltas) como base
+
+          # Sem registros de frequência (presença/falta), não há base para calcular o percentual.
+          # Evita marcar como "Crítico" alunos recém-matriculados sem lançamentos ainda.
           total_records = presences_year + absences_year
-          frequency_percentage = if total_records > 0
-                                   (presences_year.to_f / total_records * 100).round(1)
-                                 elsif total_school_days > 0
-                                   # Se não há registros, usar dias letivos como base
-                                   (presences_year.to_f / total_school_days * 100).round(1)
-                                 else
-                                   0.0
-                                 end
+          next if total_records.zero?
+
+          frequency_percentage = (presences_year.to_f / total_records * 100).round(1)
+
+          # Amostra mínima (~3 semanas letivas) para classificar risco pelo % anual.
+          # Abaixo disso o percentual oscila demais (ex.: 3 faltas e 2 presenças = 40%).
+          min_frequency_records = 15
+          has_sufficient_data = total_records >= min_frequency_records
 
           # Filtrar alunos baseado no filtro principal selecionado
           has_3_or_more_absences = absences_15_days >= 3
+          # % < 80 entra mesmo com amostra pequena (classificado como "Dados insuficientes")
           has_low_frequency = frequency_percentage < 80
-          
+
           case @main_filter
           when 'absences_only'
             # Apenas alunos com 3+ faltas nos últimos 15 dias
@@ -543,17 +550,19 @@ class PedagogicalTrackingsController < ApplicationController
             # Padrão: apenas alunos com menos de 80% de frequência no ano
             next unless has_low_frequency
           end
-          
+
           # Data da última presença (já calculada no banco)
           last_presence_date = last_presence_by_student[student_id]
-          
+
           # Classificação de risco baseada no percentual de frequência
-          # Considerando que o mínimo é 75%, alunos entre 75% e 80% estão no limite e precisam de atenção
+          # Dados insuficientes: menos de 15 registros (presença + falta)
           # >= 80%: Adequado (margem de segurança acima do mínimo)
-          # >= 75% e < 80%: Atenção Limite (no limite mínimo, precisa de monitoramento)
-          # >= 50% e < 75%: Atenção (abaixo do mínimo, mas não crítico)
+          # >= 75% e < 80%: Atenção (no limite mínimo, precisa de monitoramento)
+          # >= 50% e < 75%: Abaixo do Mínimo
           # < 50%: Crítico
-          risk_classification = if frequency_percentage >= 80
+          risk_classification = if !has_sufficient_data
+                                  'Dados insuficientes'
+                                elsif frequency_percentage >= 80
                                   'Adequado'
                                 elsif frequency_percentage >= 75
                                   'Atenção'
@@ -571,7 +580,8 @@ class PedagogicalTrackingsController < ApplicationController
             absences_year: absences_year,
             frequency_percentage: frequency_percentage,
             last_presence_date: last_presence_date,
-            risk_classification: risk_classification
+            risk_classification: risk_classification,
+            observations_count: observations_count_by_student[student_id] || 0
           }
         end
 
@@ -594,6 +604,130 @@ class PedagogicalTrackingsController < ApplicationController
       Rails.logger.error e.backtrace.join("\n")
       render plain: "Erro ao carregar relatório: #{e.message}", status: :internal_server_error
     end
+  end
+
+  def create_observation
+    unless current_teacher
+      return render json: {
+        success: false,
+        errors: [t('pedagogical_trackings.create_observation.require_teacher')]
+      }, status: :unprocessable_entity
+    end
+
+    classroom = Classroom.find_by(id: params[:classroom_id])
+    student = Student.find_by(id: params[:student_id])
+
+    if classroom.blank? || student.blank?
+      return render json: {
+        success: false,
+        errors: [t('pedagogical_trackings.create_observation.invalid_params')]
+      }, status: :unprocessable_entity
+    end
+
+    school_calendar = StepsFetcher.new(classroom).school_calendar
+    general_record = !current_user.teacher?
+
+    observation = ObservationDiaryRecord.new(
+      school_calendar: school_calendar,
+      teacher: current_teacher,
+      classroom: classroom,
+      unity_id: classroom.unity_id,
+      date: parse_observation_date(params[:date]),
+      active_search: ActiveRecord::Type::Boolean.new.cast(params[:active_search]),
+      discipline_id: general_record ? nil : current_user_discipline&.id,
+      requires_discipline: !general_record
+    )
+
+    note = observation.notes.build(description: params[:description].to_s.strip)
+    note.note_students.build(student: student)
+
+    if observation.save
+      year_start_date = if school_calendar&.steps&.any?
+                          school_calendar.first_day
+                        else
+                          Date.new(current_user_school_year, 1, 1)
+                        end
+
+      observations_count = ObservationDiaryRecordNoteStudent
+        .joins(observation_diary_record_note: :observation_diary_record)
+        .where(
+          student_id: student.id,
+          observation_diary_records: {
+            classroom_id: classroom.id,
+            date: year_start_date..Date.current
+          }
+        )
+        .count
+
+      render json: {
+        success: true,
+        message: t('pedagogical_trackings.create_observation.success'),
+        observations_count: observations_count,
+        student_id: student.id,
+        classroom_id: classroom.id
+      }
+    else
+      render json: {
+        success: false,
+        errors: observation.errors.full_messages
+      }, status: :unprocessable_entity
+    end
+  end
+
+  def student_observations_pdf
+    unless current_teacher
+      return render plain: t('pedagogical_trackings.create_observation.require_teacher'),
+                    status: :unprocessable_entity
+    end
+
+    classroom = Classroom.find_by(id: params[:classroom_id], year: current_user_school_year)
+    student = Student.find_by(id: params[:student_id])
+
+    if classroom.blank? || student.blank?
+      return render plain: t('pedagogical_trackings.create_observation.invalid_params'),
+                    status: :unprocessable_entity
+    end
+
+    school_calendar = StepsFetcher.new(classroom).school_calendar
+    start_at = if school_calendar&.steps&.any?
+                 school_calendar.first_day
+               else
+                 Date.new(current_user_school_year, 1, 1)
+               end
+    end_at = if school_calendar&.steps&.any?
+               [Date.current, school_calendar.last_day].min
+             else
+               Date.current
+             end
+
+    form = ObservationRecordReportForm.new(
+      teacher_id: current_teacher.id,
+      unity_id: classroom.unity_id,
+      classroom_id: classroom.id,
+      discipline_id: 'all',
+      student_id: student.id,
+      start_at: start_at,
+      end_at: end_at,
+      current_user_id: current_user.id
+    ).localized
+
+    unless form.valid?
+      message = form.records_not_found_message.presence ||
+                form.errors.full_messages.to_sentence.presence ||
+                t('pedagogical_trackings.student_observations_pdf.not_found')
+      return render plain: message, status: :unprocessable_entity
+    end
+
+    report = ObservationRecordReport.new(current_entity_configuration, form).build
+    filename = t(
+      'pedagogical_trackings.student_observations_pdf.filename',
+      student: student.name.parameterize
+    )
+    send_pdf(filename, report.render)
+  rescue StandardError => e
+    Rails.logger.error "Erro no student_observations_pdf: #{e.message}"
+    Rails.logger.error e.backtrace.join("\n")
+    render plain: "Erro ao gerar PDF: #{e.message}", status: :internal_server_error
   end
 
   def teachers
@@ -708,6 +842,16 @@ class PedagogicalTrackingsController < ApplicationController
   end
 
   private
+
+  def parse_observation_date(value)
+    return Time.zone.today if value.blank?
+
+    Date.strptime(value.to_s, '%d/%m/%Y')
+  rescue ArgumentError
+    value.to_date
+  rescue ArgumentError, TypeError
+    Time.zone.today
+  end
 
   def load_tag_cloud_filters
     @tag_cloud_grades = grades_to_select(tag_cloud_accessible_grades)

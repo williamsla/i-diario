@@ -5,7 +5,7 @@ class ObservationDiaryRecord < ApplicationRecord
   include TeacherRelationable
 
   not_updatable only: [:classroom_id, :discipline_id]
-  teacher_relation_columns only: [:classroom, :discipline]
+  teacher_relation_columns only: [:classroom]
 
   acts_as_copy_target
   audited
@@ -13,7 +13,7 @@ class ObservationDiaryRecord < ApplicationRecord
 
   before_destroy :valid_for_destruction?, prepend: true
 
-  attr_accessor :unity_id
+  attr_accessor :unity_id, :requires_discipline
 
   delegate :unity, to: :classroom, allow_nil: true
 
@@ -42,14 +42,10 @@ class ObservationDiaryRecord < ApplicationRecord
   validates :school_calendar, presence: true
   validates :teacher, presence: true
   validates :classroom, presence: true
-  validates :discipline, presence: true, on: :create
+  validates :discipline, presence: true, on: :create, if: :requires_discipline?
   validates(
     :date,
     presence: true,
-    uniqueness: {
-      scope: [:school_calendar_id, :teacher_id, :classroom_id, :discipline_id],
-      conditions: -> { where(discarded_at: nil) }
-    },
     not_in_future: true,
     school_calendar_day: true,
     posting_date: true
@@ -58,6 +54,10 @@ class ObservationDiaryRecord < ApplicationRecord
   validates :unity_id, presence: true
 
   before_validation :self_assign_to_notes
+
+  def requires_discipline?
+    requires_discipline
+  end
 
   def unity_id
     classroom.try(:unity_id) || @unity_id
