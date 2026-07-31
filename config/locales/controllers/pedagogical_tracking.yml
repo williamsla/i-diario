@@ -29,6 +29,8 @@ pt-BR:
       actions: 'Ações'
       observations: 'Observações'
       observations_pdf_hint: 'Gerar PDF com todas as observações do aluno'
+      top_absence_disciplines: 'Disciplinas com<br>mais faltas'
+      top_absence_disciplines_hint: 'Disciplinas com maior número de faltas no ano'
       resume_entries: 'Resumo de lançamentos'
       absent_students: 'Alunos faltosos'
       see_classrooms: 'Ver turmas'
