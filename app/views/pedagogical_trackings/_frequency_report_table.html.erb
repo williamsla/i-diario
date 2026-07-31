@@ -209,13 +209,19 @@
       <table>
         <thead>
           <tr>
-            <th style="text-align: left;">Sequencial</th>
+            <th style="text-align: left;">#</th>
             <th style="text-align: left;">Nome<br>do aluno</th>
             <th style="text-align: center;">Faltas<br>(últimos 15 dias)</th>
             <th style="text-align: center;">Faltas Acumuladas<br>no Ano</th>
             <th style="text-align: center;">Percentual de<br>Frequência no Ano (%)</th>
             <th style="text-align: center;">Última<br>Presença</th>
             <th style="text-align: center;">Classificação<br>de Risco</th>
+            <th
+              style="text-align: left;"
+              title="<%= t('pedagogical_trackings.index.top_absence_disciplines_hint') %>"
+            >
+              <%= t('pedagogical_trackings.index.top_absence_disciplines').html_safe %>
+            </th>
             <th style="text-align: center;"><%= t('pedagogical_trackings.index.observations') %></th>
           </tr>
         </thead>
@@ -268,6 +274,14 @@
                 >
                   <%= student[:risk_classification] %>
                 </span>
+              </td>
+              <td style="text-align: left; font-size: 12px; line-height: 1.4;">
+                <% top_disciplines = student[:top_absence_disciplines] || [] %>
+                <% if top_disciplines.any? %>
+                  <%= top_disciplines.map { |d| "#{d[:name]} (#{d[:count]})" }.join(', ') %>
+                <% else %>
+                  -
+                <% end %>
               </td>
               <td style="text-align: center;">
                 <div class="student-observations-cell">

@@ -484,6 +484,31 @@ class PedagogicalTrackingsController < ApplicationController
           .group(:student_id)
           .count("DISTINCT daily_frequencies.frequency_date")
 
+        # Buscar faltas do ano por aluno e disciplina (dias únicos por disciplina)
+        absences_by_student_discipline = DailyFrequencyStudent
+          .joins(:daily_frequency)
+          .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: year_start_date..end_date })
+          .where(active: true)
+          .where("COALESCE(daily_frequency_students.present, 'f') = 'f'")
+          .group('daily_frequency_students.student_id', 'daily_frequencies.discipline_id')
+          .count('DISTINCT daily_frequencies.frequency_date')
+
+        absences_by_discipline_by_student = Hash.new { |h, k| h[k] = [] }
+        discipline_ids = []
+
+        absences_by_student_discipline.each do |(student_id, discipline_id), count|
+          absences_by_discipline_by_student[student_id] << {
+            discipline_id: discipline_id,
+            count: count
+          }
+          discipline_ids << discipline_id if discipline_id.present?
+        end
+
+        disciplines_by_id = Discipline
+          .includes(:knowledge_area)
+          .where(id: discipline_ids.uniq)
+          .index_by(&:id)
+
         # Buscar última data de presença por aluno (do ano inteiro)
         last_presence_by_student = DailyFrequencyStudent
           .joins(:daily_frequency)
@@ -572,6 +597,20 @@ class PedagogicalTrackingsController < ApplicationController
                                   'Crítico'
                                 end
 
+          # Top 3 disciplinas com mais faltas no ano
+          top_absence_disciplines = absences_by_discipline_by_student[student_id]
+            .map do |item|
+              name = if item[:discipline_id].blank?
+                       'Frequência Geral'
+                     else
+                       disciplines_by_id[item[:discipline_id]]&.to_s.presence || '—'
+                     end
+
+              { name: name, count: item[:count] }
+            end
+            .sort_by { |item| [-item[:count], item[:name]] }
+            .first(3)
+
           students_data << {
             student_id: student.id,
             student_name: student.name,
@@ -581,7 +620,8 @@ class PedagogicalTrackingsController < ApplicationController
             frequency_percentage: frequency_percentage,
             last_presence_date: last_presence_date,
             risk_classification: risk_classification,
-            observations_count: observations_count_by_student[student_id] || 0
+            observations_count: observations_count_by_student[student_id] || 0,
+            top_absence_disciplines: top_absence_disciplines
           }
         end
 
