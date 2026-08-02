@@ -61,6 +61,13 @@ class DisciplineContentRecord < ActiveRecord::Base
     end
   }
   scope :by_class_number, lambda { |class_number| where(class_number: class_number) }
+  scope :by_student_id, lambda { |student_id|
+    if student_id.to_i.positive?
+      joins(:content_record).where(content_records: { student_id: student_id })
+    else
+      joins(:content_record).where(content_records: { student_id: nil })
+    end
+  }
   scope :order_by_classroom, lambda {
     joins(content_record: :classroom).order(Classroom.arel_table[:description].desc)
   }
@@ -111,6 +118,7 @@ class DisciplineContentRecord < ActiveRecord::Base
       .by_classroom_id(content_record.classroom_id)
       .by_discipline_id(discipline_id)
       .by_date(content_record.record_date)
+      .by_student_id(content_record.student_id)
 
     query = query.where.not(id: id) if persisted?
 
@@ -128,10 +136,11 @@ class DisciplineContentRecord < ActiveRecord::Base
                                                        .by_classroom_id(content_record.classroom_id)
                                                        .by_discipline_id(discipline_id)
                                                        .by_date(content_record.record_date)
+                                                       .by_student_id(content_record.student_id)
                                                        .by_class_number(class_number)
-    
+
     discipline_content_records = discipline_content_records.where.not(id: id) if persisted?
-    
+
     if discipline_content_records.any?
       errors.add(:class_number, I18n.t('activerecord.errors.models.discipline_content_record.attributes.discipline_id.class_number_in_use'))
     end

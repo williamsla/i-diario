@@ -33,6 +33,12 @@
                                      disabled: true %>
           </div>
         <% end %>
+
+        <% if @discipline_content_record.content_record.student.present? %>
+          <div class="col col-sm-4">
+            <%= content_record.input :student_id, as: :select2, elements: [@discipline_content_record.content_record.student], readonly: true %>
+          </div>
+        <% end %>
       </div>
 
       <div class="row">

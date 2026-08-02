@@ -17,6 +17,7 @@ $(function () {
   var $classroom = $('#discipline_content_record_content_record_attributes_classroom_id');
   var $discipline = $('#discipline_content_record_discipline_id');
   var $recordDate = $('#discipline_content_record_content_record_attributes_record_date');
+  var $student = $('#discipline_content_record_content_record_attributes_student_id');
   var $class_number = $('#discipline_content_record_class_number');
   var idContentsCounter = 1;
   var isDisciplineReadonly = $discipline.prop('readonly');
@@ -190,6 +191,7 @@ $(function () {
       classroom_id: classroom_id,
       discipline_id: discipline_id,
       date: date,
+      student_id: getInputValue($student),
       fetch_for_discipline_records: true,
       format: "json"
     }
@@ -227,6 +229,7 @@ $(function () {
       classroom_id: classroom_id,
       discipline_id: discipline_id,
       date: date,
+      student_id: getInputValue($student),
       fetch_for_discipline_records: true,
       format: "json"
     }
@@ -270,6 +273,10 @@ $(function () {
     loadContents();
     countLessons();
     checkTeacherAbsenceForContent();
+  });
+
+  $student.on('change', function () {
+    loadContents();
   });
 
   function checkTeacherAbsenceForContent() {

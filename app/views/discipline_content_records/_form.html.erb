@@ -84,6 +84,14 @@
         <% end %>
       </div>
 
+      <% if @students&.any? %>
+        <div class="row">
+          <div class="col col-sm-4">
+            <%= content_record.input :student_id, as: :select2, elements: @students %>
+          </div>
+        </div>
+      <% end %>
+
     </fieldset>
     <fieldset>
       <legend><%= @discipline_content_record.class.human_attribute_name(:contents) %></legend>

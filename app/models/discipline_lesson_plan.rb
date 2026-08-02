@@ -30,6 +30,13 @@ class DisciplineLessonPlan < ApplicationRecord
   }
   scope :by_discipline_id, ->(discipline_id) { where(discipline_id: discipline_id) }
   scope :by_date, ->(date) { by_date_query(date) }
+  scope :by_student_id, lambda { |student_id|
+    if student_id.to_i > 0
+      joins(:lesson_plan).where(lesson_plans: { student_id: student_id })
+    else
+      joins(:lesson_plan).where('lesson_plans.student_id IS NULL')
+    end
+  }
   scope :by_date_range, lambda { |start_at, end_at|
     joins(:lesson_plan).where('start_at <= ? AND end_at >= ?', end_at.to_date, start_at.to_date)
   }

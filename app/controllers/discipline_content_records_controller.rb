@@ -400,7 +400,7 @@ class DisciplineContentRecordsController < ApplicationController
   def fetch_discipline_content_records_by_user
     @discipline_content_records =
       apply_scopes(DisciplineContentRecord
-        .includes(content_record: [:classroom, :teacher, :contents, :objectives])
+        .includes(content_record: [:classroom, :teacher, :student, :contents, :objectives])
         .by_unity_id(current_unity.id)
         .by_classroom_id(@classrooms.map(&:id))
         .by_discipline_id(@disciplines.map(&:id))
@@ -500,6 +500,7 @@ class DisciplineContentRecordsController < ApplicationController
         :classroom_id,
         :record_date,
         :daily_activities_record,
+        :student_id,
         :content,
         :objective
         # NÃO permitir content_ids e objective_ids aqui - são processados pelos métodos content_ids() e objective_ids()
@@ -525,11 +526,14 @@ class DisciplineContentRecordsController < ApplicationController
     classroom = @discipline_content_record.content_record.classroom
     discipline = @discipline_content_record.discipline
     date = @discipline_content_record.content_record.record_date
-    
+    student_id = @discipline_content_record.content_record.student_id
+
     # Busca conteúdos dos planos de aula/ensino da disciplina
     plan_contents = []
     if teacher && classroom && discipline && date
-      plan_contents = ContentsForDisciplineRecordFetcher.new(teacher, classroom, discipline, date).fetch
+      plan_contents = ContentsForDisciplineRecordFetcher.new(
+        teacher, classroom, discipline, date, student_id
+      ).fetch
       plan_contents.each { |content| content.is_editable = false }
     end
     
@@ -571,11 +575,14 @@ class DisciplineContentRecordsController < ApplicationController
     classroom = @discipline_content_record.content_record.classroom
     discipline = @discipline_content_record.discipline
     date = @discipline_content_record.content_record.record_date
-    
+    student_id = @discipline_content_record.content_record.student_id
+
     # Busca objetivos dos planos de aula/ensino da disciplina
     plan_objectives = []
     if teacher && classroom && discipline && date
-      plan_objectives = ContentsForDisciplineRecordFetcher.new(teacher, classroom, discipline, date).fetch_objectives
+      plan_objectives = ContentsForDisciplineRecordFetcher.new(
+        teacher, classroom, discipline, date, student_id
+      ).fetch_objectives
       plan_objectives.each { |objective| objective.is_editable = false }
     end
 
@@ -638,9 +645,31 @@ class DisciplineContentRecordsController < ApplicationController
     # retorna os registros de todas as disciplinas e turmas do professor, somente na visão do professor
     # return fetch_linked_by_teacher unless current_user.current_role_is_admin_or_employee?
 
+    fetch_students_with_disabilities
     @classrooms ||= [current_user_classroom]
     fetch_linked_by_teacher
-    
+  end
+
+  def student_enrollments
+    StudentEnrollmentsList.new(
+      classroom: current_user_classroom,
+      discipline: current_user_discipline,
+      search_type: :by_year
+    ).student_enrollments
+  end
+
+  def fetch_students_with_disabilities
+    @students = []
+
+    @student_enrollments ||= student_enrollments
+
+    @student_ids = @student_enrollments.collect(&:student_id)
+
+    if is_aee == true
+      @students = Student.where(id: @student_ids).ordered
+    else
+      @students = Student.where(id: @student_ids).where(uses_differentiated_exam_rule: true).ordered
+    end
   end
 
   def fetch_linked_by_teacher
