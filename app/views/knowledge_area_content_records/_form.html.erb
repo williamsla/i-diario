@@ -9,6 +9,10 @@
         id: 'knowledge-area-content-record-form',
         data: {
           knowledge_areas_for_record_date_url: knowledge_areas_for_record_date_knowledge_area_content_records_path,
+          find_existing_url: find_existing_knowledge_area_content_records_path(format: :json),
+          new_url: new_knowledge_area_content_record_path,
+          edit_url_template: edit_knowledge_area_content_record_path('__ID__'),
+          record_id: @knowledge_area_content_record.persisted? ? @knowledge_area_content_record.id : nil,
           modal: params[:modal] == 'true'
         }
       } do |f| %>
@@ -42,9 +46,10 @@
       <div class="row">
         <%= content_record.input :unity_id, as: :hidden, input_html: { value: current_user.current_unity_id } %>
         <%= content_record.input :classroom_id, as: :hidden, input_html: { value: current_user.current_classroom_id } %>
-        
+
+        <% modal_knowledge_area_ids = params[:knowledge_area_id].presence || @knowledge_area_content_record.knowledge_area_ids %>
         <% if params[:modal] == 'true' %>
-          <%= f.hidden_field :knowledge_area_ids, value: @knowledge_area_content_record.knowledge_area_ids %>
+          <%= f.hidden_field :knowledge_area_ids, value: modal_knowledge_area_ids %>
         <% elsif @knowledge_areas.present? && @knowledge_areas.count == 1 %>
           <%= f.hidden_field :knowledge_area_ids, value: @knowledge_areas.first.id %>
         <% else %>
@@ -57,7 +62,10 @@
 
       <div class="row">
         <% if params[:modal] == 'true' %>
-          <%= content_record.input :record_date, as: :hidden, input_html: {value: @knowledge_area_content_record.content_record.record_date} %>
+          <%= content_record.input :record_date, as: :hidden,
+                input_html: {
+                  value: l(@knowledge_area_content_record.content_record.record_date.to_date)
+                } %>
         <% else %>
           <div class="col col-sm-4">
             <%= content_record.input :record_date, as: :date %>

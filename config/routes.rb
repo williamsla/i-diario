@@ -260,6 +260,7 @@ Rails.application.routes.draw do
       collection do
         post :clone
         get :knowledge_areas_for_record_date
+        get :find_existing
       end
     end
     resources :classrooms, only: [:index, :show] do
