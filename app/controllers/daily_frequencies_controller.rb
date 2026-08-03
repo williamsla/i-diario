@@ -1425,9 +1425,9 @@ class DailyFrequenciesController < ApplicationController
   end
 
   def get_discipline_content_record_id_by_date(discipline_id)
-    # Em AEE o conteúdo é por aluno: sempre abre "novo" para não sobrescrever
+    # Com conteúdo por aluno (AEE ou NEE), sempre abre "novo" para não sobrescrever
     # o registro de outro aluno ao reabrir o primeiro do dia/disciplina.
-    return 0 if is_aee
+    return 0 if content_record_by_student_enabled?
 
     @disciplines_with_contents ||= fetch_disciplines_with_contents_by_day
     result = @disciplines_with_contents.select { |c| c.discipline_id == discipline_id }.map(&:id)
@@ -1437,9 +1437,9 @@ class DailyFrequenciesController < ApplicationController
   helper_method :get_discipline_content_record_id_by_date
 
   def get_knowledge_area_content_record_id_by_date(knowledge_area_id)
-    # Em AEE o conteúdo é por aluno: sempre abre "novo" para não sobrescrever
+    # Com conteúdo por aluno (AEE ou NEE), sempre abre "novo" para não sobrescrever
     # o registro de outro aluno ao reabrir o primeiro do dia/área.
-    return 0 if is_aee
+    return 0 if content_record_by_student_enabled?
 
     @knowledge_areas_with_contents ||= fetch_knowledge_areas_with_contents_by_day
     Rails.logger.info("Knowledge areas with contents: #{@knowledge_areas_with_contents.inspect}")

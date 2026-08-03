@@ -254,6 +254,7 @@ Rails.application.routes.draw do
         post :clone
         get :check_teacher_absence
         get :disciplines_for_record_date
+        get :find_existing
       end
     end
     resources :knowledge_area_content_records, concerns: :history do

@@ -247,6 +247,27 @@ class ApplicationController < ActionController::Base
   end
   helper_method :is_aee
 
+  # Conteúdo por aluno: turma AEE (todos) ou regular com aluno de regra diferenciada (NEE)
+  def content_record_by_student_enabled?
+    return @content_record_by_student_enabled if defined?(@content_record_by_student_enabled)
+
+    @content_record_by_student_enabled =
+      if is_aee
+        true
+      elsif current_user_classroom.blank?
+        false
+      else
+        student_ids = StudentEnrollmentsList.new(
+          classroom: current_user_classroom,
+          discipline: current_user_discipline,
+          search_type: :by_year
+        ).student_enrollments.map(&:student_id)
+
+        Student.where(id: student_ids, uses_differentiated_exam_rule: true).exists?
+      end
+  end
+  helper_method :content_record_by_student_enabled?
+
   def show_aee_area_label?
     is_aee && GeneralConfiguration.current.show_aee_area_label_in_knowledge_area_content_record
   end

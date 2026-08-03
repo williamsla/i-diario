@@ -59,6 +59,35 @@ class DisciplineContentRecordsController < ApplicationController
     }
   end
 
+  def find_existing
+    authorize DisciplineContentRecord.new, :new?
+
+    classroom_id = params[:classroom_id].presence || current_user_classroom&.id
+    record_date = parse_lessons_board_date(params[:record_date])
+    discipline_id = params[:discipline_id].presence
+    student_id = params[:student_id].presence
+    class_number = params[:class_number].presence
+
+    if classroom_id.blank? || record_date.blank? || discipline_id.blank?
+      render json: { id: nil }
+      return
+    end
+
+    query = DisciplineContentRecord
+            .by_classroom_id(classroom_id)
+            .by_date(record_date)
+            .by_discipline_id(discipline_id)
+            .by_student_id(student_id)
+
+    query = query.by_class_number(class_number) if class_number.present?
+
+    records = query.includes(:content_record).to_a
+    teacher_records = records.select { |record| record.content_record.teacher_id == current_teacher.id }
+    candidates = teacher_records.presence || records
+
+    render json: { id: candidates.first&.id }
+  end
+
   def index
     params[:filter] ||= {}
     author_type = PlansAuthors::ALL.to_s if params[:filter].empty?
@@ -97,7 +126,7 @@ class DisciplineContentRecordsController < ApplicationController
     @discipline_content_record.content_record ||= ContentRecord.new
 
     if params[:recorded_at].present?
-      record_date = Date.parse(params[:recorded_at])
+      record_date = parse_lessons_board_date(params[:recorded_at]) || Time.zone.now
     else
       record_date = Time.zone.now
     end
@@ -105,7 +134,8 @@ class DisciplineContentRecordsController < ApplicationController
     @discipline_content_record.build_content_record(
       record_date: record_date,
       unity_id: current_unity.id,
-      classroom_id: current_user_classroom.id
+      classroom_id: current_user_classroom.id,
+      student_id: params[:student_id]
     )
 
     @has_lesson_board_map = false

@@ -9,6 +9,10 @@
         id: 'discipline-content-record-form',
         data: {
           disciplines_for_record_date_url: disciplines_for_record_date_discipline_content_records_path,
+          find_existing_url: find_existing_discipline_content_records_path(format: :json),
+          new_url: new_discipline_content_record_path,
+          edit_url_template: edit_discipline_content_record_path('__ID__'),
+          record_id: @discipline_content_record.persisted? ? @discipline_content_record.id : nil,
           modal: params[:modal] == 'true'
         }
       } do |f| %>
@@ -49,7 +53,10 @@
         <%= content_record.input :classroom_id, as: :hidden, input_html: { value: current_user.current_classroom_id } %>
 
         <% if params[:modal] == 'true' %>
-          <%= content_record.input :record_date, as: :hidden, input_html: {value: @discipline_content_record.content_record.record_date} %>
+          <%= content_record.input :record_date, as: :hidden,
+                input_html: {
+                  value: l(@discipline_content_record.content_record.record_date.to_date)
+                } %>
           <%= f.input :discipline_id, as: :hidden, input_html: { value: @discipline_content_record.discipline_id } %>
         <% else %>
           <div class="col col-sm-4">

@@ -5,11 +5,15 @@ $(function () {
 
   // Regular expression for dd/mm/yyyy date including validation for leap year and more
   var dateRegex = '^(?:(?:31(\\/)(?:0?[13578]|1[02]))\\1|(?:(?:29|30)(\\/)(?:0?[1,3-9]|1[0-2])\\2))(?:(?:1[6-9]|[2-9]\\d)?\\d{2})$|^(?:29(\\/)0?2\\3(?:(?:(?:1[6-9]|[2-9]\\d)?(?:0[48]|[2468][048]|[13579][26])|(?:(?:16|[2468][048]|[3579][26])00))))$|^(?:0?[1-9]|1\\d|2[0-8])(\\/)(?:(?:0?[1-9])|(?:1[0-2]))\\4(?:(?:1[6-9]|[2-9]\\d)?\\d{2})$';
+  var isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
   var flashMessages = new FlashMessages();
   var $form = $('#discipline-content-record-form');
-  var isModalForm = $form.data('modal') === true || $form.data('modal') === 'true';
+  var isModalForm = $form.data('modal') === true || $form.data('modal') === 'true' || $form.attr('data-modal') === 'true';
   var apiPaths = {
-    disciplinesForRecordDate: $form.data('disciplinesForRecordDateUrl')
+    disciplinesForRecordDate: $form.attr('data-disciplines-for-record-date-url') || $form.data('disciplinesForRecordDateUrl'),
+    findExisting: $form.attr('data-find-existing-url') || $form.data('findExistingUrl'),
+    newUrl: $form.attr('data-new-url') || $form.data('newUrl'),
+    editUrlTemplate: $form.attr('data-edit-url-template') || $form.data('editUrlTemplate')
   };
   var $recordDateEmptyAlert = $('#record-date-empty-alert');
   var $recordDateEmptyMessage = $('#record-date-empty-message');
@@ -24,6 +28,126 @@ $(function () {
   // Registro novo: limpa a lista inteira ao trocar data/disciplina.
   // Edição: preserva .manual (salvos/usuário) e só substitui itens vindos do plano via AJAX.
   var isPersistedRecord = !!$('#discipline_content_record_content_record_attributes_id').val();
+  var currentRecordId = $form.attr('data-record-id') || $form.data('recordId') || null;
+  var lastStudentId = String(getStudentValue());
+  var redirectingToExisting = false;
+
+  function getStudentValue() {
+    if (!$student.length) {
+      return '';
+    }
+
+    try {
+      if ($student.data('select2')) {
+        return $student.select2('val') || '';
+      }
+    } catch (e) {}
+
+    return $student.val() || '';
+  }
+
+  var isValidRecordDate = function (date) {
+    return !_.isEmpty(date) && (!_.isEmpty(String(date).match(dateRegex)) || isoDateRegex.test(date));
+  };
+
+  var appendModalParam = function (url) {
+    if (!isModalForm || _.isEmpty(url)) {
+      return url;
+    }
+
+    return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'modal=true';
+  };
+
+  var redirectToEdit = function (recordId) {
+    if (!recordId || String(recordId) === String(currentRecordId)) {
+      loadContents();
+      return;
+    }
+
+    var editUrl = apiPaths.editUrlTemplate
+      ? String(apiPaths.editUrlTemplate).replace('__ID__', recordId)
+      : '/registros-de-conteudos-por-disciplina/' + recordId + '/editar';
+
+    redirectingToExisting = true;
+    window.location.href = appendModalParam(editUrl);
+  };
+
+  var redirectToNew = function (studentId) {
+    var classroom_id = getInputValue($classroom);
+    var discipline_id = getInputValue($discipline);
+    var date = getInputValue($recordDate);
+    var class_number = getInputValue($class_number);
+    var params = [];
+
+    if (!_.isEmpty(classroom_id)) {
+      params.push('classroom_id=' + encodeURIComponent(classroom_id));
+    }
+    if (!_.isEmpty(discipline_id)) {
+      params.push('discipline_id=' + encodeURIComponent(discipline_id));
+    }
+    if (!_.isEmpty(date)) {
+      params.push('recorded_at=' + encodeURIComponent(date));
+    }
+    if (!_.isEmpty(studentId)) {
+      params.push('student_id=' + encodeURIComponent(studentId));
+    }
+    if (!_.isEmpty(class_number)) {
+      params.push('class_number=' + encodeURIComponent(class_number));
+    }
+    if (isModalForm) {
+      params.push('modal=true');
+    }
+
+    var newUrl = apiPaths.newUrl || '/registros-de-conteudos-por-disciplina/novo';
+    redirectingToExisting = true;
+    window.location.href = newUrl + (params.length ? '?' + params.join('&') : '');
+  };
+
+  var loadExistingRecordForStudent = function (studentId) {
+    if (!$student.length || redirectingToExisting || _.isEmpty(apiPaths.findExisting)) {
+      loadContents();
+      return;
+    }
+
+    var classroom_id = getInputValue($classroom);
+    var discipline_id = getInputValue($discipline);
+    var date = getInputValue($recordDate);
+    var class_number = getInputValue($class_number);
+    studentId = studentId == null ? getStudentValue() : studentId;
+
+    if (_.isEmpty(classroom_id) || _.isEmpty(discipline_id) || !isValidRecordDate(date)) {
+      loadContents();
+      return;
+    }
+
+    $.ajax({
+      url: apiPaths.findExisting,
+      dataType: 'json',
+      data: {
+        classroom_id: classroom_id,
+        discipline_id: discipline_id,
+        record_date: date,
+        student_id: studentId,
+        class_number: class_number
+      }
+    }).done(function (payload) {
+      var existingId = payload && payload.id;
+
+      if (existingId) {
+        redirectToEdit(existingId);
+        return;
+      }
+
+      if (isPersistedRecord) {
+        redirectToNew(studentId);
+        return;
+      }
+
+      loadContents();
+    }).fail(function () {
+      loadContents();
+    });
+  };
 
   var clearContentsAndObjectivesLists = function () {
     if (isPersistedRecord) {
@@ -248,8 +372,7 @@ $(function () {
 
     if (!_.isEmpty(classroom_id) &&
       !_.isEmpty(discipline_id) &&
-      !_.isEmpty(date) &&
-      !_.isEmpty(date.match(dateRegex))) {
+      isValidRecordDate(date)) {
 
       clearContentsAndObjectivesLists();
       fetchContents(classroom_id, discipline_id, date);
@@ -275,8 +398,21 @@ $(function () {
     checkTeacherAbsenceForContent();
   });
 
-  $student.on('change', function () {
-    loadContents();
+  var handleStudentSelectionChange = function () {
+    var studentId = String(getStudentValue() || '');
+
+    if (studentId === lastStudentId) {
+      loadContents();
+      return;
+    }
+
+    lastStudentId = studentId;
+    loadExistingRecordForStudent(studentId);
+  };
+
+  $student.on('change', handleStudentSelectionChange);
+  $student.on('select2:select select2:clear select2:unselect', function () {
+    setTimeout(handleStudentSelectionChange, 0);
   });
 
   function checkTeacherAbsenceForContent() {
