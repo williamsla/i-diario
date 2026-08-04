@@ -17,6 +17,7 @@ class DisciplineLessonPlansController < ApplicationController
 
     if author_type.present?
       @discipline_lesson_plans = @discipline_lesson_plans.by_author(author_type, current_teacher.id)
+      params[:filter][:by_author] = author_type
     end
 
     authorize @discipline_lesson_plans

@@ -88,6 +88,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
 
     if author_type.present?
       @knowledge_area_content_records = @knowledge_area_content_records.by_author(author_type, current_teacher.id)
+      params[:filter][:by_author] = author_type
     end
 
     authorize @knowledge_area_content_records

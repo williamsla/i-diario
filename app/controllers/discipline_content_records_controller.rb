@@ -100,6 +100,7 @@ class DisciplineContentRecordsController < ApplicationController
 
     if author_type.present?
       @discipline_content_records = @discipline_content_records.by_author(author_type, current_teacher.id)
+      params[:filter][:by_author] = author_type
     end
 
     authorize @discipline_content_records
