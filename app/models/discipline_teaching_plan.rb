@@ -43,11 +43,26 @@ class DisciplineTeachingPlan < ApplicationRecord
   }
   scope :by_secretary, -> { joins(:teaching_plan).where(teaching_plans: { teacher_id: nil }) }
   scope :by_author, lambda { |author_type, current_teacher_id|
-    if author_type == PlansAuthors::MY_PLANS
-      joins(:teaching_plan).merge(TeachingPlan.where(teacher_id: current_teacher_id))
-    elsif author_type == PlansAuthors::ALL
+    teacher_id = current_teacher_id.respond_to?(:id) ? current_teacher_id.try(:id) : current_teacher_id
+
+    case author_type.to_s
+    when PlansAuthors::MY_PLANS.to_s
+      if teacher_id.present?
+        joins(:teaching_plan).where(
+          'teaching_plans.teacher_id = ? OR teaching_plans.teacher_id IS NULL',
+          teacher_id
+        )
+      else
+        joins(:teaching_plan).where(teaching_plans: { teacher_id: nil })
+      end
+    when PlansAuthors::ALL.to_s, '', 'empty'
+      all
     else
-      joins(:teaching_plan).merge(TeachingPlan.where.not(teacher_id: current_teacher_id))
+      if teacher_id.present?
+        joins(:teaching_plan).where.not(teaching_plans: { teacher_id: [teacher_id, nil] })
+      else
+        joins(:teaching_plan).where.not(teaching_plans: { teacher_id: nil })
+      end
     end
   }
   scope :order_by_school_term_type_step, lambda {
