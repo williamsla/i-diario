@@ -1,5 +1,5 @@
 <div class="widget-body">
-  <div class="conceptual-exams-students-by-step">
+  <div class="conceptual-exams-students-by-step conceptual-exams-panel conceptual-exams-panel--students">
     <p>
       <%= link_to conceptual_exams_path, class: 'btn btn-default btn-sm' do %>
         <i class="fa fa-arrow-left"></i> <%= t('conceptual_exams.students_by_step.back') %>
@@ -58,12 +58,12 @@
     <% end %>
 
     <div class="table-responsive">
-      <table class="table table-bordered table-striped table-condensed table-hover">
+      <table class="table table-bordered table-striped table-condensed table-hover conceptual-exams-compact-table">
         <thead>
           <tr>
             <th><%= ConceptualExam.human_attribute_name :student %></th>
-            <th><%= ConceptualExam.human_attribute_name :status %></th>
-            <th width="200px"></th>
+            <th class="conceptual-exams-status-col"><%= ConceptualExam.human_attribute_name :status %></th>
+            <th class="conceptual-exams-actions-col"></th>
           </tr>
         </thead>
         <tbody>
@@ -75,12 +75,12 @@
             <% @student_rows.each do |row| %>
               <tr>
                 <td><span class="multiline"><%= row.student %></span></td>
-                <td>
+                <td class="conceptual-exams-status-col">
                   <span class="<%= conceptual_exam_label(row.status) %>">
                     <%= conceptual_exam_status_label(row.status) %>
                   </span>
                 </td>
-                <td class="actions">
+                <td class="actions conceptual-exams-actions-col">
                   <% if row.conceptual_exam.present? %>
                     <%= link_to t('helpers.links.show_html'),
                                 conceptual_exam_path(row.conceptual_exam),
@@ -106,7 +106,7 @@
                                   step_id: @step.id,
                                   student_id: row.student.id
                                 }),
-                                class: 'btn btn-primary' %>
+                                class: 'btn btn-primary btn-sm' %>
                   <% end %>
                 </td>
               </tr>
