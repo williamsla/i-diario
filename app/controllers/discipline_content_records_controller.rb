@@ -79,9 +79,17 @@ class DisciplineContentRecordsController < ApplicationController
             .by_discipline_id(discipline_id)
             .by_student_id(student_id)
 
-    query = query.by_class_number(class_number) if class_number.present?
+    # Filtra por class_number só quando a config exige; senão tenta com filtro e cai sem ele
+    # (a frequência envia a quantidade de aulas do dia, que pode diferir do valor salvo).
+    records = if class_number.present? && allow_class_number
+                query.by_class_number(class_number).includes(:content_record).to_a
+              elsif class_number.present?
+                with_class = query.by_class_number(class_number).includes(:content_record).to_a
+                with_class.presence || query.includes(:content_record).to_a
+              else
+                query.includes(:content_record).to_a
+              end
 
-    records = query.includes(:content_record).to_a
     teacher_records = records.select { |record| record.content_record.teacher_id == current_teacher.id }
     candidates = teacher_records.presence || records
 

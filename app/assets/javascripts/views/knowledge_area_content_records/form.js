@@ -118,7 +118,7 @@ $(function () {
   };
 
   var loadExistingRecordForStudent = function (studentId) {
-    if (!$student.length || redirectingToExisting || _.isEmpty(apiPaths.findExisting)) {
+    if (redirectingToExisting || _.isEmpty(apiPaths.findExisting)) {
       loadContents();
       return;
     }
@@ -475,6 +475,13 @@ $(function () {
   // Carregar conteúdos e objetivos automaticamente quando a página é carregada
   // Aguarda um pouco para garantir que o select2 está inicializado
   setTimeout(function() {
+    // No modal (AEE/NEE) o helper da frequência sempre abre "novo"; busca o registro
+    // já salvo na abertura — não só ao trocar o aluno.
+    if (!isPersistedRecord && !_.isEmpty(apiPaths.findExisting) && (isModalForm || $student.length)) {
+      loadExistingRecordForStudent($student.val() || '');
+      return;
+    }
+
     // Lê o classroom_id (pode ser hidden ou select2)
     var classroom_id = null;
     if ($classroom.length && $classroom.is('select')) {
