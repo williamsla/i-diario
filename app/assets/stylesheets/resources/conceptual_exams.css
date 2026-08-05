@@ -1,3 +1,56 @@
+.conceptual-exams-summary {
+  margin: 0 0 16px;
+}
+
+.conceptual-exams-by-step-index .conceptual-exams-step-col {
+  width: 22%;
+  max-width: 220px;
+  word-wrap: break-word;
+  white-space: normal;
+}
+
+.conceptual-exams-stat {
+  background: #f8f8f8;
+  border: 1px solid #e5e5e5;
+  border-radius: 2px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.conceptual-exams-stat-value {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.conceptual-exams-stat-label {
+  color: #777;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.conceptual-exams-progress {
+  margin-bottom: 0;
+  height: 14px;
+}
+
+.conceptual-exams-progress-wrap {
+  margin: 0 0 16px;
+}
+
+.conceptual-exams-students-filters {
+  margin-bottom: 12px;
+}
+
+.conceptual-exams-students-filters .form-group {
+  margin-right: 8px;
+}
+
+.conceptual-exams-status-chips {
+  margin-bottom: 14px;
+}
+
 table.table-condensed.table-bordered > tbody > tr > td.knowledge-area-table-data {
   padding-top: 10px !important;
   padding-bottom: 10px !important;

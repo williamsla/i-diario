@@ -15,6 +15,28 @@ pt-BR:
       batch_layout_fill_button: 'Preencher / Editar'
       batch_layout_no_steps: 'Nenhuma etapa encontrada para esta turma.'
       batch_layout_classroom: 'Turma'
+      by_step_title: 'Lançamento por etapa'
+      by_step_title_annual: 'Lançamento anual'
+      by_step_subtitle: 'Selecione a etapa para gerenciar as avaliações conceituais de cada aluno.'
+      by_step_subtitle_annual: 'Gerencie as avaliações conceituais de cada aluno da turma (uma única avaliação no ano letivo).'
+      manage_students: 'Preencher etapa'
+      current_step: 'Etapa atual'
+      column_step: 'Etapa'
+      column_period: 'Período'
+      column_progress: 'Progresso'
+      stat_students: 'Alunos'
+      stat_complete: 'Completos'
+      stat_incomplete: 'Incompletos'
+      stat_pending: 'Sem lançamento'
+
+    students_by_step:
+      back: 'Voltar para etapas'
+      updated_at: 'Última atualização'
+      launch: 'Preencher'
+      continue: 'Continuar'
+      filter: 'Filtrar'
+      filter_all: 'Todos'
+      step_not_found: 'Etapa não encontrada para esta turma.'
 
     new_batch:
       legend: 'Selecione a turma e a etapa'

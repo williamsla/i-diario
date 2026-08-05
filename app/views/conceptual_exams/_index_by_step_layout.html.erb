@@ -1,0 +1,73 @@
+<div class="conceptual-exams-by-step-index">
+  <div class="well well-sm">
+    <h4>
+      <%= @only_one_conceptual_avaliation ? t('conceptual_exams.index.by_step_title_annual') : t('conceptual_exams.index.by_step_title') %>
+    </h4>
+    <p class="text-muted">
+      <%= @only_one_conceptual_avaliation ? t('conceptual_exams.index.by_step_subtitle_annual') : t('conceptual_exams.index.by_step_subtitle') %>
+    </p>
+    <% if @classroom.present? %>
+      <p>
+        <strong><%= t('conceptual_exams.index.batch_layout_classroom') %>:</strong>
+        <%= @classroom.description %>
+        <% if @classroom.unity.present? %>
+          · <%= @classroom.unity %>
+        <% end %>
+      </p>
+    <% end %>
+  </div>
+
+  <% if @step_overviews.present? %>
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped table-condensed table-hover">
+        <thead>
+          <tr>
+            <th class="conceptual-exams-step-col"><%= t('conceptual_exams.index.column_step') %></th>
+            <th><%= t('conceptual_exams.index.column_period') %></th>
+            <th class="text-center"><%= t('conceptual_exams.index.stat_complete') %></th>
+            <th class="text-center"><%= t('conceptual_exams.index.stat_incomplete') %></th>
+            <th class="text-center"><%= t('conceptual_exams.index.stat_pending') %></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @step_overviews.each do |overview| %>
+            <% step = overview.step %>
+            <tr class="<%= 'info' if overview.current %>">
+              <td class="conceptual-exams-step-col">
+                <% if @only_one_conceptual_avaliation %>
+                  <%= t('conceptual_exams.index.batch_layout_annual_label') %>
+                <% else %>
+                  <%= step.to_s %>
+                  <% if overview.current %>
+                    <span class="label label-primary"><%= t('conceptual_exams.index.current_step') %></span>
+                  <% end %>
+                <% end %>
+              </td>
+              <td>
+                <% if @only_one_conceptual_avaliation %>
+                  <%= l(@annual_period_start) %> a <%= l(@annual_period_end) %>
+                <% else %>
+                  <%= l(step.start_at) %> a <%= l(step.end_at) %>
+                <% end %>
+              </td>
+              <td class="text-center"><%= overview.complete %></td>
+              <td class="text-center"><%= overview.incomplete %></td>
+              <td class="text-center"><%= overview.pending %></td>
+              <td class="text-right">
+                <%= link_to students_by_step_conceptual_exams_path(step_id: step.id),
+                            class: "btn btn-sm #{overview.current ? 'btn-primary' : 'btn-default'}" do %>
+                  <i class="fa fa-users"></i> <%= t('conceptual_exams.index.manage_students') %>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <div class="alert alert-info">
+      <i class="fa fa-info-circle"></i> <%= t('conceptual_exams.index.batch_layout_no_steps') %>
+    </div>
+  <% end %>
+</div>
