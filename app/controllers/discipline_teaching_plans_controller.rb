@@ -379,6 +379,10 @@ class DisciplineTeachingPlansController < ApplicationController
                             .by_grade(current_grade.map(&:grade_id))
                             .order_by_grades
                             .order('teaching_plans.school_term_type_step_id')
+                            .select(
+                              'discipline_teaching_plans.*, grades.description, ' \
+                              'teaching_plans.school_term_type_step_id'
+                            )
                             .distinct
     )
   end
