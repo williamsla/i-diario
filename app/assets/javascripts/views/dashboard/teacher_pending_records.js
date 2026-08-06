@@ -53,9 +53,8 @@ $(function(){
     });
 
     var stepsHtml = '<div class="pending-steps-selector form-group">' +
-      '<label>Selecione a etapa:</label>' +
-      '<div class="pending-steps-list" role="listbox" aria-label="Etapas">' +
-      '</div>' +
+      '<div class="pending-steps-list" role="listbox" aria-label="Etapas"></div>' +
+      '<div class="pending-step-detail" aria-live="polite"></div>' +
       '</div>' +
       '<div id="step-data-container"></div>';
 
@@ -65,7 +64,8 @@ $(function(){
 
     _.each(steps, function(step) {
       var isCurrent = currentStep && String(currentStep.id) === String(step.id);
-      var title = stepShortName(step);
+      var fullName = stepFullName(step);
+      var compactLabel = stepCompactLabel(step);
       var datesLabel = (step.start_at || '') + ' a ' + (step.end_at || '');
       var badgeHtml = isCurrent ?
         '<span class="pending-step-btn__badge">Atual</span>' :
@@ -73,13 +73,17 @@ $(function(){
 
       var $button = $('<button type="button" class="pending-step-btn" role="option" aria-selected="false"></button>')
         .attr('data-step-id', step.id)
+        .attr('aria-label', fullName)
         .toggleClass('is-current', isCurrent)
         .html(
-          '<span class="pending-step-btn__header">' +
-            '<span class="pending-step-btn__name">' + _.escape(title) + '</span>' +
-            badgeHtml +
-          '</span>' +
-          '<span class="pending-step-btn__dates">' + _.escape(datesLabel) + '</span>'
+          '<span class="pending-step-btn__compact">' + _.escape(compactLabel) + '</span>' +
+          '<span class="pending-step-btn__desktop">' +
+            '<span class="pending-step-btn__header">' +
+              '<span class="pending-step-btn__name">' + _.escape(fullName) + '</span>' +
+              badgeHtml +
+            '</span>' +
+            '<span class="pending-step-btn__dates">' + _.escape(datesLabel) + '</span>' +
+          '</span>'
         );
 
       $stepsList.append($button);
@@ -93,7 +97,7 @@ $(function(){
     selectStep(stepToSelect.id);
   }
 
-  function stepShortName(step) {
+  function stepFullName(step) {
     var name = step.name || '';
     var withoutDates = name.replace(/\s*\([^)]*\)\s*$/, '').trim();
 
@@ -108,8 +112,50 @@ $(function(){
     return name;
   }
 
+  function stepCompactLabel(step) {
+    var fullName = stepFullName(step);
+    var match = fullName.match(/^(\d+)\s*[ºª°]?\s*(.+)$/i);
+
+    if (match) {
+      var number = match[1];
+      var type = match[2].trim();
+      var compactType = type
+        .replace(/^bimestre$/i, 'Bim')
+        .replace(/^trimestre$/i, 'Tri')
+        .replace(/^semestre$/i, 'Sem')
+        .replace(/^unidade$/i, 'Uni')
+        .replace(/^etapa$/i, 'Eta');
+
+      if (compactType !== type || /^(Bi|Tri|Sem|Un|Et)$/i.test(compactType)) {
+        return number + 'º ' + compactType;
+      }
+
+      return number + 'º ' + type.substring(0, 3);
+    }
+
+    if (step.step_number) {
+      return step.step_number + 'º';
+    }
+
+    return fullName;
+  }
+
+  function stepTypeLabel(step) {
+    var fullName = stepFullName(step);
+    var match = fullName.match(/^\d+\s*[ºª°]?\s*(.+)$/i);
+
+    if (match) {
+      return match[1].trim().toLowerCase();
+    }
+
+    return 'etapa';
+  }
+
   function selectStep(stepId) {
     var $buttons = $container.find('.pending-step-btn');
+    var selectedStep = _.find(steps, function(step) {
+      return String(step.id) === String(stepId);
+    });
 
     $buttons.each(function() {
       var $btn = $(this);
@@ -178,10 +224,9 @@ $(function(){
       '<th style="width: 160px; text-align: center;">Alunos sem Nota</th>' :
       '';
 
-    var stepHtml = '<div class="panel panel-default" style="margin-top: 20px;">' +
-      '<div class="panel-body">' +
+    var stepHtml = '<div class="pending-records-table-wrap">' +
         '<div class="table-responsive">' +
-          '<table class="table table-bordered table-only-inner-bordered table-striped table-hover" style="font-size: 14px;">' +
+          '<table class="table table-bordered table-only-inner-bordered table-striped table-hover pending-records-table">' +
             '<thead>' +
               '<tr>' +
                 '<th>Disciplina</th>' +
@@ -305,8 +350,7 @@ $(function(){
     stepHtml += '</tbody>' +
           '</table>' +
         '</div>' +
-      '</div>' +
-    '</div>';
+      '</div>';
 
     $stepContainer.html(stepHtml);
     
