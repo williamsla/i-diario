@@ -44,27 +44,35 @@ class DisciplineTeachingPlan < ApplicationRecord
   scope :by_secretary, -> { joins(:teaching_plan).where(teaching_plans: { teacher_id: nil }) }
   scope :by_author, lambda { |author_type, current_teacher_id|
     teacher_id = current_teacher_id.respond_to?(:id) ? current_teacher_id.try(:id) : current_teacher_id
+    unificado_condition = <<~SQL.squish
+      teaching_plans.teacher_id IS NULL
+      OR teaching_plans.id IN (#{TeachingPlan.administrator_created_ids_sql})
+    SQL
 
     case author_type.to_s
     when PlansAuthors::MY_PLANS.to_s
       if teacher_id.present?
         joins(:teaching_plan).where(
-          'teaching_plans.teacher_id = :teacher_id OR teaching_plans.teacher_id IS NULL',
+          "teaching_plans.teacher_id = :teacher_id OR #{unificado_condition}",
           teacher_id: teacher_id
         )
       else
-        joins(:teaching_plan).merge(TeachingPlan.semed)
+        joins(:teaching_plan).where(unificado_condition)
       end
     when PlansAuthors::ALL.to_s, '', 'empty'
       all
     else
       if teacher_id.present?
         joins(:teaching_plan).where(
-          'teaching_plans.teacher_id IS NOT NULL AND teaching_plans.teacher_id != :teacher_id',
+          "teaching_plans.teacher_id IS NOT NULL
+           AND teaching_plans.teacher_id != :teacher_id
+           AND NOT (#{unificado_condition})",
           teacher_id: teacher_id
         )
       else
-        joins(:teaching_plan).where.not(teaching_plans: { teacher_id: nil })
+        joins(:teaching_plan).where(
+          "teaching_plans.teacher_id IS NOT NULL AND NOT (#{unificado_condition})"
+        )
       end
     end
   }

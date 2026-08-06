@@ -14,7 +14,9 @@ module TeachingPlanHelper
   private
 
   def can_manage_teaching_plan?(teaching_plan)
-    current_user.current_role_is_admin_or_employee? ||
-      teaching_plan&.teacher&.id == current_teacher.try(:id)
+    return true if current_user.current_role_is_admin_or_employee?
+    return false if teaching_plan&.unificado?
+
+    teaching_plan&.teacher&.id == current_teacher.try(:id)
   end
 end

@@ -1,6 +1,6 @@
 class CopyDisciplineTeachingPlanService
   class CopyDisciplineTeachingPlanError < StandardError; end
-  attr_reader :discipline_teaching_plan_id, :year, :unities_ids, :grades_ids
+  attr_reader :discipline_teaching_plan_id, :year, :unities_ids, :grades_ids, :created_by_administrator
 
   def self.call(*params)
     new(*params).call
@@ -10,12 +10,14 @@ class CopyDisciplineTeachingPlanService
     discipline_teaching_plan_id,
     year,
     unities_ids,
-    grades_ids
+    grades_ids,
+    created_by_administrator: false
   )
     @discipline_teaching_plan_id = discipline_teaching_plan_id
     @year = year
     @unities_ids = unities_ids
     @grades_ids = grades_ids
+    @created_by_administrator = created_by_administrator
 
     check_required_params
   end
@@ -28,7 +30,7 @@ class CopyDisciplineTeachingPlanService
 
     fetch_contents_and_objectives(model_teaching_plan)
 
-    if model_teaching_plan.semed?
+    if copy_as_unificado?(model_teaching_plan)
       copy_unificado_plans(model_teaching_plan, discipline_id, thematic_unit)
     else
       fetch_teacher_discipline_classrooms(model_teaching_plan, discipline_id, thematic_unit)
@@ -36,6 +38,10 @@ class CopyDisciplineTeachingPlanService
   end
 
   private
+
+  def copy_as_unificado?(teaching_plan)
+    created_by_administrator || teaching_plan.semed?
+  end
 
   def fetch_contents_and_objectives(teaching_plan)
     objectives = teaching_plan.objectives_teaching_plans

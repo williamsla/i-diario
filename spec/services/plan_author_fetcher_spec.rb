@@ -15,6 +15,21 @@ RSpec.describe PlanAuthorFetcher do
       end
     end
 
+    context 'when the plan was created by an administrator' do
+      let(:admin) { create(:user, :with_user_role_administrator) }
+      let(:teaching_plan) do
+        plan = nil
+        Audited.audit_class.as_user(admin) do
+          plan = create(:teaching_plan, teacher: other_teacher)
+        end
+        plan
+      end
+
+      it 'returns my_plans' do
+        expect(subject).to eq(I18n.t('enumerations.plans_authors.my_plans'))
+      end
+    end
+
     context 'when the plan belongs to the current teacher' do
       let(:teaching_plan) { create(:teaching_plan, teacher: current_teacher) }
 

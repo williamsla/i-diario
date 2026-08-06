@@ -190,6 +190,26 @@ RSpec.describe CopyDisciplineTeachingPlanService, type: :service do
       end
     end
   end
+
+  describe 'when copied by an administrator' do
+    let!(:other_unity) { create_setup_other_classroom_and_unity }
+
+    subject(:copy_discipline_teaching_plan) {
+      CopyDisciplineTeachingPlanService.call(
+        discipline_teaching_plan.id,
+        classroom.year,
+        [other_unity.id],
+        [classroom_grades.grade_id],
+        created_by_administrator: true
+      )
+    }
+
+    it 'creates a single unificado copy even when source belongs to a teacher' do
+      expect(teaching_plan[:teacher_id]).to eq(current_teacher.id)
+      expect(copy_discipline_teaching_plan.count).to eq(1)
+      expect(copy_discipline_teaching_plan.first.teaching_plan[:teacher_id]).to be_nil
+    end
+  end
 end
 
 # Cria vinculo para outro professor com outra turma mesma disciplina, mesma serie e ano

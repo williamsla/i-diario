@@ -15,23 +15,39 @@ RSpec.describe TeachingPlan, type: :model do
     it { expect(subject).to belong_to(:grade) }
   end
 
-  describe '#semed?' do
+  describe '#unificado? / #semed?' do
     it 'returns true when persisted teacher_id is nil' do
       teaching_plan = create(:teaching_plan, teacher: nil)
       teaching_plan.reload
 
       expect(teaching_plan[:teacher_id]).to be_nil
+      expect(teaching_plan.unificado?).to eq(true)
       expect(teaching_plan.semed?).to eq(true)
     end
 
-    it 'returns false when persisted teacher_id is present even if accessor is nil' do
+    it 'returns false when teacher_id is present and creator is not administrator' do
       teacher = create(:teacher)
       teaching_plan = create(:teaching_plan, teacher: teacher)
       teaching_plan.reload
 
       expect(teaching_plan.teacher_id).to be_nil # attr_accessor mascara a coluna
       expect(teaching_plan[:teacher_id]).to eq(teacher.id)
-      expect(teaching_plan.semed?).to eq(false)
+      expect(teaching_plan.unificado?).to eq(false)
+    end
+
+    it 'returns true when creator is administrator even with teacher_id present' do
+      admin = create(:user, :with_user_role_administrator)
+      teacher = create(:teacher)
+      teaching_plan = nil
+
+      Audited.audit_class.as_user(admin) do
+        teaching_plan = create(:teaching_plan, teacher: teacher)
+      end
+
+      teaching_plan.reload
+      expect(teaching_plan[:teacher_id]).to eq(teacher.id)
+      expect(teaching_plan.created_by_administrator?).to eq(true)
+      expect(teaching_plan.unificado?).to eq(true)
     end
   end
 

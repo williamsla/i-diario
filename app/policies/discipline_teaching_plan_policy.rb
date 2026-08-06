@@ -12,7 +12,9 @@ class DisciplineTeachingPlanPolicy < ApplicationPolicy
   private
 
   def can_manage?
-    user.current_role_is_admin_or_employee? ||
-      record.teaching_plan[:teacher_id] == user.current_teacher_id
+    return true if user.current_role_is_admin_or_employee?
+    return false if record.teaching_plan.unificado?
+
+    record.teaching_plan[:teacher_id] == user.current_teacher_id
   end
 end

@@ -20,6 +20,7 @@ RSpec.describe DisciplineTeachingPlan, type: :model do
   describe '.by_author' do
     let(:current_teacher) { create(:teacher) }
     let(:other_teacher) { create(:teacher) }
+    let(:admin) { create(:user, :with_user_role_administrator) }
 
     let!(:my_plan) do
       create(
@@ -42,10 +43,19 @@ RSpec.describe DisciplineTeachingPlan, type: :model do
       )
     end
 
+    let!(:admin_created_plan) do
+      teaching_plan = nil
+      Audited.audit_class.as_user(admin) do
+        teaching_plan = create(:teaching_plan, teacher: other_teacher)
+      end
+
+      create(:discipline_teaching_plan, teaching_plan: teaching_plan)
+    end
+
     it 'includes own plans and unificados for MY_PLANS' do
       result = described_class.by_author(PlansAuthors::MY_PLANS, current_teacher)
 
-      expect(result).to include(my_plan, unificado_plan)
+      expect(result).to include(my_plan, unificado_plan, admin_created_plan)
       expect(result).not_to include(other_plan)
     end
 
@@ -53,13 +63,13 @@ RSpec.describe DisciplineTeachingPlan, type: :model do
       result = described_class.by_author(PlansAuthors::OTHERS, current_teacher)
 
       expect(result).to include(other_plan)
-      expect(result).not_to include(my_plan, unificado_plan)
+      expect(result).not_to include(my_plan, unificado_plan, admin_created_plan)
     end
 
     it 'includes all plans for ALL' do
       result = described_class.by_author(PlansAuthors::ALL, current_teacher)
 
-      expect(result).to include(my_plan, other_plan, unificado_plan)
+      expect(result).to include(my_plan, other_plan, unificado_plan, admin_created_plan)
     end
   end
 end
