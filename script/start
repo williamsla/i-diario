@@ -5,16 +5,22 @@ bundle check || BUNDLE_JOBS=4 bundle install
 yarn install
 
 if ! test -f ".setup"; then
+  SECRET_KEY_BASE=`bundle exec rake secret`
   echo -e "
-  development:
-    secret_key_base: `bundle exec rake secret`
-    REDIS_URL: redis://redis:6379/0
-    shortcuts_enabled: true
-    only_one_conceptual_avaliation: false
-    show_objectives: true
-    SEMESTRAL_RECOVERY: true
-    conceptual_exam_batch_layout: true
-    " > config/secrets.yml
+development:
+  secret_key_base: ${SECRET_KEY_BASE}
+  REDIS_URL: redis://redis:6379/0
+  shortcuts_enabled: true
+  only_one_conceptual_avaliation: false
+  show_objectives: true
+  SEMESTRAL_RECOVERY: true
+  conceptual_exam_batch_layout: true
+
+test:
+  secret_key_base: ${SECRET_KEY_BASE}
+  REDIS_URL: redis://redis:6379/1
+  shortcuts_enabled: true
+  " > config/secrets.yml
 
   cp config/database.sample.yml config/database.yml
 

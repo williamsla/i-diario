@@ -15,6 +15,26 @@ RSpec.describe TeachingPlan, type: :model do
     it { expect(subject).to belong_to(:grade) }
   end
 
+  describe '#semed?' do
+    it 'returns true when persisted teacher_id is nil' do
+      teaching_plan = create(:teaching_plan, teacher: nil)
+      teaching_plan.reload
+
+      expect(teaching_plan[:teacher_id]).to be_nil
+      expect(teaching_plan.semed?).to eq(true)
+    end
+
+    it 'returns false when persisted teacher_id is present even if accessor is nil' do
+      teacher = create(:teacher)
+      teaching_plan = create(:teaching_plan, teacher: teacher)
+      teaching_plan.reload
+
+      expect(teaching_plan.teacher_id).to be_nil # attr_accessor mascara a coluna
+      expect(teaching_plan[:teacher_id]).to eq(teacher.id)
+      expect(teaching_plan.semed?).to eq(false)
+    end
+  end
+
   describe 'validations' do
     it {
       TeachingPlan.any_instance.stub(:yearly?).and_return(true)

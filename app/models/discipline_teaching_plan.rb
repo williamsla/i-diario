@@ -49,17 +49,20 @@ class DisciplineTeachingPlan < ApplicationRecord
     when PlansAuthors::MY_PLANS.to_s
       if teacher_id.present?
         joins(:teaching_plan).where(
-          'teaching_plans.teacher_id = ? OR teaching_plans.teacher_id IS NULL',
-          teacher_id
+          'teaching_plans.teacher_id = :teacher_id OR teaching_plans.teacher_id IS NULL',
+          teacher_id: teacher_id
         )
       else
-        joins(:teaching_plan).where(teaching_plans: { teacher_id: nil })
+        joins(:teaching_plan).merge(TeachingPlan.semed)
       end
     when PlansAuthors::ALL.to_s, '', 'empty'
       all
     else
       if teacher_id.present?
-        joins(:teaching_plan).where.not(teaching_plans: { teacher_id: [teacher_id, nil] })
+        joins(:teaching_plan).where(
+          'teaching_plans.teacher_id IS NOT NULL AND teaching_plans.teacher_id != :teacher_id',
+          teacher_id: teacher_id
+        )
       else
         joins(:teaching_plan).where.not(teaching_plans: { teacher_id: nil })
       end
