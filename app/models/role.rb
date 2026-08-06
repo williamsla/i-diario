@@ -46,6 +46,21 @@ class Role < ActiveRecord::Base
     permissions.can_change?(feature)
   end
 
+  # Fingerprint das permissões para invalidar cache de menu/atalhos ao alterar acesso
+  def permissions_cache_key
+    @permissions_cache_key ||= begin
+      pairs = if permissions.loaded?
+                permissions.map { |permission| "#{permission.feature}:#{permission.permission}" }.sort
+              else
+                permissions.order(:feature).pluck(:feature, :permission).map { |feature, permission|
+                  "#{feature}:#{permission}"
+                }
+              end
+
+      Digest::MD5.hexdigest(pairs.join('|'))
+    end
+  end
+
   def to_s
     "#{name}"
   end

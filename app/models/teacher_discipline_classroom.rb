@@ -31,4 +31,21 @@ class TeacherDisciplineClassroom < ApplicationRecord
   scope :by_knowledge_area_id, ->(knowledge_area_id) {
     joins(:discipline).where(disciplines: { knowledge_area_id: knowledge_area_id })
   }
+
+  def left_at
+    [end_at, allocation_left_at].compact.min
+  end
+
+  def left?
+    left_at.present? && left_at <= Date.current
+  end
+
+  def self.left_at_for(teacher_id:, classroom_id:)
+    where(classroom_id: classroom_id, teacher_id: teacher_id)
+      .where('end_at IS NOT NULL OR allocation_left_at IS NOT NULL')
+      .pluck(:end_at, :allocation_left_at)
+      .map { |end_at, allocation_left_at| [end_at, allocation_left_at].compact.min }
+      .compact
+      .min
+  end
 end

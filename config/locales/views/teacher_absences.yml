@@ -5,6 +5,7 @@ pt-BR:
       index:
         title: "Faltas do professor"
         no_records: "Nenhuma falta do professor registrada."
+        make_up_date_pending: "Data de reposição pendente"
       new:
         title: "Registrar falta do professor"
       show:

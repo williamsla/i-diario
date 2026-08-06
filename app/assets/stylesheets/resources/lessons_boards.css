@@ -107,4 +107,34 @@
   }
 }
 
+.lessons-board-archived {
+  background-color: #f5f5f5;
+  color: #666;
+}
+
+.lessons-board-archived .label-default {
+  background-color: #777;
+  font-weight: normal;
+  margin-top: 4px;
+  display: inline-block;
+}
+
+.lessons-boards-toolbar {
+  margin: 0 0 15px;
+  padding: 0 2px;
+}
+
+.lessons-boards-view-toggle .btn.active {
+  background-color: #3276b1;
+  border-color: #2a65a0;
+  color: #fff;
+  box-shadow: none;
+}
+
+.lessons-boards-view-toggle .btn.active:hover,
+.lessons-boards-view-toggle .btn.active:focus {
+  background-color: #2a65a0;
+  border-color: #245789;
+  color: #fff;
+}
 

@@ -22,12 +22,14 @@ module Navigation
       def can_show?(feature)
         # rubocop:todo Entender como melhorar esta questão das entidades nos testes
         entity_id = Rails.env.test? ? '1' : Entity.current.id
+        role = current_user.current_user_role&.role
 
         cache_key = [
           'MenuRender#can_show?',
           entity_id,
           current_user.admin?,
-          current_user.current_user_role&.role&.cache_key || current_user.cache_key,
+          role&.cache_key || current_user.cache_key,
+          role&.permissions_cache_key,
           feature
         ]
 
@@ -37,11 +39,7 @@ module Navigation
       end
 
       def policy(feature)
-        klass = begin
-                  feature.singularize.camelcase.constantize
-                rescue
-                  feature
-                end
+        klass = policy_klass_for(feature)
 
         begin
           result = Pundit::PolicyFinder.new(klass).policy!.new(current_user, klass)
@@ -54,13 +52,20 @@ module Navigation
         end
       end
 
+  def policy_klass_for(feature)
+    return Educamais if feature.to_s == 'educamais'
+    return Tutorials if feature.to_s == 'tutorials'
+
+        begin
+          feature.singularize.camelcase.constantize
+        rescue
+          feature
+        end
+      end
+
       def menu_text(menu_type)
         if menu_type == 'school_term_recovery_diary_records'
-          semestral_recovery = Rails.application.secrets.try(:semestral_recovery) || 
-                              Rails.application.secrets.try(:SEMESTRAL_RECOVERY) || 
-                              false
-          
-          if semestral_recovery
+          if GeneralConfiguration.semestral_recovery?
             'Recuperação Semestral'
           else
             Translator.t("navigation.#{menu_type}")

@@ -34,4 +34,19 @@ class EntityConfiguration < ApplicationRecord
       user_id: update_user_id
     )
   end
+
+  # Retorna um IO reutilizável do logo para relatórios Prawn/HexaPDF.
+  # Evita baixar/abrir o arquivo em cada seção do diário.
+  def logo_io_for_report
+    return if logo.blank? || logo.url.blank?
+
+    io = ReportQueryCache.fetch([:entity_logo_io, id, logo.url]) do
+      require 'stringio' unless defined?(StringIO)
+      StringIO.new(open(logo.url).read)
+    end
+    io.rewind
+    io
+  rescue StandardError
+    nil
+  end
 end

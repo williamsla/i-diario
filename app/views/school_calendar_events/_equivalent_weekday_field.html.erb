@@ -1,0 +1,9 @@
+<div class="row hidden" data-equivalent-weekday-container>
+  <div class="col col-sm-4">
+    <%= f.input :equivalent_weekday,
+                as: :select2,
+                elements: Workdays.to_select.to_json,
+                required: false,
+                hint: t('school_calendar_events.form.equivalent_weekday_hint') %>
+  </div>
+</div>

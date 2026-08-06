@@ -7,19 +7,28 @@ class StudentEnrollmentClassroomFetcher
   end
 
   def current_enrollment
-    @current_enrollment ||= StudentEnrollmentClassroom.by_student(@student)
-                                                      .by_classroom(@classroom)
-                                                      .by_date_range(@start_date, @end_date)
-                                                      .active
-                                                      .ordered
-                                                      .last
+    @current_enrollment ||= begin
+      enrollments = batched_enrollments_by_student[@student.id] || []
+      enrollments.last
+    end
   end
 
   def previous_enrollments
-    StudentEnrollmentClassroom.by_student(@student)
-                              .by_classroom(@classroom)
-                              .by_date_range(@start_date, @end_date)
-                              .where.not(id: current_enrollment.try(:id))
-                              .active
+    enrollments = batched_enrollments_by_student[@student.id] || []
+    current_id = current_enrollment.try(:id)
+    enrollments.reject { |enrollment| enrollment.id == current_id }
+  end
+
+  private
+
+  def batched_enrollments_by_student
+    ReportQueryCache.fetch([:enrollment_classrooms, @classroom.id, @start_date, @end_date]) do
+      StudentEnrollmentClassroom.by_classroom(@classroom)
+                                .by_date_range(@start_date, @end_date)
+                                .active
+                                .includes(student_enrollment: :student)
+                                .ordered
+                                .group_by { |sec| sec.student_enrollment.student_id }
+    end
   end
 end

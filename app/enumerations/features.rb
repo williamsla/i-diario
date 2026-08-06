@@ -17,6 +17,7 @@ class Features < EnumerateIt::Base
                    :daily_notes,
                    :data_exportations,
                    :descriptive_exams,
+                   :educamais,
                    :discipline_content_records,
                    :discipline_lesson_plan_report,
                    :discipline_lesson_plans,
@@ -55,6 +56,7 @@ class Features < EnumerateIt::Base
                    :monthly_absence_by_student_report,
                    :diary_report,
                    :descriptive_report,
+                   :conceptual_exam_report,
                    :teacher_absences,
                    :record_audit_trails
 

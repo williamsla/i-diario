@@ -21,7 +21,7 @@ class TeacherAbsencesController < ApplicationController
     @teacher_absence.school_calendar = current_school_calendar
     @teacher_absence.teacher = current_teacher
     @teacher_absence.user = current_user
-    @teacher_absence.coverage = TeacherAbsenceCoverage::BY_CLASSROOM
+    @teacher_absence.coverage = TeacherAbsenceCoverage::WHOLE_DAY
     @teacher_absence.classroom = current_user_classroom
     @teacher_absence.discipline = current_user_discipline if current_user_discipline.present?
     @teacher_absence.absence_date = params[:frequency_date].present? ? params[:frequency_date] : Date.current

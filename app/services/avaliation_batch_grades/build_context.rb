@@ -62,6 +62,7 @@ module AvaliationBatchGrades
         columns: columns,
         students: students,
         any_inactive_student: students.any? { |s| !s[:active] },
+        any_unlockable_student: students.any? { |s| s[:can_unlock_notes] },
         test_setting: {
           minimum_score: test_setting.minimum_score,
           maximum_score: test_setting.maximum_score,
@@ -238,14 +239,21 @@ module AvaliationBatchGrades
       return [] if enrollments.blank?
 
       cols = columns
-      enrollments.map do |enrollment|
+      enrollments.group_by(&:student_id).map do |_student_id, student_enrollments|
+        enrollment = student_enrollments.find { |e| student_active_in_step?(e) } ||
+                     student_enrollments.max_by(&:id)
         student = enrollment.student
-        active = student_active_in_step?(enrollment)
+        active = student_active_in_step_by_student_id?(student.id)
+        can_unlock = !active && student_attended_step_by_student_id?(student.id)
         notes = cols.map { |col| note_for(student.id, col) }
+        notes_unlocked = can_unlock && notes.any?(&:present?)
         row = {
           id: student.id,
           active: active,
+          can_unlock_notes: can_unlock,
+          notes_unlocked: notes_unlocked,
           name: batch_student_display_name(enrollment, active),
+          status_message: batch_student_status_message(enrollment, active),
           notes: notes,
           average: preview_average(student.id, cols),
           total_points: preview_weighted_total(student.id, cols)

@@ -262,26 +262,142 @@ function openResumeModal(unityId, classroomId) {
   const modal = document.getElementById("resumeModal");
   if (!modal) return;
 
-  // mostra modal
   modal.style.display = "flex";
 
-  // atualiza botão de download
   const downloadBtn = document.getElementById("downloadXlsxBtn");
   downloadBtn.onclick = function() {
     const url = '/pedagogical_trackings/resume_xlsx?unity_id=' + unityId + '&classroom_id=' + (classroomId || 0);
-    window.location.href = url; // força download
+    window.location.href = url;
   }
 
-  // busca conteúdo via fetch
+  document.getElementById("resumeModalBody").innerHTML =
+    "<p class='pedagogical-modal__loading'>Carregando resumo...</p>";
+
   fetch('/pedagogical_trackings/resume_modal?unity_id=' + unityId + '&classroom_id=' + (classroomId || 0))
     .then(response => response.text())
     .then(html => {
       document.getElementById("resumeModalBody").innerHTML = html;
+      initResumeReportFilters();
     })
     .catch(err => {
       console.error("Erro ao carregar modal:", err);
       document.getElementById("resumeModalBody").innerHTML =
         "<p style='color:red;'>Erro ao carregar o resumo.</p>";
+    });
+}
+
+function initResumeReportFilters() {
+  var $report = $('#resumeReport');
+  if (!$report.length) return;
+
+  function teacherCellHtml(label, pending) {
+    var pendingClass = pending ? ' resume-table__sticky--teacher-pending' : '';
+    return '<td class="resume-table__sticky resume-table__sticky--teacher resume-table__text' +
+      pendingClass + '" rowspan="1">' + $('<div>').text(label || '').html() + '</td>';
+  }
+
+  function flattenTeacherCells($table) {
+    $table.find('.resume-table__classroom-group').each(function() {
+      $(this).find('.resume-table__data-row').each(function() {
+        var $row = $(this);
+        var label = $row.attr('data-teacher-label') || '';
+        var pending = String($row.data('teacher-pending')) === 'true';
+        var $cell = $row.children('.resume-table__sticky--teacher');
+
+        if ($cell.length) {
+          $cell.attr('rowspan', 1).show();
+          $cell.text(label);
+          $cell.toggleClass('resume-table__sticky--teacher-pending', pending);
+        } else {
+          $row.prepend(teacherCellHtml(label, pending));
+        }
+      });
+    });
+  }
+
+  function mergeTeacherCells($table) {
+    $table.find('.resume-table__classroom-group').each(function() {
+      var currentTeacher = null;
+      var $firstCell = null;
+      var count = 0;
+
+      $(this).find('.resume-table__data-row').removeClass('resume-table__data-row--teacher-start');
+
+      $(this).find('.resume-table__data-row:visible').each(function() {
+        var $row = $(this);
+        var teacher = String($row.data('teacher') || '');
+        var $cell = $row.children('.resume-table__sticky--teacher');
+
+        if (teacher === currentTeacher && $firstCell) {
+          $cell.remove();
+          count += 1;
+          $firstCell.attr('rowspan', count);
+        } else {
+          currentTeacher = teacher;
+          $firstCell = $cell;
+          count = 1;
+          $row.addClass('resume-table__data-row--teacher-start');
+          if ($firstCell.length) {
+            $firstCell.attr('rowspan', 1).show();
+          }
+        }
+      });
+    });
+  }
+
+  function applySearchFilter() {
+    var $table = $('#resumeTable');
+    var search = $.trim($report.find('#resumeSearchInput').val() || '').toLowerCase();
+    var visibleRows = 0;
+
+    flattenTeacherCells($table);
+
+    $table.find('.resume-table__classroom-group').each(function() {
+      var $group = $(this);
+      var groupVisible = 0;
+
+      $group.find('.resume-table__data-row').each(function() {
+        var $row = $(this);
+        var teacher = String($row.data('teacher') || '');
+        var discipline = String($row.data('discipline') || '');
+        var classroom = String($row.data('classroom') || '');
+        var visible = !search ||
+          teacher.indexOf(search) !== -1 ||
+          discipline.indexOf(search) !== -1 ||
+          classroom.indexOf(search) !== -1;
+
+        $row.toggle(visible);
+        if (visible) groupVisible += 1;
+      });
+
+      $group.toggle(groupVisible > 0);
+      visibleRows += groupVisible;
+    });
+
+    mergeTeacherCells($table);
+
+    $report.find('.resume-report__empty--filtered').prop('hidden', visibleRows > 0);
+    $report.find('.resume-report__table-wrap').toggle(visibleRows > 0);
+  }
+
+  $report.find('#resumeSearchInput').on('input', applySearchFilter);
+
+  $report
+    .on('mouseenter', '.resume-table__data-row', function() {
+      var $row = $(this);
+      var $group = $row.closest('.resume-table__classroom-group');
+      var teacher = String($row.data('teacher') || '');
+
+      $group.find('.is-teacher-hover').removeClass('is-teacher-hover');
+      $row.addClass('is-teacher-hover');
+
+      $group.find('.resume-table__data-row').filter(function() {
+        return String($(this).data('teacher') || '') === teacher &&
+          $(this).children('.resume-table__sticky--teacher').length > 0;
+      }).children('.resume-table__sticky--teacher').addClass('is-teacher-hover');
+    })
+    .on('mouseleave', '.resume-table__classroom-group', function() {
+      $(this).find('.is-teacher-hover').removeClass('is-teacher-hover');
     });
 }
 
@@ -298,7 +414,7 @@ function closeResumeModal(event) {
 let currentFrequencyModalParams = {
   unityId: null,
   classroomId: null,
-  mainFilter: 'absences_only',
+  mainFilter: 'low_frequency_only',
   selectedClassifications: ['Abaixo do Mínimo', 'Crítico']
 };
 
@@ -310,7 +426,7 @@ function openFrequencyReportModal(unityId, classroomId) {
   currentFrequencyModalParams.unityId = unityId;
   currentFrequencyModalParams.classroomId = classroomId;
   // Inicializar valores dos filtros
-  currentFrequencyModalParams.mainFilter = 'absences_only';
+  currentFrequencyModalParams.mainFilter = 'low_frequency_only';
   currentFrequencyModalParams.selectedClassifications = ['Abaixo do Mínimo', 'Crítico'];
 
   // mostra modal
@@ -319,11 +435,11 @@ function openFrequencyReportModal(unityId, classroomId) {
   // mostra loading
   document.getElementById("frequencyReportModalBody").innerHTML = "<p>Carregando...</p>";
 
-  // busca conteúdo via fetch (por padrão: Abaixo do Mínimo e Crítico, filtro principal: absences_only)
+  // busca conteúdo via fetch (por padrão: Abaixo do Mínimo e Crítico; filtro: low_frequency_only)
   const defaultClassifications = ['Abaixo do Mínimo', 'Crítico'];
   const params = new URLSearchParams({
     unity_id: unityId,
-    main_filter: 'absences_only'
+    main_filter: 'low_frequency_only'
   });
   if (classroomId && classroomId != 0) {
     params.append('classroom_id', classroomId);
@@ -413,7 +529,7 @@ function attachFilterListeners() {
       const isNowChecked = target.checked;
             
       // Usar o filtro principal atual armazenado globalmente
-      let mainFilter = currentFrequencyModalParams.mainFilter || 'absences_only';
+      let mainFilter = currentFrequencyModalParams.mainFilter || 'low_frequency_only';
       
       // Processar a mudança imediatamente, buscando checkboxes do modalBody
       const processCheckboxChange = function() {
@@ -498,7 +614,7 @@ function applyRiskFilterWithValues(mainFilter, selectedClassifications) {
   const modalBody = document.getElementById("frequencyReportModalBody");
   
   // Garantir valores padrão
-  mainFilter = mainFilter || currentFrequencyModalParams.mainFilter || 'absences_only';
+  mainFilter = mainFilter || currentFrequencyModalParams.mainFilter || 'low_frequency_only';
   selectedClassifications = selectedClassifications || currentFrequencyModalParams.selectedClassifications || ['Abaixo do Mínimo', 'Crítico'];
   
   if (selectedClassifications.length === 0) {
@@ -570,7 +686,7 @@ window.applyRiskFilter = function() {
   // Tentar buscar o formulário, se não encontrar, usar valores padrão
   let form = document.getElementById("riskClassificationFilter");
   let selectedClassifications = [];
-  let mainFilter = 'absences_only';
+  let mainFilter = 'low_frequency_only';
   
   if (form) {
     // Obter valores dos checkboxes de classificação selecionados
@@ -579,12 +695,12 @@ window.applyRiskFilter = function() {
 
     // Obter valor do radio button do filtro principal
     const checkedRadio = form.querySelector('input[name="main_filter"]:checked');
-    mainFilter = (checkedRadio && checkedRadio.value) ? checkedRadio.value : 'absences_only';
+    mainFilter = (checkedRadio && checkedRadio.value) ? checkedRadio.value : 'low_frequency_only';
   } else {
     console.warn('Formulário não encontrado, usando valores padrão');
     // Usar valores padrão se o formulário não estiver disponível
     selectedClassifications = ['Abaixo do Mínimo', 'Crítico'];
-    mainFilter = 'absences_only';
+    mainFilter = 'low_frequency_only';
   }
 
   // Se nenhum checkbox de classificação estiver selecionado, usar padrão
@@ -599,6 +715,8 @@ window.applyRiskFilter = function() {
 function closeFrequencyReportModal(event) {
   if (event) event.preventDefault();
 
+  closeObservationFromFrequencyModal();
+
   const modal = document.getElementById("frequencyReportModal");
   if (!modal) return;
   
@@ -611,6 +729,180 @@ function closeFrequencyReportModal(event) {
   modal.style.display = "none";
   modalBody.innerHTML = "";
 }
+
+function formatObservationDate(date) {
+  var day = ('0' + date.getDate()).slice(-2);
+  var month = ('0' + (date.getMonth() + 1)).slice(-2);
+  var year = date.getFullYear();
+  return day + '/' + month + '/' + year;
+}
+
+function openObservationFromFrequencyModal(button) {
+  var modal = document.getElementById('observationFromFrequencyModal');
+  if (!modal || !button) return;
+
+  var studentName = button.getAttribute('data-student-name') || '';
+  document.getElementById('observationFromFrequencyStudent').textContent =
+    'Aluno: ' + studentName;
+  document.getElementById('observation_student_id').value = button.getAttribute('data-student-id') || '';
+  document.getElementById('observation_classroom_id').value = button.getAttribute('data-classroom-id') || '';
+  document.getElementById('observation_unity_id').value = button.getAttribute('data-unity-id') || '';
+  document.getElementById('observation_date').value = formatObservationDate(new Date());
+  document.getElementById('observation_description').value = '';
+  document.getElementById('observation_active_search').checked = true;
+
+  var errors = document.getElementById('observationFromFrequencyErrors');
+  var success = document.getElementById('observationFromFrequencySuccess');
+  errors.style.display = 'none';
+  errors.innerHTML = '';
+  success.style.display = 'none';
+  success.innerHTML = '';
+
+  modal.style.display = 'flex';
+
+  var $dateField = $('#observation_date');
+  if ($dateField.length && $.fn.datepicker) {
+    $dateField.datepicker('destroy');
+    $dateField.datepicker();
+  }
+
+  document.getElementById('observation_description').focus();
+}
+
+function closeObservationFromFrequencyModal(event) {
+  if (event) event.preventDefault();
+
+  var modal = document.getElementById('observationFromFrequencyModal');
+  if (!modal) return;
+
+  modal.style.display = 'none';
+}
+
+function updateStudentObservationsCount(studentId, classroomId, count) {
+  var selector = '.student-observations-count[data-student-id="' + studentId +
+                 '"][data-classroom-id="' + classroomId + '"]';
+  var cell = document.querySelector(selector);
+  if (!cell) return;
+
+  var pdfUrl = '/pedagogical_trackings/student_observations_pdf?student_id=' +
+               encodeURIComponent(studentId) +
+               '&classroom_id=' + encodeURIComponent(classroomId);
+
+  if (count > 0) {
+    if (cell.tagName !== 'A') {
+      var link = document.createElement('a');
+      link.href = pdfUrl;
+      link.target = '_blank';
+      link.className = 'student-observations-count';
+      link.setAttribute('data-student-id', studentId);
+      link.setAttribute('data-classroom-id', classroomId);
+      link.title = 'Gerar PDF com todas as observações do aluno';
+      cell.parentNode.replaceChild(link, cell);
+      cell = link;
+    } else {
+      cell.href = pdfUrl;
+      cell.className = 'student-observations-count';
+    }
+    cell.textContent = count;
+  } else {
+    if (cell.tagName === 'A') {
+      var span = document.createElement('span');
+      span.className = 'student-observations-count';
+      span.setAttribute('data-student-id', studentId);
+      span.setAttribute('data-classroom-id', classroomId);
+      span.textContent = '0';
+      cell.parentNode.replaceChild(span, cell);
+    } else {
+      cell.className = 'student-observations-count';
+      cell.textContent = '0';
+    }
+  }
+}
+
+function csrfToken() {
+  var meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute('content') : '';
+}
+
+function submitObservationFromFrequency(event) {
+  event.preventDefault();
+
+  var submitButton = document.getElementById('observationFromFrequencySubmit');
+  var errors = document.getElementById('observationFromFrequencyErrors');
+  var success = document.getElementById('observationFromFrequencySuccess');
+
+  errors.style.display = 'none';
+  errors.innerHTML = '';
+  success.style.display = 'none';
+  success.innerHTML = '';
+
+  var payload = {
+    student_id: document.getElementById('observation_student_id').value,
+    classroom_id: document.getElementById('observation_classroom_id').value,
+    unity_id: document.getElementById('observation_unity_id').value,
+    date: document.getElementById('observation_date').value,
+    description: document.getElementById('observation_description').value,
+    active_search: document.getElementById('observation_active_search').checked ? '1' : '0'
+  };
+
+  if (!payload.description.trim()) {
+    errors.innerHTML = 'Informe a descrição da observação.';
+    errors.style.display = 'block';
+    return;
+  }
+
+  submitButton.disabled = true;
+  submitButton.textContent = 'Salvando...';
+
+  fetch('/pedagogical_trackings/create_observation', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'X-CSRF-Token': csrfToken()
+    },
+    body: JSON.stringify(payload)
+  })
+    .then(function(response) {
+      return response.json().then(function(data) {
+        return { ok: response.ok, data: data };
+      });
+    })
+    .then(function(result) {
+      if (!result.ok || !result.data.success) {
+        var messages = (result.data && result.data.errors) || ['Não foi possível salvar a observação.'];
+        errors.innerHTML = messages.join('<br>');
+        errors.style.display = 'block';
+        return;
+      }
+
+      success.innerHTML = result.data.message || 'Observação registrada com sucesso.';
+      success.style.display = 'block';
+
+      if (result.data.observations_count != null) {
+        updateStudentObservationsCount(
+          result.data.student_id,
+          result.data.classroom_id,
+          result.data.observations_count
+        );
+      }
+
+      setTimeout(function() {
+        closeObservationFromFrequencyModal();
+      }, 900);
+    })
+    .catch(function(err) {
+      console.error('Erro ao salvar observação:', err);
+      errors.innerHTML = 'Ocorreu um erro ao salvar a observação.';
+      errors.style.display = 'block';
+    })
+    .finally(function() {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Salvar';
+    });
+}
+
+$(document).on('submit', '#observationFromFrequencyForm', submitObservationFromFrequency);
 
 function openClassCouncilModal(unityId, classroomId) {
   const modal = document.getElementById("classCouncilModal");
@@ -652,3 +944,184 @@ function closeClassCouncilModal(event) {
   modal.style.display = "none";
   document.getElementById("classCouncilModalBody").innerHTML = "";
 }
+
+function openTagCloudModal(event) {
+  if (event) event.preventDefault();
+
+  var gradeId = $('#tag_cloud_grade_id').val();
+  var disciplineId = $('#tag_cloud_discipline_id').val();
+
+  if (!gradeId || gradeId === 'empty' || !disciplineId || disciplineId === 'empty') {
+    alert('Selecione uma série e uma disciplina para analisar.');
+    return false;
+  }
+
+  var unityId = $('#tag_cloud_unity_id').val();
+  var stepNumber = $('#tag_cloud_step_number').val();
+  var modal = document.getElementById('tagCloudModal');
+  var body = document.getElementById('tagCloudModalBody');
+  var summary = document.getElementById('tagCloudModalSummary');
+
+  if (!modal) return false;
+
+  modal.style.display = 'flex';
+  summary.textContent = '';
+  body.innerHTML = '<p class="pedagogical-modal__loading">Carregando análise...</p>';
+
+  var params = new URLSearchParams({
+    grade_id: gradeId,
+    discipline_id: disciplineId
+  });
+
+  if (unityId && unityId !== 'empty') {
+    params.append('unity_id', unityId);
+  }
+
+  if (stepNumber && stepNumber !== 'empty') {
+    params.append('step_number', stepNumber);
+  }
+
+  fetch('/pedagogical_trackings/tag_cloud_modal?' + params.toString())
+    .then(function(response) {
+      if (!response.ok) {
+        return response.text().then(function(text) {
+          throw new Error(text || 'Erro ao carregar análise');
+        });
+      }
+      return response.text();
+    })
+    .then(function(html) {
+      body.innerHTML = html;
+      var summaryData = document.getElementById('tag-cloud-summary-data');
+      if (summaryData) {
+        summary.textContent = summaryData.getAttribute('data-summary') || '';
+      }
+    })
+    .catch(function(err) {
+      console.error('Erro ao carregar tag cloud:', err);
+      body.innerHTML = '<p style="color:#b91c1c;">Erro ao carregar a análise: ' + err.message + '</p>';
+    });
+
+  return false;
+}
+
+function closeTagCloudModal(event) {
+  if (event) event.preventDefault();
+
+  var modal = document.getElementById('tagCloudModal');
+  if (!modal) return;
+
+  modal.style.display = 'none';
+  document.getElementById('tagCloudModalBody').innerHTML = '';
+  document.getElementById('tagCloudModalSummary').textContent = '';
+}
+
+function isPedagogicalModalOpen(modal) {
+  return modal && modal.style.display === 'flex';
+}
+
+function closeActivePedagogicalModal(event) {
+  if (isPedagogicalModalOpen(document.getElementById('observationFromFrequencyModal'))) {
+    closeObservationFromFrequencyModal(event);
+    return true;
+  }
+
+  if (isPedagogicalModalOpen(document.getElementById('resumeModal'))) {
+    closeResumeModal(event);
+    return true;
+  }
+
+  if (isPedagogicalModalOpen(document.getElementById('frequencyReportModal'))) {
+    closeFrequencyReportModal(event);
+    return true;
+  }
+
+  if (isPedagogicalModalOpen(document.getElementById('classCouncilModal'))) {
+    closeClassCouncilModal(event);
+    return true;
+  }
+
+  if (isPedagogicalModalOpen(document.getElementById('tagCloudModal'))) {
+    closeTagCloudModal(event);
+    return true;
+  }
+
+  return false;
+}
+
+$(document).ready(function() {
+  $('#tag-cloud-form').on('submit', openTagCloudModal);
+  $('#tag_cloud_grade_id').on('change', onTagCloudGradeChange);
+  resetTagCloudDependentFilters();
+
+  $('a[href="#pedagogical-content-analysis"][data-toggle="tab"]').on('shown.bs.tab', function() {
+    $('#pedagogical-content-analysis').find('input.select2, select.select2').each(function() {
+      var $field = $(this);
+      if ($field.data('select2')) {
+        $field.select2('val', $field.val());
+      }
+    });
+  });
+
+  $(document).on('click', '.pedagogical-modal', function(event) {
+    if (event.target !== this) return;
+    closeActivePedagogicalModal(event);
+  });
+
+  $(document).on('keydown', function(event) {
+    if (event.key !== 'Escape' && event.keyCode !== 27) return;
+    if (closeActivePedagogicalModal(event)) {
+      event.preventDefault();
+    }
+  });
+});
+
+function onTagCloudGradeChange(event) {
+  clear_empty(event);
+
+  var gradeId = $('#tag_cloud_grade_id').val();
+  resetTagCloudDependentFilters();
+
+  if (!gradeId || gradeId === 'empty') {
+    return;
+  }
+
+  fetch('/pedagogical_trackings/tag_cloud_filters?grade_id=' + encodeURIComponent(gradeId))
+    .then(function(response) {
+      if (!response.ok) {
+        throw new Error('Erro ao carregar filtros');
+      }
+      return response.json();
+    })
+    .then(function(data) {
+      setTagCloudSelectOptions('#tag_cloud_discipline_id', data.disciplines || []);
+      setTagCloudSelectOptions('#tag_cloud_unity_id', data.unities || []);
+    })
+    .catch(function(err) {
+      console.error('Erro ao carregar filtros da tag cloud:', err);
+      alert('Ocorreu um erro ao carregar disciplinas e escolas da série selecionada.');
+    });
+}
+
+function resetTagCloudDependentFilters() {
+  setTagCloudSelectOptions('#tag_cloud_discipline_id', []);
+  setTagCloudSelectOptions('#tag_cloud_unity_id', []);
+}
+
+function setTagCloudSelectOptions(selector, items) {
+  var $field = $(selector);
+  var options = [{ id: 'empty', name: '<option></option>', text: '' }].concat(
+    (items || []).map(function(item) {
+      return {
+        id: item.id,
+        name: item.name || item.text,
+        text: item.text || item.name
+      };
+    })
+  );
+
+  $field.prop('disabled', items.length === 0);
+  $field.select2('val', '');
+  $field.select2({ data: options, width: '100%' });
+}
+

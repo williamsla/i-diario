@@ -1,5 +1,6 @@
 module ApplicationHelper
   include ActiveSupport::Inflector
+  include AeeHelper
 
   DEFAULT_LOGO = 'brasil.png'.freeze
   PROFILE_DEFAULT_PICTURE_PATH = '/assets/profile-default.jpg'.freeze
@@ -38,27 +39,44 @@ module ApplicationHelper
     user_role_cache = role&.cache_key.to_s + role&.id.to_s
     key = [
       'Menus',
+      Entity.current&.id,
+      current_user.admin?,
       controller_name,
       user_role_cache || current_user.cache_key,
-      Translation.cache_key
+      role&.permissions_cache_key,
+      Translation.cache_key,
+      is_aee
     ]
 
     Rails.cache.fetch(key, expires_in: 1.day) do
-      Navigation.draw_menus(controller_name, current_user)
+      begin
+        Thread.current[:navigation_is_aee] = is_aee
+        Navigation.draw_menus(controller_name, current_user)
+      ensure
+        Thread.current[:navigation_is_aee] = nil
+      end
     end
   end
 
   def shortcuts
+    role = current_user.current_user_role&.role
     key = [
-      'HomeShortcuts',
+      'HomeShortcutsV3',
+      Entity.current&.id,
+      current_user.admin?,
       navigation_cache_version,
-      current_user.current_user_role&.role&.cache_key || current_user&.cache_key,
+      role&.cache_key || current_user&.cache_key,
+      role&.permissions_cache_key,
       Translation.cache_key
     ]
 
-    Rails.cache.fetch(key, expires_in: 1.day) do
-      Navigation.draw_shortcuts(current_user)
-    end
+    cached = Rails.cache.read(key)
+    return cached if cached.present?
+
+    html = Navigation.draw_shortcuts(current_user)
+    # Nunca grava HTML vazio: evita esconder atalhos válidos por cache contaminado
+    Rails.cache.write(key, html, expires_in: 1.day) if html.present?
+    html
   end
 
   def navigation_cache_version

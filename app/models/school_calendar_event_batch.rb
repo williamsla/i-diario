@@ -1,6 +1,8 @@
 class SchoolCalendarEventBatch < ApplicationRecord
   audited
 
+  include SaturdaySchoolDayMapping
+
   has_many :school_calendar_events, dependent: :nullify, foreign_key: 'batch_id'
 
   has_enumeration_for :event_type, with: EventTypes

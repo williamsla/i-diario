@@ -9,14 +9,18 @@ class ObjectivesController < ApplicationController
       discipline = Discipline.find(params[:discipline_id])
       date = params[:date]
       return unless teacher && classroom && discipline && date
-      @objectives = ContentsForDisciplineRecordFetcher.new(teacher, classroom, discipline, date).fetch_objectives
+      @objectives = ContentsForDisciplineRecordFetcher.new(
+        teacher, classroom, discipline, date, params[:student_id]
+      ).fetch_objectives
     elsif params[:fetch_for_knowledge_area_records]
       teacher = current_teacher
       classroom = Classroom.find(params[:classroom_id])
       knowledge_areas = KnowledgeArea.find(params[:knowledge_area_ids])
       date = params[:date]
       return unless teacher && classroom && knowledge_areas && date
-      @objectives = ContentsForKnowledgeAreaRecordFetcher.new(teacher, classroom, knowledge_areas, date).fetch_objectives
+      @objectives = ContentsForKnowledgeAreaRecordFetcher.new(
+        teacher, classroom, knowledge_areas, date, params[:student_id]
+      ).fetch_objectives
     elsif !params[:merge_objectives_by_code] || params[:filter][:by_description]
       @objectives = apply_scopes(Objective)
     elsif params[:filter][:start_with_description]

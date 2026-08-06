@@ -380,6 +380,19 @@ task print_diary: :environment do
                     end
                   end
 
+                  if ConceptualExamReportBatchBuilder.classroom_has_conceptual_score_type?(classroom)
+                    ConceptualExamReportBatchBuilder.new(
+                      entity_configuration: current_entity_configuration,
+                      unity: school,
+                      classroom: classroom,
+                      teacher_id: teacher.id,
+                      start_at: @diary_report_form.start_at,
+                      end_at: @diary_report_form.end_at
+                    ).each_rendered_report do |render|
+                      add_pdf_to_merge(pdfTarget, report_name('avaliacao-conceitual'), render)
+                    end
+                  end
+
                   # parecer
                   if classroom_has_opinion_type(classroom) == true
                     @descriptive_form = DescriptiveReportForm.new(

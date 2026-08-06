@@ -41,8 +41,13 @@ class TeachingPlan < ApplicationRecord
   scope :by_unity_id, ->(unity_id) { where(unity_id: unity_id) }
   scope :by_teacher_id, ->(teacher_id) { where(teacher_id: teacher_id) }
   scope :by_year, ->(year) { where(year: year) }
+  scope :semed, -> { where(teacher_id: nil) }
 
   attr_accessor :grade_ids, :contents_created_at_position, :objectives_created_at_position
+
+  def semed?
+    teacher_id.nil?
+  end
 
   def to_s
     return discipline_teaching_plan.discipline.to_s if discipline_teaching_plan

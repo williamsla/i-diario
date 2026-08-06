@@ -1,4 +1,103 @@
 class PendingRecordsCalculator
+  FICHA_CONCEITUAL_NAME_PATTERNS = [
+    /ficha\s*conceitual/,
+    /\beixo\s+(i{1,3}|iv|v)\s*-/,
+    /\Az\s+.*\beixo\b/
+  ].freeze
+
+  def self.reset_pending_records_discipline_cache!
+    @knowledge_area_ids_with_fichas = nil
+    @knowledge_area_ids_with_grouper = nil
+    @infantil_content_knowledge_area_ids = nil
+  end
+
+  def self.exclude_pending_record_row?(discipline_name:, knowledge_area_id: nil, discipline_id: nil)
+    # Exclui fichas conceituais tanto como disciplina quanto como área de conhecimento
+    # (no iEducar cada eixo pode ser uma área com o mesmo nome da ficha).
+    return true if discipline_name_excluded?(discipline_name)
+    return false if knowledge_area_id.present?
+
+    return false if discipline_id.blank?
+
+    discipline = Discipline.includes(:knowledge_area).find_by(id: discipline_id)
+    discipline_excluded_from_pending_records?(discipline)
+  end
+
+  def self.discipline_name_excluded?(name)
+    return false if name.blank?
+
+    normalized = I18n.transliterate(name.to_s.downcase)
+    FICHA_CONCEITUAL_NAME_PATTERNS.any? { |pattern| normalized.match?(pattern) }
+  end
+
+  def self.discipline_excluded_from_pending_records?(discipline)
+    return true if discipline.blank?
+
+    knowledge_area = discipline.knowledge_area
+    knowledge_area_id = knowledge_area&.id
+
+    return true if discipline.grouper? || discipline.descriptor?
+    return true if knowledge_area&.group_descriptors?
+    return true if discipline_name_excluded?(discipline.description)
+    return true if infantil_content_knowledge_area_ids.include?(knowledge_area_id)
+    return true if knowledge_area_with_conceptual_ficha?(knowledge_area_id)
+    return true if knowledge_area_with_grouper_discipline?(knowledge_area_id)
+
+    false
+  end
+
+  def self.knowledge_area_with_conceptual_ficha?(knowledge_area_id)
+    return false if knowledge_area_id.blank?
+
+    knowledge_area_ids_with_fichas.include?(knowledge_area_id)
+  end
+
+  def self.knowledge_area_with_grouper_discipline?(knowledge_area_id)
+    return false if knowledge_area_id.blank?
+
+    knowledge_area_ids_with_grouper.include?(knowledge_area_id)
+  end
+
+  def self.infantil_content_knowledge_area_ids
+    @infantil_content_knowledge_area_ids ||= begin
+      infantil_ids = KnowledgeArea
+        .where(
+          'description ILIKE ? OR description ILIKE ? OR description ILIKE ? OR description ILIKE ?',
+          '%educação infantil%',
+          '%educacao infantil%',
+          '%campos de experiência%',
+          '%campos de experiencia%'
+        )
+        .pluck(:id)
+
+      (infantil_ids + knowledge_area_ids_with_grouper.to_a + knowledge_area_ids_with_fichas.to_a)
+        .compact
+        .uniq
+        .to_set
+    end
+  end
+
+  def self.knowledge_area_ids_with_fichas
+    @knowledge_area_ids_with_fichas ||= Discipline
+      .where(
+        'description ILIKE ? OR description ILIKE ? OR description ~* ?',
+        '%ficha conceitual%',
+        '%ficha  conceitual%',
+        '\beixo\s+(i{1,3}|iv|v)\s*-'
+      )
+      .distinct
+      .pluck(:knowledge_area_id)
+      .to_set
+  end
+
+  def self.knowledge_area_ids_with_grouper
+    @knowledge_area_ids_with_grouper ||= Discipline.unscoped
+      .where(grouper: true)
+      .distinct
+      .pluck(:knowledge_area_id)
+      .to_set
+  end
+
   def initialize(unity_id: nil, classroom_id: nil, teacher_id: nil, discipline_id: nil, start_date: nil, end_date: nil, school_year: nil, count_only: false, include_dates: false)
     @unity_id = unity_id
     @classroom_id = classroom_id
@@ -13,6 +112,10 @@ class PendingRecordsCalculator
 
   def calculate
     results = []
+    self.class.reset_pending_records_discipline_cache!
+    self.class.knowledge_area_ids_with_grouper
+    self.class.knowledge_area_ids_with_fichas
+    self.class.infantil_content_knowledge_area_ids
     
     # Se foi passado um discipline_id e pode ser uma área de conhecimento (turma infantil),
     # verificar primeiro se a turma é infantil antes de buscar teacher_discipline_classrooms
@@ -24,16 +127,26 @@ class PendingRecordsCalculator
       is_infantil = classroom ? is_infantil_classroom?(classroom) : false
     end
     
-    # Se for turma infantil e foi passado um discipline_id (que pode ser knowledge_area_id),
+    # Se for turma infantil (ou multisseriada com área de conhecimento) e foi passado knowledge_area_id,
     # processar diretamente sem depender de teacher_discipline_classrooms
-    if is_infantil && @discipline_id.present? && @teacher_id.present? && @classroom_id.present?
+    is_multigrade = classroom ? multigrade_infantil_fundamental_classroom?(classroom) : false
+    is_pure_infantil = is_infantil && !is_multigrade
+    infantil_knowledge_area_param = infantil_knowledge_area_param?(
+      classroom, @teacher_id, @discipline_id
+    )
+
+    if @discipline_id.present? && @teacher_id.present? && @classroom_id.present? && classroom &&
+       (is_pure_infantil || (is_multigrade && infantil_knowledge_area_param))
       unity = classroom.unity
       school_calendar = CurrentSchoolCalendarFetcher.new(unity, classroom, @school_year).fetch
       return results unless school_calendar
 
+      @current_school_calendar = school_calendar
+      @saturdays_mapping = nil
+
       steps_fetcher = StepsFetcher.new(classroom)
       steps = steps_fetcher.steps_by_date_range(@start_date, @end_date)
-      
+
       if steps.blank?
         start_date = @start_date
         end_date = @end_date
@@ -42,7 +155,6 @@ class PendingRecordsCalculator
         end_date = [steps.map(&:end_at).max, @end_date].min
       end
 
-      # Obter frequency_type da turma
       frequency_type_definer = FrequencyTypeDefiner.new(classroom, @teacher_id, nil, year: @school_year)
       frequency_type_definer.define!
       frequency_type = frequency_type_definer.frequency_type
@@ -51,26 +163,26 @@ class PendingRecordsCalculator
       today = Date.current
       grade_id = classroom.grade_ids.first
 
-      # Calcular dias letivos
       school_day_checker = SchoolDayChecker.new(school_calendar, start_date, grade_id, classroom.id, nil)
       all_school_days = school_day_checker.school_dates_between(start_date, end_date)
-      
-      # Adicionar sábados que estão no quadro de aulas, mesmo que não sejam dias letivos no calendário
       all_school_days = add_saturdays_from_lesson_boards(all_school_days, start_date, end_date, classroom.id)
 
-      # Buscar áreas de conhecimento do professor na turma
-      knowledge_area_ids = KnowledgeArea.by_teacher(@teacher_id)
-                                       .by_classroom_id(classroom.id)
-                                       .pluck(:id)
-      
-      # Filtrar pelo knowledge_area_id fornecido
+      knowledge_area_ids = if is_multigrade
+                             infantil_knowledge_area_ids_for_classroom(classroom, @teacher_id)
+                           else
+                             KnowledgeArea.by_teacher(@teacher_id)
+                                          .by_classroom_id(classroom.id)
+                                          .pluck(:id)
+                           end
+
       knowledge_area_ids = knowledge_area_ids.select { |id| id.to_s == @discipline_id.to_s }
-      
-      # Se não encontrou a área de conhecimento, retornar vazio
       return results if knowledge_area_ids.blank?
-      
-      # Processar por área de conhecimento
-      infantil_results = process_infantil_classroom(classroom, knowledge_area_ids, school_calendar, start_date, end_date, is_general_frequency, all_school_days, today, grade_id, @teacher_id)
+
+      infantil_results = process_infantil_classroom(
+        classroom, knowledge_area_ids, school_calendar, start_date, end_date,
+        is_general_frequency, all_school_days, today, grade_id, @teacher_id
+      )
+      filter_excluded_discipline_results!(infantil_results)
       return infantil_results
     end
     
@@ -82,6 +194,9 @@ class PendingRecordsCalculator
       unity = classroom.unity
       school_calendar = CurrentSchoolCalendarFetcher.new(unity, classroom, @school_year).fetch
       next unless school_calendar
+
+      @current_school_calendar = school_calendar
+      @saturdays_mapping = nil
 
       steps_fetcher = StepsFetcher.new(classroom)
       steps = steps_fetcher.steps_by_date_range(@start_date, @end_date)
@@ -114,26 +229,60 @@ class PendingRecordsCalculator
       # Adicionar sábados que estão no quadro de aulas, mesmo que não sejam dias letivos no calendário
       all_school_days = add_saturdays_from_lesson_boards(all_school_days, start_date, end_date, classroom.id)
 
-      # Verificar se é turma infantil
       is_infantil = is_infantil_classroom?(classroom)
+      is_multigrade = multigrade_infantil_fundamental_classroom?(classroom)
 
-      # Se for turma infantil, buscar áreas de conhecimento ao invés de disciplinas
-      if is_infantil
-        # Buscar áreas de conhecimento do professor na turma
+      if is_multigrade
+        teacher_id = tdcs.first.teacher_id
+        knowledge_area_ids = infantil_knowledge_area_ids_for_classroom(classroom, teacher_id)
+
+        if @discipline_id.present? && infantil_knowledge_area_param?(classroom, teacher_id, @discipline_id)
+          knowledge_area_ids = knowledge_area_ids.select { |id| id.to_s == @discipline_id.to_s }
+        elsif @discipline_id.present?
+          knowledge_area_ids = []
+        end
+
+        if knowledge_area_ids.present?
+          results.concat(
+            process_infantil_classroom(
+              classroom, knowledge_area_ids, school_calendar, start_date, end_date,
+              is_general_frequency, all_school_days, today, grade_id, teacher_id
+            )
+          )
+        end
+
+        non_infantil_ids = non_infantil_grade_ids(classroom)
+        tdcs = tdcs.select { |tdc| non_infantil_ids.include?(tdc.grade_id) }
+
+        infantil_ka_ids = infantil_knowledge_area_ids_for_classroom(classroom, teacher_id)
+        if infantil_ka_ids.present?
+          infantil_discipline_ids = Discipline.where(knowledge_area_id: infantil_ka_ids).pluck(:id)
+          tdcs = tdcs.reject { |tdc| infantil_discipline_ids.include?(tdc.discipline_id) }
+        end
+
+        next if tdcs.blank?
+      elsif is_infantil
         teacher_id = tdcs.first.teacher_id
         knowledge_area_ids = KnowledgeArea.by_teacher(teacher_id)
                                          .by_classroom_id(classroom.id)
                                          .pluck(:id)
-        
-        # Se discipline_id foi fornecido e é um ID de área de conhecimento, filtrar
+
         if @discipline_id.present?
           knowledge_area_ids = knowledge_area_ids.select { |id| id.to_s == @discipline_id.to_s }
         end
-        
-        # Para turmas infantis, processar por área de conhecimento
-        results.concat(process_infantil_classroom(classroom, knowledge_area_ids, school_calendar, start_date, end_date, is_general_frequency, all_school_days, today, grade_id, teacher_id))
-        next # Pular processamento normal de disciplinas
+
+        results.concat(
+          process_infantil_classroom(
+            classroom, knowledge_area_ids, school_calendar, start_date, end_date,
+            is_general_frequency, all_school_days, today, grade_id, teacher_id
+          )
+        )
+        next
       end
+
+      # Ignorar agrupadores (grouper), descritores (fichas conceituais) e eixos de áreas com group_descriptors
+      tdcs = tdcs.reject { |tdc| excluded_discipline_for_pending_records?(tdc.discipline) }
+      next if tdcs.blank?
 
       # Buscar weekdays em batch para todas as disciplinas (sempre necessário para conteúdos)
       discipline_ids = tdcs.map { |tdc| tdc.discipline_id }.uniq
@@ -206,8 +355,7 @@ class PendingRecordsCalculator
         teacher = tdc.teacher
         discipline = tdc.discipline
 
-        # Filtrar apenas disciplinas que não são grouper e não são descriptor
-        next if discipline.grouper == true || discipline.descriptor == true
+        next if excluded_discipline_for_pending_records?(discipline)
 
         # Para frequências: se for GENERAL, usar todos os dias letivos (não filtrar por weekdays)
         # Se for BY_DISCIPLINE, filtrar por weekdays da disciplina
@@ -259,9 +407,8 @@ class PendingRecordsCalculator
         # Obter weekdays do professor específico para frequência geral
         current_teacher_weekdays = is_general_frequency ? (teacher_weekdays_by_teacher[teacher.id] || []) : []
         
-        # Se a disciplina não está no quadro de aulas, verificar se há frequências ou conteúdos registrados
-        # Se houver, significa que há um quadro de aulas mesmo que não tenhamos encontrado os weekdays
-        if discipline_weekdays.empty?
+        # Sem weekdays no ativo nem no arquivado: fallback por lançamentos existentes
+        if discipline_weekdays.empty? && discipline_discarded_weekdays.empty?
           # Verificar se há frequências ou conteúdos registrados para esta disciplina
           # IMPORTANTE: Verificar ANTES de calcular school_days, mas DEPOIS de all_frequencies_by_discipline ser calculado
           frequency_dates_set_for_check = if is_general_frequency
@@ -309,10 +456,11 @@ class PendingRecordsCalculator
             school_days_for_frequency = []
           end
         else
-          # Filtrar apenas os dias letivos que correspondem aos dias da semana da disciplina (quadro ativo)
-          # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
-          school_days_for_content = all_school_days.select { |date| weekday_numbers.include?(get_equivalent_weekday_number(date)) }
-          # Para frequência geral, usar os weekdays do professor; senão, usar os da disciplina
+          # data <= arquivamento (até quando funcionou) => arquivado; depois => ativo
+          archive_date = lessons_board_archive_date(classroom.id)
+          school_days_for_content = school_days_by_board_archive_date(
+            all_school_days, weekday_numbers, discarded_weekday_numbers, archive_date
+          )
           if is_general_frequency
             teacher_weekday_numbers = current_teacher_weekdays.map do |wd|
               case wd
@@ -325,8 +473,6 @@ class PendingRecordsCalculator
               when 'saturday' then 6
               end
             end.compact
-            # Se a disciplina não tem weekdays, não há pendências
-            # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
             school_days_for_frequency = teacher_weekday_numbers.any? ? all_school_days.select { |date| teacher_weekday_numbers.include?(get_equivalent_weekday_number(date)) } : []
           else
             school_days_for_frequency = school_days_for_content
@@ -535,6 +681,7 @@ class PendingRecordsCalculator
           unity_name: unity.name,
           period: period_for_calculation,
           total_workload: total_workload,
+          in_lessons_board: discipline_weekdays.any?,
           pending_frequency_count: pending_frequency_count,
           pending_content_count: pending_content_count
         }
@@ -549,6 +696,7 @@ class PendingRecordsCalculator
       end
     end
 
+    filter_excluded_discipline_results!(results)
     results
   end
 
@@ -595,7 +743,7 @@ class PendingRecordsCalculator
 
   def teacher_discipline_classrooms
     relation = TeacherDisciplineClassroom
-      .includes(:teacher, :discipline, classroom: :unity)
+      .includes(:teacher, discipline: :knowledge_area, classroom: :unity)
       .joins(:classroom)
     
     # Filtrar por ano - converter para string se necessário, pois o campo year pode ser string
@@ -610,6 +758,22 @@ class PendingRecordsCalculator
     relation = relation.by_discipline_id(@discipline_id) if @discipline_id.present?
 
     relation
+  end
+
+  # Agrupadores (grouper), descritores/fichas conceituais e disciplinas de áreas com
+  # group_descriptors não entram em datas pendentes — o lançamento é pela área de conhecimento.
+  def excluded_discipline_for_pending_records?(discipline)
+    self.class.discipline_excluded_from_pending_records?(discipline)
+  end
+
+  def filter_excluded_discipline_results!(results)
+    results.reject! do |result|
+      self.class.exclude_pending_record_row?(
+        discipline_name: result[:discipline_name],
+        knowledge_area_id: result[:knowledge_area_id],
+        discipline_id: result[:discipline_id]
+      )
+    end
   end
 
   def calculate_weekly_hours(classroom_id, discipline_id, period)
@@ -685,12 +849,14 @@ class PendingRecordsCalculator
     # Buscar weekdays de quadros excluídos (discarded_at IS NOT NULL)
     # Usar unscoped para ignorar default_scope e joins diretos nas tabelas
     # Verificar primeiro se há quadros excluídos no banco
+    archived_since = effective_archived_since(classroom_id)
     sql_check = <<-SQL
       SELECT COUNT(*) 
       FROM lessons_boards lb
       INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id
       WHERE cg.classroom_id = #{classroom_id}
       AND lb.discarded_at IS NOT NULL
+      #{archived_since ? "AND lb.discarded_at >= '#{archived_since}'" : ''}
     SQL
     discarded_boards_count = ActiveRecord::Base.connection.exec_query(sql_check).first&.dig('count') || 0
     
@@ -709,6 +875,7 @@ class PendingRecordsCalculator
       .where(tdc: { discarded_at: nil })
       .where.not(weekday: nil)
       .where.not(teacher_discipline_classroom_id: nil)
+    query_discarded = filter_effective_archived_boards(query_discarded, archived_since)
     
     # IMPORTANTE: Filtrar por ano do quadro de aulas para garantir que está buscando do ano correto
     if @school_year.present?
@@ -772,6 +939,7 @@ class PendingRecordsCalculator
         .where(tdc: { discarded_at: nil })
         .where.not(weekday: nil)
         .where.not(teacher_discipline_classroom_id: nil)
+      weekdays_data_discarded_fallback = filter_effective_archived_boards(weekdays_data_discarded_fallback, archived_since)
       
       # IMPORTANTE: Filtrar por ano do quadro de aulas para garantir que está buscando do ano correto
       if @school_year.present?
@@ -802,6 +970,7 @@ class PendingRecordsCalculator
       .where(tdc: { discarded_at: nil })
       .where.not(weekday: nil)
       .where.not(teacher_discipline_classroom_id: nil)
+    weekdays_data_discarded_all = filter_effective_archived_boards(weekdays_data_discarded_all, archived_since)
     
     # IMPORTANTE: Filtrar por ano do quadro de aulas para garantir que está buscando do ano correto
     if @school_year.present?
@@ -944,6 +1113,61 @@ class PendingRecordsCalculator
     week_number = [date.cwyear, date.cweek]
     
     week_number
+  end
+
+  # discarded_at do último quadro arquivado da turma (data de troca do quadro).
+  # Ignora quadros "excluídos" (discarded_at anterior ao início do calendário).
+  def lessons_board_archive_date(classroom_id)
+    @lessons_board_archive_dates ||= {}
+    return @lessons_board_archive_dates[classroom_id] if @lessons_board_archive_dates.key?(classroom_id)
+
+    query = LessonsBoard.unscoped
+      .joins(classrooms_grade: :classroom)
+      .where(classrooms_grades: { classroom_id: classroom_id })
+      .where.not(discarded_at: nil)
+
+    query = query.where(classrooms: { year: @school_year }) if @school_year.present?
+
+    archived_since = effective_archived_since(classroom_id)
+    query = query.where('lessons_boards.discarded_at >= ?', archived_since) if archived_since
+
+    @lessons_board_archive_dates[classroom_id] = query.maximum(:discarded_at)&.to_date
+  end
+
+  def effective_archived_since(classroom_id)
+    @effective_archived_since ||= {}
+    return @effective_archived_since[classroom_id] if @effective_archived_since.key?(classroom_id)
+
+    classroom = Classroom.find_by(id: classroom_id)
+    unless classroom
+      @effective_archived_since[classroom_id] = nil
+      return nil
+    end
+
+    year = @school_year.presence || classroom.year
+    calendar = CurrentSchoolCalendarFetcher.new(classroom.unity, classroom, year).fetch
+    @effective_archived_since[classroom_id] = calendar&.first_day&.to_date&.beginning_of_day
+  rescue StandardError
+    @effective_archived_since[classroom_id] = nil
+  end
+
+  def filter_effective_archived_boards(relation, archived_since)
+    return relation if archived_since.blank?
+
+    relation.where('lb.discarded_at >= ?', archived_since)
+  end
+
+  # Regra: date <= archive_date (até quando funcionou) => arquivado; date > archive_date => ativo.
+  def school_days_by_board_archive_date(all_school_days, active_weekdays, archived_weekdays, archive_date)
+    all_school_days.select do |date|
+      wd = get_equivalent_weekday_number(date)
+      numbers = if archive_date && date <= archive_date
+                  archived_weekdays.presence || active_weekdays
+                else
+                  active_weekdays.presence || archived_weekdays
+                end
+      numbers.include?(wd)
+    end
   end
 
   def has_record_in_same_week_from_discarded_board?(pending_date, loaded_discarded_dates, school_days_discarded, classroom, discipline, is_general_frequency, today, discarded_weekday_numbers)
@@ -1121,18 +1345,84 @@ class PendingRecordsCalculator
       .exists?
   end
 
+  INFANTIL_GRADE_PATTERN = /creche|pre|pre i|pre ii|pre[- ]escola(r)?|maternal|bercario|jardim|infantil|aee/
+
   def is_infantil_classroom?(classroom)
     classroom.classrooms_grades.any? do |classroom_grade|
-      grade = classroom_grade.grade
-      grade&.description&.match?(/creche|pre|pre-escola|pré|pré-escola|maternal|bercario|berçario|infantil|aee/i)
+      infantil_grade_description?(classroom_grade.grade&.description)
     end
   end
 
+  def multigrade_infantil_fundamental_classroom?(classroom)
+    return false if classroom.blank?
+
+    has_infantil = false
+    has_non_infantil = false
+
+    classroom.classrooms_grades.each do |classroom_grade|
+      if infantil_grade_description?(classroom_grade.grade&.description)
+        has_infantil = true
+      else
+        has_non_infantil = true
+      end
+    end
+
+    has_infantil && has_non_infantil
+  end
+
+  def infantil_grade_ids(classroom)
+    return [] if classroom.blank?
+
+    classroom.classrooms_grades.select do |classroom_grade|
+      infantil_grade_description?(classroom_grade.grade&.description)
+    end.map(&:grade_id)
+  end
+
+  def non_infantil_grade_ids(classroom)
+    return [] if classroom.blank?
+
+    classroom.classrooms_grades.reject do |classroom_grade|
+      infantil_grade_description?(classroom_grade.grade&.description)
+    end.map(&:grade_id)
+  end
+
+  def infantil_knowledge_area_ids_for_classroom(classroom, teacher_id)
+    infantil_discipline_ids = discipline_ids_for_grade_ids(classroom, infantil_grade_ids(classroom), teacher_id)
+    return [] if infantil_discipline_ids.blank?
+
+    KnowledgeArea.joins(:disciplines)
+                 .where(disciplines: { id: infantil_discipline_ids })
+                 .distinct
+                 .pluck(:id)
+  end
+
+  def infantil_knowledge_area_param?(classroom, teacher_id, param_id)
+    return false if param_id.blank? || classroom.blank? || teacher_id.blank?
+
+    infantil_knowledge_area_ids_for_classroom(classroom, teacher_id).map(&:to_s).include?(param_id.to_s)
+  end
+
+  def discipline_ids_for_grade_ids(classroom, grade_ids, teacher_id)
+    return [] if classroom.blank? || grade_ids.blank? || teacher_id.blank?
+
+    TeacherDisciplineClassroom
+      .by_teacher_id(teacher_id)
+      .by_classroom(classroom)
+      .by_year(@school_year)
+      .where(grade_id: grade_ids)
+      .pluck(:discipline_id)
+      .uniq
+  end
+
+  def infantil_grade_description?(description)
+    return false if description.blank?
+
+    I18n.transliterate(description.to_s.downcase).match?(INFANTIL_GRADE_PATTERN)
+  end
+
   def add_saturdays_from_lesson_boards(all_school_days, start_date, end_date, classroom_id)
-    # Carregar mapeamento de sábados letivos do arquivo de configuração
-    sabados_letivos_map = load_sabados_letivos_config
-    
-    # Se não houver mapeamento, retornar os dias letivos sem modificação
+    sabados_letivos_map = saturdays_mapping.mapping
+
     return all_school_days if sabados_letivos_map.blank?
     
     # Buscar todos os sábados no intervalo de datas
@@ -1172,46 +1462,12 @@ class PendingRecordsCalculator
     (all_school_days + saturdays_to_add).sort
   end
 
-  def load_sabados_letivos_config
-    # Carrega o mapeamento de sábados letivos do arquivo de configuração
-    @sabados_letivos_map ||= begin
-      config_path = Rails.root.join('config', 'sabados_letivos.yml')
-      
-      if File.exist?(config_path)
-        YAML.load_file(config_path) || {}
-      else
-        {}
-      end
-    end
+  def saturdays_mapping
+    @saturdays_mapping ||= SchoolSaturdaysMapping.new(school_calendar: @current_school_calendar)
   end
 
   def get_equivalent_weekday_number(date)
-    # Retorna o número do dia da semana equivalente para uma data
-    # Se for um sábado mapeado, retorna o número do dia equivalente
-    # Caso contrário, retorna o wday normal da data
-    
-    return date.wday unless date.saturday?
-    
-    # Verificar se o sábado está mapeado
-    sabados_letivos_map = load_sabados_letivos_config
-    date_key = date.strftime("%Y-%m-%d")
-    equivalent_weekday = sabados_letivos_map[date_key]
-    
-    # Se não estiver mapeado, retornar o wday normal (6 para sábado)
-    return date.wday if equivalent_weekday.blank?
-    
-    # Converter o dia equivalente para número
-    case equivalent_weekday
-    when 'sunday' then 0
-    when 'monday' then 1
-    when 'tuesday' then 2
-    when 'wednesday' then 3
-    when 'thursday' then 4
-    when 'friday' then 5
-    when 'saturday' then 6
-    else
-      date.wday # Se não for um dia válido, retornar o wday normal
-    end
+    saturdays_mapping.weekday_number_for(date)
   end
 
   def filter_saturdays_by_events(pending_dates, classroom, school_calendar)
@@ -1311,7 +1567,10 @@ class PendingRecordsCalculator
     all_contents_by_discipline = {}
     if started_as_discipline
       knowledge_area_ids.each do |knowledge_area_id|
-        discipline_ids = Discipline.where(knowledge_area_id: knowledge_area_id).pluck(:id)
+        discipline_ids = Discipline.where(knowledge_area_id: knowledge_area_id)
+                                   .not_grouper
+                                   .not_descriptor
+                                   .pluck(:id)
         discipline_ids_by_knowledge_area[knowledge_area_id] = discipline_ids
       end
       
@@ -1340,13 +1599,24 @@ class PendingRecordsCalculator
       # Se não houver weekdays, não há pendências
       area_weekdays = knowledge_area_weekdays[knowledge_area_id] || []
       area_discarded_weekdays = knowledge_area_discarded_weekdays[knowledge_area_id] || []
+
+      # Mapear weekdays excluídos para números (sempre necessário para quadros descartados)
+      discarded_weekday_numbers = area_discarded_weekdays.map do |wd|
+        case wd
+        when 'sunday' then 0
+        when 'monday' then 1
+        when 'tuesday' then 2
+        when 'wednesday' then 3
+        when 'thursday' then 4
+        when 'friday' then 5
+        when 'saturday' then 6
+        end
+      end.compact
       
-      if area_weekdays.empty?
-        # Se a área de conhecimento não está no quadro de aulas, não há pendências
+      if area_weekdays.empty? && area_discarded_weekdays.empty?
         school_days_for_content = []
         school_days_for_frequency = []
       else
-        # Mapear weekdays para números (0=domingo, 1=segunda, etc)
         weekday_numbers = area_weekdays.map do |wd|
           case wd
           when 'sunday' then 0
@@ -1358,23 +1628,12 @@ class PendingRecordsCalculator
           when 'saturday' then 6
           end
         end.compact
-        
-        # Mapear weekdays excluídos para números
-        discarded_weekday_numbers = area_discarded_weekdays.map do |wd|
-          case wd
-          when 'sunday' then 0
-          when 'monday' then 1
-          when 'tuesday' then 2
-          when 'wednesday' then 3
-          when 'thursday' then 4
-          when 'friday' then 5
-          when 'saturday' then 6
-          end
-        end.compact
-        
-        # Filtrar apenas os dias letivos que correspondem aos dias da semana da área de conhecimento
-        # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
-        school_days_for_content = all_school_days.select { |date| weekday_numbers.include?(get_equivalent_weekday_number(date)) }
+
+        # data <= arquivamento (até quando funcionou) => arquivado; depois => ativo
+        archive_date = lessons_board_archive_date(classroom.id)
+        school_days_for_content = school_days_by_board_archive_date(
+          all_school_days, weekday_numbers, discarded_weekday_numbers, archive_date
+        )
         school_days_for_frequency = is_general_frequency ? school_days_for_content : []
       end
       
@@ -1565,6 +1824,7 @@ class PendingRecordsCalculator
         unity_name: classroom.unity.name,
         period: nil,
         total_workload: total_workload,
+        in_lessons_board: area_weekdays.any?,
         pending_frequency_count: pending_frequency_count,
         pending_content_count: pending_content_count
       }

@@ -1,30 +1,67 @@
 <tbody id="resources-tbody">
 <% if @lessons_boards.empty? %>
   <tr>
-    <td class="no_record_found" colspan="5"> <%= t('views.index.no_record_found')%></td>
+    <td class="no_record_found" colspan="6"> <%= t('views.index.no_record_found')%></td>
   </tr>
 <% else %>
   <% @lessons_boards.each do |lesson_board| %>
-    <tr>
+    <tr class="<%= 'lessons-board-archived' if lesson_board.discarded? %>">
       <td><%= lesson_board.classrooms_grade.classroom.year %></td>
       <td><%= lesson_board.classrooms_grade.classroom.unity.name %></td>
       <td><%= lesson_board.classrooms_grade.grade.description %></td>
       <td><%= lesson_board.classrooms_grade.classroom.description %></td>
-      <td><%= Periods.translate(Periods.key_for(lesson_board.period.to_s)) %></td>
-      <td class="actions" style="width: 120px">
+      <td>
+        <%= Periods.translate(Periods.key_for(lesson_board.period.to_s)) %>
+        <% if lesson_board.discarded? %>
+          <br>
+          <a href="#"
+             class="label label-default edit-archive-date-lessons-board apply_tooltip"
+             style="cursor: pointer; display: inline-block; margin-top: 4px;"
+             data-url="<%= update_archived_until_lessons_board_path(lesson_board) %>"
+             data-current-date="<%= lesson_board.discarded_at.to_date.iso8601 %>"
+             data-original-title="<%= t('lessons_boards.index.edit_archived_until') %>">
+            <%= t('lessons_boards.index.archived_until', date: l(lesson_board.discarded_at.to_date)) %>
+            <i class="fa fa-pencil" style="margin-left: 4px;"></i>
+          </a>
+        <% end %>
+      </td>
+      <td class="actions" style="width: <%= lesson_board.discarded? ? '220px' : '180px' %>">
         <%= link_to t('helpers.links.show_html'), lessons_board_path(lesson_board),
-                    class: "btn btn-info apply_tooltip apply_tooltip", style: "width: 32%;",
+                    class: "btn btn-info apply_tooltip",
+                    style: "width: #{lesson_board.discarded? ? '23%' : '32%'};",
                     data: { original_title: t('views.index.tooltips.show') } %>
         <%= link_to t('helpers.links.edit_html'), edit_lessons_board_path(lesson_board),
-                    class: "btn btn-success apply_tooltip", style: "width: 32%;",
+                    class: "btn btn-success apply_tooltip",
+                    style: "width: #{lesson_board.discarded? ? '23%' : '32%'};",
                     data: { original_title: t('views.index.tooltips.edit') } %>
 
-        <%= link_to t('helpers.links.destroy_html'), lessons_board_path(lesson_board),
-                    class: "btn btn-danger apply_tooltip", method: "delete", style: "width: 32%;",
-                    data: {
-                      confirm: "Você tem certeza que deseja excluir esse quadro de aula?",
-                      original_title: t('views.index.tooltips.delete')
-                    } %>
+        <% if lesson_board.discarded? %>
+          <%= link_to "<i class='fa fa-undo'></i> ".html_safe,
+                      undiscard_lessons_board_path(lesson_board),
+                      method: :post,
+                      class: "btn btn-warning apply_tooltip",
+                      style: "width: 23%;",
+                      data: {
+                        confirm: t('lessons_boards.index.undiscard_confirm'),
+                        original_title: t('lessons_boards.index.undiscard')
+                      } %>
+          <%= link_to "<i class='fa fa-trash'></i> ".html_safe, '#',
+                      class: "btn btn-danger apply_tooltip purge-lessons-board",
+                      style: "width: 23%;",
+                      data: {
+                        url: purge_lessons_board_path(lesson_board),
+                        original_title: t('lessons_boards.index.purge')
+                      } %>
+        <% else %>
+          <%= link_to "<i class='fa fa-archive'></i> ".html_safe, '#',
+                      class: "btn apply_tooltip archive-lessons-board",
+                      style: "width: 32%; background-color: #6c757d; border-color: #6c757d; color: #fff;",
+                      data: {
+                        url: lessons_board_path(lesson_board),
+                        purge_url: purge_lessons_board_path(lesson_board),
+                        original_title: "Arquivar"
+                      } %>
+        <% end %>
       </td>
     </tr>
   <% end %>

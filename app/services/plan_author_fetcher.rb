@@ -5,6 +5,7 @@ class PlanAuthorFetcher
   end
 
   def author
+    return I18n.t('enumerations.plans_authors.others') if @component.try(:semed?)
     return I18n.t('enumerations.plans_authors.my_plans') if my_plans?
 
     I18n.t('enumerations.plans_authors.others')

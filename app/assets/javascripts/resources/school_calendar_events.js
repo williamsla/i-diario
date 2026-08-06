@@ -6,6 +6,10 @@ $(function () {
 
   var $legendContainer = $('[data-event-legend-container]'),
       $checkboxContainer = $('[data-event-checkbox-container]'),
+      $equivalentWeekdayContainer = $('[data-equivalent-weekday-container]'),
+      $startDate = $('#school_calendar_event_start_date'),
+      $endDate = $('#school_calendar_event_end_date'),
+      $equivalentWeekday = $('#school_calendar_event_equivalent_weekday'),
       $eventType = $('#school_calendar_event_event_type'),
       $unity = $('#school_calendar_event_unity_id'),
       $course = $('#school_calendar_event_course_id'),
@@ -167,13 +171,56 @@ $(function () {
     return isEventTypeEqualTo('extra_school');
   }
 
-  var eventTypeIsExtraSchool = function() {
-    return isEventTypeEqualTo('extra_school');
+  var eventTypeIsExtraSchoolWithoutFrequency = function() {
+    return isEventTypeEqualTo('extra_school_without_frequency');
   }
 
   var eventTypeIsNoSchoolWithFrequency = function() {
     return isEventTypeEqualTo('no_school_with_frequency');
   }
+
+  var parseFormDate = function(value) {
+    if (_.isEmpty(value)) {
+      return null;
+    }
+
+    var parts = value.split('/');
+
+    if (parts.length === 3) {
+      return new Date(parts[2], parts[1] - 1, parts[0]);
+    }
+
+    parts = value.split('-');
+
+    if (parts.length === 3) {
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+
+    return null;
+  };
+
+  var isSaturdayDate = function(value) {
+    var date = parseFormDate(value);
+
+    return date && date.getDay() === 6;
+  };
+
+  var shouldShowEquivalentWeekday = function() {
+    if (!eventTypeIsExtraSchool() && !eventTypeIsExtraSchoolWithoutFrequency()) {
+      return false;
+    }
+
+    return isSaturdayDate($startDate.val()) && isSaturdayDate($endDate.val());
+  };
+
+  var toggleEquivalentWeekdayContainerVisibility = function() {
+    if (shouldShowEquivalentWeekday()) {
+      $equivalentWeekdayContainer.removeClass('hidden');
+    } else {
+      $equivalentWeekdayContainer.addClass('hidden');
+      $equivalentWeekday.prop('required', false);
+    }
+  };
 
   var shouldHideLegend = function() {
     return eventTypeIsBlank() || eventTypeIsExtraSchool() || eventTypeIsNoSchoolWithFrequency();
@@ -204,6 +251,11 @@ $(function () {
 
   $eventType.on('change', togleCheckboxContainerVisibility);
   togleCheckboxContainerVisibility();
+
+  $eventType.on('change', toggleEquivalentWeekdayContainerVisibility);
+  $startDate.on('change', toggleEquivalentWeekdayContainerVisibility);
+  $endDate.on('change', toggleEquivalentWeekdayContainerVisibility);
+  toggleEquivalentWeekdayContainerVisibility();
 
   if(!_.isEmpty($classroom.val())){
     checkExamRule({ classroom_id: $classroom.val() });

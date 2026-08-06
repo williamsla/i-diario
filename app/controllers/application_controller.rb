@@ -16,6 +16,7 @@ class ApplicationController < ActionController::Base
   before_action :set_honeybadger_context
   around_action :set_user_current
   around_action :set_thread_origin_type
+  around_action :with_report_query_cache
 
   respond_to :html, :json
 
@@ -206,28 +207,37 @@ class ApplicationController < ActionController::Base
   end
 
   def is_infantil
-    classroom_grades.each do |classroom_grade|
-      description = I18n.transliterate(classroom_grade.grade.description.downcase)
-
-      return true if description.match?(
-        /creche|pre|pre i|pre ii|pre[- ]escola(r)?|maternal|bercario|jardim|infantil|aee/
-      )
+    classroom_grades.any? do |classroom_grade|
+      infantil_grade_description?(classroom_grade.grade&.description)
     end
-    return false
   end
   helper_method :is_infantil
 
   def is_fundamental
-    classroom_grades.each do |classroom_grade|
-      description = I18n.transliterate(classroom_grade.grade.description.downcase)
-
-      return true if description.match?(
-        /ano|fundamental/
-      )
+    classroom_grades.any? do |classroom_grade|
+      !infantil_grade_description?(classroom_grade.grade&.description)
     end
-    return false
   end
   helper_method :is_fundamental
+
+  def is_multigrade_infantil_fundamental?
+    multigrade_infantil_fundamental_classroom?(current_user_classroom)
+  end
+  helper_method :is_multigrade_infantil_fundamental?
+
+  def filter_disciplines_for_content_registration(disciplines, classroom = current_user_classroom)
+    return disciplines unless multigrade_infantil_fundamental_classroom?(classroom)
+
+    allowed_ids = discipline_ids_for_grade_ids(classroom, non_infantil_grade_ids(classroom))
+    disciplines.select { |discipline| allowed_ids.include?(discipline.id) }
+  end
+
+  def filter_knowledge_areas_for_content_registration(knowledge_areas, classroom = current_user_classroom)
+    return knowledge_areas unless multigrade_infantil_fundamental_classroom?(classroom)
+
+    allowed_ids = knowledge_area_ids_for_grade_ids(classroom, infantil_grade_ids(classroom))
+    knowledge_areas.select { |knowledge_area| allowed_ids.include?(knowledge_area.id) }
+  end
 
   def is_aee
     classroom_grades.each do |classroom_grade|
@@ -236,6 +246,32 @@ class ApplicationController < ActionController::Base
     return false
   end
   helper_method :is_aee
+
+  # Conteúdo por aluno: turma AEE (todos) ou regular com aluno de regra diferenciada (NEE)
+  def content_record_by_student_enabled?
+    return @content_record_by_student_enabled if defined?(@content_record_by_student_enabled)
+
+    @content_record_by_student_enabled =
+      if is_aee
+        true
+      elsif current_user_classroom.blank?
+        false
+      else
+        student_ids = StudentEnrollmentsList.new(
+          classroom: current_user_classroom,
+          discipline: current_user_discipline,
+          search_type: :by_year
+        ).student_enrollments.map(&:student_id)
+
+        Student.where(id: student_ids, uses_differentiated_exam_rule: true).exists?
+      end
+  end
+  helper_method :content_record_by_student_enabled?
+
+  def show_aee_area_label?
+    is_aee && GeneralConfiguration.current.show_aee_area_label_in_knowledge_area_content_record
+  end
+  helper_method :show_aee_area_label?
 
   def has_opinion
     classroom_grades.each do |classroom_grade|
@@ -347,11 +383,20 @@ class ApplicationController < ActionController::Base
   def require_allow_to_modify_prev_years
     return if can_change_school_year?
     return unless current_user.current_role_is_admin_or_employee?
-    return if (first_step_start_date_for_posting..last_step_end_date_for_posting).to_a.include?(Date.current)
+    return if allowed_to_modify_after_steps_ended?
 
     flash[:alert] = t('errors.general.not_allowed_to_modify_prev_years')
     redirect_to root_path
   end
+
+  def allowed_to_modify_after_steps_ended?
+    within_posting_period = (first_step_start_date_for_posting..last_step_end_date_for_posting).cover?(Date.current)
+    return true if within_posting_period
+
+    # Opção desmarcada só libera se o ano letivo da escola ainda estiver aberto
+    current_school_calendar&.opened_year && !GeneralConfiguration.block_modifications_after_last_step_ended?
+  end
+
 
   def valid_current_role?
     CurrentRoleForm.new(
@@ -443,6 +488,13 @@ class ApplicationController < ActionController::Base
     end
   end
 
+  def with_report_query_cache
+    ReportQueryCache.clear!
+    yield
+  ensure
+    ReportQueryCache.clear!
+  end
+
   def allowed_api_header?
     header_name1 = Rails.application.secrets[:AUTH_HEADER_NAME1] || 'TOKEN'
     validation_method1 = Rails.application.secrets[:AUTH_VALIDATION_METHOD1] || '=='
@@ -457,6 +509,72 @@ class ApplicationController < ActionController::Base
   end
 
   private
+
+  INFANTIL_GRADE_PATTERN = /creche|pre|pre i|pre ii|pre[- ]escola(r)?|maternal|bercario|jardim|infantil|aee/
+
+  def infantil_grade_description?(description)
+    return false if description.blank?
+
+    I18n.transliterate(description.to_s.downcase).match?(INFANTIL_GRADE_PATTERN)
+  end
+
+  def multigrade_infantil_fundamental_classroom?(classroom)
+    return false if classroom.blank?
+
+    has_infantil = false
+    has_non_infantil = false
+
+    classroom.classrooms_grades.each do |classroom_grade|
+      if infantil_grade_description?(classroom_grade.grade&.description)
+        has_infantil = true
+      else
+        has_non_infantil = true
+      end
+    end
+
+    has_infantil && has_non_infantil
+  end
+
+  def infantil_grade_ids(classroom)
+    return [] if classroom.blank?
+
+    classroom.classrooms_grades.select do |classroom_grade|
+      infantil_grade_description?(classroom_grade.grade&.description)
+    end.map(&:grade_id)
+  end
+
+  def non_infantil_grade_ids(classroom)
+    return [] if classroom.blank?
+
+    classroom.classrooms_grades.reject do |classroom_grade|
+      infantil_grade_description?(classroom_grade.grade&.description)
+    end.map(&:grade_id)
+  end
+
+  def discipline_ids_for_grade_ids(classroom, grade_ids)
+    return [] if classroom.blank? || grade_ids.blank? || current_teacher.blank?
+
+    TeacherDisciplineClassroom
+      .by_teacher_id(current_teacher.id)
+      .by_classroom(classroom)
+      .by_year(current_school_year)
+      .where(grade_id: grade_ids)
+      .pluck(:discipline_id)
+      .uniq
+  end
+
+  def knowledge_area_ids_for_grade_ids(classroom, grade_ids)
+    return [] if classroom.blank? || grade_ids.blank? || current_teacher.blank?
+
+    TeacherDisciplineClassroom
+      .by_teacher_id(current_teacher.id)
+      .by_classroom(classroom)
+      .by_year(current_school_year)
+      .where(grade_id: grade_ids)
+      .joins(:discipline)
+      .pluck('disciplines.knowledge_area_id')
+      .uniq
+  end
 
   def set_current_user_role_id
     return if request.xhr?
@@ -532,22 +650,21 @@ class ApplicationController < ActionController::Base
   end
 
   def add_pdf_to_merge(pdfTarget, name, render)
-    file_path = "#{Rails.root}/public#{name}"
-    
-    File.open(file_path, 'wb') do |f|
-      f.write(render)
+    require 'stringio' unless defined?(StringIO)
+
+    localpdf = HexaPDF::Document.new(io: StringIO.new(render.to_s))
+    localpdf.pages.each { |page| pdfTarget.pages << pdfTarget.import(page) }
+  rescue StandardError => error
+    Rails.logger.warn("HexaPDF merge via StringIO falhou (#{error.message}), usando arquivo temporário")
+    require 'tempfile'
+
+    Tempfile.create(['pdf_merge', '.pdf']) do |file|
+      file.binmode
+      file.write(render)
+      file.flush
+      localpdf = HexaPDF::Document.open(file.path)
+      localpdf.pages.each { |page| pdfTarget.pages << pdfTarget.import(page) }
     end
-
-    # last_page_number = pdfTarget.pages.size
-
-    localpdf = HexaPDF::Document.open(file_path)
-    localpdf.pages.each {|page| pdfTarget.pages << pdfTarget.import(page)}
-
-    # pdfTarget.outline.add_item("Main") do |main|
-    #   main.add_item(name, destination: last_page_number)      
-    # end
-
-    File.delete(file_path)
   end
 
   def merge_pdf(pdfTarget, name)

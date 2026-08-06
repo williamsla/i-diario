@@ -24,7 +24,9 @@ class PedagogicalTrackingsController < ApplicationController
 
     @end_date = params.dig(:search, :end_date).presence
     end_date = (@end_date || params[:end_date]).try(:to_date)
-    
+
+    load_tag_cloud_filters
+
     if unity_id
       fetch_school_days_by_unity(unity_id, start_date, end_date)
 
@@ -112,7 +114,14 @@ class PedagogicalTrackingsController < ApplicationController
       subquery_lesson_plan = "SELECT ''"
     end
     
-    rows = connection.select_rows("SELECT distinct c.description as TURMA, upper(t.name) as PROFESSOR, d.description as DISCIPLINA,
+    rows = connection.select_rows("SELECT distinct c.description as TURMA,
+      CASE
+        WHEN left_at IS NOT NULL AND left_at <= CURRENT_DATE THEN
+          upper(t.name) || ' (saiu em ' || to_char(left_at, 'DD/MM/YYYY') || ')'
+        ELSE
+          upper(t.name)
+      END as PROFESSOR,
+      d.description as DISCIPLINA,
 			(
           select count(df.id) 
           from public.daily_frequencies df, step_by_classroom(c.id, df.frequency_date) as step
@@ -181,16 +190,15 @@ class PedagogicalTrackingsController < ApplicationController
 		FROM public.teachers t 
 		inner join public.teacher_discipline_classrooms tdc on tdc.teacher_id = t.id and tdc.discarded_at is null and tdc.active = true
 		inner join public.classrooms c on c.id = tdc.classroom_id
-		inner join public.classrooms_grades cg on cg.classroom_id = c.id 
-		inner join public.grades g on g.id = cg.grade_id 
-		inner join public.courses c2 on c2.id = g.course_id
 		inner join public.disciplines d ON d.id = tdc.discipline_id and (d.descriptor = false and d.grouper = false)
-		inner join public.users u ON u.teacher_id = t.id
-		inner join public.user_roles ur ON ur.user_id = u.id 
-		inner join public.roles r ON r.id = ur.role_id and r.access_level = 'teacher'
 		inner join public.unities unity ON unity.id = c.unity_id 
+    LEFT JOIN LATERAL (
+      SELECT CASE
+        WHEN tdc.end_at IS NOT NULL AND tdc.allocation_left_at IS NOT NULL THEN LEAST(tdc.end_at, tdc.allocation_left_at)
+        ELSE COALESCE(tdc.end_at, tdc.allocation_left_at)
+      END AS left_at
+    ) teacher_left ON true
 		WHERE tdc.year = #{current_user_school_year} 
-		AND u.current_school_year = #{current_user_school_year}
 		and c.year = #{current_user_school_year}
 		and unity.id = #{unity_id}
     and (CASE WHEN #{classroom_id} > 0 THEN c.id = #{classroom_id} ELSE TRUE END)
@@ -282,7 +290,7 @@ class PedagogicalTrackingsController < ApplicationController
         if index_col == 0 # turma
           worksheet.set_column(index_col, index_col, 25, format_center)
         elsif index_col == 1 # professor
-          worksheet.set_column(index_col, index_col, 32, format_left)
+          worksheet.set_column(index_col, index_col, 45, format_left)
         elsif index_col == 2 # disciplina
           worksheet.set_column(index_col, index_col, 23, format_left)
         elsif index_col >= 3 && index_col <= 6 # FREQUENCIAS
@@ -376,6 +384,12 @@ class PedagogicalTrackingsController < ApplicationController
 
     return render plain: 'Turma não encontrada', status: :not_found if classroom.blank?
 
+    unless ClassCouncilReportDataService.reportable?(classroom)
+      report = ClassCouncilReport.build_unavailable(current_entity_configuration, classroom)
+      filename = "conselho-de-classe-#{classroom.description.parameterize}-#{Date.current.strftime('%Y%m%d')}.pdf"
+      return send_pdf(filename, report.render)
+    end
+
     report_data = ClassCouncilReportDataService.new(classroom).build
     report = ClassCouncilReport.build(current_entity_configuration, report_data)
 
@@ -400,10 +414,10 @@ class PedagogicalTrackingsController < ApplicationController
       @selected_classifications = selected_classifications
 
       # Filtro principal: escolher qual critério usar
-      # 'absences_only' (padrão): apenas alunos com 3+ faltas nos últimos 15 dias
-      # 'low_frequency_only': apenas alunos com < 80% de frequência no ano
+      # 'absences_only': apenas alunos com 3+ faltas nos últimos 15 dias
+      # 'low_frequency_only' (padrão): apenas alunos com < 80% de frequência no ano
       # 'both': ambos os critérios (3+ faltas OU < 80%)
-      @main_filter = params[:main_filter] || 'absences_only'
+      @main_filter = params[:main_filter] || 'low_frequency_only'
 
       # Data atual e últimos 15 dias
       end_date = Date.current
@@ -470,6 +484,31 @@ class PedagogicalTrackingsController < ApplicationController
           .group(:student_id)
           .count("DISTINCT daily_frequencies.frequency_date")
 
+        # Buscar faltas do ano por aluno e disciplina (dias únicos por disciplina)
+        absences_by_student_discipline = DailyFrequencyStudent
+          .joins(:daily_frequency)
+          .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: year_start_date..end_date })
+          .where(active: true)
+          .where("COALESCE(daily_frequency_students.present, 'f') = 'f'")
+          .group('daily_frequency_students.student_id', 'daily_frequencies.discipline_id')
+          .count('DISTINCT daily_frequencies.frequency_date')
+
+        absences_by_discipline_by_student = Hash.new { |h, k| h[k] = [] }
+        discipline_ids = []
+
+        absences_by_student_discipline.each do |(student_id, discipline_id), count|
+          absences_by_discipline_by_student[student_id] << {
+            discipline_id: discipline_id,
+            count: count
+          }
+          discipline_ids << discipline_id if discipline_id.present?
+        end
+
+        disciplines_by_id = Discipline
+          .includes(:knowledge_area)
+          .where(id: discipline_ids.uniq)
+          .index_by(&:id)
+
         # Buscar última data de presença por aluno (do ano inteiro)
         last_presence_by_student = DailyFrequencyStudent
           .joins(:daily_frequency)
@@ -479,10 +518,16 @@ class PedagogicalTrackingsController < ApplicationController
           .group(:student_id)
           .maximum('daily_frequencies.frequency_date')
 
-        # Calcular total de dias letivos no período (uma única vez por turma)
-        total_school_days = UnitySchoolDay.by_unity_id(classroom.unity_id)
-                                          .by_date_between(year_start_date, end_date)
-                                          .count
+        observations_count_by_student = ObservationDiaryRecordNoteStudent
+          .joins(observation_diary_record_note: :observation_diary_record)
+          .where(
+            observation_diary_records: {
+              classroom_id: classroom.id,
+              date: year_start_date..end_date
+            }
+          )
+          .group(:student_id)
+          .count
 
         students_data = []
 
@@ -498,23 +543,24 @@ class PedagogicalTrackingsController < ApplicationController
           # Buscar faltas e presenças do ano (já calculadas no banco)
           absences_year = absences_year_by_student[student_id] || 0
           presences_year = presences_year_by_student[student_id] || 0
-          
-          # Calcular percentual de frequência no ano
-          # Usar total de registros (presenças + faltas) como base
+
+          # Sem registros de frequência (presença/falta), não há base para calcular o percentual.
+          # Evita marcar como "Crítico" alunos recém-matriculados sem lançamentos ainda.
           total_records = presences_year + absences_year
-          frequency_percentage = if total_records > 0
-                                   (presences_year.to_f / total_records * 100).round(1)
-                                 elsif total_school_days > 0
-                                   # Se não há registros, usar dias letivos como base
-                                   (presences_year.to_f / total_school_days * 100).round(1)
-                                 else
-                                   0.0
-                                 end
+          next if total_records.zero?
+
+          frequency_percentage = (presences_year.to_f / total_records * 100).round(1)
+
+          # Amostra mínima (~3 semanas letivas) para classificar risco pelo % anual.
+          # Abaixo disso o percentual oscila demais (ex.: 3 faltas e 2 presenças = 40%).
+          min_frequency_records = 15
+          has_sufficient_data = total_records >= min_frequency_records
 
           # Filtrar alunos baseado no filtro principal selecionado
           has_3_or_more_absences = absences_15_days >= 3
+          # % < 80 entra mesmo com amostra pequena (classificado como "Dados insuficientes")
           has_low_frequency = frequency_percentage < 80
-          
+
           case @main_filter
           when 'absences_only'
             # Apenas alunos com 3+ faltas nos últimos 15 dias
@@ -526,20 +572,22 @@ class PedagogicalTrackingsController < ApplicationController
             # Ambos: 3+ faltas OU menos de 80% de frequência
             next unless has_3_or_more_absences || has_low_frequency
           else
-            # Padrão: apenas 3+ faltas
-            next unless has_3_or_more_absences
+            # Padrão: apenas alunos com menos de 80% de frequência no ano
+            next unless has_low_frequency
           end
-          
+
           # Data da última presença (já calculada no banco)
           last_presence_date = last_presence_by_student[student_id]
-          
+
           # Classificação de risco baseada no percentual de frequência
-          # Considerando que o mínimo é 75%, alunos entre 75% e 80% estão no limite e precisam de atenção
+          # Dados insuficientes: menos de 15 registros (presença + falta)
           # >= 80%: Adequado (margem de segurança acima do mínimo)
-          # >= 75% e < 80%: Atenção Limite (no limite mínimo, precisa de monitoramento)
-          # >= 50% e < 75%: Atenção (abaixo do mínimo, mas não crítico)
+          # >= 75% e < 80%: Atenção (no limite mínimo, precisa de monitoramento)
+          # >= 50% e < 75%: Abaixo do Mínimo
           # < 50%: Crítico
-          risk_classification = if frequency_percentage >= 80
+          risk_classification = if !has_sufficient_data
+                                  'Dados insuficientes'
+                                elsif frequency_percentage >= 80
                                   'Adequado'
                                 elsif frequency_percentage >= 75
                                   'Atenção'
@@ -549,6 +597,20 @@ class PedagogicalTrackingsController < ApplicationController
                                   'Crítico'
                                 end
 
+          # Top 3 disciplinas com mais faltas no ano
+          top_absence_disciplines = absences_by_discipline_by_student[student_id]
+            .map do |item|
+              name = if item[:discipline_id].blank?
+                       'Frequência Geral'
+                     else
+                       disciplines_by_id[item[:discipline_id]]&.to_s.presence || '—'
+                     end
+
+              { name: name, count: item[:count] }
+            end
+            .sort_by { |item| [-item[:count], item[:name]] }
+            .first(3)
+
           students_data << {
             student_id: student.id,
             student_name: student.name,
@@ -557,7 +619,9 @@ class PedagogicalTrackingsController < ApplicationController
             absences_year: absences_year,
             frequency_percentage: frequency_percentage,
             last_presence_date: last_presence_date,
-            risk_classification: risk_classification
+            risk_classification: risk_classification,
+            observations_count: observations_count_by_student[student_id] || 0,
+            top_absence_disciplines: top_absence_disciplines
           }
         end
 
@@ -580,6 +644,130 @@ class PedagogicalTrackingsController < ApplicationController
       Rails.logger.error e.backtrace.join("\n")
       render plain: "Erro ao carregar relatório: #{e.message}", status: :internal_server_error
     end
+  end
+
+  def create_observation
+    unless current_teacher
+      return render json: {
+        success: false,
+        errors: [t('pedagogical_trackings.create_observation.require_teacher')]
+      }, status: :unprocessable_entity
+    end
+
+    classroom = Classroom.find_by(id: params[:classroom_id])
+    student = Student.find_by(id: params[:student_id])
+
+    if classroom.blank? || student.blank?
+      return render json: {
+        success: false,
+        errors: [t('pedagogical_trackings.create_observation.invalid_params')]
+      }, status: :unprocessable_entity
+    end
+
+    school_calendar = StepsFetcher.new(classroom).school_calendar
+    general_record = !current_user.teacher?
+
+    observation = ObservationDiaryRecord.new(
+      school_calendar: school_calendar,
+      teacher: current_teacher,
+      classroom: classroom,
+      unity_id: classroom.unity_id,
+      date: parse_observation_date(params[:date]),
+      active_search: ActiveRecord::Type::Boolean.new.cast(params[:active_search]),
+      discipline_id: general_record ? nil : current_user_discipline&.id,
+      requires_discipline: !general_record
+    )
+
+    note = observation.notes.build(description: params[:description].to_s.strip)
+    note.note_students.build(student: student)
+
+    if observation.save
+      year_start_date = if school_calendar&.steps&.any?
+                          school_calendar.first_day
+                        else
+                          Date.new(current_user_school_year, 1, 1)
+                        end
+
+      observations_count = ObservationDiaryRecordNoteStudent
+        .joins(observation_diary_record_note: :observation_diary_record)
+        .where(
+          student_id: student.id,
+          observation_diary_records: {
+            classroom_id: classroom.id,
+            date: year_start_date..Date.current
+          }
+        )
+        .count
+
+      render json: {
+        success: true,
+        message: t('pedagogical_trackings.create_observation.success'),
+        observations_count: observations_count,
+        student_id: student.id,
+        classroom_id: classroom.id
+      }
+    else
+      render json: {
+        success: false,
+        errors: observation.errors.full_messages
+      }, status: :unprocessable_entity
+    end
+  end
+
+  def student_observations_pdf
+    unless current_teacher
+      return render plain: t('pedagogical_trackings.create_observation.require_teacher'),
+                    status: :unprocessable_entity
+    end
+
+    classroom = Classroom.find_by(id: params[:classroom_id], year: current_user_school_year)
+    student = Student.find_by(id: params[:student_id])
+
+    if classroom.blank? || student.blank?
+      return render plain: t('pedagogical_trackings.create_observation.invalid_params'),
+                    status: :unprocessable_entity
+    end
+
+    school_calendar = StepsFetcher.new(classroom).school_calendar
+    start_at = if school_calendar&.steps&.any?
+                 school_calendar.first_day
+               else
+                 Date.new(current_user_school_year, 1, 1)
+               end
+    end_at = if school_calendar&.steps&.any?
+               [Date.current, school_calendar.last_day].min
+             else
+               Date.current
+             end
+
+    form = ObservationRecordReportForm.new(
+      teacher_id: current_teacher.id,
+      unity_id: classroom.unity_id,
+      classroom_id: classroom.id,
+      discipline_id: 'all',
+      student_id: student.id,
+      start_at: start_at,
+      end_at: end_at,
+      current_user_id: current_user.id
+    ).localized
+
+    unless form.valid?
+      message = form.records_not_found_message.presence ||
+                form.errors.full_messages.to_sentence.presence ||
+                t('pedagogical_trackings.student_observations_pdf.not_found')
+      return render plain: message, status: :unprocessable_entity
+    end
+
+    report = ObservationRecordReport.new(current_entity_configuration, form).build
+    filename = t(
+      'pedagogical_trackings.student_observations_pdf.filename',
+      student: student.name.parameterize
+    )
+    send_pdf(filename, report.render)
+  rescue StandardError => e
+    Rails.logger.error "Erro no student_observations_pdf: #{e.message}"
+    Rails.logger.error e.backtrace.join("\n")
+    render plain: "Erro ao gerar PDF: #{e.message}", status: :internal_server_error
   end
 
   def teachers
@@ -614,7 +802,196 @@ class PedagogicalTrackingsController < ApplicationController
     respond_with @teacher_percents
   end
 
+  def tag_cloud_modal
+    grade_id = params[:grade_id].presence
+    discipline_id = params[:discipline_id].presence
+
+    if grade_id.blank? || discipline_id.blank?
+      return render plain: t('pedagogical_trackings.index.select_grade_and_discipline'), status: :bad_request
+    end
+
+    unless tag_cloud_grade_allowed?(grade_id)
+      return render plain: 'Sem permissão para a série selecionada.', status: :forbidden
+    end
+
+    unity_id = params[:unity_id].presence
+    if unity_id.present? && !tag_cloud_unity_allowed?(unity_id)
+      return render plain: 'Sem permissão para a escola selecionada.', status: :forbidden
+    end
+
+    step_number = params[:step_number].presence
+    start_date = params[:start_date].presence.try(:to_date)
+    end_date = params[:end_date].presence.try(:to_date)
+
+    tag_clouds = PedagogicalTrackingTagCloudFetcher.new(
+      grade_id: grade_id,
+      discipline_id: discipline_id,
+      year: current_user_school_year,
+      unity_id: unity_id,
+      unity_ids: unity_id.present? ? nil : tag_cloud_restricted_unity_ids,
+      step_number: step_number,
+      start_date: start_date,
+      end_date: end_date
+    ).fetch
+
+    @content_tags = tag_clouds[:contents]
+    @objective_tags = tag_clouds[:objectives]
+    @tag_cloud_summary = tag_cloud_summary(grade_id, discipline_id, unity_id, step_number)
+
+    render partial: 'pedagogical_trackings/tag_cloud_modal', layout: false
+  rescue StandardError => e
+    Rails.logger.error "Erro no tag_cloud_modal: #{e.message}"
+    Rails.logger.error e.backtrace.join("\n")
+    render plain: "Erro ao carregar análise: #{e.message}", status: :internal_server_error
+  end
+
+  def tag_cloud_filters
+    grade_id = params[:grade_id].presence
+
+    if grade_id.blank? || !tag_cloud_grade_allowed?(grade_id)
+      return render json: { disciplines: [], unities: [] }
+    end
+
+    year = current_user_school_year
+    accessible_unity_ids = tag_cloud_accessible_unities.map(&:id)
+
+    disciplines_scope = Discipline
+      .by_grade(grade_id)
+      .joins(teacher_discipline_classrooms: :classroom)
+      .where(classrooms: { year: year })
+
+    unless tag_cloud_full_access?
+      disciplines_scope = disciplines_scope.where(classrooms: { unity_id: accessible_unity_ids })
+    end
+
+    disciplines = disciplines_scope
+      .distinct
+      .ordered
+      .map { |discipline| { id: discipline.id, name: discipline.to_s, text: discipline.to_s } }
+
+    unities_scope = Unity
+      .joins(classrooms: :classrooms_grades)
+      .where(classrooms: { year: year }, classrooms_grades: { grade_id: grade_id })
+      .where(id: accessible_unity_ids)
+      .distinct
+      .ordered
+
+    unities = unities_scope.map { |unity| { id: unity.id, name: unity.to_s, text: unity.to_s } }
+
+    render json: { disciplines: disciplines, unities: unities }
+  end
+
   private
+
+  def parse_observation_date(value)
+    return Time.zone.today if value.blank?
+
+    Date.strptime(value.to_s, '%d/%m/%Y')
+  rescue ArgumentError
+    value.to_date
+  rescue ArgumentError, TypeError
+    Time.zone.today
+  end
+
+  def load_tag_cloud_filters
+    @tag_cloud_grades = grades_to_select(tag_cloud_accessible_grades)
+    @tag_cloud_disciplines = []
+    @tag_cloud_unities = []
+    @tag_cloud_steps = tag_cloud_step_options
+  end
+
+  def tag_cloud_full_access?
+    current_user.admin? || current_user.administrator? || current_user.has_administrator_access_level?
+  end
+
+  def tag_cloud_accessible_unities
+    @tag_cloud_accessible_unities ||= begin
+      if tag_cloud_full_access?
+        all_unities.to_a
+      elsif current_user.employee?
+        unities = Array(employee_unities)
+        unities = [current_unity].compact if unities.blank?
+        unities.compact.uniq
+      else
+        [current_unity].compact
+      end
+    end
+  end
+
+  def unities_for_filter
+    tag_cloud_accessible_unities
+  end
+  helper_method :unities_for_filter
+
+  def tag_cloud_restricted_unity_ids
+    return nil if tag_cloud_full_access?
+
+    tag_cloud_accessible_unities.map(&:id)
+  end
+
+  def tag_cloud_accessible_grades
+    year = current_user_school_year
+    grades_scope = Grade.joins(:classrooms).where(classrooms: { year: year })
+
+    unless tag_cloud_full_access?
+      grades_scope = grades_scope.where(classrooms: { unity_id: tag_cloud_accessible_unities.map(&:id) })
+    end
+
+    Grade.where(id: grades_scope.select(:id))
+  end
+
+  def tag_cloud_grade_allowed?(grade_id)
+    tag_cloud_accessible_grades.where(id: grade_id).exists?
+  end
+
+  def tag_cloud_unity_allowed?(unity_id)
+    tag_cloud_accessible_unities.any? { |unity| unity.id.to_s == unity_id.to_s }
+  end
+
+  def grades_to_select(grades_scope)
+    grades_scope
+      .joins(:course)
+      .includes(:course)
+      .order(Course.arel_table[:description].asc, Grade.arel_table[:description].asc)
+      .map do |grade|
+        OpenStruct.new(
+          id: grade.id,
+          name: "#{grade.description} - #{grade.course.description}",
+          text: "#{grade.description} - #{grade.course.description}"
+        )
+      end
+  end
+
+  def tag_cloud_step_options
+    steps_scope = SchoolCalendarStep.by_year(current_user_school_year)
+
+    unless tag_cloud_full_access?
+      steps_scope = steps_scope.by_unity(tag_cloud_accessible_unities.map(&:id))
+    end
+
+    steps_scope
+      .distinct
+      .order(:step_number)
+      .pluck(:step_number)
+      .compact
+      .uniq
+      .map do |step_number|
+        OpenStruct.new(
+          id: step_number,
+          name: "#{step_number}ª etapa",
+          text: "#{step_number}ª etapa"
+        )
+      end
+  end
+
+  def tag_cloud_summary(grade_id, discipline_id, unity_id, step_number)
+    parts = []
+    parts << Grade.find_by(id: grade_id)&.to_s
+    parts << Discipline.find_by(id: discipline_id)&.to_s
+    parts << Unity.find_by(id: unity_id)&.to_s if unity_id.present?
+    parts << "#{step_number}ª etapa" if step_number.present?
+    parts.compact.join(' · ')
+  end
 
   def minimum_year
     return if current_user_school_year >= 2020
@@ -628,8 +1005,8 @@ class PedagogicalTrackingsController < ApplicationController
     return unless current_user.employee?
 
     roles_ids = Role.where(access_level: AccessLevel::EMPLOYEE).pluck(:id)
-    unities_ids = UserRole.where(user_id: current_user.id, role_id: roles_ids).pluck(:unity_id)
-    @employee_unities ||= Unity.find(unities_ids)
+    unities_ids = UserRole.where(user_id: current_user.id, role_id: roles_ids).pluck(:unity_id).compact
+    @employee_unities ||= Unity.where(id: unities_ids).ordered
   end
   helper_method :employee_unities
 
@@ -759,7 +1136,7 @@ class PedagogicalTrackingsController < ApplicationController
 
     if @school_days_by_unity.blank?
 
-      unities = employee_unities || all_unities
+      unities = unities_for_filter
 
       unities.each do |unity|
         if classrooms_ids.present?

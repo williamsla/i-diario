@@ -1,0 +1,1918 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+      <base target="_top">
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+      <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+      <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/0.7.0/chartjs-plugin-datalabels.min.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+      <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        .container { max-width: 100%; padding: 20px; margin: 0; }
+        .text-center { text-align: center; }
+        .hidden { display: none !important; }
+        
+        /* Header */
+        #header-container {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 15px 20px;
+          margin-bottom: 20px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        #header-content {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          max-width: 1400px;
+          margin: 0 auto;
+          gap: 20px;
+        }
+        
+        #header-title {
+          flex: 1;
+        }
+        
+        #header-title h2 {
+          margin: 0 0 5px 0;
+          font-size: 24px;
+        }
+        
+        #header-title h4 {
+          margin: 0;
+          font-weight: normal;
+          opacity: 0.9;
+        }
+        
+        #logo-educa-container {
+          background: white;
+          padding: 10px 20px;
+          border-radius: 8px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+          transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        #logo-educa-container:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        #logo-educa {
+          height: 45px;
+          display: block;
+        }
+        
+        #btnSair { 
+          position: absolute;
+          top: 15px;
+          right: 20px;
+          z-index: 100;
+        }
+        #btnSair input { 
+          padding: 8px 20px; 
+          cursor: pointer;
+          border: 2px solid white;
+          background: transparent;
+          color: white;
+          border-radius: 5px;
+          font-weight: bold;
+          transition: all 0.3s;
+        }
+        #btnSair input:hover {
+          background: white;
+          color: #764ba2;
+        }
+        
+        /* Botão PDF */
+        #btnExportPDF {
+          background: #4CAF50;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: bold;
+          cursor: pointer;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+          transition: all 0.3s;
+          margin: 20px 10px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+        
+        #btnExportPDF:hover {
+          background: #45a049;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        
+        #btnExportPDF:disabled {
+          background: #ccc;
+          cursor: not-allowed;
+          transform: none;
+        }
+        
+        #btnPrint {
+          background: #2196F3;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: bold;
+          cursor: pointer;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+          transition: all 0.3s;
+          margin: 20px 10px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+        
+        #btnPrint:hover {
+          background: #1976D2;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        
+        .export-container {
+          text-align: center;
+          margin: 20px 0;
+        }
+        
+        @media print {
+          #header-container, #btnSair, #filter, #toggleMenuResult, .export-container, #footer {
+            display: none !important;
+          }
+          
+          .section h2 {
+            background: none !important;
+            color: #333 !important;
+            page-break-after: avoid;
+          }
+          
+          .comparison-container {
+            page-break-inside: avoid;
+          }
+          
+          .evaluation-column {
+            page-break-inside: avoid;
+          }
+        }
+        
+        /* Footer */
+        #footer {
+          background: #f5f5f5;
+          padding: 30px 20px;
+          text-align: center;
+          margin-top: 50px;
+          border-top: 3px solid #667eea;
+        }
+        
+        #footer-logo-container {
+          background: white;
+          display: inline-block;
+          padding: 15px 30px;
+          border-radius: 8px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          margin-bottom: 15px;
+          transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        #footer-logo-container:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        #footer-logo {
+          height: 50px;
+          display: block;
+        }
+        
+        #footer p {
+          margin: 5px 0;
+          color: #666;
+          font-size: 13px;
+        }
+        
+        /* Toggle switches */
+        .toggle { display: block; margin: 10px 0; }
+        .toggle-checkbox { display: none; }
+        .toggle-switch { 
+          display: inline-block; 
+          width: 50px; 
+          height: 25px; 
+          background: #ccc; 
+          border-radius: 25px; 
+          position: relative; 
+          cursor: pointer;
+          transition: 0.3s;
+        }
+        .toggle-switch:before {
+          content: '';
+          position: absolute;
+          width: 21px;
+          height: 21px;
+          background: white;
+          border-radius: 50%;
+          top: 2px;
+          left: 2px;
+          transition: 0.3s;
+        }
+        .toggle-checkbox:checked + .toggle-switch { background: #4CAF50; }
+        .toggle-checkbox:checked + .toggle-switch:before { left: 27px; }
+        .toggle-label { margin-left: 10px; font-weight: bold; }
+        
+        /* Filtros */
+        #filter ul { 
+          list-style: none; 
+          padding: 0;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          gap: 15px;
+          background: #f5f5f5;
+          padding: 15px;
+          border-radius: 8px;
+          margin: 15px 0;
+        }
+        #filter li { margin: 0; }
+        #filter label { 
+          display: block;
+          width: 100%;
+          font-weight: bold;
+          margin-bottom: 5px;
+          color: #333;
+          font-size: 13px;
+        }
+        #filter select { 
+          padding: 6px;
+          width: 100%;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          font-size: 13px;
+        }
+        
+        /* Área de comparação */
+        .comparison-container {
+          display: flex;
+          gap: 15px;
+          overflow-x: auto;
+          margin: 20px 0;
+          padding: 0;
+        }
+        
+        .evaluation-column {
+          flex: 0 0 calc(50% - 10px);
+          min-width: 550px;
+          border: 2px solid #ddd;
+          border-radius: 8px;
+          padding: 15px;
+          background: #f9f9f9;
+        }
+        
+        .evaluation-column h3 {
+          background: #4CAF50;
+          color: white;
+          padding: 10px;
+          margin: -15px -15px 15px -15px;
+          border-radius: 6px 6px 0 0;
+          font-size: 16px;
+        }
+        
+        .chart-wrapper {
+          margin: 15px 0;
+          background: white;
+          padding: 20px;
+          border-radius: 5px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .chart-wrapper canvas {
+          max-width: 100% !important;
+          height: auto !important;
+        }
+        
+        .chart-title {
+          font-weight: bold;
+          margin-bottom: 10px;
+          color: #333;
+          font-size: 14px;
+        }
+        
+        .section { margin: 30px 0; }
+        .section h2 { 
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white; 
+          padding: 15px 20px; 
+          border-radius: 8px;
+          font-size: 18px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        
+        .info-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+          background: rgba(255,255,255,0.3);
+          border: 2px solid white;
+          border-radius: 50%;
+          font-size: 14px;
+          font-weight: bold;
+          cursor: help;
+          position: relative;
+          flex-shrink: 0;
+          font-style: normal;
+          z-index: 1;
+        }
+        
+        .info-icon:hover {
+          background: rgba(255,255,255,0.5);
+        }
+        
+        .tooltip {
+          visibility: hidden;
+          opacity: 0;
+          position: fixed;
+          background: #333;
+          color: white;
+          padding: 15px 20px;
+          border-radius: 8px;
+          font-size: 18px;
+          line-height: 1.6;
+          max-width: 600px;
+          z-index: 10000;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+          transition: opacity 0.3s, visibility 0.3s;
+          text-transform: none;
+          letter-spacing: normal;
+          font-weight: normal;
+          pointer-events: none;
+        }
+        
+        .tooltip strong {
+          display: block;
+          margin-bottom: 8px;
+          color: #ffd700;
+          font-size: 14px;
+        }
+        
+        .info-icon:hover .tooltip {
+          visibility: visible;
+          opacity: 1;
+        }
+        
+        #btnSair { text-align: right; margin: 10px 0; }
+        #btnSair input { padding: 8px 20px; cursor: pointer; }
+        
+        .loading:after {
+          content: 'Carregando...';
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: rgba(0,0,0,0.8);
+          color: white;
+          padding: 20px;
+          border-radius: 5px;
+          z-index: 9999;
+        }
+        
+        table { border-collapse: collapse; margin: 20px auto; }
+        table td, table th { padding: 8px; border: 1px solid #ddd; }
+        table tr:nth-child(even) { background: #f2f2f2; }
+        
+        /* Checkbox para avaliações */
+        #avaliacoes-section {
+          margin: 15px 0;
+        }
+        
+        #avaliacoes-section > label {
+          display: block;
+          font-weight: bold;
+          margin-bottom: 10px;
+          color: #333;
+          font-size: 14px;
+        }
+        
+        .avaliacao-checkbox-container {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 10px;
+          margin: 0;
+          padding: 15px;
+          background: white;
+          border-radius: 5px;
+          border: 1px solid #ddd;
+        }
+        
+        .avaliacao-checkbox-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        
+        .avaliacao-checkbox-item input[type="checkbox"] {
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+        }
+        
+        .avaliacao-checkbox-item label {
+          cursor: pointer;
+          margin: 0;
+          font-weight: normal;
+        }
+        
+        .alert-max-avaliacoes {
+          background: #ff9800;
+          color: white;
+          padding: 10px;
+          border-radius: 5px;
+          margin: 10px 0;
+          display: none;
+        }
+      </style>
+
+      <style>
+        .btn-buscar {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border: none;
+          padding: 14px 32px;
+          font-size: 16px;
+          font-weight: 600;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 250px;
+        }
+
+        .btn-buscar:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+          background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+
+        .btn-buscar:active {
+          transform: translateY(0);
+          box-shadow: 0 2px 10px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-buscar svg {
+          transition: transform 0.3s ease;
+        }
+
+        .btn-buscar:hover svg {
+          transform: scale(1.1);
+        }
+      </style>
+  </head>
+
+  <body>	
+    <div id="header-container">
+      <div id="btnSair">
+        <input type="button" name="btn-sair" value="Sair" onclick="callPageHome();"/>
+      </div>
+      <div id="header-content">
+        <a href="https://ensino.site/" target="_blank" id="logo-educa-container">
+          <img id="logo-educa" src="https://ensino.site/wp-content/uploads/2025/07/cropped-logo-com-nome-ftransparente-300x100.png" alt="Educa Online Tecnologia">
+        </a>
+        <div id="header-title">
+          <h2>Resultados</h2>
+          <h4><span id="title"></span> <span id="escola_label"></span></h4>
+        </div>        
+      </div>
+    </div>
+    
+    <input type="hidden" id="instituicao" value="" />
+    <input type="hidden" id="inep" value="" />
+    <input type="hidden" id="escola" value="-1" />
+    
+    <div class="container">
+      
+      <div class="export-container">
+        <button id="btnExportPDF" onclick="exportToPDF()">
+          📄 Exportar Relatório em PDF
+        </button>
+      </div>
+            
+      <div id="toggleMenuResult">
+        <label class="toggle">
+          <input id="checkbox-reading" name="reading" onclick="chooseOption(this)" class="toggle-checkbox" type="checkbox" checked>
+          <div class="toggle-switch"></div>
+          <span class="toggle-label">Leitura, compreensão e interpretação de texto</span>
+        </label>
+        
+        <label class="toggle">
+          <input id="checkbox-writing" name="writing" onclick="chooseOption(this)" class="toggle-checkbox" type="checkbox">
+          <div class="toggle-switch"></div>
+          <span class="toggle-label">Escrita</span>
+        </label>          
+      </div>
+
+      <form id="filter">	
+        <ul>
+            <li id="avaliacoes-section" style="grid-column: 1 / -1;">
+              <label>Avaliações para comparar (até 4)</label>
+              <div class="alert-max-avaliacoes">Máximo de 4 avaliações selecionadas</div>
+              <div id="avaliacoes-checkboxes" class="avaliacao-checkbox-container"></div>
+            </li>
+            
+            <li>
+              <label for="serie">Ano Escolar</label>
+              <div>
+                <select id="serie" name="serie" class="element select medium" required> 
+                  <option value="-1" selected="selected">Selecione</option>
+                </select>
+              </div> 
+            </li>		
+            
+            <li>
+              <label for="disciplina">Disciplina</label>
+              <div>
+                <select id="disciplina" name="disciplina" class="element select" required>               
+                  <option value="-1" selected="selected">Selecione</option>
+                </select>
+              </div> 
+            </li>
+
+            <li id="subdisciplina-pai">
+              <label for="subdisciplina">Área específíca</label>
+              <div>
+                <select id="subdisciplina" name="subdisciplina" class="element select" required>               
+                  <option value="-1" selected="selected">Selecione</option>
+                </select>
+              </div> 
+            </li>
+            
+            <li id="filter-escolas">
+              <label for="escolas">Escola</label>
+              <div>
+                <select id="escolas" name="escolas" class="element select" required>               
+                  <option value="-1" selected="selected">Selecione</option>
+                </select>
+              </div> 
+            </li>
+
+            <li id="filter-turmas">
+              <label for="turma">Turma</label>
+              <div>
+                <select id="turma" name="turma" class="element select" required>               
+                  <option value="-1" selected="selected">Selecione</option>
+                </select>
+              </div> 
+            </li>
+
+            <li style="grid-column: 1 / -1; margin-top: 20px;">
+              <div style="text-align: center;">
+                <button type="button" id="btn-buscar" class="btn-buscar" onclick="loadResults(); return;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 8px;">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                  </svg>
+                  Aplicar Filtros e Buscar
+                </button>
+              </div>
+            </li>
+        </ul>
+      </form>
+            
+      <br><br>
+      <div><p id="loading" class=""></p></div>
+      
+      <div id="results">
+        <div id="results-reading" class="hidden">
+          <p style="font-size: 18px; font-weight: bold; text-align: center;">LEITURA, COMPREENSÃO E INTERPRETAÇÃO DE TEXTO</p>
+          
+          <div class="section">
+            <h2>
+              <span class="info-icon">i
+                <span class="tooltip">
+                  <strong>Taxa de participação</strong>
+                  A taxa de participação informa o alcance da avaliação entre os estudantes. De forma prática, o indicador mede o percentual daqueles que efetivamente fizeram os testes, considerando todos os estudantes aptos a participar. Nas Avaliações Diagnósticas e Formativas, são considerados previstos os estudantes cadastrados em turmas nas quais pelo menos um deles foi avaliado. Já os participantes efetivos são aqueles que responderam a pelo menos um item do teste.
+                </span>
+              </span>
+              <span class="title">
+                COMO FOI A PARTICIPAÇÃO DOS ESTUDANTES?
+              </span>
+            </h2>
+            <div id="comparison-participation" class="comparison-container"></div>
+          </div>
+          
+          <div class="section">
+            <h2>
+              <span class="info-icon">i
+                <span class="tooltip">
+                  <strong>Taxa de desempenho</strong>
+                  O percentual de acertos dos estudantes em uma avaliação é a relação entre a quantidade de itens que o estudante acertou e o total de itens que compõe o teste. Esse indicador é calculado com base na Teoria Clássica dos Testes (TCT) e é simples de ser compreendido: por exemplo, se um teste possui 10 itens e o estudante acertou 7, seu percentual de acerto é de 70%.
+                </span>
+              </span>
+              <span class="title">
+                COMO FOI O DESEMPENHO DOS ESTUDANTES?
+              </span>
+            </h2>
+            <div id="comparison-performance" class="comparison-container"></div>
+          </div>
+
+          <div class="section">
+            <h2>
+              <span class="info-icon">i
+                <span class="tooltip">
+                  <strong>Níveis de desempenho</strong>
+                  De acordo com o percentual de acerto no teste, é possível situar os estudantes em categorias ou níveis de desempenho. Para o Ensino Fundamental, há quatro categoriais de desempenho: muito baixo, que inclui aqueles que acertaram até 25% do teste; baixo, que acomoda estudantes que tiveram entre 25% e 50% de acerto; médio, que agrupa os que tiveram entre 50% e 75% de acerto; e alto, que engloba estudantes que acertaram mais do que 75% do teste.<br><br>
+                  No Ensino Fundamental, as avaliações de Língua Portuguesa e de Matemática tem uma natureza distinta. Em vez de considerarem as habilidades previstas na Base Nacional Comum Curricular (BNCC) para a própria etapa de escolarização, identificando como está o desempenho do estudante em relação aos objetivos de aprendizagem do ano em que está matriculado, os testes dos anos finais têm o objetivo de mensurar defasagens.
+                </span>
+              </span>
+              <span class="title">
+                DISTRIBUIÇÃO DOS ESTUDANTES POR CATEGORIAS DE DESEMPENHO
+              </span>
+            </h2>
+            <div id="comparison-category" class="comparison-container"></div>
+          </div>
+
+          <div class="section">
+            <h2>
+              <span class="info-icon">i
+                <span class="tooltip">
+                  <strong>Desempenho por habilidade</strong>
+                  Mostra o percentual de acertos e erros por habilidade avaliada no teste.
+                </span>
+              </span>
+              <span class="title">
+                DESEMPENHO POR HABILIDADE
+              </span>
+            </h2>
+            <div id="comparison-objective" class="comparison-container"></div>
+            <div id="comparison-objective-description"></div>
+          </div>
+
+          <div class="section">
+            <h2>
+              <span class="info-icon">i
+                <span class="tooltip">
+                  <strong>Sabe escrever o nome</strong>
+                  Percentual de alunos que escreveram o nome corretamente durante a avaliação.
+                </span>
+              </span>
+              <span class="title">
+                SABE ESCREVER O NOME
+              </span>
+            </h2>
+            <div id="comparison-writename" class="comparison-container"></div>
+          </div>
+
+          <div id="turmas" class="section byClassroom hidden">
+            <h2>ALUNOS DA TURMA</h2>
+            <center>
+              <table id="tableStudent" border="1" cellpadding="2">
+                <tr>
+                  <td><b>Nome</b></td>
+                  <td><b>Participação</b></td>
+                  <td><b>Sabe escrever o nome</b></td>
+                  <td><b>Acertos</b></td>
+                  <td><b>Erros</b></td>
+                  <td><b>Nível</b></td>
+                </tr>
+              </table>
+            </center>
+            <br/><br/><br/>
+            <center>
+              <table id="tableStudentObjectives" border="1" cellpadding="2">
+              </table>
+            </center>
+          </div>
+        </div>
+        
+        <br><br>
+        
+        <div id="results-writing" class="hidden">
+          <p style="font-size: 18px; font-weight: bold; text-align: center;">ESCRITA</p>
+          <form id="filter">	
+            <ul>
+              <li>
+                <label for="questao">Questão</label>
+                <div>
+                  <select id="questao" name="questao" class="element select medium" required> 
+                    <option value="-1" selected="selected">Selecione uma questão</option>
+                  </select>
+                </div> 
+              </li>                
+            </ul>
+          </form>
+
+          <div class="section">
+            <h2>DESEMPENHO NA QUESTÃO</h2>
+            <div id="comparison-conceptual" class="comparison-container"></div>
+          </div>
+        </div>  
+      </div>
+
+      <br><br><br>
+    </div>
+
+    <script>
+      Chart.defaults.global.showTooltips = false;
+      const colors = ['#fb0505','orange','#79dd75','#1388ea','#f82a9a','#9e48a1','#b21c99','#ddda78','#91d6d3','#5b46a4',
+      '#442c1a','#c2f708','#3a6e81', '#1c17ed'];
+      
+      let charts = {
+        participation: {},
+        performance: {},
+        category: {},
+        objective: {},
+        writename: {},
+        conceptual: {}
+      };
+      
+      let availableAvaliacoes = [];
+      let selectedAvaliacoes = [];
+
+      init();
+
+      function getColors(qtd){
+        let c = [];
+        for (var i=0;i<qtd;i++) {
+          c.push(colors[i]);
+        }
+        return c;
+      }
+
+      function calculateIndex(categories) {
+        let sum = 0;
+        for(var i=0; i<categories.length;i++){
+          sum += categories[i];
+        }
+
+        const percentual_muito_baixo = (categories[0]/sum)*100 * 0;
+        const percentual_baixo = (categories[1]/sum)*100 * 4;
+        const percentual_medio = (categories[2]/sum)*100 * 6;
+        const percentual_alto = (categories[3]/sum)*100 * 10;
+
+        const result = (percentual_muito_baixo + percentual_baixo + percentual_medio + percentual_alto ) / 100;
+        return result.toFixed(2);
+      }
+
+      function init() {
+        loadAvaliacoes();
+
+        var instituicao = "<?=inep?>"; 
+        document.getElementById('inep').value = instituicao;
+        
+        if (instituicao == "semed" || instituicao == -1) {
+          document.getElementById('escola_label').innerHTML = "SEMED";
+          document.getElementById('filter-escolas').classList.remove('hidden'); // show select escolas
+          loadEscolas();
+          loadSeries(instituicao);
+          loadDisciplinas();
+        } else {
+          document.getElementById('filter-escolas').classList.add('hidden'); // hide select escolas
+          loadEscola(instituicao);
+          loadSeries(instituicao);
+          loadDisciplinas();
+        }
+               
+      }
+
+      function dataLabelsObj(onlyPercent=false, stack=false){
+        return {
+          formatter: (value, ctx) => {
+            let total = 0;
+            if (stack) {
+              let index = ctx.dataIndex;
+              ctx.chart.data.datasets.map((d, i) => {
+                total += d.data[index];
+              });
+            } else {
+              const datapoints = ctx.chart.data.datasets[0].data;
+              total = datapoints.reduce((total, datapoint) => total + datapoint, 0);
+            }
+            
+            const percentage = value / total * 100;
+
+            if (stack) {
+              if (value == 0 || percentage == 0) {
+                return "";
+              }
+            }
+            return onlyPercent ? percentage.toFixed(0) + "%" : value + " (" + percentage.toFixed(1) + "%)";
+          },
+          color: 'black',
+          labels: {
+            title: {
+              font: {
+                weight: 'bold',
+                resizable: true,
+                minSize: 12,
+                maxSize: 18
+              }
+            }
+          }
+        };
+      }
+
+      function loadGraphParticipation(avaliacaoId, avaliacaoNome){
+        console.log('carregando grafico de participação para avaliação: ' + avaliacaoId);
+        var inep_escola = document.getElementById('inep').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value;
+        var turma = document.getElementById('turma').value; 
+      
+        google.script.run.withSuccessHandler(response => {
+          const canvasId = `graphParticipation_${avaliacaoId}`;
+          const canvas = document.getElementById(canvasId);
+          
+          if (charts.participation[avaliacaoId]) {
+            charts.participation[avaliacaoId].destroy();
+          }
+          
+          charts.participation[avaliacaoId] = new Chart(canvas, {
+            type: "pie",
+            data: {
+              labels: ['Participação','Ausência'],
+              datasets: [{
+                backgroundColor: [getColors(4)[3],getColors(4)[0]],
+                data: response
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              aspectRatio: 1,
+              title: { display: false },
+              plugins: { datalabels: dataLabelsObj() },
+              legend: {
+                position: 'bottom',
+                labels: {
+                  fontSize: 14,
+                  padding: 15
+                }
+              }
+            }
+          });
+        }).withFailureHandler(error => {
+          console.error("load Participação ERROR: " + error.message);
+        }).getParticipacao(avaliacaoId, inep_escola, serie, disciplina, turma);
+      }
+
+      function loadGraphPerformance(avaliacaoId, avaliacaoNome){
+        console.log('carregando grafico de desempenho para avaliação: ' + avaliacaoId);
+        var inep_escola = document.getElementById('inep').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value;
+        var turma = document.getElementById('turma').value; 
+        var subdisciplina = document.getElementById('subdisciplina').value;
+
+      
+        google.script.run.withSuccessHandler(response => {
+          const canvasId = `graphPerformance_${avaliacaoId}`;
+          const canvas = document.getElementById(canvasId);
+          
+          if (charts.performance[avaliacaoId]) {
+            charts.performance[avaliacaoId].destroy();
+          }
+          
+          charts.performance[avaliacaoId] = new Chart(canvas, {
+            type: "pie",
+            data: {
+              labels: ['Acertos','Erros'],
+              datasets: [{
+                backgroundColor: [getColors(4)[3],getColors(4)[0]],
+                data: response
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              aspectRatio: 1,
+              title: { display: false },
+              plugins: { datalabels: dataLabelsObj() },
+              legend: {
+                position: 'bottom',
+                labels: {
+                  fontSize: 14,
+                  padding: 15
+                }
+              }
+            }
+          });
+        }).withFailureHandler(error => {
+          console.error("load Desempenho ERROR: " + error.message);
+        }).getDesempenho(avaliacaoId, inep_escola, serie, disciplina, turma, subdisciplina);
+      }
+
+      function loadGraphCategory(avaliacaoId, avaliacaoNome){
+        console.log('carregando grafico de categorias para avaliação: ' + avaliacaoId);
+        var inep_escola = document.getElementById('inep').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value; 
+        var turma = document.getElementById('turma').value; 
+        var subdisciplina = document.getElementById('subdisciplina').value;
+
+      
+        google.script.run.withSuccessHandler(dataset => {
+          const canvasId = `graphCategory_${avaliacaoId}`;
+          const canvas = document.getElementById(canvasId);
+          const indexId = `index_${avaliacaoId}`;
+          
+          if (charts.category[avaliacaoId]) {
+            charts.category[avaliacaoId].destroy();
+          }
+          
+          charts.category[avaliacaoId] = new Chart(canvas, {
+            type: "bar",
+            data: {
+              labels: ['MUITO BAIXO','BAIXO', 'MÉDIO', 'ALTO'],
+              datasets: [{
+                backgroundColor: getColors(4),
+                data: dataset
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              legend: { display: false },
+              scales: {
+                yAxes: [{
+                  display: true,
+                  ticks: {
+                    suggestedMin: 0,
+                    beginAtZero: true,
+                    stepSize: 10,
+                    fontSize: 14
+                  }
+                }],
+                xAxes: [{
+                  ticks: {
+                    fontSize: 14
+                  }
+                }]
+              },
+              plugins: { datalabels: dataLabelsObj() }
+            }
+          });
+
+          document.getElementById(indexId).innerText = 'Índice ' + calculateIndex(dataset);
+        }).withFailureHandler(error => {
+          console.error("load Categorias ERROR: " + error.message);
+        }).getCategorias(avaliacaoId, inep_escola, serie, disciplina, turma, subdisciplina);
+      }
+
+      function loadGraphObjetives(avaliacaoId, avaliacaoNome){
+        console.log('carregando grafico de objetivos para avaliação: ' + avaliacaoId);
+        var escola = document.getElementById('escola').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value;
+        var turma = document.getElementById('turma').value;
+        var subdisciplina = document.getElementById('subdisciplina').value;
+        
+        google.script.run.withSuccessHandler(response => {
+          const canvasId = `graphObjective_${avaliacaoId}`;
+          const canvas = document.getElementById(canvasId);
+          
+          if (charts.objective[avaliacaoId]) {
+            charts.objective[avaliacaoId].destroy();
+          }
+          
+          charts.objective[avaliacaoId] = new Chart(canvas, {
+            type: "bar",
+            data: response,
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              legend: { 
+                display: true,
+                position: 'bottom',
+                labels: {
+                  fontSize: 12,
+                  padding: 10
+                }
+              },
+              scales: {
+                xAxes: [{
+                  stacked: true,
+                  ticks: {
+                    fontSize: 12
+                  }
+                }],
+                yAxes: [{
+                  stacked: true,
+                  ticks: {
+                    fontSize: 12
+                  }
+                }]
+              },
+              plugins: { datalabels: dataLabelsObj(true, true) }
+            }
+          });
+        }).withFailureHandler(error => {
+          console.error("load GraphObjective ERROR: " + error.message);
+        }).getDesempenhoPorHabilidade(avaliacaoId, escola, serie, disciplina, turma, subdisciplina);
+      }
+
+      function loadObjetiveDescriptions(avaliacaoId){
+        
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value;
+        
+        
+        google.script.run.withSuccessHandler(response => {
+          console.log('descriptions:');
+          console.log(response);
+
+          const container = document.getElementById('comparison-objective-description');
+
+          // Cria a lista e adiciona cada item do array
+          const ul = document.createElement('ul');
+          response.forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = item;
+            ul.appendChild(li);
+          });
+
+          container.innerHTML = ''; // limpa conteúdo anterior (opcional)
+          container.appendChild(ul);
+          
+        
+        }).withFailureHandler(error => {
+          console.error("load ObjectiveDescription ERROR: " + error.message);
+        }).getHabilidadesDescricao(avaliacaoId, serie, disciplina);
+      }
+
+      function loadGraphKnowWriteName(avaliacaoId, avaliacaoNome){
+        console.log('carregando grafico de sabe escrever o nome para avaliação: ' + avaliacaoId);
+        var escola = document.getElementById('escola').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value; 
+        var turma = document.getElementById('turma').value;
+      
+        google.script.run.withSuccessHandler(response => {
+          const canvasId = `graphKnowWriteName_${avaliacaoId}`;
+          const canvas = document.getElementById(canvasId);
+          
+          if (charts.writename[avaliacaoId]) {
+            charts.writename[avaliacaoId].destroy();
+          }
+          
+          charts.writename[avaliacaoId] = new Chart(canvas, {
+            type: "pie",
+            data: {
+              labels: ['Acertos','Erros'],
+              datasets: [{
+                backgroundColor: [getColors(4)[3],getColors(4)[0]],
+                data: response
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              aspectRatio: 1,
+              title: { display: false },
+              plugins: { datalabels: dataLabelsObj() },
+              legend: {
+                position: 'bottom',
+                labels: {
+                  fontSize: 14,
+                  padding: 15
+                }
+              }
+            }
+          });
+        }).withFailureHandler(error => {
+          console.error("load Sabe Escrever Nome ERROR: " + error.message);
+        }).getResultadoSabeEscreverONome(avaliacaoId, escola, serie, disciplina, turma);
+      }
+
+      function loadGraphCategoryConceptualNivel(avaliacaoId, avaliacaoNome){
+        console.log('carregando grafico conceitual nível para avaliação: ' + avaliacaoId);
+        var inep_escola = document.getElementById('inep').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value;
+        
+        var questaoElemento = document.getElementById('questao');
+        var selectedOption = questaoElemento.options[questaoElemento.selectedIndex];
+        var tipo = selectedOption.dataset.tipo;
+        var questao = questaoElemento.value;
+        
+        if (tipo != 'conceitual-nivel') {
+          return;
+        }
+      
+        google.script.run.withSuccessHandler(response => {
+          const canvasId = `graphCategoryConceptual_${avaliacaoId}`;
+          const canvas = document.getElementById(canvasId);
+          
+          if (charts.conceptual[avaliacaoId]) {
+            charts.conceptual[avaliacaoId].destroy();
+          }
+          
+          charts.conceptual[avaliacaoId] = new Chart(canvas, {
+            type: "bar",
+            data: {
+              labels: response['alternativas'],
+              datasets: [{
+                backgroundColor: getColors(response['alternativas'].length),
+                data: response['qtd']
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              legend: { display: false },
+              scales: {
+                yAxes: [{
+                  display: true,
+                  ticks: {
+                    suggestedMin: 0,
+                    beginAtZero: true,
+                    stepSize: 10,
+                    fontSize: 14
+                  }
+                }],
+                xAxes: [{
+                  ticks: {
+                    fontSize: 12
+                  }
+                }]
+              },
+              plugins: { datalabels: dataLabelsObj() }
+            }
+          });
+        }).withFailureHandler(error => {
+          console.error("load Conceitual Nível ERROR: " + error.message);
+        }).getCategoriasConceituaisNiveis(avaliacaoId, inep_escola, serie, disciplina, questao);
+      }
+
+      function createComparisonColumns(containerId, type) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        
+        // Ordenar avaliações pela ordem original em availableAvaliacoes
+        const sortedAvaliacoes = [...selectedAvaliacoes].sort((a, b) => {
+          const indexA = availableAvaliacoes.findIndex(av => av.id === a.id);
+          const indexB = availableAvaliacoes.findIndex(av => av.id === b.id);
+          return indexA - indexB;
+        });
+        
+        sortedAvaliacoes.forEach(ava => {
+          const col = document.createElement('div');
+          col.className = 'evaluation-column';
+          col.innerHTML = `
+            <h3>${ava.nome}</h3>
+            ${type === 'Category' ? `<h1 id="index_${ava.id}" style="text-align:center; color:#2196F3; margin:10px 0; font-size: 32px;"></h1>` : ''}
+            <div class="chart-wrapper">
+              <canvas id="graph${type.charAt(0).toUpperCase() + type.slice(1)}_${ava.id}"></canvas>
+            </div>
+          `;
+          container.appendChild(col);
+        });
+      }
+
+      // Adicionar script para posicionar tooltips
+      document.addEventListener('mouseover', function(e) {
+        if (e.target.classList.contains('info-icon')) {
+          const tooltip = e.target.querySelector('.tooltip');
+          if (tooltip) {
+            const rect = e.target.getBoundingClientRect();
+            tooltip.style.left = rect.left + 'px';
+            tooltip.style.top = (rect.bottom + 10) + 'px';
+          }
+        }
+      });
+
+      function loadResults(){
+        if (selectedAvaliacoes.length === 0) {
+          alert('Selecione pelo menos uma avaliação');
+          return;
+        }
+
+        if (document.getElementById('checkbox-reading').hasAttribute('checked')) {
+          createComparisonColumns('comparison-participation', 'Participation');
+          createComparisonColumns('comparison-performance', 'Performance');
+          createComparisonColumns('comparison-category', 'Category');
+          createComparisonColumns('comparison-objective', 'Objective');
+          createComparisonColumns('comparison-writename', 'KnowWriteName');
+          
+          selectedAvaliacoes.forEach(ava => {
+            loadGraphParticipation(ava.id, ava.nome);
+            loadGraphPerformance(ava.id, ava.nome);
+            loadGraphCategory(ava.id, ava.nome);
+            loadGraphObjetives(ava.id, ava.nome);
+            loadObjetiveDescriptions(ava.id);
+            loadGraphKnowWriteName(ava.id, ava.nome);            
+          });
+
+            if (selectedAvaliacoes.length == 1) {
+                let turma = document.getElementById('turma').value;
+
+                selectedAvaliacoes.forEach(ava => {
+                  showSectionByClassroom(ava.id, turma);
+                });
+              }
+          
+          document.getElementById('results-reading').classList.remove('hidden');
+        } else {
+          document.getElementById('results-reading').classList.add('hidden');
+        }
+
+        if (document.getElementById('checkbox-writing').hasAttribute('checked')) {
+          createComparisonColumns('comparison-conceptual', 'CategoryConceptual');
+          
+          selectedAvaliacoes.forEach(ava => {
+            loadGraphCategoryConceptualNivel(ava.id, ava.nome);
+          });
+          
+          document.getElementById('results-writing').classList.remove('hidden');
+        } else {
+          document.getElementById('results-writing').classList.add('hidden');
+        }
+      }
+
+      function showHideLoading(){
+        $('body').toggleClass('loading');
+      }
+
+      function hideDiv(id) {
+          $('#' + id).hide();
+      }
+
+      function showDiv(id) {
+          $('#' + id).show();
+      }
+
+      function createEmptyOption(){
+        let opt = document.createElement('option');
+        opt.value = "-1";
+        opt.innerHTML = "-- Selecione uma opção --";
+        return opt;
+      }
+
+      function removeAllChildNodes(parent) {
+        while (parent.firstChild) {
+          parent.removeChild(parent.firstChild);
+        }
+      }
+
+      function loadEscolas() {
+        removeAllChildNodes(document.getElementById('escolas'));
+        document.getElementById('escolas').appendChild(createEmptyOption());
+
+        var serie = document.getElementById('serie').value;
+        
+        google.script.run.withSuccessHandler(response => {
+          let escolas = response.message;
+
+          for (var i = 0; i < escolas.length; i++) {
+            let escola = escolas[i];
+            let opt = document.createElement('option');
+            opt.value = escola['inep'];
+            opt.innerHTML = escola['nome'];
+      
+            document.getElementById('escolas').appendChild(opt);
+          }
+        }).withFailureHandler(error => {
+          console.error("Init ERROR: " + error.message);
+        }).getEscolasTodas();
+      }
+
+      function loadEscola(inep) {
+        if (inep == -1) {
+          document.getElementById('inep').value = "semed";
+          document.getElementById('escola').value = "SEMED";
+          document.getElementById('escola_label').innerHTML = "SEMED";
+        } else {
+          google.script.run.withSuccessHandler(response => {
+            document.getElementById('inep').value = inep;
+            document.getElementById('escola').value = response[0];
+            document.getElementById('escola_label').innerHTML = response[0];
+          }).withFailureHandler(error => {
+            console.error("load ESCOLA ERROR: " + error.message);
+          }).getEscola(inep);
+        }
+      }
+
+      function loadAvaliacoes() {
+        let inep = "<?=inep?>";
+        
+        google.script.run.withSuccessHandler(response => {
+          availableAvaliacoes = response;
+          const container = document.getElementById('avaliacoes-checkboxes');
+          container.innerHTML = '';
+          
+          response.forEach((ava, index) => {
+            const item = document.createElement('div');
+            item.className = 'avaliacao-checkbox-item';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = `ava_${ava.id}`;
+            checkbox.value = ava.id;
+            checkbox.dataset.nome = ava.nome;
+            
+            // Selecionar todas as avaliações por padrão
+            checkbox.checked = true;
+            selectedAvaliacoes.push({id: ava.id, nome: ava.nome});
+            
+            checkbox.addEventListener('change', handleAvaliacaoSelection);
+            
+            const label = document.createElement('label');
+            label.htmlFor = `ava_${ava.id}`;
+            label.textContent = ava.nome;
+            
+            item.appendChild(checkbox);
+            item.appendChild(label);
+            container.appendChild(item);
+          });
+        }).withFailureHandler(error => {
+          console.error("load AVALIAÇÕES ERROR: " + error.message);
+        }).getAvaliacoes("resultado", inep);
+      }
+
+      function handleAvaliacaoSelection(e) {
+        // Reconstruir o array com base em todos os checkboxes marcados
+        selectedAvaliacoes = [];
+        
+        const checkboxes = document.querySelectorAll('.avaliacao-checkbox-item input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+          if (cb.checked) {
+            selectedAvaliacoes.push({
+              id: cb.value,
+              nome: cb.dataset.nome
+            });
+          }
+        });
+        
+        // Verificar limite de 4 avaliações
+        const alertBox = document.querySelector('.alert-max-avaliacoes');
+        if (selectedAvaliacoes.length > 4) {
+          e.target.checked = false;
+          selectedAvaliacoes = selectedAvaliacoes.filter(a => a.id !== e.target.value);
+          alertBox.style.display = 'block';
+          setTimeout(() => { alertBox.style.display = 'none'; }, 3000);
+          return;
+        }        
+      }
+
+      function loadSeries(inep) {
+        document.getElementById('serie').innerHTML = "";
+        document.getElementById('serie').appendChild(createEmptyOption());
+                  
+        google.script.run.withSuccessHandler(response => {
+          for (var i = 0; i < response.length; i++) {
+            let s = response[i];
+            let opt = document.createElement('option');
+            opt.value = s;
+            opt.innerHTML = s;
+      
+            document.getElementById('serie').appendChild(opt);
+          }
+        }).withFailureHandler(error => {
+          console.error("load Series ERROR: " + error.message);
+        }).getSeriesPorEscolaINEP(inep);
+      }
+
+      function loadDisciplinas() {
+        showHideLoading();
+
+        document.getElementById('disciplina').innerHTML = "";
+        var inep = document.getElementById('inep').value;
+
+        document.getElementById('disciplina').appendChild(createEmptyOption());
+      
+        google.script.run.withSuccessHandler(response => {
+          for (var i = 0; i < response.length; i++) {
+            let disciplinaNome = response[i];
+            let opt = document.createElement('option');
+            opt.value = disciplinaNome;
+            opt.innerHTML = disciplinaNome;
+      
+            document.getElementById('disciplina').appendChild(opt);
+          }
+          
+          showHideLoading();
+        }).withFailureHandler(error => {
+          console.error("load Disciplinas ERROR: " + error.message);
+          showHideLoading();
+        }).getDisciplinas(inep);
+      }
+
+      function loadSubdisciplinas() {
+        showHideLoading();
+
+        document.getElementById('subdisciplina').innerHTML = "";
+        var serie = document.getElementById('serie').value;
+        var disciplina = document.getElementById('disciplina').value;
+      
+        google.script.run.withSuccessHandler(response => {
+          if (response.length <= 1) {
+            document.getElementById('subdisciplina').innerHTML = '';
+            document.getElementById('subdisciplina').value = '';
+            hideDiv('subdisciplina-pai');
+          } else {
+            document.getElementById('subdisciplina').appendChild(createEmptyOption());
+            showDiv('subdisciplina-pai');
+          }
+          for (var i = 0; i < response.length; i++) {
+            let sub = response[i];
+            let opt = document.createElement('option');
+            opt.value = sub;
+            opt.innerHTML = sub;
+      
+            document.getElementById('subdisciplina').appendChild(opt);
+          }
+          
+          showHideLoading();
+        }).withFailureHandler(error => {
+          console.error("load Disciplinas ERROR: " + error.message);
+          showHideLoading();
+        }).getSubdisciplinas2(serie, disciplina);
+      }
+
+      function loadTurmas() {
+        var inep = document.getElementById('inep').value;
+
+        var escola = document.getElementById('escola').value; 
+        var serie = document.getElementById('serie').value; 
+
+        document.getElementById('turma').options.length = 0;
+        document.getElementById('turma').appendChild(createEmptyOption());
+      
+        google.script.run.withSuccessHandler(response => {
+            for (var i = 0; i < response.length; i++) {
+              let turmaNome = response[i]; 
+              let opt = document.createElement('option');
+              opt.value = turmaNome;
+              opt.innerHTML = turmaNome;
+              
+              document.getElementById('turma').appendChild(opt);
+            }
+            
+        }).withFailureHandler(error => {
+            console.error("load Turmas ERROR: " + error.message);
+            console.error(error);
+            
+        }).getTurmas(escola, serie);
+      }
+
+      function loadQuestoes() {
+        showHideLoading();
+
+        var serie = document.getElementById('serie').value;
+        var disciplina = document.getElementById('disciplina').value;
+        
+        removeAllChildNodes(document.getElementById('questao'));
+        document.getElementById('questao').appendChild(createEmptyOption());
+
+        if (disciplina == -1 || selectedAvaliacoes.length === 0) {
+          showHideLoading();
+          return;
+        }
+        
+        // Usar a primeira avaliação selecionada para carregar questões
+        var avaliacao = selectedAvaliacoes[0].id;
+      
+        google.script.run.withSuccessHandler(response => {
+          for (var i = 0; i < response.length; i++) {
+            let questao = response[i];
+            
+            let opt = document.createElement('option');
+            opt.value = questao['index'];
+            opt.dataset.tipo = questao['tipo'];
+            if (questao['tipo'] == 'conceitual-nivel') {
+              opt.innerHTML = questao['questao'];
+            } else {
+              opt.innerHTML = questao['questao'] + " - " + questao['enunciado'];
+            }
+            
+            if (response.length == 1) {
+              opt.selected = true;
+            }
+      
+            document.getElementById('questao').appendChild(opt);
+          }
+          
+          showHideLoading();
+        }).withFailureHandler(error => {
+          console.error("load Questões ERROR: " + error.message);
+          showHideLoading();
+        }).getQuestoesConceituais(avaliacao, serie, disciplina);
+      }
+
+      document.getElementById('serie').addEventListener('change', () => {
+        var disciplina = document.getElementById('disciplina').value; 
+        if (disciplina != null && disciplina != -1 && selectedAvaliacoes.length > 0){
+          $.when(
+            document.getElementById('results-reading').classList.add('hidden'),
+          ).then(
+            () => {
+              loadSubdisciplinas();
+              loadQuestoes();
+            }
+          );
+        }
+
+
+        loadTurmas();
+      
+      });
+
+      document.getElementById('disciplina').addEventListener('change', () => {
+        var serie = document.getElementById('serie').value; 
+        
+        if (serie != null && serie != -1 && selectedAvaliacoes.length > 0){
+          $.when(
+            document.getElementById('results-reading').classList.add('hidden'),
+          ).then(
+            () => {
+              loadSubdisciplinas();
+              loadQuestoes();
+            }
+          );
+        }
+      });
+      
+      document.getElementById('questao').addEventListener('change', () => {
+        var serie = document.getElementById('serie').value; 
+        if (serie != null && serie != -1 && selectedAvaliacoes.length > 0){
+          document.getElementById('results-writing').classList.add('hidden');          
+        }
+      });
+
+      document.getElementById('escolas').addEventListener('change', (event) => {
+        let inep_escola = event.target.value;
+
+        $.when(
+          document.getElementById('results-reading').classList.add('hidden'),
+          document.getElementById('inep').value = inep_escola,
+          document.getElementById('escola').value = document.getElementById('escolas').options[document.getElementById('escolas').selectedIndex].text,
+          document.getElementById('escola_label').innerHTML = document.getElementById('escolas').options[document.getElementById('escolas').selectedIndex].text,
+        ).then(
+          () => {
+            let serie = document.getElementById('serie').value;
+            if (serie != -1 && selectedAvaliacoes.length > 0) {
+              loadTurmas();
+            }
+          }
+        );
+      });
+
+      document.getElementById('turma').addEventListener('change', (event) => {
+        $.when(
+          document.getElementById('results-reading').classList.add('hidden')
+        ).then(
+          () => {
+            let serie = document.getElementById('serie').value;
+            let disciplina = document.getElementById('disciplina').value;
+            let turma = document.getElementById('turma').value;
+            let nomeTurma = document.getElementById('turma').options[document.getElementById('turma').selectedIndex].text;
+            if (serie != -1 && disciplina != -1 && selectedAvaliacoes.length > 0) {
+
+              if (selectedAvaliacoes.length == 1) {
+                selectedAvaliacoes.forEach(ava => {
+                  showSectionByClassroom(ava.id, nomeTurma);
+                });
+              } else {
+                showSectionByClassroom(-1, nomeTurma);
+              }
+              
+            }
+          }
+        );
+      });
+
+      function callPageHome() {
+        google.script.run.withSuccessHandler(url => {
+          window.top.location.href = url; 
+        }).withFailureHandler(error => {
+          console.error("ERROR: " + error.message);
+        }).getScriptUrl();
+      }
+
+      function chooseOption(element) {
+        if (element.hasAttribute("checked")) {
+          element.removeAttribute('checked');
+          document.getElementById(`results-${element.name}`).classList.add('hidden');
+        } else {
+          element.setAttribute('checked', true);
+          if (selectedAvaliacoes.length > 0) {
+            //loadResults();
+          }
+        }        
+      }
+
+      async function exportToPDF() {
+        const button = document.getElementById('btnExportPDF');
+        button.disabled = true;
+        button.innerHTML = '⏳ Gerando PDF...';
+        
+        try {
+          // Verificar se as bibliotecas foram carregadas
+          if (typeof html2canvas === 'undefined') {
+            throw new Error('Biblioteca html2canvas não foi carregada. Verifique sua conexão com a internet.');
+          }
+          
+          if (typeof window.jspdf === 'undefined') {
+            throw new Error('Biblioteca jsPDF não foi carregada. Verifique sua conexão com a internet.');
+          }
+          
+          const { jsPDF } = window.jspdf;
+          const pdf = new jsPDF('p', 'mm', 'a4');
+          const pageWidth = pdf.internal.pageSize.getWidth();
+          const pageHeight = pdf.internal.pageSize.getHeight();
+          let yPosition = 20;
+          
+          // Título do relatório
+          pdf.setFontSize(18);
+          pdf.setTextColor(102, 126, 234);
+          pdf.text('Relatorio Comparativo de Avaliacoes', pageWidth / 2, yPosition, { align: 'center' });
+          
+          yPosition += 10;
+          pdf.setFontSize(12);
+          pdf.setTextColor(0, 0, 0);
+          const escola = document.getElementById('escola_label').textContent;
+          pdf.text(escola, pageWidth / 2, yPosition, { align: 'center' });
+          
+          yPosition += 10;
+          const dataAtual = new Date().toLocaleDateString('pt-BR');
+          pdf.setFontSize(10);
+          pdf.text('Data: ' + dataAtual, pageWidth / 2, yPosition, { align: 'center' });
+          
+          yPosition += 5;
+          
+          // Informações das avaliações selecionadas
+          pdf.setFontSize(9);
+          pdf.text('Avaliações analisadas:', 15, yPosition);
+          yPosition += 5;
+          selectedAvaliacoes.forEach((ava, index) => {
+            pdf.text('- ' + ava.nome, 20, yPosition);
+            yPosition += 4;
+          });
+
+          const serie = document.getElementById('serie').options[document.getElementById('serie').selectedIndex].text;
+          const disciplina = document.getElementById('disciplina').value;
+          const turma = document.getElementById('turma').value;
+
+          yPosition += 10;
+          pdf.text(`Série: ${serie}`, 15, yPosition);
+          yPosition += 5;
+          pdf.text(`Disciplina: ${disciplina}`, 15, yPosition);
+          if (turma != -1 && turma != "-1") {
+            yPosition += 5;
+            pdf.text(`Turma: ${turma}`, 15, yPosition);
+          }
+          
+          // Capturar seções visíveis
+          const sections = document.querySelectorAll('.section:not(.hidden)');
+          
+          for (let i = 0; i < sections.length; i++) {
+            const section = sections[i];
+            
+            // Adicionar nova página para cada seção
+            pdf.addPage();
+            yPosition = 20;
+            
+            // Capturar título da seção
+            const sectionTitle = section.querySelector('h2 > span.title');
+            if (sectionTitle) {
+              const titleText = sectionTitle.textContent.trim();
+              pdf.setFontSize(14);
+              pdf.setTextColor(102, 126, 234);
+              pdf.text(titleText, pageWidth / 2, yPosition, { align: 'center' });
+              yPosition += 10;
+            }
+            
+            // Capturar cada coluna de avaliação individualmente
+            const columns = section.querySelectorAll('.evaluation-column');
+            
+            for (let j = 0; j < columns.length; j++) {
+              const column = columns[j];
+              
+              try {
+                // Capturar a coluna individual
+                const canvas = await html2canvas(column, {
+                  scale: 1.5,
+                  logging: false,
+                  useCORS: true,
+                  allowTaint: false,
+                  backgroundColor: '#ffffff',
+                  imageTimeout: 0,
+                  removeContainer: false
+                });
+                
+                const imgData = canvas.toDataURL('image/jpeg', 0.95); // Usar JPEG em vez de PNG
+                const imgWidth = (pageWidth - 30) / 2; // Metade da largura para 2 colunas
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                
+                // Posicionar lado a lado (2 por linha)
+                const xPos = 15 + (j % 2) * (imgWidth + 5);
+                
+                // Verificar se precisa de nova página
+                if (j > 0 && j % 2 === 0) {
+                  if (yPosition + imgHeight > pageHeight - 20) {
+                    pdf.addPage();
+                    yPosition = 20;
+                  } else {
+                    yPosition += imgHeight + 5;
+                  }
+                }
+                
+                pdf.addImage(imgData, 'JPEG', xPos, yPosition, imgWidth, imgHeight);
+                
+              } catch (canvasError) {
+                console.error('Erro ao capturar coluna:', canvasError);
+                // Continuar com as próximas colunas mesmo se uma falhar
+              }
+            }
+          }
+          
+          // Adicionar rodapé em todas as páginas
+          const totalPages = pdf.internal.getNumberOfPages();
+          for (let i = 1; i <= totalPages; i++) {
+            pdf.setPage(i);
+            pdf.setFontSize(8);
+            pdf.setTextColor(150, 150, 150);
+            pdf.text('Gerado por Educa Online Tecnologia Ltda - educaonline.tec.br', pageWidth / 2, pageHeight - 10, { align: 'center' });
+            pdf.text('Pagina ' + i + ' de ' + totalPages, pageWidth - 20, pageHeight - 10, { align: 'right' });
+          }
+          
+          // Salvar PDF
+          const fileName = 'Relatorio_Comparativo_' + serie + '_' + disciplina + '_' + dataAtual.replace(/\//g, '-') + '.pdf';
+          pdf.save(fileName);
+          
+          alert('PDF gerado com sucesso!');
+          
+        } catch (error) {
+          console.error('Erro ao gerar PDF:', error);
+          alert('Erro ao gerar o PDF: ' + error.message + '\n\nSolucao alternativa: Use o botao "Imprimir / Salvar como PDF"');
+        } finally {
+          button.disabled = false;
+          button.innerHTML = '📄 Exportar Relatório em PDF';
+        }
+      }
+      
+      function addTableStudentRow(nome, participou, escrevenome, acertos, erros, nivel) {
+        var table = document.getElementById("tableStudent");
+        var rowCount = table.rows.length;
+        var row = table.insertRow(rowCount);
+        row.insertCell(0).innerHTML= nome;
+
+        if (participou) row.insertCell(1).innerHTML= participou;
+        if (escrevenome) row.insertCell(2).innerHTML= escrevenome;
+        if (acertos) row.insertCell(3).innerHTML= acertos;
+        if (erros) row.insertCell(4).innerHTML= erros;
+        if (nivel) row.insertCell(5).innerHTML= nivel;
+      }
+
+      function loadCorrecaoAlunos(avaliacao, turma) {
+        if (avaliacao == -1) {
+          var tableStudent = document.getElementById("tableStudent");
+          tableStudent.innerHTML = "";
+          addTableStudentRow(`Turma: <b>${turma}</b>`,null,null,null,null,null);
+          addTableStudentRow("<b style='color:red !important;'>Para visualizar o resultado por aluno, deixe somente uma avaliação selecionada nos filtros na parte superior da tela.</b>",);
+          return;
+        }
+
+        showHideLoading();
+
+        var escola = document.getElementById('escola').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value; 
+      
+        google.script.run.withSuccessHandler(response => {
+            var tableStudent = document.getElementById("tableStudent");
+            tableStudent.innerHTML = "";
+            addTableStudentRow(`Turma: <b>${turma}</b>`,null,null,null,null,null);
+            addTableStudentRow("<b>Aluno</b>","<b>Participou</b>","<b>Sabe escrever o nome</b>","<b>Acertos</b>","<b>Erros</b>","<b>Nível</b>");
+            
+            for (var i = 0; i < response.length; i++) {
+              let alunoNomeID = response[i].split('|');
+              let nome = alunoNomeID[0];
+              let participou = alunoNomeID[1] == 1 ? "SIM" : "NÃO";
+              let escrevenome = alunoNomeID[2] == "NAO" ? "<b style='color:red !important;'>NAO</b>" : alunoNomeID[2];
+              let acertos = alunoNomeID[3];
+              let erros = alunoNomeID[4];
+              let nivel = ["MUITO BAIXO", "BAIXO"].includes(alunoNomeID[5]) ? `<b style='color:red !important;'>${alunoNomeID[5]}</b>` : alunoNomeID[5];
+              
+              addTableStudentRow(nome, participou, escrevenome, acertos, erros, nivel);
+            }
+            
+            showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("load Alunos ERROR: " + error.message);
+            console.error(error);
+            
+            showHideLoading();
+        }).getAlunosCorrecao(avaliacao, escola, serie, turma, disciplina);
+      }
+
+      function loadCorrecaoAlunosPorHabilidade(avaliacao, turma) {
+        showHideLoading();
+
+        var escola = document.getElementById('escola').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value; 
+      
+        google.script.run.withSuccessHandler(response => {
+            let habilidades = response[0];
+            let alunos = response[1];
+            
+            let tableObj = document.getElementById("tableStudentObjectives");
+            tableObj.innerHTML = "";
+
+            let row = tableObj.insertRow(-1);
+            row.insertCell().innerHTML= `Turma: <b>${turma}</b>`;              
+
+            row = tableObj.insertRow(-1);
+            row.insertCell().innerHTML= `<b>NOME</b>`;              
+            for (var i = 0; i < habilidades.length; i++) {
+              let h = habilidades[i];
+            
+              row.insertCell().innerHTML= `<b>${h}</b>`;              
+            }
+            
+            for (var i = 0; i < alunos.length; i++) {
+              let rowAluno = tableObj.insertRow();
+              let result = alunos[i];
+              let alunoNome = result['nome'];
+              let desempenho = result['desempenho'];
+
+              rowAluno.insertCell().innerHTML= alunoNome;
+              
+              for (var x=0; x<desempenho.length; x++){
+                rowAluno.insertCell().innerHTML= desempenho[x];
+              }
+            }
+            
+            showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("load Alunos por Habilidade ERROR: " + error.message);
+            console.error(error);
+            
+            showHideLoading();
+        }).getAlunosCorrecaoPorHabilidade(avaliacao, escola, serie, turma, disciplina);
+      }
+
+      function loadObjetivesDescription(){
+        showHideLoading();
+        
+        var avaliacao = document.getElementById('avaliacao').value;
+        var serie = document.getElementById('serie').value; 
+        var disciplina = document.getElementById('disciplina').value; 
+        
+        google.script.run.withSuccessHandler(response => {
+            document.getElementById('objectiveDescription').innerHTML = "";
+
+            for (var i=0; i < response.length; i++) {
+              let opt = document.createElement('span');
+              opt.innerHTML = response[i];
+        
+              document.getElementById('objectiveDescription').appendChild(opt);
+              document.getElementById('objectiveDescription').appendChild(document.createElement('br'));
+            }
+
+            showHideLoading();
+        }).withFailureHandler(error => {
+            console.error("load Objective Description ERROR: " + error.message);
+            console.error(error);
+            document.getElementById('objectiveDescription').innerHTML = "";
+
+            showHideLoading();
+        }).getHabilidades(avaliacao, serie, disciplina);
+      }
+
+      function showSectionByClassroom(avaliacao, nomeTurma){
+        $(".byClassroom").each(function(i,el){
+              el.classList.remove('hidden')
+            });
+        
+        loadCorrecaoAlunos(avaliacao, nomeTurma);
+        
+      }
+
+    </script>
+  </body>
+</html>

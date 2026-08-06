@@ -1,47 +1,301 @@
 $(function () {
   'use strict';
 
+  $('.list-group.checked-list-box .list-group-item:not(.initialized)').each(initializeListEvents);
+
   // Regular expression for dd/mm/yyyy date including validation for leap year and more
   var dateRegex = '^(?:(?:31(\\/)(?:0?[13578]|1[02]))\\1|(?:(?:29|30)(\\/)(?:0?[1,3-9]|1[0-2])\\2))(?:(?:1[6-9]|[2-9]\\d)?\\d{2})$|^(?:29(\\/)0?2\\3(?:(?:(?:1[6-9]|[2-9]\\d)?(?:0[48]|[2468][048]|[13579][26])|(?:(?:16|[2468][048]|[3579][26])00))))$|^(?:0?[1-9]|1\\d|2[0-8])(\\/)(?:(?:0?[1-9])|(?:1[0-2]))\\4(?:(?:1[6-9]|[2-9]\\d)?\\d{2})$';
+  var isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
   var flashMessages = new FlashMessages();
+  var $form = $('#discipline-content-record-form');
+  var isModalForm = $form.data('modal') === true || $form.data('modal') === 'true' || $form.attr('data-modal') === 'true';
+  var apiPaths = {
+    disciplinesForRecordDate: $form.attr('data-disciplines-for-record-date-url') || $form.data('disciplinesForRecordDateUrl'),
+    findExisting: $form.attr('data-find-existing-url') || $form.data('findExistingUrl'),
+    newUrl: $form.attr('data-new-url') || $form.data('newUrl'),
+    editUrlTemplate: $form.attr('data-edit-url-template') || $form.data('editUrlTemplate')
+  };
+  var $recordDateEmptyAlert = $('#record-date-empty-alert');
+  var $recordDateEmptyMessage = $('#record-date-empty-message');
+  var $recordDateHint = $('#record-date-hint');
   var $classroom = $('#discipline_content_record_content_record_attributes_classroom_id');
   var $discipline = $('#discipline_content_record_discipline_id');
   var $recordDate = $('#discipline_content_record_content_record_attributes_record_date');
+  var $student = $('#discipline_content_record_content_record_attributes_student_id');
   var $class_number = $('#discipline_content_record_class_number');
   var idContentsCounter = 1;
+  var isDisciplineReadonly = $discipline.prop('readonly');
+  // Registro novo: limpa a lista inteira ao trocar data/disciplina.
+  // Edição: preserva .manual (salvos/usuário) e só substitui itens vindos do plano via AJAX.
+  var isPersistedRecord = !!$('#discipline_content_record_content_record_attributes_id').val();
+  var currentRecordId = $form.attr('data-record-id') || $form.data('recordId') || null;
+  var lastStudentId = String(getStudentValue());
+  var redirectingToExisting = false;
+
+  function getStudentValue() {
+    if (!$student.length) {
+      return '';
+    }
+
+    try {
+      if ($student.data('select2')) {
+        return $student.select2('val') || '';
+      }
+    } catch (e) {}
+
+    return $student.val() || '';
+  }
+
+  var isValidRecordDate = function (date) {
+    return !_.isEmpty(date) && (!_.isEmpty(String(date).match(dateRegex)) || isoDateRegex.test(date));
+  };
+
+  var appendModalParam = function (url) {
+    if (!isModalForm || _.isEmpty(url)) {
+      return url;
+    }
+
+    return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'modal=true';
+  };
+
+  var redirectToEdit = function (recordId) {
+    if (!recordId || String(recordId) === String(currentRecordId)) {
+      loadContents();
+      return;
+    }
+
+    var editUrl = apiPaths.editUrlTemplate
+      ? String(apiPaths.editUrlTemplate).replace('__ID__', recordId)
+      : '/registros-de-conteudos-por-disciplina/' + recordId + '/editar';
+
+    redirectingToExisting = true;
+    window.location.href = appendModalParam(editUrl);
+  };
+
+  var redirectToNew = function (studentId) {
+    var classroom_id = getInputValue($classroom);
+    var discipline_id = getInputValue($discipline);
+    var date = getInputValue($recordDate);
+    var class_number = getInputValue($class_number);
+    var params = [];
+
+    if (!_.isEmpty(classroom_id)) {
+      params.push('classroom_id=' + encodeURIComponent(classroom_id));
+    }
+    if (!_.isEmpty(discipline_id)) {
+      params.push('discipline_id=' + encodeURIComponent(discipline_id));
+    }
+    if (!_.isEmpty(date)) {
+      params.push('recorded_at=' + encodeURIComponent(date));
+    }
+    if (!_.isEmpty(studentId)) {
+      params.push('student_id=' + encodeURIComponent(studentId));
+    }
+    if (!_.isEmpty(class_number)) {
+      params.push('class_number=' + encodeURIComponent(class_number));
+    }
+    if (isModalForm) {
+      params.push('modal=true');
+    }
+
+    var newUrl = apiPaths.newUrl || '/registros-de-conteudos-por-disciplina/novo';
+    redirectingToExisting = true;
+    window.location.href = newUrl + (params.length ? '?' + params.join('&') : '');
+  };
+
+  var loadExistingRecordForStudent = function (studentId) {
+    if (!$student.length || redirectingToExisting || _.isEmpty(apiPaths.findExisting)) {
+      loadContents();
+      return;
+    }
+
+    var classroom_id = getInputValue($classroom);
+    var discipline_id = getInputValue($discipline);
+    var date = getInputValue($recordDate);
+    var class_number = getInputValue($class_number);
+    studentId = studentId == null ? getStudentValue() : studentId;
+
+    if (_.isEmpty(classroom_id) || _.isEmpty(discipline_id) || !isValidRecordDate(date)) {
+      loadContents();
+      return;
+    }
+
+    $.ajax({
+      url: apiPaths.findExisting,
+      dataType: 'json',
+      data: {
+        classroom_id: classroom_id,
+        discipline_id: discipline_id,
+        record_date: date,
+        student_id: studentId,
+        class_number: class_number
+      }
+    }).done(function (payload) {
+      var existingId = payload && payload.id;
+
+      if (existingId) {
+        redirectToEdit(existingId);
+        return;
+      }
+
+      if (isPersistedRecord) {
+        redirectToNew(studentId);
+        return;
+      }
+
+      loadContents();
+    }).fail(function () {
+      loadContents();
+    });
+  };
+
+  var clearContentsAndObjectivesLists = function () {
+    if (isPersistedRecord) {
+      $('#contents-list .list-group-item:not(.manual)').remove();
+      $('#objectives-list .list-group-item:not(.manual)').remove();
+    } else {
+      $('#contents-list .list-group-item').remove();
+      $('#objectives-list .list-group-item').remove();
+    }
+  };
+
+  var getInputValue = function ($input) {
+    if (!$input || !$input.length) {
+      return '';
+    }
+
+    try {
+      if ($input.data('select2')) {
+        return $input.select2('val');
+      }
+    } catch (e) {}
+
+    return $input.val();
+  };
 
   $classroom.on('change', function () {
-    var classroom_id = $classroom.val();
+    var classroom_id = getInputValue($classroom);
 
-    $discipline.val(null).trigger('change');
+    $discipline.select2('val', '');
     $discipline.select2({ data: [] });
 
     if (!_.isEmpty(classroom_id)) {
-      fetchDisciplines(classroom_id);
+      reloadDisciplinesForSelectedDate({ reloadContents: true });
     }
-    loadContents();
   });
+
+  var syncSubmitButtonState = function () {
+    if (isModalForm) {
+      return;
+    }
+
+    if (!$recordDateEmptyAlert.hasClass('hidden')) {
+      $form.find('input[type=submit]').addClass('disabled');
+      return;
+    }
+
+    $form.find('input[type=submit]').removeClass('disabled');
+  };
+
+  var toggleRecordDateAlert = function (message) {
+    if (isModalForm) {
+      return;
+    }
+
+    if (message) {
+      $recordDateEmptyMessage.text(message);
+      $recordDateEmptyAlert.removeClass('hidden');
+      $recordDateHint.text(message).removeClass('hidden');
+    } else {
+      $recordDateEmptyAlert.addClass('hidden');
+      $recordDateEmptyMessage.text('');
+      $recordDateHint.text('').addClass('hidden');
+    }
+
+    syncSubmitButtonState();
+  };
+
+  var applyDisciplinesToSelect = function (payload, options) {
+    options = options || {};
+    var disciplines = payload.disciplines || [];
+    var selectedDisciplines = _.map(disciplines, function (discipline) {
+      var label = discipline.description || discipline.name || discipline.text || '';
+      return { id: discipline.id, text: label, name: label };
+    });
+    var previousDiscipline = getInputValue($discipline);
+
+    if (isDisciplineReadonly && previousDiscipline) {
+      var disciplineInList = _.find(selectedDisciplines, function (d) {
+        return String(d.id) === String(previousDiscipline);
+      });
+
+      if (!disciplineInList) {
+        var currentData = $discipline.select2('data');
+        var currentLabel = currentData && (currentData.text || currentData.name);
+
+        if (currentLabel) {
+          selectedDisciplines.push({
+            id: previousDiscipline,
+            text: currentLabel,
+            name: currentLabel
+          });
+        }
+      }
+    }
+
+    $discipline.select2({ data: selectedDisciplines });
+
+    if (previousDiscipline && _.find(selectedDisciplines, function (d) { return String(d.id) === String(previousDiscipline); })) {
+      $discipline.select2('val', previousDiscipline);
+    } else if (!isDisciplineReadonly && selectedDisciplines.length === 1) {
+      $discipline.select2('val', selectedDisciplines[0].id);
+    } else if (!isDisciplineReadonly) {
+      $discipline.select2('val', '');
+      $discipline.trigger('change');
+    }
+
+    toggleRecordDateAlert(payload.message);
+    countLessons();
+
+    if (options.reloadContents) {
+      loadContents();
+    } else {
+      loadContentsIfNeeded();
+    }
+  };
+
+  var reloadDisciplinesForSelectedDate = function (options) {
+    options = options || {};
+    var classroom_id = getInputValue($classroom);
+    var date = getInputValue($recordDate);
+
+    if (_.isEmpty(classroom_id) || _.isEmpty(date) || _.isEmpty(date.match(dateRegex))) {
+      toggleRecordDateAlert(null);
+      return;
+    }
+
+    $.getJSON(apiPaths.disciplinesForRecordDate, {
+      classroom_id: classroom_id,
+      record_date: date
+    }).done(function (payload) {
+      applyDisciplinesToSelect(payload || { disciplines: [], message: null }, options);
+    }).fail(function () {
+      toggleRecordDateAlert('Não foi possível carregar as disciplinas para a data selecionada. Tente novamente.');
+    });
+  };
 
 
   var handleFetchContentsSuccess = function (data) {
-    
-    // Remove TODOS os conteúdos não manuais antes de adicionar os novos
-    // Isso garante que quando a data muda, os conteúdos antigos sejam removidos
-    // IMPORTANTE: Remove novamente aqui para garantir que não há itens residuais
-    var itemsBefore = $('#contents-list .list-group-item').length;
-    
-    $('#contents-list .list-group-item').each(function() {
-      $(this).remove();
-    });
-    
-    var itemsAfter = $('#contents-list .list-group-item').length;
+    if (isPersistedRecord) {
+      $('#contents-list .list-group-item:not(.manual)').remove();
+    }
 
     // Adiciona os novos conteúdos retornados pelo servidor
     if (!_.isEmpty(data.contents)) {
       _.each(data.contents, function (content) {
         // Verifica se o conteúdo já existe (incluindo os manuais)
         // Se já existe, não adiciona novamente para evitar duplicatas
-        var contentExists = $('input[type=checkbox][data-content_description="' + content.description + '"]').length > 0;
+        var contentExists = $('#contents-list input[type=checkbox][data-content_description="' + content.description + '"]').length > 0;
         
         if (!contentExists) {
           var html = JST['templates/discipline_content_records/contents_list_item'](content);
@@ -50,7 +304,6 @@ $(function () {
       });
       $('.list-group.checked-list-box .list-group-item:not(.initialized)').each(initializeListEvents);
     }
-    // Se data.contents estiver vazio, a lista já foi limpa acima, então não há nada a fazer
   }
 
   var handleFetchContentsError = function () {
@@ -62,6 +315,7 @@ $(function () {
       classroom_id: classroom_id,
       discipline_id: discipline_id,
       date: date,
+      student_id: getInputValue($student),
       fetch_for_discipline_records: true,
       format: "json"
     }
@@ -74,17 +328,16 @@ $(function () {
   }
 
   var handleFetchObjectivesSuccess = function (data) {
-    // Remove TODOS os objetivos não manuais antes de adicionar os novos
-    // Isso garante que quando a data muda, os objetivos antigos sejam removidos
-    // IMPORTANTE: Remove novamente aqui para garantir que não há itens residuais
-    $('#objectives-list .list-group-item').remove();
+    if (isPersistedRecord) {
+      $('#objectives-list .list-group-item:not(.manual)').remove();
+    }
 
     // Adiciona os novos objetivos retornados pelo servidor
     if (!_.isEmpty(data.objectives)) {
       _.each(data.objectives, function (objective) {
         // Verifica se o objetivo já existe (incluindo os manuais)
         // Se já existe, não adiciona novamente para evitar duplicatas
-        var objectiveExists = $('input[type=checkbox][data-objective_description="' + objective.description + '"]').length > 0;
+        var objectiveExists = $('#objectives-list input[type=checkbox][data-objective_description="' + objective.description + '"]').length > 0;
         
         if (!objectiveExists) {
           var html = JST['templates/discipline_content_records/objectives_list_item'](objective);
@@ -93,7 +346,6 @@ $(function () {
       });
       $('.list-group.checked-list-box .list-group-item:not(.initialized)').each(initializeListEvents);
     }
-    // Se data.objectives estiver vazio, a lista já foi limpa acima, então não há nada a fazer
   }
 
   var fetchObjectives = function (classroom_id, discipline_id, date) {
@@ -101,6 +353,7 @@ $(function () {
       classroom_id: classroom_id,
       discipline_id: discipline_id,
       date: date,
+      student_id: getInputValue($student),
       fetch_for_discipline_records: true,
       format: "json"
     }
@@ -113,50 +366,59 @@ $(function () {
   }
 
   var loadContents = function () {
-    var classroom_id = $classroom.val();
-    var discipline_id = $discipline.val();
-    var date = $recordDate.val();
-    
-    // Remove TODOS os conteúdos e objetivos não manuais ANTES de fazer a requisição
-    // Isso garante que quando a data muda, os itens antigos sejam removidos imediatamente
-    var contentsBefore = $('#contents-list .list-group-item').length;
-    var objectivesBefore = $('#objectives-list .list-group-item').length;
-        
-    // Remove os elementos do DOM de forma mais agressiva
-    $('#contents-list .list-group-item').each(function() {
-      $(this).remove();
-    });
-    $('#objectives-list .list-group-item').each(function() {
-      $(this).remove();
-    });
-    
-    // Verifica se realmente foram removidos
-    var contentsAfter = $('#contents-list .list-group-item').length;
-    var objectivesAfter = $('#objectives-list .list-group-item').length;
-    
+    var classroom_id = getInputValue($classroom);
+    var discipline_id = getInputValue($discipline);
+    var date = getInputValue($recordDate);
+
     if (!_.isEmpty(classroom_id) &&
       !_.isEmpty(discipline_id) &&
-      !_.isEmpty(date.match(dateRegex))) {
+      isValidRecordDate(date)) {
 
-      // Faz as requisições para buscar novos conteúdos e objetivos baseados na nova data
-      // As funções de sucesso também removem itens não manuais como segurança extra
+      clearContentsAndObjectivesLists();
       fetchContents(classroom_id, discipline_id, date);
       fetchObjectives(classroom_id, discipline_id, date);
-    } else {
-      // Se os campos não estão preenchidos, limpa a lista completamente
-      $('#contents-list .list-group-item').remove();
-      $('#objectives-list .list-group-item').remove();
     }
-  }
+    // Se filtros inválidos: não limpar a lista (evita apagar HTML renderizado na edição).
+  };
+
+  // Só busca conteúdos via AJAX quando as listas ainda estão vazias (ex.: novo registro).
+  // Na edição, o servidor já envia conteúdos/habilidades; chamar loadContents apagaria tudo.
+  var loadContentsIfNeeded = function () {
+    var hasContents = $('#contents-list .list-group-item').length > 0;
+    var hasObjectives = $('#objectives-list .list-group-item').length > 0;
+    if (hasContents || hasObjectives) {
+      return;
+    }
+    loadContents();
+  };
 
   $discipline.on('change', function () {
     loadContents();
+    countLessons();
+    checkTeacherAbsenceForContent();
+  });
+
+  var handleStudentSelectionChange = function () {
+    var studentId = String(getStudentValue() || '');
+
+    if (studentId === lastStudentId) {
+      loadContents();
+      return;
+    }
+
+    lastStudentId = studentId;
+    loadExistingRecordForStudent(studentId);
+  };
+
+  $student.on('change', handleStudentSelectionChange);
+  $student.on('select2:select select2:clear select2:unselect', function () {
+    setTimeout(handleStudentSelectionChange, 0);
   });
 
   function checkTeacherAbsenceForContent() {
-    var classroom_id = $classroom.val();
-    var discipline_id = $discipline.val();
-    var date = $recordDate.val();
+    var classroom_id = getInputValue($classroom);
+    var discipline_id = getInputValue($discipline);
+    var date = getInputValue($recordDate);
     var class_number = $class_number.val();
 
     if (_.isEmpty(classroom_id) || _.isEmpty(date) || !date.match(dateRegex)) {
@@ -185,14 +447,8 @@ $(function () {
     });
   }
 
-  // Sempre recarrega conteúdos e objetivos quando a data mudar
-  $recordDate.on('change', function () {
-    loadContents();
-    countLessons();
-    checkTeacherAbsenceForContent();
-  });
-
-  $discipline.on('change', function () {
+  $recordDate.on('change changeDate valid-date', function () {
+    reloadDisciplinesForSelectedDate({ reloadContents: true });
     checkTeacherAbsenceForContent();
   });
 
@@ -200,57 +456,56 @@ $(function () {
     checkTeacherAbsenceForContent();
   });
 
-  if (!$("#contents-list li").length) {
-    loadContents();
+  if (!isModalForm && getInputValue($classroom) && getInputValue($recordDate)) {
+    reloadDisciplinesForSelectedDate();
+  } else if (!$("#contents-list li").length) {
+    loadContentsIfNeeded();
+  } else if (getInputValue($discipline)) {
+    countLessons();
   }
 
   checkTeacherAbsenceForContent();
 
   function fetchDisciplines(classroom_id) {
-    $.ajax({
-      url: Routes.disciplines_pt_br_path({ classroom_id: classroom_id, format: 'json' }),
-      success: handleFetchDisciplinesSuccess,
-      error: handleFetchDisciplinesError
-    });
-  };
+    reloadDisciplinesForSelectedDate();
+  }
 
-  function handleFetchDisciplinesSuccess(disciplines) {
-    var selectedDisciplines = _.map(disciplines, function (discipline) {
-      return { id: discipline['id'], text: discipline['description'] };
-    });
+  function setClassNumberValue(value) {
+    var normalizedValue = value && parseInt(value, 10) > 0 ? String(value) : '';
 
-    $discipline.select2({ data: selectedDisciplines });
-  };
+    try {
+      if ($class_number.data('select2')) {
+        $class_number.select2('val', normalizedValue);
+      }
+    } catch (e) {}
 
-  function handleFetchDisciplinesError() {
-    flashMessages.error('Ocorreu um erro ao buscar as disciplinas da turma selecionada.');
-  };
+    $class_number.val(normalizedValue).trigger('change');
+  }
 
   function countLessons() {
-    var classroom_id = $classroom.val();
-    var discipline_id = $discipline.val();
-    var date = $recordDate.val();
-    
-    if (!_.isEmpty(classroom_id) && !_.isEmpty(discipline_id)) {
-      $.ajax({
-        url: Routes.count_lessons_lessons_boards_pt_br_path({
-          classroom_id: classroom_id,
-          discipline_id: discipline_id,
-          date: date,
-          format: 'json'
-        }),
-        success: handleCountLessonsSuccess,
-        error: handleCountLessonsError
-      });
+    var classroom_id = getInputValue($classroom);
+    var discipline_id = getInputValue($discipline);
+    var date = getInputValue($recordDate);
+
+    if (_.isEmpty(classroom_id) || _.isEmpty(discipline_id) || _.isEmpty(date) || !date.match(dateRegex)) {
+      setClassNumberValue('');
+      return;
     }
+
+    $.ajax({
+      url: Routes.count_lessons_lessons_boards_pt_br_path({
+        classroom_id: classroom_id,
+        discipline_id: discipline_id,
+        date: date,
+        format: 'json'
+      }),
+      success: handleCountLessonsSuccess,
+      error: handleCountLessonsError
+    });
   }
 
   function handleCountLessonsSuccess(data) {
-    if (data) {
-      $class_number.val(data).trigger('change');
-    } else {
-      $class_number.val('').trigger('change');
-    }
+    setClassNumberValue(data);
   }
 
   function handleCountLessonsError() {

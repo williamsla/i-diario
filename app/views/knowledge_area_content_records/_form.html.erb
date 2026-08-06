@@ -3,8 +3,27 @@
   <%= javascript_include_tag 'views/knowledge_area_content_records/form' %>
 <% end %>
 
-<%= simple_form_for @knowledge_area_content_record, url: polymorphic_path(@knowledge_area_content_record, params.permit(:modal).to_h), html: { class: 'smart-form' } do |f| %>
+<%= simple_form_for @knowledge_area_content_record, url: polymorphic_path(@knowledge_area_content_record, params.permit(:modal).to_h),
+      html: {
+        class: 'smart-form',
+        id: 'knowledge-area-content-record-form',
+        data: {
+          knowledge_areas_for_record_date_url: knowledge_areas_for_record_date_knowledge_area_content_records_path,
+          find_existing_url: find_existing_knowledge_area_content_records_path(format: :json),
+          new_url: new_knowledge_area_content_record_path,
+          edit_url_template: edit_knowledge_area_content_record_path('__ID__'),
+          record_id: @knowledge_area_content_record.persisted? ? @knowledge_area_content_record.id : nil,
+          modal: params[:modal] == 'true'
+        }
+      } do |f| %>
   <%= f.error_notification %>
+
+  <% if params[:modal] != 'true' %>
+    <div class="alert alert-warning <%= @record_date_message.blank? ? 'hidden' : '' %>" id="record-date-empty-alert">
+      <i class="fa fa-info-circle fa-fw"></i>
+      <span id="record-date-empty-message"><%= @record_date_message %></span>
+    </div>
+  <% end %>
 
   <%= f.simple_fields_for :content_record, @knowledge_area_content_record.content_record.localized do |content_record| %>
     <%= content_record.hidden_field :id %>
@@ -27,9 +46,12 @@
       <div class="row">
         <%= content_record.input :unity_id, as: :hidden, input_html: { value: current_user.current_unity_id } %>
         <%= content_record.input :classroom_id, as: :hidden, input_html: { value: current_user.current_classroom_id } %>
-        
+
+        <% modal_knowledge_area_ids = params[:knowledge_area_id].presence || @knowledge_area_content_record.knowledge_area_ids %>
         <% if params[:modal] == 'true' %>
-          <%= f.hidden_field :knowledge_area_ids, value: @knowledge_area_content_record.knowledge_area_ids %>
+          <%= f.hidden_field :knowledge_area_ids, value: modal_knowledge_area_ids %>
+        <% elsif @knowledge_areas.present? && @knowledge_areas.count == 1 %>
+          <%= f.hidden_field :knowledge_area_ids, value: @knowledge_areas.first.id %>
         <% else %>
           <div class="col col-sm-4">
             <%= f.input :knowledge_area_ids, as: :select2, elements: @knowledge_areas, multiple: true,
@@ -40,18 +62,34 @@
 
       <div class="row">
         <% if params[:modal] == 'true' %>
-          <%= content_record.input :record_date, as: :hidden, input_html: {value: @knowledge_area_content_record.content_record.record_date} %>
+          <%= content_record.input :record_date, as: :hidden,
+                input_html: {
+                  value: l(@knowledge_area_content_record.content_record.record_date.to_date)
+                } %>
         <% else %>
           <div class="col col-sm-4">
             <%= content_record.input :record_date, as: :date %>
+            <% if params[:modal] != 'true' %>
+              <p class="help-block text-warning record-date-hint <%= @record_date_message.blank? ? 'hidden' : '' %>" id="record-date-hint">
+                <%= @record_date_message %>
+              </p>
+            <% end %>
           </div>
         <% end %>
-        <% if f.object.decorator.show_experience_fields %>
+        <% if f.object.decorator.show_experience_fields && !is_aee %>
           <div class="col col-sm-4">
             <%= f.input :experience_fields %>
           </div>
         <% end %>
       </div>
+
+      <% if @students&.any? %>
+        <div class="row">
+          <div class="col col-sm-4">
+            <%= content_record.input :student_id, as: :select2, elements: @students %>
+          </div>
+        </div>
+      <% end %>
 
       <div class="row">
         <div class="col col-sm-12">
@@ -62,18 +100,21 @@
 
     </fieldset>
     <fieldset>
-      <legend><%= @knowledge_area_content_record.class.human_attribute_name(:contents) %></legend>
+      <legend>
+        <%= show_aee_area_label? ? 'Área do AEE' : @knowledge_area_content_record.class.human_attribute_name(:contents) %>
+        <abbr title="obrigatório">*</abbr>
+      </legend>
       <% if content_record.object.errors[:contents].any? %>
         <div class="alert alert-danger fade in">
           <i class="fa-fw fa fa-times"></i>
           <%= content_record.object.errors[:contents].first %>
         </div>
       <% end %>
-        <div class="well" style="max-height: 300px;overflow-y: auto;">
+        <div style="max-height: 300px;overflow-y: auto;">
           <ul class="list-group checked-list-box" id="contents-list">
 
             <% contents.each do |content| %>
-              <li class="list-group-item manual" style="display: flex;" id="content_record_<%= content.id %>">
+              <li class="list-group-item<%= ' manual' if content.is_editable %>" style="display: flex;" id="content_record_<%= content.id %>">
                 <%= check_box_tag("knowledge_area_content_record[content_record_attributes][content_ids][]",
                     content.id, content.id.in?(@knowledge_area_content_record.contents.collect(&:id)),
                     hidden: true, 'data-content_description': content.to_s ) %>
@@ -95,9 +136,10 @@
         <div class="row textarea contents-select2-container">
           <div class="col col-sm-12">
             <% translation = Translator.t('activerecord.attributes.knowledge_area_content_record.contents') %>
+            <% label_content = "#{show_aee_area_label? ? 'Área' : translation}" %>
             <%= content_record.input :contents_tags,
                 as: :string,
-                label: "Adicionar #{translation}",
+                label: "Adicionar #{label_content}",
                 input_html: {
                   class: 'select2-content-tags-ajax',
                   value: '',
@@ -124,10 +166,10 @@
                 </div>
               <% end %>
 
-              <div class="well" style="max-height: 300px;overflow-y: auto; margin-top: 10px;">
+              <div style="max-height: 300px;overflow-y: auto; margin-top: 10px;">
                 <ul class="list-group checked-list-box" id="objectives-list">
                 <% objectives.each do |objective| %>
-                  <li class="list-group-item manual" style="display: flex;" id="objective_<%= objective.id %>">
+                  <li class="list-group-item<%= ' manual' if objective.is_editable %>" style="display: flex;" id="objective_<%= objective.id %>">
                     <%= check_box_tag("knowledge_area_content_record[content_record_attributes][objective_ids][]",
                       objective.id, objective.id.in?(@knowledge_area_content_record.objectives.collect(&:id)),
                       hidden: true, 'data-objective_description': objective.to_s ) %>
@@ -146,9 +188,10 @@
               <% if !action_name.eql?('show') %>
                 <div class="row textarea">
                   <div class="col col-sm-12 objectives-select2-container">
+                    <% label_objective = "#{show_aee_area_label? ? 'Objetivo' : 'Habilidade'}" %>
                     <%= content_record.input :objectives_tags,
                         as: :string,
-                        label: "Adicionar Habilidades",
+                        label: "Adicionar #{label_objective}",
                         input_html: {
                           class: 'select2-content-tags-ajax',
                           value: '',
@@ -170,7 +213,7 @@
   <% end %>
 
   <footer>
-    <%= f.submit t('views.form.save'), class: 'btn btn-primary pull-right', data: { disable_with: 'Salvando...'} %>
+    <%= f.submit t('views.form.save'), class: "btn btn-primary pull-right #{'disabled' if @record_date_message.present?}", data: { disable_with: 'Salvando...'} %>
 
     <% unless params[:modal] == 'true' %>
       <%= link_to t('views.form.back'), knowledge_area_content_records_path, class: 'btn btn-default pull-left' %>

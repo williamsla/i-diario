@@ -22,7 +22,13 @@ class ExamRulesController < ApplicationController
 
     @exam_rule = @exam_rule.differentiated_exam_rule || @exam_rule if student.try(:uses_differentiated_exam_rule)
 
-    absence_type_definer = FrequencyTypeDefiner.new(classroom, current_teacher, @exam_rule, year: classroom.year)
+    absence_type_definer = FrequencyTypeDefiner.new(
+      classroom,
+      current_teacher,
+      @exam_rule,
+      year: classroom.year,
+      discipline_id: discipline_id_for_frequency_type
+    )
     absence_type_definer.define!
 
     @exam_rule&.allow_frequency_by_discipline = (absence_type_definer.frequency_type == FrequencyTypes::BY_DISCIPLINE)
@@ -44,10 +50,22 @@ class ExamRulesController < ApplicationController
     return render json: nil if classroom_grade.nil?
 
     @exam_rule = classroom_grade.exam_rule
-    absence_type_definer = FrequencyTypeDefiner.new(classroom, current_teacher, @exam_rule, year: classroom.year)
+    absence_type_definer = FrequencyTypeDefiner.new(
+      classroom,
+      current_teacher,
+      @exam_rule,
+      year: classroom.year,
+      discipline_id: discipline_id_for_frequency_type
+    )
     absence_type_definer.define!
     @exam_rule.allow_frequency_by_discipline = (absence_type_definer.frequency_type == FrequencyTypes::BY_DISCIPLINE)
 
     render json: @exam_rule
+  end
+
+  private
+
+  def discipline_id_for_frequency_type
+    params[:discipline_id].presence || current_user&.current_discipline_id
   end
 end

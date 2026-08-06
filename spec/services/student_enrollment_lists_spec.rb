@@ -270,6 +270,33 @@ RSpec.describe StudentEnrollmentsList, type: :service do
       end
     end
 
+    context 'when score_type is numeric (NUMERIC)' do
+      let(:classroom_for_numeric) { create(:classroom) }
+      let(:discipline_for_numeric) { create(:discipline) }
+      let(:cg_concept) { create(:classrooms_grade, :score_type_concept, classroom: classroom_for_numeric) }
+      let(:cg_numeric_and_concept) { create(:classrooms_grade, :score_type_numeric_and_concept, classroom: classroom_for_numeric) }
+      let(:cg_numeric_only) { create(:classrooms_grade, :score_type_numeric, classroom: classroom_for_numeric) }
+      let!(:sec_concept) { create(:student_enrollment_classroom, classrooms_grade: cg_concept) }
+      let!(:sec_numeric_and_concept) { create(:student_enrollment_classroom, classrooms_grade: cg_numeric_and_concept) }
+      let!(:sec_numeric_only) { create(:student_enrollment_classroom, classrooms_grade: cg_numeric_only) }
+      let(:search_date) { Date.new(classroom_for_numeric.year, 6, 15) }
+
+      it 'retorna apenas matrículas em séries com avaliação numérica (numérica ou numérica e conceitual)' do
+        subject = described_class.new(
+          classroom: classroom_for_numeric.id,
+          discipline: discipline_for_numeric,
+          search_type: :by_date,
+          date: search_date,
+          score_type: StudentEnrollmentScoreTypeFilters::NUMERIC
+        )
+
+        result_ids = subject.student_enrollments.map(&:id)
+
+        expect(result_ids).to include(sec_numeric_only.student_enrollment_id, sec_numeric_and_concept.student_enrollment_id)
+        expect(result_ids).not_to include(sec_concept.student_enrollment_id)
+      end
+    end
+
     context 'when searching student_enrollment with opinion_type' do
       let(:exam_rule_2) { create(:exam_rule, opinion_type: OpinionTypes::BY_STEP_AND_DISCIPLINE) }
       let!(:classroom_grade_2) { create(:classrooms_grade, exam_rule_id: exam_rule_2.id) }

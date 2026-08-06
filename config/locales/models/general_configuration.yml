@@ -35,11 +35,17 @@ pt-BR:
         require_daily_activities_record: "Obrigar preenchimento do campo 'Registro das atividades' no lançamento de Registro de conteúdos?"
         remove_lesson_plan_objectives: "Remover campo 'Objetivos' dos Planos de aula por área de conhecimento (tela e relatório)"
         show_experience_fields: "Apresentar campo 'Campos de experiência' no Registro de conteúdo por área de conhecimento (tela e relatório)"
+        show_aee_area_label_in_knowledge_area_content_record: "Exibir label 'Área do AEE' no Registro de conteúdo por área de conhecimento (turma AEE)"
         allows_copy_experience_fields_in_lesson_plans: "Permite copiar campos de experiência nos Planos de ensino e Planos de aula por disciplina"
         group_children_education: "Apresentar outras séries de Educação infantil na configuração de objetivos/habilidades da bncc"
         allow_class_number_on_content_records: "Permitir informar número de aula no Registro de conteúdos?"
         descriptive_exams_semester_calendar_steps: "Avaliação descritiva em semestres (4 etapas: 2 pareceres, âncoras 2ª e 4ª etapa no i-educar; 2 etapas: 1 parecer, âncora na 2ª etapa)"
         annual_conceptual_evaluation: "Avaliação conceitual anual (uma única avaliação por ano letivo, sem etapas)"
+        show_objectives: "Exibir campo 'Objetivos' no Registro de conteúdos (por disciplina e por área)"
+        semestral_recovery: "Recuperação semestral — renomeia o menu 'Recuperações de etapas' e usa o relatório de médias com MP/Rec por semestre"
+        conceptual_exam_batch_layout: "Layout por turma nas avaliações conceituais (preencher matriz de todos os alunos de uma vez)"
+        block_modifications_after_last_step_ended: "Bloquear lançamentos após o encerramento da última etapa do calendário letivo (anos letivos encerrados continuam bloqueados)"
+
   backup:
     completed: "Exportação de dados realizada com sucesso! Clique %{link} para fazer download!"
     error: "Exportação de dados não pode ser realizada. Favor tentar novamente."

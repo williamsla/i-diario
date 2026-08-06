@@ -3,9 +3,12 @@ class LessonBoardsFetcher
     @user = user
   end
 
-  def lesson_boards
-    @lesson_boards = LessonsBoard.by_unity(unities).by_year(@user.current_school_year)
-    @lesson_boards.joins(classrooms_grade: :classroom).order('classrooms.description')
+  def lesson_boards(archived: false)
+    scope = archived ? LessonsBoard.with_discarded.discarded : LessonsBoard
+    @lesson_boards = scope.by_unity(unities).by_year(@user.current_school_year)
+    @lesson_boards = @lesson_boards.joins(classrooms_grade: :classroom).order('classrooms.description')
+    @lesson_boards = exclude_purged_boards(@lesson_boards) if archived
+    @lesson_boards
   end
 
   def unities
@@ -56,6 +59,23 @@ class LessonBoardsFetcher
     total_aulas
   end
 
+  def count_lessons_including_make_up(turma_id, disciplina_id, data)
+    scheduled = count_lessons(turma_id, disciplina_id, data)
+    return scheduled unless @user&.teacher_id.present?
+
+    classroom = Classroom.find_by(id: turma_id)
+    make_up = TeacherAbsence.make_up_lessons_count_for(
+      classroom_id: turma_id,
+      discipline_id: disciplina_id,
+      teacher_id: @user.teacher_id,
+      date: data,
+      unity_id: classroom&.unity_id,
+      count_lessons_on_date: ->(absence_date) { count_lessons(turma_id, disciplina_id, absence_date) }
+    )
+
+    scheduled + make_up
+  end
+
   private
 
   def count_lessons_from_boards(turma_id, disciplina_id, dia_semana_nome, ativo)
@@ -65,8 +85,15 @@ class LessonBoardsFetcher
         AND lb.discarded_at IS NULL
       SQL
     else
+      calendar_start = calendar_first_day_sql(turma_id)
+      purged_filter = if calendar_start
+                        "AND lb.discarded_at >= '#{calendar_start}'"
+                      else
+                        ''
+                      end
       <<~SQL
         AND lb.discarded_at IS NOT NULL
+        #{purged_filter}
       SQL
     end
 
@@ -80,10 +107,10 @@ class LessonBoardsFetcher
         INNER JOIN lessons_board_lesson_weekdays lblw ON lblw.lessons_board_lesson_id = lbl.id
         INNER JOIN teacher_discipline_classrooms tdc ON tdc.classroom_id = cg.classroom_id
           AND tdc.id = lblw.teacher_discipline_classroom_id
+          AND tdc.discipline_id = #{disciplina_id}
           AND tdc.discarded_at IS NULL
         WHERE cg.classroom_id = #{turma_id}
           AND lblw.weekday = '#{dia_semana_nome}'
-          AND tdc.discipline_id = #{disciplina_id}
           #{ativo_condicao}
         GROUP BY lb.id
       ) AS quadros
@@ -94,8 +121,8 @@ class LessonBoardsFetcher
   end
 
   def count_lessons_by_saturday(turma_id, disciplina_id, data)
-    # Busca o dia da semana equivalente no arquivo de configuração
-    dia_equivalente = get_weekday_for_saturday(data)
+    # Busca o dia da semana equivalente no cadastro de sábados letivos
+    dia_equivalente = get_weekday_for_saturday(data, turma_id: turma_id)
 
     # Se não houver mapeamento configurado, retorna 0
     return 0 if dia_equivalente.blank?
@@ -110,25 +137,45 @@ class LessonBoardsFetcher
     total_aulas
   end
 
-  def get_weekday_for_saturday(date)
-    # Carrega o mapeamento de sábados letivos do arquivo de configuração
-    sabados_letivos_map = load_sabados_letivos_config
-    
-    # Busca o dia da semana equivalente para a data informada
-    date_key = date.strftime("%Y-%m-%d")
-    sabados_letivos_map[date_key]
+  def get_weekday_for_saturday(date, turma_id: nil)
+    school_calendar = school_calendar_for_classroom(turma_id, date)
+    SchoolSaturdaysMapping.new(school_calendar: school_calendar).weekday_name_for(date)
   end
 
-  def load_sabados_letivos_config
-    @sabados_letivos_map ||= begin
-      config_path = Rails.root.join('config', 'sabados_letivos.yml')
-      
-      if File.exist?(config_path)
-        YAML.load_file(config_path) || {}
-      else
-        {}
-      end
-    end
+  def school_calendar_for_classroom(classroom_id, date)
+    classroom = Classroom.find_by(id: classroom_id)
+    return nil unless classroom
+
+    CurrentSchoolCalendarFetcher.new(classroom.unity, classroom, date.year).fetch
+  rescue StandardError
+    SchoolCalendar.find_by(unity_id: classroom.unity_id, year: date.year)
+  end
+
+  def calendar_first_day_sql(classroom_id)
+    classroom = Classroom.find_by(id: classroom_id)
+    return nil unless classroom
+
+    calendar = CurrentSchoolCalendarFetcher.new(classroom.unity, classroom, classroom.year).fetch
+    calendar&.first_day&.to_date&.beginning_of_day
+  rescue StandardError
+    nil
+  end
+
+  # Quadros com discarded_at anterior ao início do calendário foram "excluídos"
+  # logicamente e não devem aparecer na listagem de arquivados.
+  def exclude_purged_boards(relation)
+    relation
+      .joins(<<-SQL.squish)
+        INNER JOIN school_calendars sc
+          ON sc.unity_id = classrooms.unity_id
+         AND sc.year = classrooms.year
+        INNER JOIN (
+          SELECT school_calendar_id, MIN(start_at) AS first_day
+          FROM school_calendar_steps
+          GROUP BY school_calendar_id
+        ) sc_start ON sc_start.school_calendar_id = sc.id
+      SQL
+      .where('lessons_boards.discarded_at >= sc_start.first_day')
   end
 
 end

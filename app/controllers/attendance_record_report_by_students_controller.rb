@@ -25,9 +25,14 @@ class AttendanceRecordReportByStudentsController < ApplicationController
 
     if @attendance_record_report_by_student_form.valid?
       fetch_collections
-      response = ReportGenerator.call(render_to_string(action: :report, layout: "report"))
-      send_data response.body, filename: @attendance_record_report_by_student_form.filename,
-        type: "application/pdf", disposition: "inline"
+      pdf_report = AttendanceRecordReportByStudentPdf.build(
+        current_entity_configuration,
+        @unity,
+        @range_dates,
+        @school_calendar_year,
+        @students_by_classrooms
+      )
+      send_pdf(t('routes.attendance_record_report_by_students'), pdf_report.render)
     else
       @attendance_record_report_by_student_form.school_calendar_year = current_school_year
 

@@ -1,15 +1,16 @@
 class FrequencyTypeDefiner
   attr_reader :frequency_type
 
-  def self.allow_frequency_by_discipline?(classroom, teacher_id, exam_rule = nil)
-    new(classroom, teacher_id, exam_rule).allow_frequency_by_discipline?
+  def self.allow_frequency_by_discipline?(classroom, teacher_id, exam_rule = nil, year: nil, discipline_id: nil)
+    new(classroom, teacher_id, exam_rule, year: year, discipline_id: discipline_id).allow_frequency_by_discipline?
   end
 
-  def initialize(classroom, teacher_id, exam_rule = nil, year: nil)
+  def initialize(classroom, teacher_id, exam_rule = nil, year: nil, discipline_id: nil)
     @classroom = classroom
     @teacher_id = teacher_id
     @exam_rule = exam_rule || classroom.classrooms_grades.first.try(:exam_rule)
     @year = year
+    @discipline_id = discipline_id
   end
 
   def allow_frequency_by_discipline?
@@ -33,16 +34,17 @@ class FrequencyTypeDefiner
   def define_frequency_type
     grade_ids = @classroom.classrooms_grades.pluck(:grade_id)
 
-    allow_absence_by_discipline_record = TeacherDisciplineClassroom.find_by(
+    scope = TeacherDisciplineClassroom.where(
       teacher_id: @teacher_id,
       classroom_id: @classroom.id,
       year: current_year,
-      allow_absence_by_discipline: 1,
       grade_id: grade_ids,
+      allow_absence_by_discipline: 1,
       active: true
     )
+    scope = scope.where(discipline_id: @discipline_id) if @discipline_id.present?
 
-    @frequency_type = allow_absence_by_discipline_record ? FrequencyTypes::BY_DISCIPLINE : FrequencyTypes::GENERAL
+    @frequency_type = scope.exists? ? FrequencyTypes::BY_DISCIPLINE : FrequencyTypes::GENERAL
   end
 
   def current_year

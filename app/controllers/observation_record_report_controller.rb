@@ -5,7 +5,10 @@ class ObservationRecordReportController < ApplicationController
     @observation_record_report_form = ObservationRecordReportForm.new(
       teacher_id: current_teacher.id,
       unity_id: current_unity.id,
-      start_at: Time.zone.today,
+      classroom_id: 'all',
+      discipline_id: 'all',
+      student_id: 'all',
+      start_at: Time.zone.today.beginning_of_year,
       end_at: Time.zone.today,
       current_user_id: current_user.id
     ).localized
@@ -31,11 +34,15 @@ class ObservationRecordReportController < ApplicationController
   end
 
   def unities
-    if current_user.current_user_role.try(:role_administrator?)
-      Unity.ordered
-    else
-      [current_user_unity]
-    end
+    @unities ||= if current_user.current_role_is_admin_or_employee?
+                   if current_user.has_administrator_access_level?
+                     Unity.ordered
+                   else
+                     Unity.by_user_id(current_user.id).ordered
+                   end
+                 else
+                   [current_user_unity]
+                 end
   end
   helper_method :unities
 
@@ -47,6 +54,7 @@ class ObservationRecordReportController < ApplicationController
       :unity_id,
       :classroom_id,
       :discipline_id,
+      :student_id,
       :start_at,
       :end_at,
       :current_user_id

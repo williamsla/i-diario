@@ -35,9 +35,17 @@ pt-BR:
       require_teacher: "É necessário vincular um professor ao usuário atual para acessar esse cadastro"
       class_numbers_required_when_not_global_absence: 'É necessário informar ao menos uma aula quando não for falta global.'
       discipline_required_when_not_global_absence: 'É necessário informar uma disciplina quando não for falta global.'
+      turn_required_when_multiple_periods: 'Selecione o turno para lançar a frequência desta disciplina.'
       discipline_not_linked_to_classroom: 'A disciplina selecionada no perfil não possui vínculo com a turma para o tipo de frequência informado.'
       require_lessons_board: 'Não encontramos alocação no quadro de aula da turma para o(a) professor(a) vinculado(a) ao perfil. Por favor, validar no registro do quadro de aula e tentar novamente.'
 
   daily_frequencies:
     new:
       exam_rule_not_found: 'Não localizamos uma regra de avaliação para a turma informada. Entre em contato com o administrador do sistema.'
+      no_linked_disciplines: 'Você não possui disciplinas vinculadas a esta turma.'
+      no_disciplines_allow_frequency: 'Nenhuma disciplina sua permite lançamento de frequência por disciplina nesta turma.'
+      no_disciplines_on_lessons_board_for_date: 'Sua disciplina não consta no quadro de horários para %{weekday}, %{date}. Selecione outra data em que a disciplina esteja prevista na turma.'
+      no_teacher_lessons_on_lessons_board_for_date: 'Sua disciplina não consta no quadro de horários para %{weekday}, %{date}. Selecione outra data em que a disciplina esteja prevista na turma.'
+      no_lessons_on_lessons_board_for_date: 'Não há aulas no quadro de horários da turma para %{weekday}, %{date}. Selecione outra data que tenha aulas da sua disciplina na turma.'
+      no_linked_knowledge_areas: 'Você não possui áreas de conhecimento vinculadas a esta turma.'
+      no_knowledge_areas_on_lessons_board_for_date: 'Não há aulas no quadro de horários da turma para %{weekday}, %{date} com as áreas de conhecimento vinculadas a você. Selecione outra data ou verifique o quadro de horários.'

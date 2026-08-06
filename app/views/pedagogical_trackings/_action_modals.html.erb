@@ -1,0 +1,96 @@
+<div id="resumeModal" class="pedagogical-modal" style="display:none;">
+  <div class="pedagogical-modal__dialog pedagogical-modal__dialog--wide pedagogical-modal__dialog--resume">
+    <div class="pedagogical-modal__header">
+      <div>
+        <h2 class="pedagogical-modal__title"><%= t('pedagogical_trackings.index.resume_entries') %></h2>
+      </div>
+      <div class="pedagogical-modal__header-actions">
+        <button id="downloadXlsxBtn" class="btn btn-primary btn-sm" type="button">
+          <%= t('pedagogical_trackings.index.download_spreadsheet') %>
+        </button>
+        <button type="button" class="pedagogical-modal__close" onclick="closeResumeModal(event)" aria-label="Fechar">&times;</button>
+      </div>
+    </div>
+    <div id="resumeModalBody" class="pedagogical-modal__body pedagogical-modal__body--resume"></div>
+  </div>
+</div>
+
+<div id="frequencyReportModal" class="pedagogical-modal" style="display:none;">
+  <div class="pedagogical-modal__dialog pedagogical-modal__dialog--frequency">
+    <div class="pedagogical-modal__header">
+      <div>
+        <h2 class="pedagogical-modal__title"><%= t('pedagogical_trackings.index.absent_students') %></h2>
+      </div>
+      <button type="button" class="pedagogical-modal__close" onclick="closeFrequencyReportModal(event)" aria-label="Fechar">&times;</button>
+    </div>
+    <div id="frequencyReportModalBody" class="pedagogical-modal__body"></div>
+  </div>
+</div>
+
+<div id="observationFromFrequencyModal" class="pedagogical-modal pedagogical-modal--stacked" style="display:none;">
+  <div class="pedagogical-modal__dialog pedagogical-modal__dialog--form">
+    <div class="pedagogical-modal__header">
+      <div>
+        <h2 class="pedagogical-modal__title"><%= t('pedagogical_trackings.create_observation.title') %></h2>
+        <p id="observationFromFrequencyStudent" class="pedagogical-modal__summary"></p>
+      </div>
+      <button type="button" class="pedagogical-modal__close" onclick="closeObservationFromFrequencyModal(event)" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="pedagogical-modal__body">
+      <form id="observationFromFrequencyForm" class="smart-form">
+        <input type="hidden" name="student_id" id="observation_student_id">
+        <input type="hidden" name="classroom_id" id="observation_classroom_id">
+        <input type="hidden" name="unity_id" id="observation_unity_id">
+
+        <div class="row">
+          <div class="col col-sm-6">
+            <label class="label" for="observation_date"><%= ObservationDiaryRecord.human_attribute_name(:date) %></label>
+            <label class="input">
+              <input type="text" name="date" id="observation_date" class="form-control datepicker" required>
+            </label>
+          </div>
+          <div class="col col-sm-6" style="padding-top: 28px;">
+            <label class="checkbox">
+              <input type="checkbox" name="active_search" id="observation_active_search" value="1" checked>
+              <i></i>
+              <%= ObservationDiaryRecord.human_attribute_name(:active_search) %>
+            </label>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top: 12px;">
+          <div class="col col-sm-12">
+            <label class="label" for="observation_description"><%= ObservationDiaryRecordNote.human_attribute_name(:description) %></label>
+            <label class="textarea">
+              <textarea name="description" id="observation_description" rows="4" class="form-control" required></textarea>
+            </label>
+          </div>
+        </div>
+
+        <div id="observationFromFrequencyErrors" class="alert alert-danger" style="display:none; margin-top: 12px;"></div>
+        <div id="observationFromFrequencySuccess" class="alert alert-success" style="display:none; margin-top: 12px;"></div>
+
+        <footer style="margin-top: 16px; text-align: right;">
+          <button type="button" class="btn btn-default" onclick="closeObservationFromFrequencyModal(event)">
+            <%= t('pedagogical_trackings.create_observation.cancel') %>
+          </button>
+          <button type="submit" class="btn btn-primary" id="observationFromFrequencySubmit">
+            <%= t('views.form.save') %>
+          </button>
+        </footer>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="classCouncilModal" class="pedagogical-modal" style="display:none;">
+  <div class="pedagogical-modal__dialog">
+    <div class="pedagogical-modal__header">
+      <div>
+        <h2 class="pedagogical-modal__title"><%= t('pedagogical_trackings.index.class_council') %></h2>
+      </div>
+      <button type="button" class="pedagogical-modal__close" onclick="closeClassCouncilModal(event)" aria-label="Fechar">&times;</button>
+    </div>
+    <div id="classCouncilModalBody" class="pedagogical-modal__body"></div>
+  </div>
+</div>

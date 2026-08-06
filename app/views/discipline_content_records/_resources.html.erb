@@ -1,12 +1,13 @@
 <tbody id="resources-tbody">
   <% if @discipline_content_records.empty? %>
     <tr>
-      <td class="no_record_found" colspan="6"><%= t('views.index.no_record_found')%></td>
+      <td class="no_record_found" colspan="7"><%= t('views.index.no_record_found')%></td>
     </tr>
   <% else %>
     <% @discipline_content_records.each do |discipline_content_record| %>
       <tr>
         <td class="record_date"><%= l(discipline_content_record.content_record.record_date) %></td>
+        <td><%= discipline_content_record.content_record.student %></td>
         <td class="contents"><%= discipline_content_record.content_record.contents_ordered.map(&:to_s).join(', ') %></td>
         <td class="objectives"><%= discipline_content_record.content_record.objectives_ordered.map(&:to_s).join(', ') %></td>
         <td class="class_number"><%= discipline_content_record.class_number %></td>

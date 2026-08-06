@@ -219,14 +219,22 @@ $(function () {
 
   function handleFetchPeriodByClassroomSuccess(data) {
     let period = $('#attendance_record_report_form_period');
+    var payload = (data && typeof data === 'object' && !Array.isArray(data)) ? data : { period: data };
+    var periodValue = payload.period;
+    var requiresPeriodSelection = !!payload.requires_period_selection;
 
-    if (data != PERIOD_FULL) {
-      getNumberOfClasses();
-      period.select2('val', data);
-      period.attr('readonly', true)
-    } else {
-      period.attr('readonly', false)
+    // Turma integral OU professor com a disciplina em mais de um turno: permite escolher o período.
+    if (requiresPeriodSelection || periodValue == PERIOD_FULL) {
+      period.attr('readonly', false);
+      if (requiresPeriodSelection) {
+        period.select2('val', '');
+      }
+      return;
     }
+
+    getNumberOfClasses();
+    period.select2('val', periodValue);
+    period.attr('readonly', true);
   };
 
   function handleFetchPeriodByClassroomError() {

@@ -66,10 +66,10 @@ class DisciplineTeachingPlansController < ApplicationController
 
   def create
     @discipline_teaching_plan = DisciplineTeachingPlan.new(resource_params).localized
-    @discipline_teaching_plan.teaching_plan.teacher = current_teacher
+    @discipline_teaching_plan.teaching_plan.teacher = teaching_plan_teacher_for_current_user
     @discipline_teaching_plan.teaching_plan.content_ids = content_ids
     @discipline_teaching_plan.teaching_plan.objective_ids = objective_ids
-    @discipline_teaching_plan.teacher_id = current_teacher_id
+    @discipline_teaching_plan.teacher_id = teaching_plan_teacher_for_current_user&.id
     @discipline_teaching_plan.teaching_plan.student_id = resource_params[:teaching_plan_attributes][:student_id]
     @discipline_teaching_plan.teaching_plan.methodology = ActionController::Base.helpers.sanitize(
       resource_params[:teaching_plan_attributes][:methodology], tags: ['b', 'br', 'i', 'u', 'p']
@@ -208,6 +208,12 @@ class DisciplineTeachingPlansController < ApplicationController
   end
 
   private
+
+  def teaching_plan_teacher_for_current_user
+    return if current_user.administrator?
+
+    current_teacher
+  end
 
   def filter_by_grade_discipline(plans)
     plans.by_grade(@grades.map(&:id)).by_discipline(@disciplines.map(&:id))
@@ -373,6 +379,11 @@ class DisciplineTeachingPlansController < ApplicationController
                             .by_grade(current_grade.map(&:grade_id))
                             .order_by_grades
                             .order('teaching_plans.school_term_type_step_id')
+                            .select(
+                              'discipline_teaching_plans.*, grades.description, ' \
+                              'teaching_plans.school_term_type_step_id'
+                            )
+                            .distinct
     )
   end
 

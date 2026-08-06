@@ -1,4 +1,6 @@
 class KnowledgeAreaContentRecordsController < ApplicationController
+  include LessonsBoardAvailability
+
   has_scope :page, default: 1
   has_scope :per, default: 10
 
@@ -6,6 +8,73 @@ class KnowledgeAreaContentRecordsController < ApplicationController
   before_action :require_current_teacher
   before_action :require_current_classroom, only: [:index, :new, :create, :edit, :update, :show]
   before_action :require_allow_to_modify_prev_years, only: [:create, :update, :destroy, :clone]
+
+  def knowledge_areas_for_record_date
+    classroom_id = params[:classroom_id].presence || current_user_classroom&.id
+    record_date = parse_lessons_board_date(params[:record_date])
+
+    if classroom_id.blank? || record_date.blank?
+      render json: { knowledge_areas: [], message: nil }
+      return
+    end
+
+    authorize KnowledgeAreaContentRecord.new, :new?
+
+    classroom = Classroom.find_by(id: classroom_id)
+    if classroom.blank?
+      render json: { knowledge_areas: [], message: nil }
+      return
+    end
+
+    result = build_knowledge_areas_for_content_record_result(
+      classroom: classroom,
+      record_date: record_date
+    )
+
+    render json: {
+      knowledge_areas: result[:knowledge_areas].map { |ka| { id: ka.id, description: ka.description } },
+      message: result[:message]
+    }
+  end
+
+  def find_existing
+    authorize KnowledgeAreaContentRecord.new, :new?
+
+    classroom_id = params[:classroom_id].presence || current_user_classroom&.id
+    record_date = parse_lessons_board_date(params[:record_date])
+    knowledge_area_ids = Array(params[:knowledge_area_ids]).flat_map { |ids| ids.to_s.split(',') }.map(&:to_i).reject(&:zero?).uniq.sort
+    student_id = params[:student_id].presence
+
+    if classroom_id.blank? || record_date.blank? || knowledge_area_ids.blank?
+      render json: { id: nil }
+      return
+    end
+
+    records = KnowledgeAreaContentRecord
+              .by_classroom_id(classroom_id)
+              .by_date(record_date)
+              .by_student_id(student_id)
+              .by_knowledge_area_id(knowledge_area_ids)
+              .includes(:knowledge_areas, :content_record)
+              .distinct
+              .to_a
+
+    # Prefere registro do professor atual; senão qualquer correspondente
+    teacher_records = records.select { |record| record.content_record.teacher_id == current_teacher.id }
+    candidates = teacher_records.presence || records
+
+    matching = candidates.find do |record|
+      record.knowledge_areas.map(&:id).sort == knowledge_area_ids
+    end
+
+    matching ||= candidates.find do |record|
+      (knowledge_area_ids - record.knowledge_areas.map(&:id)).empty?
+    end
+
+    matching ||= candidates.first
+
+    render json: { id: matching&.id }
+  end
 
   def index
     params[:filter] ||= {}
@@ -19,6 +88,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
 
     if author_type.present?
       @knowledge_area_content_records = @knowledge_area_content_records.by_author(author_type, current_teacher.id)
+      params[:filter][:by_author] = author_type
     end
 
     authorize @knowledge_area_content_records
@@ -46,7 +116,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     @knowledge_area_content_record.content_record ||= ContentRecord.new
 
     if params[:recorded_at].present?
-      record_date = Date.parse(params[:recorded_at])
+      record_date = parse_lessons_board_date(params[:recorded_at]) || Time.zone.now
     else
       record_date = Time.zone.now
     end
@@ -54,16 +124,27 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     @knowledge_area_content_record.build_content_record(
       record_date: record_date,
       unity_id: current_unity.id,
-      classroom_id: current_user_classroom.id
+      classroom_id: current_user_classroom.id,
+      student_id: params[:student_id]
     )
 
     set_knowledge_area_by_classroom(current_user_classroom.id)
+
+    if params[:modal] != 'true'
+      availability = build_knowledge_areas_for_content_record_result(
+        classroom: current_user_classroom,
+        record_date: record_date.to_date
+      )
+      @knowledge_areas = availability[:knowledge_areas]
+      @record_date_message = availability[:message]
+    end
+
     authorize @knowledge_area_content_record
   end
 
   def create
     @knowledge_area_content_record = KnowledgeAreaContentRecord.new(resource_params)
-    @knowledge_area_content_record.knowledge_area_ids = resource_params[:knowledge_area_ids].split(',')
+    @knowledge_area_content_record.knowledge_area_ids = parsed_knowledge_area_ids
     @knowledge_area_content_record.content_record.teacher = current_teacher
     @knowledge_area_content_record.content_record.content_ids = content_ids
     @knowledge_area_content_record.content_record.objective_ids = objective_ids
@@ -144,7 +225,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
   def update
     @knowledge_area_content_record = KnowledgeAreaContentRecord.find(params[:id])
     @knowledge_area_content_record.assign_attributes(resource_params)
-    @knowledge_area_content_record.knowledge_area_ids = resource_params[:knowledge_area_ids].split(',')
+    @knowledge_area_content_record.knowledge_area_ids = parsed_knowledge_area_ids
     @knowledge_area_content_record.content_record.content_ids = content_ids
     @knowledge_area_content_record.content_record.objective_ids = objective_ids
     @knowledge_area_content_record.teacher_id = current_teacher_id
@@ -240,7 +321,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
 
   def fetch_knowledge_area_content_records_by_user
     apply_scopes(KnowledgeAreaContentRecord
-      .includes(:knowledge_areas, content_record: [:classroom, :teacher, :contents, :objectives])
+      .includes(:knowledge_areas, content_record: [:classroom, :teacher, :student, :contents, :objectives])
       .by_classroom_id(@classrooms.map(&:id))
       .order_by_classroom
       .ordered)
@@ -277,6 +358,13 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     @ordered_objective_ids = param_objective_ids + new_objectives_ids
   end
 
+  def parsed_knowledge_area_ids
+    ids = resource_params[:knowledge_area_ids]
+    return [] if ids.blank?
+
+    ids.is_a?(Array) ? ids.map(&:to_s) : ids.split(',')
+  end
+
   def resource_params
     params.require(:knowledge_area_content_record).permit(
       :knowledge_area_ids,
@@ -287,6 +375,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
         :classroom_id,
         :record_date,
         :daily_activities_record,
+        :student_id,
         :content_ids,
         :objective_ids
       ]
@@ -313,8 +402,12 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     
     # Busca conteúdos dos planos de aula/ensino da área de conhecimento
     plan_contents = []
+    student_id = @knowledge_area_content_record.content_record.student_id
+
     if teacher && classroom && knowledge_areas && date
-      plan_contents = ContentsForKnowledgeAreaRecordFetcher.new(teacher, classroom, knowledge_areas, date).fetch
+      plan_contents = ContentsForKnowledgeAreaRecordFetcher.new(
+        teacher, classroom, knowledge_areas, date, student_id
+      ).fetch
       plan_contents.each { |content| content.is_editable = false }
     end
     
@@ -359,8 +452,12 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     
     # Busca objetivos dos planos de aula/ensino da área de conhecimento
     plan_objectives = []
+    student_id = @knowledge_area_content_record.content_record.student_id
+
     if teacher && classroom && knowledge_areas && date
-      plan_objectives = ContentsForKnowledgeAreaRecordFetcher.new(teacher, classroom, knowledge_areas, date).fetch_objectives
+      plan_objectives = ContentsForKnowledgeAreaRecordFetcher.new(
+        teacher, classroom, knowledge_areas, date, student_id
+      ).fetch_objectives
       plan_objectives.each { |objective| objective.is_editable = false }
     end
 
@@ -400,13 +497,50 @@ class KnowledgeAreaContentRecordsController < ApplicationController
   helper_method :unities
 
   def set_options_by_user
+    fetch_students_with_disabilities
     @classrooms = [current_user_classroom]
   end
 
+  def student_enrollments
+    StudentEnrollmentsList.new(
+      classroom: current_user_classroom,
+      discipline: current_user_discipline,
+      search_type: :by_year
+    ).student_enrollments
+  end
+
+  def fetch_students_with_disabilities
+    @students = []
+
+    @student_enrollments ||= student_enrollments
+
+    @student_ids = @student_enrollments.collect(&:student_id)
+
+    if is_aee == true
+      @students = Student.where(id: @student_ids).ordered
+    else
+      @students = Student.where(id: @student_ids).where(uses_differentiated_exam_rule: true).ordered
+    end
+  end
+
   def set_knowledge_area_by_classroom(classroom_id)
-    @knowledge_areas = KnowledgeArea.by_teacher(current_teacher)
-                                    .by_classroom_id(classroom_id)
-                                    .ordered
+    classroom = Classroom.find_by(id: classroom_id)
+
+    knowledge_areas = if multigrade_infantil_fundamental_classroom?(classroom)
+                        infantil_discipline_ids = discipline_ids_for_grade_ids(
+                          classroom,
+                          infantil_grade_ids(classroom)
+                        )
+                        KnowledgeArea.by_teacher(current_teacher)
+                                     .by_discipline_id(infantil_discipline_ids)
+                                     .ordered
+                      else
+                        KnowledgeArea.by_teacher(current_teacher)
+                                     .by_classroom_id(classroom_id)
+                                     .ordered
+                      end
+
+    @knowledge_areas = filter_knowledge_areas_for_content_registration(knowledge_areas, classroom)
   end
 
   def fetch_linked_by_teacher
@@ -416,7 +550,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
   end
   
   def show_objectives
-    Rails.application.secrets.show_objectives.to_s == 'true'
+    GeneralConfiguration.show_objectives?
   end
   helper_method :show_objectives
 end

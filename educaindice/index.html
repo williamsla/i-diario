@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Prova Coité</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
+
+  <!-- Latest compiled and minified JavaScript -->
+  <!-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/js/bootstrap.min.js" integrity="sha384-aJ21OjlMXNL5UyIl/XNwTMqvzeRMZH2w8c5cRVpzpU8Y5bApTppSuUkhZXN0VxHd" crossorigin="anonymous"></script> -->
+
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+
+  <link rel="stylesheet" href="//code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+  <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.js"></script>
+  
+   <?!= include('styleLogin') ?>    
+</head>
+<body>
+  <div class="container-fluid" >     
+      <!--FORMULÁRIO DE LOGIN-->
+      <div id="login" class="row">
+        <form method="post" action=""> 
+          <div class="col-lg-12 col-md-12 col-sm-12"> 
+            <label for="inep">INEP da Escola</label>
+            <input id="inep_escola" name="inep_escola" required="required" type="text" maxlength="8" placeholder="12345678"/>
+          </div>
+           
+          <div class="col-lg-12 col-md-12 col-sm-12">
+            <label for="senha">Senha</label>
+            <input id="senha" name="senha" required="required" type="password" placeholder="senha" /> 
+          </div>
+           
+          <div class="col-lg-12 col-md-12 col-sm-12"> 
+            <input type="submit" value="Entrar" /> 
+          </div>          
+        </form>        
+        <p id="message" class=""></p>
+      </div>
+        <div class="row">
+          
+        </div>
+        <div id="modal" class="modal"></div>
+        <div id="dialog-confirm" class="hidden" title="">
+          <p>
+            <span class="ui-icon ui-icon-alert" style="float:left; margin:12px 12px 20px 0;"></span>O que você deseja?</p>
+        </div>  
+        <script>
+          document.querySelector('form').addEventListener('submit', handleSubmit);
+
+          function handleSubmit(event) {
+            event.preventDefault();
+
+            showHideLoading();
+            
+            let inep_escola = document.getElementById('inep_escola').value;
+            let senha = document.getElementById('senha').value;
+            
+            google.script.run.withSuccessHandler(response => {
+              
+              showMessage(response.status, response.message);
+              if (response.status == true){
+                showHideLoading();
+                // callFormGabarito(inep_escola);
+
+                 $("#dialog-confirm").dialog({
+                  title: "O que deseja acessar?",
+                  resizable: false,
+                  height: "auto",
+                  width: 400,
+                  modal: true,
+                  buttons: {
+                    "Registrar gabarito do aluno": function() {
+                      callToPage("pageFormGabarito2",inep_escola);
+                    },
+                    "Ver resultados": function() {
+                      callToPage("pageResultComparativo2", inep_escola);
+                    }
+                  }
+                });
+                $("#dialog-confirm").classList.remove('hidden');
+              }
+              showHideLoading();
+            }).withFailureHandler(error => {
+              console.error("ERROR: " + error.message);
+              console.error(error);
+              showHideLoading();
+
+            }).login(inep_escola, senha);
+          }
+
+          function callToPage(page, inep) {
+            google.script.run.withSuccessHandler(url => {
+              console.log('abrindo página de formulário do gabarito: ' + url);
+              console.log(url);
+              window.top.location.href = url+"?page="+page+".html&inep="+inep; 
+
+            }).withFailureHandler(error => {
+              console.error("ERROR: " + error.message);
+              console.error(error);
+
+            }).getScriptUrl();
+          }
+
+          function showMessage(status, message){
+              document.getElementById('message').innerHTML = message;
+              if (status == true) {
+                document.getElementById('message').style='color:green';
+              } else {
+                document.getElementById('message').style='color:red';
+              }
+          }
+
+          function showHideLoading(divId=null){
+            if(divId == null){
+              $('body').toggleClass('loading');
+            } else {
+              $('#'+divId).toggleClass('loading');
+            }
+          }
+
+        </script>
+  </div>
+</body>
+</html>

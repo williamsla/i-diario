@@ -34,6 +34,9 @@ services:
       - 3000:3000
     environment:
       - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USERNAME=idiario
+      - DATABASE_PASSWORD=idiario
       - REDIS_URL=redis://redis:6379/0
       - SUPPORT_NUMBER=82981670619
     depends_on:
@@ -49,6 +52,9 @@ services:
       - box:/box
     environment:
       - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USERNAME=idiario
+      - DATABASE_PASSWORD=idiario
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       - redis

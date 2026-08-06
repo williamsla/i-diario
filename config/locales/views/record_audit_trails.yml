@@ -1,9 +1,10 @@
 pt-BR:
   record_audit_trails:
     form:
-      submit: "Consultar trilha de auditoria"
+      submit: "Gerar relatório em PDF"
+      help: "Gera um PDF com o histórico de criação, alteração e exclusão dos lançamentos no período selecionado. Ideal para compartilhar com o professor e verificar se os registros foram salvos ou excluídos."
     report:
-      help: "Esta consulta mostra o histórico de criação, alteração e exclusão dos lançamentos no período selecionado, com base nos registros de auditoria do sistema."
+      help: "Esta consulta mostra o histórico de criação, alteração e exclusão dos lançamentos no período selecionado. Para notas, busca exclusões de diário, lançamentos e remoções de notas com base na data do evento de auditoria (não apenas na data da prova). Planos de ensino são filtrados pelo ano e pela data de criação/alteração; planos de aula, pelo período de vigência."
       back: "Voltar"
       empty: "Nenhum lançamento ou evento de auditoria encontrado para os filtros informados."
       view_history: "Histórico completo"
@@ -11,6 +12,7 @@ pt-BR:
         active: "Ativo"
         removed: "Excluído"
       columns:
+        event_at: "Data do evento"
         record_type: "Tipo"
         record: "Lançamento"
         status: "Situação"

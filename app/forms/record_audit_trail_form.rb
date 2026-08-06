@@ -3,7 +3,7 @@
 class RecordAuditTrailForm
   include ActiveModel::Model
 
-  RECORD_TYPES = %w[frequency content avaliation].freeze
+  RECORD_TYPES = %w[frequency content avaliation grades teaching_plan lesson_plan].freeze
 
   attr_accessor :unity_id,
                 :classroom_id,
@@ -28,5 +28,9 @@ class RecordAuditTrailForm
     types = RECORD_TYPES if types.empty?
 
     types & RECORD_TYPES
+  end
+
+  def unity
+    Unity.find_by(id: unity_id)
   end
 end

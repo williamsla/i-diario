@@ -24,7 +24,7 @@
 
         <div class="col col-sm-4">
           <%= f.input :period, as: :select2, elements: Periods.to_select_specific_values(false, %w[1 2 3]).to_json,
-                label: "Período", readonly: @period != Periods::FULL %>
+                label: "Período", readonly: !@period_selectable %>
         </div>
       </div>
 

@@ -12,13 +12,22 @@ class KnowledgeAreasController < ApplicationController
 
     if params[:classroom_id].present?
       classroom_id = params[:classroom_id]
+      classroom = Classroom.find_by(id: classroom_id)
 
-      disciplines_ids = Discipline.by_teacher_and_classroom(current_teacher.id, classroom_id)
-        .ordered
-        .distinct
-        .map { |discipline| discipline.id }
+      disciplines_ids = if multigrade_infantil_fundamental_classroom?(classroom)
+                          discipline_ids_for_grade_ids(
+                            classroom,
+                            infantil_grade_ids(classroom)
+                          )
+                        else
+                          Discipline.by_teacher_and_classroom(current_teacher.id, classroom_id)
+                            .ordered
+                            .distinct
+                            .map(&:id)
+                        end
 
       @knowledge_areas = @knowledge_areas.by_discipline_id(disciplines_ids)
+      @knowledge_areas = filter_knowledge_areas_for_content_registration(@knowledge_areas, classroom)
     end
 
     if params[:grade_id].present? && params[:unity_id].present?

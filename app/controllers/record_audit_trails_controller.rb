@@ -28,7 +28,7 @@ class RecordAuditTrailsController < ApplicationController
     @record_audit_trail_form = RecordAuditTrailForm.new(resource_params)
 
     if @record_audit_trail_form.valid?
-      @results = RecordAuditTrailSummary.new(
+      results = RecordAuditTrailSummary.new(
         unity_id: @record_audit_trail_form.unity_id,
         classroom_id: @record_audit_trail_form.classroom_id,
         teacher_id: @record_audit_trail_form.teacher_id,
@@ -38,7 +38,13 @@ class RecordAuditTrailsController < ApplicationController
         record_types: @record_audit_trail_form.selected_record_types
       ).call
 
-      set_options_by_user
+      pdf_report = RecordAuditTrailReport.build(
+        current_entity_configuration,
+        @record_audit_trail_form,
+        results
+      )
+
+      send_pdf(t('routes.record_audit_trails'), pdf_report.render)
     else
       @record_audit_trail_form.school_calendar_year = current_school_year
       set_options_by_user

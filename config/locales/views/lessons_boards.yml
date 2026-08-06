@@ -20,7 +20,15 @@ pt-BR:
     show:
       no_item_found: "Nenhuma aula informada"
     index:
+      archive_info_html: "<strong>Arquivamento do quadro de aulas:</strong> utilize o botão de arquivar (<i class='fa fa-archive'></i>) quando houver mudança no horário da turma ao longo do ano letivo. Assim você pode arquivar o quadro atual e criar um novo quadro atualizado para a mesma turma, sem perder o histórico do período anterior."
       new_html: "<i class='fa fa-plus'></i>&nbsp Novo quadro de aula"
+      tab_active: "Quadros ativos"
+      tab_archived: "Quadros arquivados"
+      archived_until: "Arquivado até %{date}"
+      edit_archived_until: "Alterar data de arquivamento"
+      undiscard: "Reativar"
+      undiscard_confirm: "Deseja reativar este quadro de aulas?"
+      purge: "Excluir permanentemente"
       by_year: "Filtrar ano"
       by_unity: "Filtrar escola"
       by_grade: "Filtrar série"
@@ -29,6 +37,18 @@ pt-BR:
       unity: "Escola"
       grade: "Série"
       classroom: "Turma"
+    undiscard:
+      notice: "Quadro de aula reativado com sucesso."
+      conflict: "Não é possível reativar este quadro porque já existe um quadro ativo para a mesma turma, série e período. Arquive o quadro ativo antes de reativar este."
+    update_archived_until:
+      notice: "Data de arquivamento atualizada com sucesso."
+      only_archived: "Somente quadros arquivados podem ter a data de arquivamento alterada."
+      date_required: "Informe até que dia esse quadro de aulas funcionou."
+      before_calendar: "A data de arquivamento deve ser igual ou posterior ao início do calendário letivo. Para invalidar o quadro em todo o calendário, use a exclusão permanente."
+    purge:
+      notice: "Quadro de aula excluído com sucesso. Ele não valerá para nenhum dia do calendário letivo."
+      confirmation_required: "Confirme que entende que o histórico será perdido para excluir o quadro."
+      calendar_required: "Não foi possível excluir o quadro porque o calendário letivo da turma não foi encontrado."
     form:
       period: "Período"
       no_item_found: "Nenhum período informado"

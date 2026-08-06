@@ -44,6 +44,7 @@ class DiaryReportController < ApplicationController
     def print_report
       set_options_by_user
       set_school_calendars
+      ReportQueryCache.clear!
 
       my_logger = Logger.new("#{Rails.root}/log/my.log")
       my_logger.info("--------------------------------\nINICIANDO IMPRESSÃO DO DIÁRIO")
@@ -63,8 +64,6 @@ class DiaryReportController < ApplicationController
         current_user_school_year
       )
 
-      ini = Time.now
-
       active_enrollment_classrooms = StudentEnrollmentClassroom.by_classroom(current_user_classroom.id).active
       school_calendar = SchoolCalendar.find_by(
           unity: current_unity.id,
@@ -73,13 +72,14 @@ class DiaryReportController < ApplicationController
 
       if teacher_allow_absence_by_discipline? || classroom_has_general_absence(current_user_classroom) == false
         aux_disciplines = @disciplines
-        class_numbers_array = [1..5]
+        class_numbers_array = (1..5).to_a
       else
         aux_disciplines = [@disciplines.first]
         class_numbers_array = []
       end
 
       aux_disciplines.each do |discipline|
+        ini = Time.now
 
         @attendance_record_report_form = AttendanceRecordReportForm.new(
           unity_id: current_unity.id,
@@ -94,12 +94,13 @@ class DiaryReportController < ApplicationController
           class_numbers: class_numbers_array
         )
 
-        # if classroom_has_general_absence(current_user_classroom) == true
-        #   @attendance_record_report_form.global_absence = true
-        # else          
-        # end
-        
         if @attendance_record_report_form.valid?
+          frequencies_percentage = if GeneralConfiguration.current.show_percentage_on_attendance_record_report
+                                      @attendance_record_report_form.students_frequencies_percentage
+                                    else
+                                      {}
+                                    end
+
           attendance_record_report = AttendanceRecordReportPortrait.build(
             current_entity_configuration,
             current_user_unity,
@@ -112,7 +113,7 @@ class DiaryReportController < ApplicationController
             [],
             @attendance_record_report_form.school_calendar,
             @attendance_record_report_form.second_teacher_signature,
-            @attendance_record_report_form.students_frequencies_percentage,
+            frequencies_percentage,
             current_user,
             current_user_classroom.description
           )
@@ -261,7 +262,7 @@ class DiaryReportController < ApplicationController
 
         @avaliation_forms.each do |avaliation_discipline|
           if avaliation_discipline.valid? 
-            exam_record_report = @school_calendar_classroom_steps.any? ? build_by_classroom_steps(avaliation_discipline) : build_by_school_steps(avaliation_discipline)
+            exam_record_report = @school_calendar_classroom_steps.any? ? build_by_classroom_steps(avaliation_discipline, discipline) : build_by_school_steps(avaliation_discipline, discipline)
             add_pdf_to_merge(pdfTarget, report_name('avaliacao'), exam_record_report.render)
           else
             Rails.logger.error "Ocorreu um erro ao carregar avaliações da disciplina"  
@@ -273,6 +274,23 @@ class DiaryReportController < ApplicationController
       diff = finish - ini
       tempo_total += diff
       my_logger.info("Tempo de carregamento avaliações numéricas #{diff}")
+
+      ### avaliações conceituais
+      ini = Time.now
+      ConceptualExamReportBatchBuilder.new(
+        entity_configuration: current_entity_configuration,
+        unity: current_user_unity,
+        classroom: current_user_classroom,
+        teacher_id: current_teacher.id,
+        start_at: @diary_report_form.start_at,
+        end_at: @diary_report_form.end_at
+      ).each_rendered_report do |render|
+        add_pdf_to_merge(pdfTarget, report_name('avaliacao-conceitual'), render)
+      end
+      finish = Time.now
+      diff = finish - ini
+      tempo_total += diff
+      my_logger.info("Tempo de carregamento avaliações conceituais #{diff}")
 
       # parecer
       if classroom_has_opinion_type(current_user_classroom) == true
@@ -326,6 +344,8 @@ class DiaryReportController < ApplicationController
       my_logger.info("Tempo de carregamento do PDF #{diff}")
       
       my_logger.info("TEMPO TOTAL: #{tempo_total}")
+    ensure
+      ReportQueryCache.clear!
     end    
   
     private
@@ -344,7 +364,7 @@ class DiaryReportController < ApplicationController
       )
     end
 
-    def build_by_school_steps(exam_average_report_form)
+    def build_by_school_steps(exam_average_report_form, discipline = nil)
       @students_enrollments ||= exam_average_report_form.students_enrollments
       ExamStepAverageReport.build(
         current_entity_configuration,
@@ -352,13 +372,13 @@ class DiaryReportController < ApplicationController
         current_teacher,
         current_school_year,
         current_user_classroom,
-        Discipline.find(exam_average_report_form.discipline_id),
+        discipline || Discipline.find(exam_average_report_form.discipline_id),
         exam_average_report_form.steps,
         @students_enrollments
       )
     end
   
-    def build_by_classroom_steps(exam_average_report_form)
+    def build_by_classroom_steps(exam_average_report_form, discipline = nil)
       @students_enrollments ||= exam_average_report_form.students_enrollments
       ExamStepAverageReport.build(
         current_entity_configuration,
@@ -366,12 +386,11 @@ class DiaryReportController < ApplicationController
         current_teacher,
         current_school_year,
         current_user_classroom,
-        Discipline.find(exam_average_report_form.discipline_id),
+        discipline || Discipline.find(exam_average_report_form.discipline_id),
         exam_average_report_form.classroom_steps,
         @students_enrollments
       )
-    end
-  
+    end  
     def set_options_by_user
       @unities = [current_user_unity]
   

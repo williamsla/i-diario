@@ -30,12 +30,60 @@ class GeneralConfiguration < ActiveRecord::Base
   belongs_to :employees_default_role, class_name: 'Role', foreign_key: 'employees_default_role_id'
 
   def self.current
-    self.first.presence || new
+    ReportQueryCache.fetch(:general_configuration_current) do
+      self.first.presence || new
+    end
   end
 
   def self.annual_conceptual_evaluation?
     current.annual_conceptual_evaluation
   end
+
+  def self.show_objectives?
+    flag_enabled?(:show_objectives)
+  end
+
+  def self.semestral_recovery?
+    flag_enabled?(:semestral_recovery)
+  end
+
+  def self.conceptual_exam_batch_layout?
+    flag_enabled?(:conceptual_exam_batch_layout)
+  end
+
+  def self.block_modifications_after_last_step_ended?
+    return true unless current.has_attribute?(:block_modifications_after_last_step_ended)
+
+    ActiveRecord::Type::Boolean.new.cast(current.block_modifications_after_last_step_ended)
+  end
+
+
+  # Preferência: general_configurations (por município). Fallback: secrets.yml se a coluna ainda não existir.
+  def self.flag_enabled?(attribute)
+    record = current
+    if record.has_attribute?(attribute)
+      return ActiveRecord::Type::Boolean.new.cast(record.public_send(attribute))
+    end
+
+    secret_flag?(attribute)
+  end
+  private_class_method :flag_enabled?
+
+  def self.secret_flag?(attribute)
+    secrets = Rails.application.secrets
+    keys = [attribute]
+    keys << :SEMESTRAL_RECOVERY if attribute.to_sym == :semestral_recovery
+
+    keys.any? do |key|
+      next false unless secrets.respond_to?(key)
+
+      value = secrets.public_send(key)
+      value == true || value.to_s.strip.casecmp('true').zero? || value.to_s == '1'
+    end
+  rescue NoMethodError
+    false
+  end
+  private_class_method :secret_flag?
 
   def allows_after_sales_relationship?
     allows_after_sales_relationship == AfterSaleRelationshipOptions::ALLOWS

@@ -1,4 +1,6 @@
 class DailyFrequenciesController < ApplicationController
+  include LessonsBoardAvailability
+
   before_action :require_current_classroom
   before_action :require_teacher
   before_action :set_number_of_classes, only: [:new, :form, :create, :edit_multiple]
@@ -44,26 +46,44 @@ class DailyFrequenciesController < ApplicationController
       return
     end
 
-    weekday = frequency_date.strftime("%A").downcase
+    weekday = lessons_board_weekday_for_date(frequency_date)
     # Mesma regra do select de disciplinas: aulas do dia no quadro, sem filtrar por turno.
     allocations = LessonsBoardLessonWeekday.includes(lessons_board_lesson: :lessons_board)
                                            .by_classroom(classroom_id)
-                                           .by_teacher(current_teacher.id)
                                            .by_discipline(discipline_id)
                                            .by_weekday(weekday)
                                            .order('lessons_board_lessons.lesson_number')
 
-    class_numbers = allocations.map { |allocation|
-      allocation.lessons_board_lesson&.lesson_number&.to_i
-    }.compact.uniq.sort
+    class_numbers_by_period = class_numbers_grouped_by_period(allocations)
+    periods_list = periods_from_allocations(allocations)
+    requires_period_selection = requires_period_selection?(class_numbers_by_period)
 
-    period = infer_daily_frequency_period_from_allocations(
-      allocations,
-      classroom_id: classroom_id,
-      discipline_id: discipline_id
-    )
+    if requires_period_selection
+      class_numbers = []
+      period = nil
+    elsif class_numbers_by_period.size == 1
+      only_period = class_numbers_by_period.keys.first
+      class_numbers = class_numbers_by_period[only_period]
+      period = only_period
+    else
+      class_numbers = allocations.map { |allocation|
+        allocation.lessons_board_lesson&.lesson_number&.to_i
+      }.compact.uniq.sort
 
-    render json: { class_numbers: class_numbers, period: period }
+      period = infer_daily_frequency_period_from_allocations(
+        allocations,
+        classroom_id: classroom_id,
+        discipline_id: discipline_id
+      )
+    end
+
+    render json: {
+      class_numbers: class_numbers,
+      period: period,
+      periods: requires_period_selection ? periods_list : [],
+      class_numbers_by_period: requires_period_selection ? class_numbers_by_period.stringify_keys : {},
+      requires_period_selection: requires_period_selection
+    }
   end
 
   def disciplines_for_frequency_date
@@ -71,7 +91,7 @@ class DailyFrequenciesController < ApplicationController
     frequency_date = parse_frequency_date(params[:frequency_date])
 
     if classroom_id.blank? || frequency_date.blank?
-      render_disciplines_for_frequency_json([])
+      render_disciplines_for_frequency_json(disciplines: [])
       return
     end
 
@@ -79,18 +99,47 @@ class DailyFrequenciesController < ApplicationController
 
     classroom = Classroom.find_by(id: classroom_id)
     if classroom.blank?
-      render_disciplines_for_frequency_json([])
+      render_disciplines_for_frequency_json(disciplines: [])
       return
     end
 
-    disciplines = disciplines_for_classroom_and_frequency(
+    result = build_disciplines_for_frequency_result(
       classroom: classroom,
       frequency_date: frequency_date
     )
 
     render_disciplines_for_frequency_json(
-      disciplines.map { |d| { id: d.id, description: d.description } }
+      disciplines: result[:disciplines].map { |d| { id: d.id, description: d.description } },
+      message: result[:message]
     )
+  end
+
+  def schedule_for_frequency_date
+    classroom_id = params[:classroom_id].presence
+    frequency_date = parse_frequency_date(params[:frequency_date])
+
+    if classroom_id.blank? || frequency_date.blank?
+      render json: { available: true, message: nil }
+      return
+    end
+
+    authorize DailyFrequency.new, :new?
+
+    classroom = Classroom.find_by(id: classroom_id)
+    if classroom.blank?
+      render json: { available: true, message: nil }
+      return
+    end
+
+    result = build_schedule_availability_result(
+      classroom: classroom,
+      frequency_date: frequency_date
+    )
+
+    render json: {
+      available: result[:available],
+      message: result[:message]
+    }
   end
 
   def fetch_frequency_type
@@ -123,7 +172,11 @@ class DailyFrequenciesController < ApplicationController
     if @daily_frequency.valid?
       @frequency_type = current_frequency_type(@daily_frequency)
 
-      return if @frequency_type == FrequencyTypes::BY_DISCIPLINE && !(validate_class_numbers && validate_discipline)
+      if @frequency_type == FrequencyTypes::BY_DISCIPLINE &&
+         !(validate_class_numbers && validate_discipline && validate_period_selection_when_required!)
+        render :new
+        return
+      end
 
       if teacher_absence_blocks_frequency?(@daily_frequency, @class_numbers)
         redirect_to new_daily_frequency_path, alert: I18n.t('daily_frequencies.create.blocked_by_teacher_absence')
@@ -141,7 +194,11 @@ class DailyFrequenciesController < ApplicationController
       if existing_frequencies_for_date?
         @frequency_type = current_frequency_type(@daily_frequency)
 
-        return if @frequency_type == FrequencyTypes::BY_DISCIPLINE && !(validate_class_numbers && validate_discipline)
+        if @frequency_type == FrequencyTypes::BY_DISCIPLINE &&
+           !(validate_class_numbers && validate_discipline && validate_period_selection_when_required!)
+          render :new
+          return
+        end
 
         if teacher_absence_blocks_frequency?(@daily_frequency, @class_numbers)
           redirect_to new_daily_frequency_path, alert: I18n.t('daily_frequencies.create.blocked_by_teacher_absence')
@@ -169,12 +226,18 @@ class DailyFrequenciesController < ApplicationController
       @daily_frequency,
       params[:class_numbers].to_s.split(',').map(&:strip)
     )
-    @period = @admin_or_teacher ? current_teacher_period : set_options_by_classroom
+    # Turno escolhido no formulário (chega via params na edição múltipla). Quando o professor
+    # leciona a mesma disciplina em mais de um turno no mesmo dia, é ele quem define o turno,
+    # e o registro precisa manter esse turno (matutino/vespertino) — caso contrário os dois
+    # turnos gravariam com o mesmo período e colidiriam no índice único.
+    @frequency_type = current_frequency_type(@daily_frequency)
+    @period = period_for_daily_frequency(@daily_frequency)
 
     # Em turma de turno integral (FULL), manter o período real do professor (matutino/vespertino)
     # para filtrar faltas justificadas e matrículas por turno. Evita que falta justificada da
     # manhã apareça no registro da tarde (e vice-versa).
     @period = nil if @period == Periods::FULL.to_i && !current_teacher_has_specific_period?
+    @daily_frequency.period = @period if @daily_frequency.period.blank? && @period.present?
 
     @general_configuration = GeneralConfiguration.current
 
@@ -191,11 +254,12 @@ class DailyFrequenciesController < ApplicationController
     @absence_justification = AbsenceJustification.new
     @absence_justification.school_calendar = current_school_calendar
 
-    student_enrollment_ids = fetch_enrollment_classrooms.map { |student_enrollment|
+    enrollment_classrooms = fetch_enrollment_classrooms
+    student_enrollment_ids = enrollment_classrooms.map { |student_enrollment|
       student_enrollment[:student_enrollment_id]
     }
 
-    student_ids = fetch_enrollment_classrooms.map { |student_enrollment|
+    student_ids = enrollment_classrooms.map { |student_enrollment|
       student_enrollment[:student].id
     }
 
@@ -218,57 +282,35 @@ class DailyFrequenciesController < ApplicationController
 
     @students_as_justified = []
 
-    # Agrupar enrollment_classrooms por student_id para selecionar apenas a matrícula mais recente
-    enrollment_classrooms_by_student = fetch_enrollment_classrooms.group_by { |ec| ec[:student].id }
+    # Agrupar por aluno e priorizar a enturmação ativa na data da frequência.
+    # Sem isso, uma rematrícula/retorno posterior (joined_at mais recente) fazia o sistema
+    # considerar o aluno inativo em datas anteriores — e a tela exibia "não há alunos".
+    enrollment_classrooms_by_student = enrollment_classrooms.group_by { |ec| ec[:student].id }
     frequency_date = @daily_frequency.frequency_date.to_date
-    
-    enrollment_classrooms_by_student.each do |student_id, enrollment_classrooms|
-      # Selecionar a matrícula mais recente baseada no sequence e joined_at
-      # Prioriza sequence (maior = mais recente), depois joined_at (mais recente = mais recente)
-      enrollment_classroom = enrollment_classrooms.max_by do |ec|
-        # Acessar sequence e joined_at do hash
-        sequence = ec[:sequence]
-        joined_at = ec[:joined_at]
-        
-        # Converter sequence para inteiro e joined_at para Date
-        sequence_value = sequence.to_i rescue 0
-        joined_at_date = joined_at.is_a?(Date) ? joined_at : (joined_at.to_date rescue nil)
-        
-        # Retorna um array para comparação: [sequence, joined_at]
-        # O max_by vai comparar primeiro pelo sequence, depois pelo joined_at
-        [joined_at_date, sequence_value || Date.new(1900, 1, 1)]
-      end
-      
+
+    enrollment_classrooms_by_student.each do |_student_id, student_enrollment_classrooms|
+      enrollment_classroom = select_enrollment_classroom_for_frequency_date(
+        student_enrollment_classrooms,
+        frequency_date
+      )
+
       student = enrollment_classroom[:student]
-      student_enrollment = enrollment_classroom[:student_enrollment]
       left_at = enrollment_classroom[:left_at]
       joined_at = enrollment_classroom[:joined_at]
-      
       student_enrollment_id = enrollment_classroom[:student_enrollment_id]
-      
-      # Verificar se o aluno está ativo na data da frequência
-      # Considera: joined_at <= frequency_date E (left_at é nulo OU left_at > frequency_date)
-      joined_at_date = joined_at.to_date rescue nil
-      left_at_date = left_at.to_date rescue nil if left_at.present?
-      
-      is_active_on_frequency_date = false
-      if joined_at_date && joined_at_date <= frequency_date
-        is_active_on_frequency_date = left_at_date.nil? || left_at_date.blank? || left_at_date > frequency_date
-      end
-      
-      # O aluno está ativo se está no hash 'active' (calculado pelo ActiveStudentsOnDate)
-      # E está realmente ativo na data (verificação manual)
-      activated_student = active.include?(enrollment_classroom[:student_enrollment_classroom_id]) && is_active_on_frequency_date
+
+      # ActiveStudentsOnDate já valida a enturmação na data via SQL (by_date).
+      activated_student = active.include?(enrollment_classroom[:student_enrollment_classroom_id])
       has_dependence = dependencies[student_enrollment_id] ? true : false
       has_exempted = exempt[student_enrollment_id] ? true : false
-      
+
       if absence_justifications[student.id]
         absence_justification = absence_justifications[student.id]
-        @students_as_justified << student        
+        @students_as_justified << student
       else
         absence_justification = {}
       end
-      
+
       in_active_search = active_search[@daily_frequency.frequency_date]&.include?(student_enrollment_id)
       sequence = enrollment_classroom[:sequence] if show_inactive_enrollments
 
@@ -278,7 +320,7 @@ class DailyFrequenciesController < ApplicationController
       @any_inactive_student ||= !activated_student
 
       next unless activated_student || show_inactive_enrollments
-      
+
       @students << {
         student: student,
         dependence: has_dependence,
@@ -290,7 +332,6 @@ class DailyFrequenciesController < ApplicationController
         joined_at: joined_at,
         left_at: left_at
       }
-
     end
 
     all_inactive = @students.all? { |element| element[:active] == false }
@@ -411,7 +452,16 @@ class DailyFrequenciesController < ApplicationController
       )
     end
 
-    redirect_to edit_multiple_daily_frequencies_path
+    redirect_to edit_multiple_daily_frequencies_path(
+      daily_frequency: daily_frequency_attributes.slice(
+        :classroom_id,
+        :discipline_id,
+        :frequency_date,
+        :period,
+        :unity_id
+      ),
+      class_numbers: class_numbers_from_params
+    )
   end
 
   def destroy_multiple
@@ -457,8 +507,9 @@ class DailyFrequenciesController < ApplicationController
 
   private
 
-  # JSON array literal — evita ActiveModel::Serializers envolver em { daily_frequencies: ... }.
-  def render_disciplines_for_frequency_json(payload)
+  def render_disciplines_for_frequency_json(disciplines:, message: nil)
+    payload = { disciplines: disciplines }
+    payload[:message] = message if message.present?
     render plain: payload.to_json, content_type: 'application/json'
   end
 
@@ -709,14 +760,70 @@ class DailyFrequenciesController < ApplicationController
   end
 
   def fetch_enrollment_classrooms
-    list ||= StudentEnrollmentsList.new(
-                classroom: @daily_frequency.classroom,
-                grade: discipline_classroom_grade_ids,
-                discipline: @daily_frequency.discipline,
-                date: @daily_frequency.frequency_date,
-                search_type: :by_date,
-                period: @period
-              ).student_enrollment_classrooms    
+    @fetch_enrollment_classrooms ||= begin
+      enrollments = enrollment_classrooms_for(period: enrollment_period_for_student_list)
+      if enrollments.blank? && enrollment_period_for_student_list.present?
+        enrollments = enrollment_classrooms_for(period: nil)
+      end
+      enrollments
+    end
+  end
+
+  def enrollment_classrooms_for(period:)
+    StudentEnrollmentsList.new(
+      classroom: @daily_frequency.classroom,
+      grade: discipline_classroom_grade_ids,
+      discipline: @daily_frequency.discipline,
+      date: @daily_frequency.frequency_date,
+      search_type: :by_date,
+      period: period
+    ).student_enrollment_classrooms
+  end
+
+  # Em turma integral, filtra alunos pelo turno do registro de frequência.
+  # Em turmas de turno único, não aplica filtro de turno na listagem.
+  def enrollment_period_for_student_list
+    return @enrollment_period_for_student_list if defined?(@enrollment_period_for_student_list)
+
+    classroom_period = @daily_frequency.classroom.period.to_i
+    @enrollment_period_for_student_list =
+      if classroom_period == Periods::FULL.to_i && @period.present? && @period != Periods::FULL.to_i
+        @period
+      end
+  end
+
+  def period_for_daily_frequency(daily_frequency)
+    selected_period = daily_frequency_params[:period].presence&.to_i
+
+    if selected_period.present? && selected_period.positive?
+      selected_period
+    elsif daily_frequency.period.present? && daily_frequency.period.to_i.positive?
+      daily_frequency.period.to_i
+    else
+      current_teacher_period_by_classroom(daily_frequency.classroom, daily_frequency.discipline)
+    end
+  end
+
+  # Preferência: enturmação ativa na data; senão a mais recente (joined_at/sequence).
+  def select_enrollment_classroom_for_frequency_date(enrollment_classrooms, frequency_date)
+    active_on_date = enrollment_classrooms.select do |ec|
+      enrollment_active_on_date?(ec[:student_enrollment_classroom_id], frequency_date)
+    end
+
+    candidates = active_on_date.presence || enrollment_classrooms
+
+    candidates.max_by do |ec|
+      sequence_value = ec[:sequence].to_i rescue 0
+      joined_at_date = ec[:joined_at].to_date rescue Date.new(1900, 1, 1)
+
+      [joined_at_date, sequence_value]
+    end
+  end
+
+  def enrollment_active_on_date?(student_enrollment_classroom_id, date)
+    StudentEnrollmentClassroom.where(id: student_enrollment_classroom_id)
+                              .by_date(date)
+                              .exists?
   end
 
   def set_number_of_classes
@@ -758,20 +865,25 @@ class DailyFrequenciesController < ApplicationController
 
   def discipline_classroom_grade_ids
     classroom_grade_ids = ClassroomsGrade.by_classroom_id(@daily_frequency.classroom.id).pluck(:grade_id)
-    school_calendar = StepsFetcher.new(@daily_frequency.classroom).school_calendar
+    return classroom_grade_ids if classroom_grade_ids.blank?
 
-    if @frequency_type == FrequencyTypes::BY_DISCIPLINE
-      SchoolCalendarDisciplineGrade.where(
-        grade_id: classroom_grade_ids,
-        school_calendar_id: school_calendar.id,
-        discipline_id: @daily_frequency.discipline.id
-      ).pluck(:grade_id)
-    else
-      SchoolCalendarDisciplineGrade.where(
-        grade_id: classroom_grade_ids,
-        school_calendar_id: school_calendar.id
-      ).pluck(:grade_id)
-    end
+    school_calendar = StepsFetcher.new(@daily_frequency.classroom).school_calendar
+    frequency_type = @frequency_type || current_frequency_type(@daily_frequency)
+
+    grade_ids = if frequency_type == FrequencyTypes::BY_DISCIPLINE && @daily_frequency.discipline.present?
+                  SchoolCalendarDisciplineGrade.where(
+                    grade_id: classroom_grade_ids,
+                    school_calendar_id: school_calendar.id,
+                    discipline_id: @daily_frequency.discipline.id
+                  ).pluck(:grade_id)
+                else
+                  SchoolCalendarDisciplineGrade.where(
+                    grade_id: classroom_grade_ids,
+                    school_calendar_id: school_calendar.id
+                  ).pluck(:grade_id)
+                end
+
+    grade_ids.presence || classroom_grade_ids
   end
 
   def show_inactive_enrollments
@@ -799,10 +911,25 @@ class DailyFrequenciesController < ApplicationController
     if params[:discipline_id].present?
       @disciplines ||= [current_user_discipline]
     elsif (ctx = discipline_options_context)
-      @disciplines = disciplines_for_classroom_and_frequency(
+      frequency_type = frequency_type_for_classroom_and_discipline(
         classroom: ctx[:classroom],
-        frequency_date: ctx[:date]
+        discipline_id: current_user.current_discipline_id
       )
+
+      if frequency_type == FrequencyTypes::BY_DISCIPLINE
+        result = build_disciplines_for_frequency_result(
+          classroom: ctx[:classroom],
+          frequency_date: ctx[:date]
+        )
+        @disciplines = result[:disciplines]
+        @frequency_date_message = result[:message]
+      else
+        @disciplines = (@fetch_linked_by_teacher[:disciplines] || []).select { |d| d.grouper == false && d.descriptor == false }
+        @frequency_date_message = build_schedule_availability_result(
+          classroom: ctx[:classroom],
+          frequency_date: ctx[:date]
+        )[:message]
+      end
     else
       @disciplines = (@fetch_linked_by_teacher[:disciplines] || []).select { |d| d.grouper == false && d.descriptor == false }
       schedule_ids = fetch_disciplines_by_day
@@ -819,8 +946,32 @@ class DailyFrequenciesController < ApplicationController
                                else
                                  linked_disciplines
                                end
+    @disciplines_for_content = filter_disciplines_for_content_registration(
+      @disciplines_for_content,
+      current_user_classroom
+    )
 
-    @knowledge_areas_for_content = @disciplines_for_content.map(&:knowledge_area).compact.uniq(&:id)
+    @knowledge_areas_for_content = if is_multigrade_infantil_fundamental?
+                                     infantil_discipline_ids = discipline_ids_for_grade_ids(
+                                       current_user_classroom,
+                                       infantil_grade_ids(current_user_classroom)
+                                     )
+                                     filter_knowledge_areas_for_content_registration(
+                                       KnowledgeArea.by_teacher(current_teacher)
+                                                    .by_discipline_id(infantil_discipline_ids)
+                                                    .ordered,
+                                       current_user_classroom
+                                     )
+                                   elsif infantil_classroom?(current_user_classroom)
+                                     filter_knowledge_areas_for_content_registration(
+                                       KnowledgeArea.by_teacher(current_teacher)
+                                                    .by_classroom_id(current_user_classroom.id)
+                                                    .ordered,
+                                       current_user_classroom
+                                     )
+                                   else
+                                     @disciplines_for_content.map(&:knowledge_area).compact.uniq(&:id)
+                                   end
     @knowledge_areas = []
     @knowledge_areas = [@disciplines.first&.knowledge_area] if @disciplines.first&.knowledge_area.present?
   end
@@ -840,19 +991,43 @@ class DailyFrequenciesController < ApplicationController
   end
 
   def disciplines_for_classroom_and_frequency(classroom:, frequency_date:)
+    build_disciplines_for_frequency_result(
+      classroom: classroom,
+      frequency_date: frequency_date
+    )[:disciplines]
+  end
+
+  def build_disciplines_for_frequency_result(classroom:, frequency_date:)
     linked = TeacherClassroomAndDisciplineFetcher.fetch!(
       current_teacher.id,
       current_unity,
       current_school_year,
       classroom
     )
-    disciplines = (linked[:disciplines] || []).select { |d| d.grouper == false && d.descriptor == false }
+    all_disciplines = (linked[:disciplines] || []).select { |d| d.grouper == false && d.descriptor == false }
+
+    if all_disciplines.blank?
+      return {
+        disciplines: [],
+        message: t('daily_frequencies.new.no_linked_disciplines')
+      }
+    end
+
     disciplines = filter_disciplines_for_teacher_frequency_type(
-      disciplines: disciplines,
+      disciplines: all_disciplines,
       classroom: classroom
     )
 
-    return disciplines if classroom_without_lessons_board?(classroom.id)
+    if disciplines.blank?
+      return {
+        disciplines: [],
+        message: t('daily_frequencies.new.no_disciplines_allow_frequency')
+      }
+    end
+
+    return { disciplines: disciplines, message: nil } if classroom_without_lessons_board?(classroom.id)
+    return { disciplines: disciplines, message: nil } if frequency_by_discipline_for_classroom?(classroom) &&
+      saturday_school_day_without_equivalent_weekday?(classroom: classroom, date: frequency_date)
 
     # Disciplinas do dia pela grade (dia da semana), sem filtrar por turno — o professor
     # vê tudo que está no quadro daquele dia na turma.
@@ -861,9 +1036,129 @@ class DailyFrequenciesController < ApplicationController
       date: frequency_date,
       period: nil
     )
-    return disciplines if schedule_ids.blank?
 
-    disciplines.select { |d| schedule_ids.include?(d.id) }
+    if schedule_ids.present?
+      filtered = disciplines.select { |d| schedule_ids.include?(d.id) }
+      return { disciplines: filtered, message: nil } if filtered.present?
+    end
+
+    make_up_disciplines = disciplines_for_make_up_date(disciplines, classroom, frequency_date)
+    if make_up_disciplines.present?
+      return { disciplines: make_up_disciplines, message: nil }
+    end
+
+    disciplines_without_board = disciplines_without_lessons_board_allocation(disciplines, classroom)
+    if disciplines_without_board.present?
+      return { disciplines: disciplines_without_board, message: nil }
+    end
+
+    {
+      disciplines: [],
+      message: schedule_unavailable_message(
+        classroom: classroom,
+        date: frequency_date,
+        schedule_ids: schedule_ids
+      )
+    }
+  end
+
+  def build_schedule_availability_result(classroom:, frequency_date:)
+    return { available: true, message: nil } if classroom_without_lessons_board?(classroom.id)
+    return { available: true, message: nil } if saturday_school_day_without_equivalent_weekday?(
+      classroom: classroom,
+      date: frequency_date
+    )
+    return { available: true, message: nil } if infantil_classroom?(classroom)
+
+    frequency_type = frequency_type_for_classroom_and_discipline(
+      classroom: classroom,
+      discipline_id: current_user.current_discipline_id
+    )
+
+    unless frequency_type == FrequencyTypes::BY_DISCIPLINE
+      return build_general_schedule_availability_result(
+        classroom: classroom,
+        frequency_date: frequency_date
+      )
+    end
+
+    linked = TeacherClassroomAndDisciplineFetcher.fetch!(
+      current_teacher.id,
+      current_unity,
+      current_school_year,
+      classroom
+    )
+    disciplines = filter_disciplines_for_teacher_frequency_type(
+      disciplines: (linked[:disciplines] || []).select { |d| d.grouper == false && d.descriptor == false },
+      classroom: classroom
+    )
+    schedule_ids = schedule_discipline_ids_for_classroom_weekday(
+      classroom_id: classroom.id,
+      date: frequency_date
+    )
+    discipline_ids = disciplines.map(&:id)
+    has_linked_discipline_on_schedule = (schedule_ids & discipline_ids).present?
+
+    return { available: true, message: nil } if has_linked_discipline_on_schedule
+    return { available: true, message: nil } if teacher_has_make_up_on_date?(classroom: classroom, date: frequency_date)
+    return { available: true, message: nil } if teacher_has_discipline_without_lessons_board_allocation?(
+      classroom,
+      discipline_ids
+    )
+
+    classroom_has_lessons_on_day = classroom_has_lessons_on_date?(classroom: classroom, date: frequency_date)
+
+    message_key = if classroom_has_lessons_on_day
+                    'daily_frequencies.new.no_teacher_lessons_on_lessons_board_for_date'
+                  else
+                    'daily_frequencies.new.no_lessons_on_lessons_board_for_date'
+                  end
+
+    {
+      available: false,
+      message: t(
+        message_key,
+        weekday: weekday_name_for_date(frequency_date),
+        date: I18n.l(frequency_date)
+      )
+    }
+  end
+
+  def build_general_schedule_availability_result(classroom:, frequency_date:)
+    return { available: true, message: nil } if teacher_has_make_up_on_date?(classroom: classroom, date: frequency_date)
+
+    teacher_discipline_ids = teacher_discipline_ids_for_classroom(classroom)
+    schedule_ids = schedule_discipline_ids_for_classroom_weekday(
+      classroom_id: classroom.id,
+      date: frequency_date
+    )
+    has_teacher_discipline_on_schedule = (schedule_ids & teacher_discipline_ids).present?
+
+    return { available: true, message: nil } if has_teacher_discipline_on_schedule
+    return { available: true, message: nil } if teacher_has_discipline_without_lessons_board_allocation?(
+      classroom,
+      teacher_discipline_ids
+    )
+
+    classroom_has_lessons_on_day = classroom_has_lessons_on_date?(classroom: classroom, date: frequency_date)
+    message_key = if classroom_has_lessons_on_day
+                    'daily_frequencies.new.no_teacher_lessons_on_lessons_board_for_date'
+                  else
+                    'daily_frequencies.new.no_lessons_on_lessons_board_for_date'
+                  end
+
+    {
+      available: false,
+      message: t(
+        message_key,
+        weekday: weekday_name_for_date(frequency_date),
+        date: I18n.l(frequency_date)
+      )
+    }
+  end
+
+  def frequency_by_discipline_for_classroom?(classroom)
+    classroom.classrooms_grades.first&.exam_rule&.frequency_type == FrequencyTypes::BY_DISCIPLINE
   end
 
   def filter_disciplines_for_teacher_frequency_type(disciplines:, classroom:)
@@ -886,21 +1181,6 @@ class DailyFrequenciesController < ApplicationController
     ).pluck(:discipline_id).uniq
 
     disciplines.select { |discipline| allowed_discipline_ids.include?(discipline.id) }
-  end
-
-  def classroom_without_lessons_board?(classroom_id)
-    !LessonsBoard.joins(:classrooms_grade)
-                 .where(classrooms_grades: { classroom_id: classroom_id })
-                 .exists?
-  end
-
-  def schedule_discipline_ids_for_classroom_weekday(classroom_id:, date:, period: nil)
-    weekday = date.strftime("%A").downcase
-    scope = LessonsBoardLessonWeekday.by_classroom(classroom_id).by_weekday(weekday)
-    scope = scope.by_period(period) if period.present?
-    scope.includes(:teacher_discipline_classroom)
-         .map { |w| w.teacher_discipline_classroom.discipline_id }
-         .uniq
   end
 
   # Turno do quadro de aulas para a disciplina/data (usado no form novo diário de frequência).
@@ -926,6 +1206,74 @@ class DailyFrequenciesController < ApplicationController
       ]
     end
     first&.lessons_board_lesson&.lessons_board&.period&.to_i
+  end
+
+  # Exige escolha de turno quando a disciplina aparece em mais de um turno no quadro no mesmo dia
+  # (ex.: professora de Matemática no matutino e no vespertino da mesma turma).
+  def requires_period_selection?(class_numbers_by_period)
+    class_numbers_by_period.present? && class_numbers_by_period.size > 1
+  end
+
+  def validate_period_selection_when_required!
+    classroom_id = daily_frequency_params[:classroom_id].presence
+    discipline_id = daily_frequency_params[:discipline_id].presence
+    frequency_date = parse_frequency_date(daily_frequency_params[:frequency_date])
+
+    return true if classroom_id.blank? || discipline_id.blank? || frequency_date.blank?
+
+    weekday = lessons_board_weekday_for_date(frequency_date)
+    allocations = LessonsBoardLessonWeekday.includes(lessons_board_lesson: :lessons_board)
+                                           .by_classroom(classroom_id)
+                                           .by_discipline(discipline_id)
+                                           .by_weekday(weekday)
+
+    return true unless requires_period_selection?(class_numbers_grouped_by_period(allocations))
+
+    period = daily_frequency_params[:period].presence&.to_i
+    return true if period.present? && period.positive?
+
+    @error_on_turno = true
+    flash.now[:alert] = t('errors.daily_frequencies.turn_required_when_multiple_periods')
+
+    false
+  end
+
+  # Números de aula (ordem) agrupados por turno. Permite que o professor que leciona
+  # a mesma disciplina em mais de um turno no mesmo dia lance cada turno separadamente,
+  # sem que a mesma ordem de aulas seja deduplicada entre os turnos.
+  def class_numbers_grouped_by_period(allocations)
+    grouped = allocations.each_with_object({}) do |allocation, memo|
+      lesson = allocation.lessons_board_lesson
+      period = lesson&.lessons_board&.period&.to_i
+      class_number = lesson&.lesson_number&.to_i
+      next if period.blank? || period.zero? || class_number.blank? || class_number.zero?
+
+      memo[period] ||= []
+      memo[period] << class_number
+    end
+
+    grouped.each { |period, numbers| grouped[period] = numbers.uniq.sort }
+    grouped
+  end
+
+  # Lista de turnos presentes no quadro para a turma/disciplina/dia (com rótulo para o select).
+  def periods_from_allocations(allocations)
+    periods_on_board = allocations.map do |allocation|
+      allocation.lessons_board_lesson&.lessons_board&.period
+    end.compact.map(&:to_i).reject(&:zero?).uniq.sort
+
+    periods_on_board.map do |period|
+      label = period_label_for(period)
+      { id: period.to_s, name: label, text: label }
+    end
+  end
+
+  def period_label_for(period)
+    value = period.to_s
+    translated = Periods.t(value)
+    return translated if translated.present? && translated.to_s != value
+
+    Periods.to_a.find { |_name, period_value| period_value.to_s == value }&.first || value
   end
 
   def fetch_disciplines_by_day
@@ -1077,19 +1425,27 @@ class DailyFrequenciesController < ApplicationController
   end
 
   def get_discipline_content_record_id_by_date(discipline_id)
+    # Com conteúdo por aluno (AEE ou NEE), sempre abre "novo" para não sobrescrever
+    # o registro de outro aluno ao reabrir o primeiro do dia/disciplina.
+    return 0 if content_record_by_student_enabled?
+
     @disciplines_with_contents ||= fetch_disciplines_with_contents_by_day
     result = @disciplines_with_contents.select { |c| c.discipline_id == discipline_id }.map(&:id)
 
-    result.count >= 1 ? result.first : 0 
+    result.count >= 1 ? result.first : 0
   end
   helper_method :get_discipline_content_record_id_by_date
 
   def get_knowledge_area_content_record_id_by_date(knowledge_area_id)
+    # Com conteúdo por aluno (AEE ou NEE), sempre abre "novo" para não sobrescrever
+    # o registro de outro aluno ao reabrir o primeiro do dia/área.
+    return 0 if content_record_by_student_enabled?
+
     @knowledge_areas_with_contents ||= fetch_knowledge_areas_with_contents_by_day
     Rails.logger.info("Knowledge areas with contents: #{@knowledge_areas_with_contents.inspect}")
     result = @knowledge_areas_with_contents.select { |c| c.knowledge_areas.map(&:id).include?(knowledge_area_id.to_i) }.map(&:id)
 
-    result.count >= 1 ? result.first : 0 
+    result.count >= 1 ? result.first : 0
   end
   helper_method :get_knowledge_area_content_record_id_by_date
 

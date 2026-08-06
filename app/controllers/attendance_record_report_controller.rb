@@ -68,11 +68,20 @@ class AttendanceRecordReportController < ApplicationController
   def period
     return if params[:classroom_id].blank? || params[:discipline_id].blank?
 
-    render json: TeacherPeriodFetcher.new(
-                    current_teacher.id,
-                    params[:classroom_id],
-                    params[:discipline_id]
-                  ).teacher_period
+    fetcher = TeacherPeriodFetcher.new(
+      current_teacher.id,
+      params[:classroom_id],
+      params[:discipline_id]
+    )
+
+    periods = fetcher.teacher_periods
+    requires_period_selection = fetcher.requires_period_selection?
+
+    render json: {
+      period: fetcher.teacher_period,
+      periods: periods,
+      requires_period_selection: requires_period_selection
+    }
   end
 
   def number_of_classes
@@ -105,7 +114,13 @@ class AttendanceRecordReportController < ApplicationController
   def fetch_collections
     @number_of_classes = current_school_calendar.number_of_classes
     @teacher = current_teacher
-    @period = current_teacher_period
+    @period_fetcher = TeacherPeriodFetcher.new(
+      current_teacher.id,
+      @attendance_record_report_form.classroom_id.presence || current_user.current_classroom_id,
+      @attendance_record_report_form.discipline_id.presence || current_user.current_discipline_id
+    )
+    @period = @period_fetcher.teacher_period
+    @period_selectable = @period.to_i == Periods::FULL.to_i || @period_fetcher.requires_period_selection?
     @has_lesson_board = has_lesson_board?
   end
 

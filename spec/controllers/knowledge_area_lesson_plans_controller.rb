@@ -79,6 +79,59 @@ RSpec.describe KnowledgeAreaLessonPlansController, type: :controller do
       end
     end
 
+    context 'with author filter' do
+      let(:other_teacher) { create(:teacher) }
+      let!(:other_teacher_knowledge_area_lesson_plan) {
+        create(
+          :knowledge_area_lesson_plan,
+          :with_teacher_discipline_classroom,
+          teacher: other_teacher,
+          classroom: classroom,
+          discipline: discipline
+        )
+      }
+
+      context 'when filtering by my plans' do
+        before do
+          get :index, params: { locale: 'pt-BR', filter: { by_author: PlansAuthors::MY_PLANS } }
+        end
+
+        it 'lists only the current teacher plans' do
+          expect(assigns(:knowledge_area_lesson_plans)).to include(knowledge_area_lesson_plan)
+          expect(assigns(:knowledge_area_lesson_plans)).not_to include(other_teacher_knowledge_area_lesson_plan)
+        end
+
+        it 'keeps by_author in filter params for pagination' do
+          expect(controller.params[:filter][:by_author]).to eq(PlansAuthors::MY_PLANS)
+        end
+      end
+
+      context 'when filtering by my plans on another page' do
+        before do
+          get :index, params: {
+            locale: 'pt-BR',
+            filter: { by_author: PlansAuthors::MY_PLANS },
+            page: 2
+          }
+        end
+
+        it 'keeps by_author in filter params' do
+          expect(controller.params[:filter][:by_author]).to eq(PlansAuthors::MY_PLANS)
+        end
+      end
+
+      context 'when filtering by other teachers plans' do
+        before do
+          get :index, params: { locale: 'pt-BR', filter: { by_author: PlansAuthors::OTHERS } }
+        end
+
+        it 'lists only other teachers plans' do
+          expect(assigns(:knowledge_area_lesson_plans)).to include(other_teacher_knowledge_area_lesson_plan)
+          expect(assigns(:knowledge_area_lesson_plans)).not_to include(knowledge_area_lesson_plan)
+        end
+      end
+    end
+
     context 'with experience fields filter' do
       let!(:another_knowledge_area_lesson_plan) {
         create(

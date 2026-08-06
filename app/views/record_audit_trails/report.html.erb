@@ -7,6 +7,7 @@
     <table class="table table-bordered table-striped table-condensed table-hover">
       <thead>
         <tr>
+          <th><%= t('record_audit_trails.report.columns.event_at') %></th>
           <th><%= t('record_audit_trails.report.columns.record_type') %></th>
           <th><%= t('record_audit_trails.report.columns.record') %></th>
           <th><%= t('record_audit_trails.report.columns.status') %></th>
@@ -19,6 +20,13 @@
         <% if @results.present? %>
           <% @results.each do |result| %>
             <tr>
+              <td>
+                <% if result[:primary_at].present? %>
+                  <%= l(result[:primary_at], format: :compressed) %>
+                <% else %>
+                  <%= l(result[:occurred_on]) %>
+                <% end %>
+              </td>
               <td><%= result[:record_type_label] %></td>
               <td><%= result[:label] %></td>
               <td>
@@ -31,9 +39,9 @@
               <td><small><%= result[:summary] %></small></td>
               <td><%= result[:verdict] %></td>
               <td>
-                <% if result[:record_exists] %>
+                <% if record_audit_trail_show_history?(result) %>
                   <%= link_to t('record_audit_trails.report.view_history'),
-                        record_audit_trail_history_path(result),
+                        record_audit_trail_history_link(result),
                         class: 'btn btn-default btn-xs',
                         target: '_blank' %>
                 <% end %>
@@ -42,7 +50,7 @@
           <% end %>
         <% else %>
           <tr>
-            <td colspan="6" class="text-center text-muted">
+            <td colspan="7" class="text-center text-muted">
               <%= t('record_audit_trails.report.empty') %>
             </td>
           </tr>

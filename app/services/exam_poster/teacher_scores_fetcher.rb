@@ -90,7 +90,21 @@ module ExamPoster
       filter_daily_notes = daily_notes.where(avaliation_id: avaliations.keys)
       daily_note_students = filter_daily_notes.flat_map(&:students)
                                               .select { |dns| dns.transfer_note_id.present? }
-      active_enrollment_classrooms = StudentEnrollmentClassroom.by_classroom(@classroom.id).active
+      active_enrollment_classrooms = StudentEnrollmentClassroom.by_classroom(@classroom.id)
+                                                               .joins(:student_enrollment)
+                                                               .where(
+                                                                 <<-SQL.squish,
+                                                                   student_enrollments.active = :active
+                                                                   OR (
+                                                                     COALESCE(student_enrollment_classrooms.left_at, '') <> ''
+                                                                     AND student_enrollment_classrooms.left_at::date
+                                                                       BETWEEN :start_at AND :end_at
+                                                                   )
+                                                                 SQL
+                                                                 active: IeducarBooleanState::ACTIVE,
+                                                                 start_at: @step.start_at,
+                                                                 end_at: @step.end_at
+                                                               )
 
       enrollment_classroom_on_date = []
 

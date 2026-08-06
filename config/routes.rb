@@ -45,8 +45,20 @@ Rails.application.routes.draw do
         resources :teaching_plans, only: [:index]
         get 'monthly_absence_by_student_reports/report',
             to: 'monthly_absence_by_student_reports#report'
+
+        namespace :educamais do
+          resource :context, only: [:show], controller: 'context'
+          resources :unities, only: [:index]
+          resources :grades, only: [:index]
+          resources :classrooms, only: [:index]
+          resources :students, only: [:index]
+          resources :bncc_skills, only: [:index], path: 'bncc-skills'
+        end
       end
     end
+
+    get '/educamais/launch', to: 'educamais_launch#show', as: :educamais_launch
+    get '/educaindice/launch', to: redirect('/educamais/launch'), as: :educaindice_launch
 
     concern :history do
       member do
@@ -212,6 +224,10 @@ Rails.application.routes.draw do
         get :frequency_report_modal
         get :class_council_modal
         get :class_council_pdf
+        get :tag_cloud_modal
+        get :tag_cloud_filters
+        post :create_observation
+        get :student_observations_pdf
       end
     end
 
@@ -237,11 +253,15 @@ Rails.application.routes.draw do
       collection do
         post :clone
         get :check_teacher_absence
+        get :disciplines_for_record_date
+        get :find_existing
       end
     end
     resources :knowledge_area_content_records, concerns: :history do
       collection do
         post :clone
+        get :knowledge_areas_for_record_date
+        get :find_existing
       end
     end
     resources :classrooms, only: [:index, :show] do
@@ -350,6 +370,7 @@ Rails.application.routes.draw do
         get :class_numbers_by_discipline
         get :fetch_frequency_type
         get :disciplines_for_frequency_date
+        get :schedule_for_frequency_date
         get :edit_multiple
         get :form
         put :create_or_update_multiple
@@ -400,6 +421,11 @@ Rails.application.routes.draw do
     end
 
     resources :lessons_boards do
+      member do
+        post :undiscard
+        patch :update_archived_until
+        delete :purge
+      end
       collection do
         get :period
         get :number_of_lessons

@@ -57,17 +57,10 @@ namespace :aulas do
   desc "Reconta class_number para todos os registros feitos em sábados letivos [ano=YYYY]"
   task :recontar_sabados_letivos, [:ano] => :environment do |t, args|
     def update_sabados_letivos(year)
-      # Carrega as datas dos sábados letivos do arquivo de configuração
-      config_path = Rails.root.join('config', 'sabados_letivos.yml')
-      sabados_letivos_map = if File.exist?(config_path)
-        YAML.load_file(config_path) || {}
-      else
-        {}
-      end
+      sabados_letivos_map = SchoolSaturdaysMapping.mapping_for
 
       if sabados_letivos_map.empty?
-        puts "ERRO: Arquivo de configuração de sábados letivos não encontrado ou vazio!"
-        puts "Caminho: #{config_path}"
+        puts 'ERRO: Nenhum sábado letivo cadastrado (eventos do calendário ou config/sabados_letivos.yml)!'
         return 0
       end
 
@@ -109,7 +102,7 @@ namespace :aulas do
           next unless data.saturday? # Garante que é sábado
           next unless sabados_letivos_dates.include?(data) # Garante que está na lista configurada
 
-          total = fetcher.count_lessons(turma_id, disciplina_id, data)
+          total = fetcher.count_lessons_including_make_up(turma_id, disciplina_id, data)
 
           if total > 0
             old_value = dcr.class_number

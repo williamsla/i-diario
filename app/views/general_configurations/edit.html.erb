@@ -71,6 +71,22 @@
       </div>
       <div class="row">
         <div class="col col-sm-6">
+          <%= f.input :conceptual_exam_batch_layout, label: false, inline_label: true %>
+        </div>
+        <div class="col col-sm-6">
+          <%= f.input :semestral_recovery, label: false, inline_label: true %>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col col-sm-6">
+          <%= f.input :show_objectives, label: false, inline_label: true %>
+        </div>
+        <div class="col col-sm-6">
+          <%= f.input :block_modifications_after_last_step_ended, as: :boolean, label: false, inline_label: true %>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col col-sm-6">
           <%= f.input :allows_copy_experience_fields_in_lesson_plans, label: false, inline_label: true %>
         </div>
       </div>
@@ -87,6 +103,9 @@
       <div class="row">
         <div class="col col-sm-6">
           <%= f.input :show_experience_fields, label: false, inline_label: true %>
+        </div>
+        <div class="col col-sm-6">
+          <%= f.input :show_aee_area_label_in_knowledge_area_content_record, label: false, inline_label: true %>
         </div>
       </div>
 

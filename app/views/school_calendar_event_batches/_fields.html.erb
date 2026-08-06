@@ -29,3 +29,13 @@
     <%= f.input :show_in_frequency_record, as: :boolean, label: false, inline_label: true %>
   </div>
 </div>
+
+<div class="row hidden" data-equivalent-weekday-batch-container>
+  <div class="col col-sm-4">
+    <%= f.input :equivalent_weekday,
+                as: :select2,
+                elements: Workdays.to_select.to_json,
+                required: false,
+                hint: t('school_calendar_event_batches.form.equivalent_weekday_hint') %>
+  </div>
+</div>

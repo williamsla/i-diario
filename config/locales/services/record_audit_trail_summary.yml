@@ -7,10 +7,24 @@ pt-BR:
       removed_record: "Registro excluído"
       no_events: "Nenhum evento de auditoria registrado."
       event_line: "%{action} em %{datetime} por %{user}"
+      note_change:
+        launched: "nota %{note}"
+        cleared: "nota %{note} removida"
+        changed: "nota %{old_note} → %{new_note}"
       record_types:
         frequency: "Frequência"
         content: "Conteúdo"
         avaliation: "Avaliação"
+        grades: "Diário de avaliações / Notas"
+        teaching_plan: "Plano de ensino"
+        lesson_plan: "Plano de aula"
+      grade_batch_label:
+        launched: "%{count} nota(s) lançada(s) (%{range}) — %{avaliation} — %{discipline} — %{classroom}"
+        cleared: "%{count} nota(s) removida(s) — %{avaliation} — %{discipline} — %{classroom}"
+        mixed: "%{count} nota(s) alterada(s) (%{launched} lançada(s), %{cleared} removida(s)) — %{avaliation} — %{discipline} — %{classroom}"
+      daily_note_label:
+        active: "Diário — %{avaliation} — %{discipline} — %{classroom} — %{date}"
+        removed: "Diário — %{avaliation} — %{discipline} — %{classroom} — %{date} (excluído)"
       verdict:
         never_persisted: "Não há evidência de que este registro tenha sido salvo no sistema."
         no_audit_trail: "Registro existe, mas sem histórico de auditoria (possível dado legado ou importado)."
@@ -19,3 +33,8 @@ pt-BR:
         active: "Registro ativo. Última alteração em %{datetime} por %{user}."
         created: "Registro criado em %{datetime} por %{user}."
         unknown: "Histórico de auditoria inconclusivo."
+        grades_launched: "%{count} nota(s) lançada(s) (%{range}) em %{datetime} por %{user}."
+        grades_cleared: "%{count} nota(s) removida(s) em %{datetime} por %{user}."
+        grades_mixed: "%{count} nota(s) alterada(s) (%{launched} lançada(s), %{cleared} removida(s)) em %{datetime} por %{user}."
+        daily_note_destroyed: "Diário de avaliações excluído em %{datetime} por %{user}. As notas lançadas neste diário foram perdidas."
+        avaliation_created_in_period: "Avaliação criada em %{datetime} por %{user} (data da prova: %{test_date})."

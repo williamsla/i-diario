@@ -52,6 +52,8 @@ class DailyNotesController < ApplicationController
 
     @students = []
 
+    test_date = @daily_note.avaliation.test_date.to_date
+
     student_enrollments.each do |student_enrollment|
       if student = Student.find_by_id(student_enrollment.student_id)
         note_student = (@daily_note.students.where(student_id: student.id).first || @daily_note.students.build(student_id: student.id, student: student))
@@ -61,27 +63,12 @@ class DailyNotesController < ApplicationController
         note_student.exempted_from_discipline = student_exempted_from_discipline?(student_enrollment, @daily_note)
         note_student.in_active_search = ActiveSearch.new.in_active_search?(student_enrollment.id, @daily_note.avaliation.test_date)
 
-        classroom_grade_id = student_enrollment.student_enrollment_classrooms.first.classrooms_grade_id
+        enrollment_classroom = enrollment_classroom_for_student(student.id, test_date)
+        classroom_grade_id = enrollment_classroom&.classrooms_grade_id ||
+                             student_enrollment.student_enrollment_classrooms.first&.classrooms_grade_id
         classroom_grade = ClassroomsGrade.by_id(classroom_grade_id).first
-        note_student.grade_description = classroom_grade.grade.description
+        note_student.grade_description = classroom_grade&.grade&.description
 
-        # Busca a matrícula na turma para pegar a data de saída
-        test_date = @daily_note.avaliation.test_date.to_date
-        enrollment_classrooms_in_classroom = student_enrollment.student_enrollment_classrooms
-          .select { |sec| sec.classrooms_grade.classroom_id == @daily_note.classroom_id }
-        
-        # Primeiro tenta encontrar a matrícula que estava ativa na data da avaliação
-        enrollment_classroom = enrollment_classrooms_in_classroom.find { |sec|
-          joined_at = sec.joined_at.to_date
-          left_at = sec.left_at.present? && sec.left_at.to_s.strip.present? ? sec.left_at.to_date : nil
-          test_date >= joined_at && (left_at.nil? || test_date <= left_at)
-        }
-        
-        # Se não encontrou, busca a que saiu mais recentemente antes ou na data da avaliação
-        enrollment_classroom ||= enrollment_classrooms_in_classroom
-          .select { |sec| sec.left_at.present? && sec.left_at.to_s.strip.present? && sec.left_at.to_date <= test_date }
-          .max_by { |sec| sec.left_at.to_date }
-        
         note_student.left_at = enrollment_classroom&.left_at if enrollment_classroom&.left_at.present? && enrollment_classroom.left_at.to_s.strip.present?
 
         @students << note_student
@@ -208,6 +195,7 @@ class DailyNotesController < ApplicationController
 
   def reload_students_list
     @students = []
+    test_date = @daily_note.avaliation.test_date.to_date
 
     @daily_note.students.each_with_index do |note_student, index|
       if student = Student.find_by_id(note_student.student_id)
@@ -215,34 +203,26 @@ class DailyNotesController < ApplicationController
           .by_student(note_student.student_id)
           .by_classroom(@daily_note.classroom_id)
           .by_discipline(@daily_note.discipline_id)
-          .by_score_type(StudentEnrollmentScoreTypeFilters::NUMERIC,@daily_note.classroom_id)
+          .by_score_type(StudentEnrollmentScoreTypeFilters::NUMERIC, @daily_note.classroom_id)
+          .by_date(test_date)
           .active
           .first
 
-        note_student.dependence = student_has_dependence?(student_enrollment, @daily_note.discipline)
+        student_enrollment ||= StudentEnrollment
+          .by_student(note_student.student_id)
+          .by_classroom(@daily_note.classroom_id)
+          .by_discipline(@daily_note.discipline_id)
+          .by_score_type(StudentEnrollmentScoreTypeFilters::NUMERIC, @daily_note.classroom_id)
+          .active
+          .order('student_enrollments.id DESC')
+          .first
+
+        note_student.dependence = student_has_dependence?(student_enrollment, @daily_note.discipline) if student_enrollment
         note_student.exempted = student_exempted_from_avaliation?(student.id)
         note_student.active = student_active_on_date?(student_enrollment)
 
-        # Busca a matrícula na turma para pegar a data de saída
-        if student_enrollment.present?
-          test_date = @daily_note.avaliation.test_date.to_date
-          enrollment_classrooms_in_classroom = student_enrollment.student_enrollment_classrooms
-            .select { |sec| sec.classrooms_grade.classroom_id == @daily_note.classroom_id }
-          
-          # Primeiro tenta encontrar a matrícula que estava ativa na data da avaliação
-          enrollment_classroom = enrollment_classrooms_in_classroom.find { |sec|
-            joined_at = sec.joined_at.to_date
-            left_at = sec.left_at.present? && sec.left_at.to_s.strip.present? ? sec.left_at.to_date : nil
-            test_date >= joined_at && (left_at.nil? || test_date <= left_at)
-          }
-          
-          # Se não encontrou, busca a que saiu mais recentemente antes ou na data da avaliação
-          enrollment_classroom ||= enrollment_classrooms_in_classroom
-            .select { |sec| sec.left_at.present? && sec.left_at.to_s.strip.present? && sec.left_at.to_date <= test_date }
-            .max_by { |sec| sec.left_at.to_date }
-          
-          note_student.left_at = enrollment_classroom&.left_at if enrollment_classroom&.left_at.present? && enrollment_classroom.left_at.to_s.strip.present?
-        end
+        enrollment_classroom = enrollment_classroom_for_student(note_student.student_id, test_date)
+        note_student.left_at = enrollment_classroom&.left_at if enrollment_classroom&.left_at.present? && enrollment_classroom.left_at.to_s.strip.present?
 
         @students << note_student
       end
@@ -259,12 +239,35 @@ class DailyNotesController < ApplicationController
     end
   end
 
+  # Considera qualquer matrícula do aluno na turma ativa na data (não só a selecionada).
+  # Aluno que saiu e voltou tem duas matrículas; a transferida não pode marcar a nota como inativa.
   def student_active_on_date?(student_enrollment)
+    return false if student_enrollment.blank?
+
     StudentEnrollment
-      .where(id: student_enrollment)
+      .by_student(student_enrollment.student_id)
       .by_classroom(@daily_note.classroom)
       .by_date(@daily_note.avaliation.test_date)
+      .active
       .any?
+  end
+
+  def enrollment_classroom_for_student(student_id, test_date)
+    enrollment_classrooms = StudentEnrollmentClassroom
+      .by_student(student_id)
+      .by_classroom(@daily_note.classroom_id)
+      .active
+      .to_a
+
+    enrollment_classroom = enrollment_classrooms.find { |sec|
+      joined_at = sec.joined_at.to_date
+      left_at = sec.left_at.present? && sec.left_at.to_s.strip.present? ? sec.left_at.to_date : nil
+      test_date >= joined_at && (left_at.nil? || test_date <= left_at)
+    }
+
+    enrollment_classroom || enrollment_classrooms
+      .select { |sec| sec.left_at.present? && sec.left_at.to_s.strip.present? && sec.left_at.to_date <= test_date }
+      .max_by { |sec| sec.left_at.to_date }
   end
 
   def student_displayable_as_inactive?(student_enrollment)

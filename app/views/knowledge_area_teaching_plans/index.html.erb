@@ -33,8 +33,8 @@
           <tr>
             <th><%= 'Plano para' %></th>
             <th><%= TeachingPlan.human_attribute_name :grade %></th>
-            <th><%= KnowledgeAreaTeachingPlan.human_attribute_name :knowledge_areas %></th>
-            <th><%= KnowledgeAreaTeachingPlan.human_attribute_name :experience_fields %></th>
+            <th><%= is_aee ? '' : KnowledgeAreaTeachingPlan.human_attribute_name(:knowledge_areas) %></th>
+            <th><%= is_aee ? '' : KnowledgeAreaTeachingPlan.human_attribute_name(:experience_fields) %></th>
             <th><%= TeachingPlan.human_attribute_name :school_term_type_step %></th>
             <th><%= KnowledgeAreaTeachingPlan.human_attribute_name :author %></th>
             <th style="width: 230px"></th>

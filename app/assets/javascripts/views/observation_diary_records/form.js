@@ -4,12 +4,11 @@ $(function () {
   var flashMessages = new FlashMessages();
   var $classroom = $('#observation_diary_record_classroom_id');
   var $discipline = $('#observation_diary_record_discipline_id');
-  var $disciplineDiv = $("[data-discipline]");
-  var $disciplineContainer = $('.observation_diary_record_discipline');
   var $date = $('#observation_diary_record_date');
   var $observationDiaryRecordNotesContainer = $('#observation-diary-record-notes');
   var $observationDiaryRecordAttachmentsContainer = $('#observation-diary-record-attachments');
   var students = [];
+  var hasDisciplineField = $discipline.length > 0;
 
   function onChangeFileElement(){
     if (this.files[0].size > 3145728) {
@@ -35,6 +34,10 @@ $(function () {
   }
 
   function fetchDisciplines() {
+    if (!hasDisciplineField) {
+      return;
+    }
+
     var classroom_id = $classroom.select2('val');
 
     $discipline.select2({ data: [] });

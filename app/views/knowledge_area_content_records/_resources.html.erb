@@ -1,12 +1,15 @@
 <tbody id="resources-tbody">
   <% if @knowledge_area_content_records.empty? %>
     <tr>
-      <td class="no_record_found" colspan="5"><%= t('views.index.no_record_found')%></td>
+      <td class="no_record_found" colspan="<%= is_aee ? 6 : 5 %>"><%= t('views.index.no_record_found')%></td>
     </tr>
   <% else %>
     <% @knowledge_area_content_records.each do |knowledge_area_content_record| %>
       <tr>
         <td class="record_date"><%= l(knowledge_area_content_record.content_record.record_date) %></td>
+        <% if is_aee %>
+          <td><%= knowledge_area_content_record.content_record.student %></td>
+        <% end %>
         <td class="contents"><%= knowledge_area_content_record.content_record.contents_ordered.map(&:to_s).join(', ') %></td>
         <td class="objectives"><%= knowledge_area_content_record.content_record.objectives_ordered.map(&:to_s).join(', ') %></td>
         <td><%= knowledge_area_content_record.content_record.decorator.author(current_teacher) %></td>

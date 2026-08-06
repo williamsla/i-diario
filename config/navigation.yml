@@ -66,6 +66,12 @@ navigation:
             type: "school_calendar_event_batches"
             visible: "only-when-active"
   - menu:
+      type: "educamais"
+      icon: "fa-bar-chart"
+      path: "educamais_launch_path"
+      shortcut: true
+      shortcut_highlight: true
+  - menu:
       type: "pedagogical_trackings"
       icon: "fa-line-chart"
       path: "pedagogical_trackings_path"
@@ -235,6 +241,9 @@ navigation:
         - menu:
             type: "descriptive_report"
             path: "descriptive_report_path"
+        - menu:
+            type: "conceptual_exam_report"
+            path: "conceptual_exam_report_path"
         - menu:
             type: "diary_report"
             path: "diary_report_path"

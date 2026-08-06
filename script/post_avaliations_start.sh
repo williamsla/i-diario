@@ -17,9 +17,11 @@ ROOT_DIR="${IDIARIO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$ROOT_DIR"
 
 COMPOSE="${COMPOSE:-docker compose -f docker-compose.production.yml --env-file .env.production}"
-# Produção usa app-blue / app-green (docker-compose.production.yml), não "app".
+
+# Default (será resolvido dinamicamente)
 COMPOSE_SERVICE="${COMPOSE_SERVICE:-app-blue}"
 CONTAINER_NAME="${CONTAINER_NAME:-idiario-app-blue}"
+
 LOG_DIR="${LOG_DIR:-$ROOT_DIR/log/post_avaliations}"
 LOCK_DIR="${LOCK_DIR:-$ROOT_DIR/tmp/post_avaliations_locks}"
 
@@ -27,10 +29,31 @@ mkdir -p "$LOG_DIR" "$LOCK_DIR"
 
 DOMAINS_FILE="${DOMAINS_FILE:-$ROOT_DIR/config/post_avaliations_domains}"
 
+log() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') $*"
+}
+
+# 🔹 Resolve automaticamente qual container está ativo (blue/green)
+resolve_container() {
+  if docker ps --format '{{.Names}}' | grep -qx "idiario-app-blue"; then
+    CONTAINER_NAME="idiario-app-blue"
+    COMPOSE_SERVICE="app-blue"
+  elif docker ps --format '{{.Names}}' | grep -qx "idiario-app-green"; then
+    CONTAINER_NAME="idiario-app-green"
+    COMPOSE_SERVICE="app-green"
+  else
+    log "[ERRO] Nenhum container disponível (blue/green)."
+    log "[ERRO] Suba o stack: docker compose -f docker-compose.production.yml --env-file .env.production up -d"
+    exit 1
+  fi
+
+  log "[INFO] Usando container ${CONTAINER_NAME} (${COMPOSE_SERVICE})"
+}
+
 if [[ ! -f "$DOMAINS_FILE" ]]; then
-  echo "$(date '+%Y-%m-%d %H:%M:%S') [ERRO] Arquivo não encontrado: ${DOMAINS_FILE}"
+  log "[ERRO] Arquivo não encontrado: ${DOMAINS_FILE}"
   if [[ -f "${DOMAINS_FILE}.example" ]]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [ERRO] Copie o exemplo: cp ${DOMAINS_FILE}.example ${DOMAINS_FILE}"
+    log "[ERRO] Copie o exemplo: cp ${DOMAINS_FILE}.example ${DOMAINS_FILE}"
   fi
   exit 1
 fi
@@ -38,13 +61,9 @@ fi
 mapfile -t DOMAINS < <(grep -vE '^\s*($|#)' "$DOMAINS_FILE" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
 if [[ ${#DOMAINS[@]} -eq 0 ]]; then
-  echo "$(date '+%Y-%m-%d %H:%M:%S') [ERRO] Nenhum domínio em ${DOMAINS_FILE}."
+  log "[ERRO] Nenhum domínio em ${DOMAINS_FILE}."
   exit 1
 fi
-
-log() {
-  echo "$(date '+%Y-%m-%d %H:%M:%S') $*"
-}
 
 safe_name() {
   echo "$1" | tr '.' '_' | tr -cd '[:alnum:]_-'
@@ -68,7 +87,6 @@ ensure_docker_running() {
 
   if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$CONTAINER_NAME"; then
     log "[ERRO] Container ${CONTAINER_NAME} não está em execução."
-    log "[ERRO] Suba o stack: docker compose -f docker-compose.production.yml --env-file .env.production up -d"
     exit 1
   fi
 }
@@ -117,6 +135,8 @@ start_domain() {
   disown || true
 }
 
+# 🔹 Ordem correta
+resolve_container
 ensure_docker_running
 
 log "===== post_avaliations_start (${#DOMAINS[@]} domínio(s), docker/${COMPOSE_SERVICE}, ${DOMAINS_FILE}) ====="

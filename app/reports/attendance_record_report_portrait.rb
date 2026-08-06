@@ -99,7 +99,7 @@ class AttendanceRecordReportPortrait < BaseReport
   def header
     attendance_header = make_cell(content: 'Registro de frequência', size: 12, font_style: :bold, background_color: 'DEDEDE', height: 20, padding: [2, 2, 4, 4], align: :center, colspan: 6)
     begin
-      logo_cell = make_cell(image: open(@entity_configuration.logo.url), fit: [50, 50], width: 70, rowspan: 4, position: :center, vposition: :center)
+      logo_cell = make_cell(image: entity_logo_io, fit: [50, 50], width: 70, rowspan: 4, position: :center, vposition: :center)
     rescue StandardError
       logo_cell = make_cell(content: '', width: 70, rowspan: 4)
     end
@@ -146,6 +146,7 @@ class AttendanceRecordReportPortrait < BaseReport
     frequencies_and_events = daily_frequencies.to_a #+ @events.to_a
 
     @daily_frequency_students = DailyFrequencyStudent.by_daily_frequency_id(@daily_frequencies.map(&:id)).to_a
+    frequency_students_index = build_frequency_students_index
 
     frequencies_and_events = frequencies_and_events.sort_by do |obj|
       daily_frequency?(obj) ? obj.frequency_date : obj[:date]
@@ -174,6 +175,7 @@ class AttendanceRecordReportPortrait < BaseReport
           class_numbers << make_cell(content: daily_frequency.class_number.to_s, background_color: 'FFFFFF', align: :center)
           days << make_cell(content: daily_frequency.frequency_date.day.to_s, background_color: 'FFFFFF', align: :center)
           months << make_cell(content: daily_frequency.frequency_date.month.to_s, background_color: 'FFFFFF', align: :center)
+          students_by_id = frequency_students_index[daily_frequency.id] || {}
 
           @enrollment_classrooms.each do |enrollment_classroom|
             student_enrollment = enrollment_classroom[:student_enrollment]
@@ -189,12 +191,12 @@ class AttendanceRecordReportPortrait < BaseReport
             elsif @show_inactive_enrollments
               frequency_date = daily_frequency.frequency_date.to_date
               if frequency_date >= joined_at && frequency_date < left_at
-                student_frequency = daily_frequency.students.detect { |student_frequency| student_frequency.student_id.eql?(student.id) && student_frequency.active.eql?(true) }
+                student_frequency = students_by_id[student.id]
               else
                 student_frequency ||= NullDailyFrequencyStudent.new
               end
             else
-              student_frequency = daily_frequency.students.detect { |student_frequency| student_frequency.student_id.eql?(student.id) && student_frequency.active.eql?(true) }
+              student_frequency = students_by_id[student.id]
               student_frequency ||= NullDailyFrequencyStudent.new
             end
 
@@ -550,6 +552,22 @@ class AttendanceRecordReportPortrait < BaseReport
     end
 
     all_events.join(', ')
+  end
+
+  def build_frequency_students_index
+    index = {}
+
+    @daily_frequencies.each do |daily_frequency|
+      students_by_id = {}
+      daily_frequency.students.each do |student_frequency|
+        next unless student_frequency.active.eql?(true)
+
+        students_by_id[student_frequency.student_id] = student_frequency
+      end
+      index[daily_frequency.id] = students_by_id
+    end
+
+    index
   end
 
   def frequency_hybrid_or_remote(student_enrollment, daily_frequency)

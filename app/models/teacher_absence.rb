@@ -19,12 +19,12 @@ class TeacherAbsence < ApplicationRecord
   has_enumeration_for :coverage, with: TeacherAbsenceCoverage, skip_validation: true, create_helpers: true
   has_enumeration_for :period, with: Periods, skip_validation: true
 
-  validates_date :absence_date, :make_up_date
+  validates_date :absence_date
+  validates_date :make_up_date, allow_blank: true
   validates :unity, :school_calendar, :teacher, :user, :reason, presence: true
   validates :absence_date, presence: true
   validates :classroom, presence: true, if: :coverage_by_classroom?
-  validates :make_up_date, presence: true, if: :will_make_up?
-  validate :make_up_date_after_absence_date, if: :will_make_up?
+  validate :make_up_date_after_absence_date
   validate :periods_presence, if: :requires_periods?
 
   scope :ordered, -> { order(absence_date: :desc) }
@@ -84,6 +84,10 @@ class TeacherAbsence < ApplicationRecord
     coverage_all_classrooms?
   end
 
+  def pending_make_up?
+    will_make_up? && make_up_date.blank?
+  end
+
   # Condição de disciplina: falta sem disciplina (nil) aplica a todas as disciplinas da turma
   def self.scope_by_discipline(rel, discipline_id)
     if discipline_id.present?
@@ -124,6 +128,23 @@ class TeacherAbsence < ApplicationRecord
     rel = scope_by_discipline(rel, discipline_id)
     rel = rel.where(class_number: class_number) if class_number.present?
     rel.pluck(:make_up_date).map(&:to_date).to_set
+  end
+
+  def self.make_up_lessons_count_for(classroom_id:, discipline_id:, teacher_id:, date:, unity_id: nil, count_lessons_on_date: nil)
+    rel = by_teacher(teacher_id).with_make_up.where(make_up_date: date)
+    rel = rel.for_classroom_or_unity(classroom_id, unity_id || Classroom.find_by(id: classroom_id)&.unity_id)
+    rel = scope_by_discipline(rel, discipline_id)
+
+    rel.to_a.sum do |absence|
+      if absence.class_number.present?
+        1
+      elsif count_lessons_on_date
+        count = count_lessons_on_date.call(absence.absence_date).to_i
+        count.positive? ? count : 1
+      else
+        1
+      end
+    end
   end
 
   private

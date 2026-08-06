@@ -133,7 +133,7 @@ export default {
 
 <style>
 #current-teacher-container {
-  width: 150px;
+  width: 220px;
 }
 @media (max-width: 1365px) {
   #current-teacher-container {
