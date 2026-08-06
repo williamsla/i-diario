@@ -46,7 +46,8 @@ class TeachingPlan < ApplicationRecord
   attr_accessor :grade_ids, :contents_created_at_position, :objectives_created_at_position
 
   def semed?
-    teacher_id.nil?
+    # attr_accessor :teacher_id em TeacherRelationable mascara a coluna; ler o atributo persistido
+    self[:teacher_id].nil?
   end
 
   def to_s

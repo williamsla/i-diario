@@ -36,54 +36,91 @@ $(function(){
       return;
     }
 
-    // Criar select de etapas
-    var selectHtml = '<div class="form-group">' +
-      '<label for="step-select">Selecione a etapa:</label>' +
-      '<select id="step-select" class="form-control" style="max-width: 400px;">' +
-      '<option value="">Selecione uma etapa...</option>';
-    
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    var currentStep = null;
     _.each(steps, function(step) {
-      selectHtml += '<option value="' + step.id + '">' + step.name + '</option>';
-    });
-    
-    selectHtml += '</select>' +
-      '</div>' +
-      '<div id="step-data-container"></div>';
+      var startDate = new Date(step.start_at_iso);
+      var endDate = new Date(step.end_at_iso);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(0, 0, 0, 0);
 
-    $container.html(selectHtml);
-
-    // Event listener para mudança de etapa
-    $('#step-select').on('change', function() {
-      var stepId = $(this).val();
-      if(stepId) {
-        fetchStepData(stepId);
-      } else {
-        $('#step-data-container').html('');
+      if (today >= startDate && today <= endDate) {
+        currentStep = step;
+        return false;
       }
     });
 
-    // Selecionar etapa da data atual automaticamente
-    if(steps.length > 0) {
-      var today = new Date();
-      today.setHours(0, 0, 0, 0); // Zerar horas para comparação apenas de data
-      
-      var currentStep = null;
-      _.each(steps, function(step) {
-        var startDate = new Date(step.start_at_iso);
-        var endDate = new Date(step.end_at_iso);
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(0, 0, 0, 0);
-        
-        // Verificar se a data atual está dentro do período da etapa
-        if(today >= startDate && today <= endDate) {
-          currentStep = step;
-          return false; // break do loop
-        }
-      });
-      
-      // Se não encontrou etapa atual, usar a primeira etapa
-      var stepToSelect = currentStep || steps[0];
-      $('#step-select').val(stepToSelect.id).trigger('change');
+    var stepsHtml = '<div class="pending-steps-selector form-group">' +
+      '<label>Selecione a etapa:</label>' +
+      '<div class="pending-steps-list" role="listbox" aria-label="Etapas">' +
+      '</div>' +
+      '</div>' +
+      '<div id="step-data-container"></div>';
+
+    $container.html(stepsHtml);
+
+    var $stepsList = $container.find('.pending-steps-list');
+
+    _.each(steps, function(step) {
+      var isCurrent = currentStep && String(currentStep.id) === String(step.id);
+      var title = stepShortName(step);
+      var datesLabel = (step.start_at || '') + ' a ' + (step.end_at || '');
+      var badgeHtml = isCurrent ?
+        '<span class="pending-step-btn__badge">Atual</span>' :
+        '';
+
+      var $button = $('<button type="button" class="pending-step-btn" role="option" aria-selected="false"></button>')
+        .attr('data-step-id', step.id)
+        .toggleClass('is-current', isCurrent)
+        .html(
+          '<span class="pending-step-btn__header">' +
+            '<span class="pending-step-btn__name">' + _.escape(title) + '</span>' +
+            badgeHtml +
+          '</span>' +
+          '<span class="pending-step-btn__dates">' + _.escape(datesLabel) + '</span>'
+        );
+
+      $stepsList.append($button);
+    });
+
+    $stepsList.on('click', '.pending-step-btn', function() {
+      selectStep($(this).data('step-id'));
+    });
+
+    var stepToSelect = currentStep || steps[0];
+    selectStep(stepToSelect.id);
+  }
+
+  function stepShortName(step) {
+    var name = step.name || '';
+    var withoutDates = name.replace(/\s*\([^)]*\)\s*$/, '').trim();
+
+    if (withoutDates) {
+      return withoutDates;
+    }
+
+    if (step.step_number) {
+      return step.step_number + 'ª etapa';
+    }
+
+    return name;
+  }
+
+  function selectStep(stepId) {
+    var $buttons = $container.find('.pending-step-btn');
+
+    $buttons.each(function() {
+      var $btn = $(this);
+      var isActive = String($btn.data('step-id')) === String(stepId);
+      $btn.toggleClass('is-active', isActive).attr('aria-selected', isActive ? 'true' : 'false');
+    });
+
+    if (stepId) {
+      fetchStepData(stepId);
+    } else {
+      $('#step-data-container').html('');
     }
   }
 

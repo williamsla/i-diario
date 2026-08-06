@@ -173,7 +173,7 @@ RSpec.describe CopyDisciplineTeachingPlanService, type: :service do
 
       it 'creates a single unificado copy per unity and grade' do
         expect(copy_discipline_teaching_plan.count).to eq(1)
-        expect(copy_discipline_teaching_plan.first.teaching_plan.teacher_id).to be_nil
+        expect(copy_discipline_teaching_plan.first.teaching_plan[:teacher_id]).to be_nil
         expect(copy_discipline_teaching_plan.first.teaching_plan.unity_id).to eq(other_unity.id)
       end
     end

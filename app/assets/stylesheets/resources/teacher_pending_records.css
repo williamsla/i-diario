@@ -1,0 +1,110 @@
+.pending-steps-selector {
+  margin-bottom: 8px;
+}
+
+.pending-steps-selector > label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: #555;
+}
+
+.pending-steps-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pending-step-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 160px;
+  max-width: 240px;
+  padding: 12px 14px;
+  border: 2px solid #d0d7de;
+  border-radius: 8px;
+  background: #fff;
+  color: #444;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pending-step-btn:hover,
+.pending-step-btn:focus {
+  border-color: #005495;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 84, 149, 0.12);
+}
+
+.pending-step-btn.is-active {
+  border-color: #005495;
+  background: #005495;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 84, 149, 0.25);
+}
+
+.pending-step-btn.is-active:hover,
+.pending-step-btn.is-active:focus {
+  border-color: #004578;
+  background: #004578;
+  box-shadow: 0 0 0 3px rgba(0, 84, 149, 0.2);
+}
+
+.pending-step-btn__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.pending-step-btn__name {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.pending-step-btn__dates {
+  font-size: 12px;
+  line-height: 1.35;
+  opacity: 0.85;
+}
+
+.pending-step-btn.is-active .pending-step-btn__dates {
+  opacity: 0.95;
+}
+
+.pending-step-btn__badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: #e8f4fc;
+  color: #005495;
+  white-space: nowrap;
+}
+
+.pending-step-btn.is-active .pending-step-btn__badge {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.pending-step-btn.is-current:not(.is-active) {
+  border-color: #7eb6d9;
+  background: #f3f9fd;
+}
+
+@media (max-width: 480px) {
+  .pending-step-btn {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+}

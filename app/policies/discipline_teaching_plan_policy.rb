@@ -13,6 +13,6 @@ class DisciplineTeachingPlanPolicy < ApplicationPolicy
 
   def can_manage?
     user.current_role_is_admin_or_employee? ||
-      record.teaching_plan.teacher_id == user.current_teacher_id
+      record.teaching_plan[:teacher_id] == user.current_teacher_id
   end
 end
