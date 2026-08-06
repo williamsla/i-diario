@@ -43,7 +43,11 @@ class TeachingPlan < ApplicationRecord
   scope :by_year, ->(year) { where(year: year) }
   scope :semed, -> { where(teacher_id: nil) }
   scope :unificado, lambda {
-    where("#{table_name}.teacher_id IS NULL OR #{table_name}.id IN (#{administrator_created_ids_sql})")
+    where(
+      "#{table_name}.teacher_id IS NULL OR " \
+      "#{table_name}.id IN (#{administrator_created_ids_sql}) OR " \
+      "#{table_name}.id IN (#{created_without_user_ids_sql})"
+    )
   }
 
   attr_accessor :grade_ids, :contents_created_at_position, :objectives_created_at_position
@@ -59,26 +63,42 @@ class TeachingPlan < ApplicationRecord
       .to_sql
   end
 
+  def self.created_without_user_ids_sql
+    Audited::Audit
+      .where(auditable_type: name, action: 'create', user_id: nil)
+      .select(:auditable_id)
+      .to_sql
+  end
+
   def semed?
     unificado?
   end
 
   def unificado?
-    self[:teacher_id].nil? || created_by_administrator?
+    self[:teacher_id].nil? || created_by_administrator? || created_without_user?
   end
 
   def created_by_administrator?
     creation_user&.has_administrator_access_level?
   end
 
+  def created_without_user?
+    create_audit = creation_audit
+    create_audit.present? && create_audit.user_id.nil?
+  end
+
   def creation_user
+    creation_audit&.user
+  end
+
+  def creation_audit
     create_audits = if association(:audits).loaded?
                       audits.select { |audit| audit.action == 'create' }
                     else
                       audits.where(action: 'create').to_a
                     end
 
-    create_audits.min_by(&:id)&.user
+    create_audits.min_by(&:id)
   end
 
   def to_s

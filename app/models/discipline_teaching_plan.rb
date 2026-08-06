@@ -44,20 +44,26 @@ class DisciplineTeachingPlan < ApplicationRecord
   scope :by_secretary, -> { joins(:teaching_plan).where(teaching_plans: { teacher_id: nil }) }
   scope :by_author, lambda { |author_type, current_teacher_id|
     teacher_id = current_teacher_id.respond_to?(:id) ? current_teacher_id.try(:id) : current_teacher_id
-    unificado_condition = <<~SQL.squish
-      teaching_plans.teacher_id IS NULL
-      OR teaching_plans.id IN (#{TeachingPlan.administrator_created_ids_sql})
-    SQL
+    unificado_condition = unificado_sql_condition
 
     case author_type.to_s
     when PlansAuthors::MY_PLANS.to_s
+      # Planos pessoais do professor + unificados deduplicados (1 por unidade/série/disciplina/etapa/ano)
       if teacher_id.present?
         joins(:teaching_plan).where(
-          "teaching_plans.teacher_id = :teacher_id OR #{unificado_condition}",
+          <<~SQL.squish,
+            (
+              teaching_plans.teacher_id = :teacher_id
+              AND NOT (#{unificado_condition})
+            )
+            OR discipline_teaching_plans.id IN (#{deduped_unificado_ids_sql})
+          SQL
           teacher_id: teacher_id
         )
       else
-        joins(:teaching_plan).where(unificado_condition)
+        joins(:teaching_plan).where(
+          "discipline_teaching_plans.id IN (#{deduped_unificado_ids_sql})"
+        )
       end
     when PlansAuthors::ALL.to_s, '', 'empty'
       all
@@ -83,6 +89,42 @@ class DisciplineTeachingPlan < ApplicationRecord
 
   validates :teaching_plan, presence: true
   validates :discipline, presence: true
+
+  def self.unificado_sql_condition
+    <<~SQL.squish
+      teaching_plans.teacher_id IS NULL
+      OR teaching_plans.id IN (#{TeachingPlan.administrator_created_ids_sql})
+      OR teaching_plans.id IN (#{TeachingPlan.created_without_user_ids_sql})
+    SQL
+  end
+
+  def self.deduped_unificado_ids_sql
+    <<~SQL.squish
+      SELECT DISTINCT ON (
+        teaching_plans.unity_id,
+        teaching_plans.grade_id,
+        discipline_teaching_plans.discipline_id,
+        teaching_plans.school_term_type_id,
+        teaching_plans.school_term_type_step_id,
+        teaching_plans.year,
+        COALESCE(discipline_teaching_plans.thematic_unit, '')
+      ) discipline_teaching_plans.id
+      FROM discipline_teaching_plans
+      INNER JOIN teaching_plans
+        ON teaching_plans.id = discipline_teaching_plans.teaching_plan_id
+      WHERE #{unificado_sql_condition}
+      ORDER BY
+        teaching_plans.unity_id,
+        teaching_plans.grade_id,
+        discipline_teaching_plans.discipline_id,
+        teaching_plans.school_term_type_id,
+        teaching_plans.school_term_type_step_id,
+        teaching_plans.year,
+        COALESCE(discipline_teaching_plans.thematic_unit, ''),
+        CASE WHEN teaching_plans.teacher_id IS NULL THEN 0 ELSE 1 END,
+        discipline_teaching_plans.id ASC
+    SQL
+  end
 
   def optional_teacher
     true
