@@ -355,6 +355,7 @@ Rails.application.routes.draw do
         get :new_batch
         get :form_batch
         post :create_batch
+        get :students_by_step
       end
     end
     resources :old_steps_conceptual_values, except: [:only]

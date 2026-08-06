@@ -41,6 +41,7 @@ class KnowledgeAreaTeachingPlan < ApplicationRecord
     joins(:teaching_plan).where.not(teaching_plans: { teacher_id: [teacher_id, nil] })
   }
   scope :by_secretary, -> { joins(:teaching_plan).where(teaching_plans: { teacher_id: nil }) }
+  scope :unificado, -> { joins(:teaching_plan).merge(TeachingPlan.unificado) }
   scope :by_author, lambda { |author_type, current_teacher_id|
     if author_type == PlansAuthors::MY_PLANS
       joins(:teaching_plan).merge(TeachingPlan.where(teacher_id: current_teacher_id))

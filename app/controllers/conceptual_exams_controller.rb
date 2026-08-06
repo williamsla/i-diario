@@ -10,31 +10,61 @@ class ConceptualExamsController < ApplicationController
   before_action :require_batch_layout_enabled, only: [:new_batch, :form_batch, :create_batch]
 
   def index
-    step_id = (params[:filter] || []).delete(:by_step)
-    status = (params[:filter] || []).delete(:by_status)
-
     set_options_by_user
 
     @conceptual_exam_batch_layout = conceptual_exam_batch_layout?
+    @classroom = current_user_classroom
+    @only_one_conceptual_avaliation = GeneralConfiguration.annual_conceptual_evaluation?
 
-    if @conceptual_exam_batch_layout
-      @classroom = current_user_classroom
-      @only_one_conceptual_avaliation = GeneralConfiguration.annual_conceptual_evaluation?
-      if @classroom.present?
-        all_steps = steps_fetcher(@classroom).steps
-        @steps = @only_one_conceptual_avaliation ? Array(all_steps.first) : all_steps
-        if @only_one_conceptual_avaliation && all_steps.present?
-          @annual_period_start = all_steps.first.start_at
-          @annual_period_end = all_steps.last.end_at
-        end
+    if @classroom.present?
+      all_steps = StepsFetcher.new(@classroom).steps
+      @steps = @only_one_conceptual_avaliation ? Array(all_steps.first) : all_steps
+      if @only_one_conceptual_avaliation && all_steps.present?
+        @annual_period_start = all_steps.first.start_at
+        @annual_period_end = all_steps.last.end_at
       end
-      authorize ConceptualExam.new(classroom_id: @classroom&.id, student_id: nil)
-    else
-      @conceptual_exams = fetch_conceptual_exams
-      @only_one_conceptual_avaliation = GeneralConfiguration.annual_conceptual_evaluation?
-      check_status_and_step(step_id, status)
-      authorize @conceptual_exams
     end
+
+    authorize ConceptualExam.new(classroom_id: @classroom&.id, student_id: nil)
+
+    return if @conceptual_exam_batch_layout
+
+    load_classic_index_overview
+  end
+
+  def students_by_step
+    set_options_by_user
+
+    if conceptual_exam_batch_layout?
+      redirect_to conceptual_exams_path and return
+    end
+
+    @classroom = current_user_classroom
+    @only_one_conceptual_avaliation = GeneralConfiguration.annual_conceptual_evaluation?
+    authorize ConceptualExam.new(classroom_id: @classroom&.id, student_id: nil)
+
+    @step = resolve_students_by_step
+    if @step.blank?
+      redirect_to conceptual_exams_path, alert: t('conceptual_exams.students_by_step.step_not_found') and return
+    end
+
+    if @only_one_conceptual_avaliation
+      all_steps = StepsFetcher.new(@classroom).steps
+      @annual_period_start = all_steps.first&.start_at
+      @annual_period_end = all_steps.last&.end_at
+    end
+
+    fetcher = step_overview_fetcher
+    @student_rows = fetcher.student_rows_for_step(@step)
+    @status_counts = fetcher.counts_for_rows(@student_rows)
+    @step_overview = ConceptualExamStepOverviewFetcher::StepOverview.new(
+      @step,
+      @status_counts[:complete],
+      @status_counts[:incomplete],
+      @status_counts[:pending],
+      @status_counts[:total],
+      current_step_id_for_classroom.to_s == @step.id.to_s && !@only_one_conceptual_avaliation
+    )
   end
 
   def new
@@ -65,6 +95,7 @@ class ConceptualExamsController < ApplicationController
     ).localized
 
     @conceptual_exam.assign_attributes(resource_params) if params[:conceptual_exam].present?
+    apply_step_defaults_for_new
 
     authorize @conceptual_exam
 
@@ -164,7 +195,7 @@ class ConceptualExamsController < ApplicationController
       @conceptual_exam.destroy unless ConceptualExamValue.by_conceptual_exam_id(@conceptual_exam.id).any?
     end
 
-    respond_with @conceptual_exam, location: conceptual_exams_path
+    respond_with @conceptual_exam, location: after_destroy_location
   end
 
   def history
@@ -624,7 +655,7 @@ class ConceptualExamsController < ApplicationController
 
   def respond_to_save
     if params[:commit] == 'Salvar'
-      respond_with @conceptual_exam, location: conceptual_exams_path
+      respond_with @conceptual_exam, location: after_save_location
     else
       respond_with_next_conceptual_exam
     end
@@ -650,9 +681,18 @@ class ConceptualExamsController < ApplicationController
     else
       respond_with(
         @conceptual_exam,
-        location: new_conceptual_exam_path
+        location: after_save_location
       )
     end
+  end
+
+  def after_save_location
+    return conceptual_exams_path if conceptual_exam_batch_layout?
+
+    step_id = @conceptual_exam.step_id.presence || find_step_id
+    return conceptual_exams_path if step_id.blank?
+
+    students_by_step_conceptual_exams_path(step_id: step_id)
   end
 
   def fetch_next_conceptual_exam
@@ -711,24 +751,58 @@ class ConceptualExamsController < ApplicationController
     # end
   end
 
-  def check_status_and_step(step_id, status)
-    if step_id.present?
-      @conceptual_exams = @conceptual_exams.by_step_id(@classroom, step_id)
-      params[:filter][:by_step] = step_id
-    end
+  def apply_step_defaults_for_new
+    return if @conceptual_exam.step_id.blank?
 
-    if status.present?
-      @conceptual_exams = @conceptual_exams.by_status(@classrooms.to_a, current_teacher_id, status)
-      params[:filter][:by_status] = status
-    end
+    classroom = @classroom || current_user_classroom
+    step = StepsFetcher.new(classroom).step_by_id(@conceptual_exam.step_id)
+    return if step.blank?
+
+    @conceptual_exam.step_id = step.id
+    last_date = batch_last_date_of_step(step)
+    @conceptual_exam.recorded_at = last_date if last_date.present?
   end
 
-  def fetch_conceptual_exams
-    apply_scopes(ConceptualExam).includes(:student, :classroom)
-                                .by_unity(current_unity)
-                                .by_classroom(@classroom.id)
-                                .by_teacher(current_teacher_id)
-                                .ordered_by_date_and_student
+  def load_classic_index_overview
+    return if @classroom.blank? || @steps.blank?
+
+    @step_overviews = step_overview_fetcher.overview_for_steps(
+      @steps,
+      current_step_id: current_step_id_for_classroom
+    )
+  end
+
+  def step_overview_fetcher
+    ConceptualExamStepOverviewFetcher.new(
+      classroom: @classroom,
+      teacher_id: current_teacher_id,
+      discipline: current_user_discipline,
+      annual: @only_one_conceptual_avaliation
+    )
+  end
+
+  def current_step_id_for_classroom
+    return if @classroom.blank? || @only_one_conceptual_avaliation
+
+    StepsFetcher.new(@classroom).step_by_date(Date.current)&.id
+  end
+
+  def resolve_students_by_step
+    return if @classroom.blank?
+
+    steps = StepsFetcher.new(@classroom).steps
+    return steps.first if @only_one_conceptual_avaliation
+
+    StepsFetcher.new(@classroom).step_by_id(params[:step_id])
+  end
+
+  def after_destroy_location
+    return conceptual_exams_path if conceptual_exam_batch_layout?
+
+    step_id = @conceptual_exam.step_id.presence || find_step_id
+    return conceptual_exams_path if step_id.blank?
+
+    students_by_step_conceptual_exams_path(step_id: step_id)
   end
 
   def fetch_linked_by_teacher

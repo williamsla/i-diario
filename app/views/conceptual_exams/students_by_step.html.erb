@@ -1,0 +1,119 @@
+<div class="widget-body">
+  <div class="conceptual-exams-students-by-step conceptual-exams-panel conceptual-exams-panel--students">
+    <p>
+      <%= link_to conceptual_exams_path, class: 'btn btn-default btn-sm' do %>
+        <i class="fa fa-arrow-left"></i> <%= t('conceptual_exams.students_by_step.back') %>
+      <% end %>
+    </p>
+
+    <div class="well well-sm">
+      <h4>
+        <% if @only_one_conceptual_avaliation %>
+          <%= t('conceptual_exams.index.batch_layout_annual_label') %>
+        <% else %>
+          <%= @step.to_s %>
+          <% if @step_overview&.current %>
+            <span class="label label-primary"><%= t('conceptual_exams.index.current_step') %></span>
+          <% end %>
+        <% end %>
+      </h4>
+      <p class="text-muted" style="margin-bottom: 0;">
+        <%= @classroom.description %>
+        ·
+        <% if @only_one_conceptual_avaliation %>
+          <%= l(@annual_period_start) %> a <%= l(@annual_period_end) %>
+        <% else %>
+          <%= l(@step.start_at) %> a <%= l(@step.end_at) %>
+        <% end %>
+      </p>
+    </div>
+
+    <% if @status_counts.present? %>
+      <div class="row conceptual-exams-summary">
+        <div class="col-sm-4 col-xs-4">
+          <div class="conceptual-exams-stat">
+            <div class="conceptual-exams-stat-value text-success"><%= @status_counts[:complete] %></div>
+            <div class="conceptual-exams-stat-label"><%= t('conceptual_exams.index.stat_complete') %></div>
+          </div>
+        </div>
+        <div class="col-sm-4 col-xs-4">
+          <div class="conceptual-exams-stat">
+            <div class="conceptual-exams-stat-value text-warning"><%= @status_counts[:incomplete] %></div>
+            <div class="conceptual-exams-stat-label"><%= t('conceptual_exams.index.stat_incomplete') %></div>
+          </div>
+        </div>
+        <div class="col-sm-4 col-xs-4">
+          <div class="conceptual-exams-stat">
+            <div class="conceptual-exams-stat-value text-info"><%= @status_counts[:pending] %></div>
+            <div class="conceptual-exams-stat-label"><%= t('conceptual_exams.index.stat_pending') %></div>
+          </div>
+        </div>
+      </div>
+
+      <% if @step_overview.present? %>
+        <div class="conceptual-exams-progress-wrap">
+          <%= conceptual_exam_progress_bar(@step_overview) %>
+        </div>
+      <% end %>
+    <% end %>
+
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped table-condensed table-hover conceptual-exams-compact-table">
+        <thead>
+          <tr>
+            <th><%= ConceptualExam.human_attribute_name :student %></th>
+            <th class="conceptual-exams-status-col"><%= ConceptualExam.human_attribute_name :status %></th>
+            <th class="conceptual-exams-actions-col"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if @student_rows.blank? %>
+            <tr>
+              <td class="no_record_found" colspan="3"><%= t('views.index.no_record_found') %></td>
+            </tr>
+          <% else %>
+            <% @student_rows.each do |row| %>
+              <tr>
+                <td><span class="multiline"><%= row.student %></span></td>
+                <td class="conceptual-exams-status-col">
+                  <span class="<%= conceptual_exam_label(row.status) %>">
+                    <%= conceptual_exam_status_label(row.status) %>
+                  </span>
+                </td>
+                <td class="actions conceptual-exams-actions-col">
+                  <% if row.conceptual_exam.present? %>
+                    <%= link_to t('helpers.links.show_html'),
+                                conceptual_exam_path(row.conceptual_exam),
+                                class: 'btn btn-info apply_tooltip',
+                                title: t('conceptual_exams.form.show') %>
+                    <% if current_user.can_change?(:conceptual_exams) %>
+                      <%= link_to t('helpers.links.edit_html'),
+                                  edit_conceptual_exam_path(row.conceptual_exam),
+                                  class: 'btn btn-success apply_tooltip',
+                                  title: conceptual_exam_row_action_title(row.status) %>
+                      <%= link_to t('helpers.links.destroy_html'),
+                                  conceptual_exam_path(row.conceptual_exam),
+                                  class: 'btn btn-danger apply_tooltip',
+                                  method: :delete,
+                                  title: t('conceptual_exams.form.destroy'),
+                                  data: { confirm: t('views.index.confirm_deletion') } %>
+                    <% end %>
+                  <% elsif current_user.can_change?(:conceptual_exams) %>
+                    <%= link_to t('conceptual_exams.students_by_step.launch'),
+                                new_conceptual_exam_path(conceptual_exam: {
+                                  unity_id: @classroom.unity_id,
+                                  classroom_id: @classroom.id,
+                                  step_id: @step.id,
+                                  student_id: row.student.id
+                                }),
+                                class: 'btn btn-primary btn-sm' %>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

@@ -104,7 +104,7 @@ $(function () {
   };
 
   var loadExistingRecordForStudent = function (studentId) {
-    if (!$student.length || redirectingToExisting || _.isEmpty(apiPaths.findExisting)) {
+    if (redirectingToExisting || _.isEmpty(apiPaths.findExisting)) {
       loadContents();
       return;
     }
@@ -120,16 +120,22 @@ $(function () {
       return;
     }
 
+    var requestData = {
+      classroom_id: classroom_id,
+      discipline_id: discipline_id,
+      record_date: date,
+      student_id: studentId
+    };
+
+    // Só filtra por class_number quando houver valor — evita perder registro salvo com outro/sem número
+    if (!_.isEmpty(class_number)) {
+      requestData.class_number = class_number;
+    }
+
     $.ajax({
       url: apiPaths.findExisting,
       dataType: 'json',
-      data: {
-        classroom_id: classroom_id,
-        discipline_id: discipline_id,
-        record_date: date,
-        student_id: studentId,
-        class_number: class_number
-      }
+      data: requestData
     }).done(function (payload) {
       var existingId = payload && payload.id;
 
@@ -458,6 +464,15 @@ $(function () {
 
   if (!isModalForm && getInputValue($classroom) && getInputValue($recordDate)) {
     reloadDisciplinesForSelectedDate();
+  }
+
+  // No modal (AEE/NEE) o helper da frequência sempre abre "novo"; precisa buscar o registro
+  // já salvo na abertura — não só ao trocar o aluno.
+  if (!isPersistedRecord && !_.isEmpty(apiPaths.findExisting) && (isModalForm || $student.length)) {
+    loadExistingRecordForStudent(getStudentValue());
+    if (isModalForm && getInputValue($discipline)) {
+      countLessons();
+    }
   } else if (!$("#contents-list li").length) {
     loadContentsIfNeeded();
   } else if (getInputValue($discipline)) {

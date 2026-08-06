@@ -1,3 +1,154 @@
+.conceptual-exams-panel {
+  max-width: 900px;
+}
+
+.conceptual-exams-panel--students {
+  max-width: 780px;
+}
+
+.conceptual-exams-step-list {
+  margin-bottom: 0;
+}
+
+.conceptual-exams-step-list__current {
+  background-color: #f5f9fc;
+}
+
+.conceptual-exams-step-list__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.conceptual-exams-step-list__title {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.conceptual-exams-step-list__title strong {
+  font-size: 14px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.conceptual-exams-step-list__action {
+  flex: 0 0 auto;
+}
+
+.conceptual-exams-step-list__action .btn {
+  white-space: nowrap;
+}
+
+.conceptual-exams-step-list__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+  font-size: 12px;
+}
+
+.conceptual-exams-step-list__stat strong {
+  margin-right: 2px;
+}
+
+@media (max-width: 480px) {
+  .conceptual-exams-step-list__header {
+    flex-direction: column;
+  }
+
+  .conceptual-exams-step-list__action {
+    width: 100%;
+  }
+
+  .conceptual-exams-step-list__action .btn {
+    display: block;
+    width: 100%;
+  }
+}
+
+.conceptual-exams-compact-table {
+  width: 100%;
+  table-layout: fixed;
+  font-size: 13px;
+}
+
+.conceptual-exams-compact-table > thead > tr > th,
+.conceptual-exams-compact-table > tbody > tr > td {
+  vertical-align: middle;
+}
+
+.conceptual-exams-students-by-step .conceptual-exams-status-col {
+  width: 150px;
+  white-space: nowrap;
+}
+
+.conceptual-exams-students-by-step .conceptual-exams-actions-col {
+  width: 140px;
+  white-space: nowrap;
+  text-align: right;
+}
+
+@media (max-width: 480px) {
+  .conceptual-exams-students-by-step .conceptual-exams-status-col,
+  .conceptual-exams-students-by-step .conceptual-exams-actions-col {
+    width: auto;
+    white-space: normal;
+  }
+
+  .conceptual-exams-students-by-step .conceptual-exams-compact-table {
+    table-layout: auto;
+  }
+}
+
+.conceptual-exams-summary {
+  margin: 0 0 16px;
+}
+
+.conceptual-exams-stat {
+  background: #f8f8f8;
+  border: 1px solid #e5e5e5;
+  border-radius: 2px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.conceptual-exams-stat-value {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.conceptual-exams-stat-label {
+  color: #777;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.conceptual-exams-progress {
+  margin-bottom: 0;
+  height: 14px;
+}
+
+.conceptual-exams-progress-wrap {
+  margin: 0 0 16px;
+}
+
+.conceptual-exams-students-filters {
+  margin-bottom: 12px;
+}
+
+.conceptual-exams-students-filters .form-group {
+  margin-right: 8px;
+}
+
+.conceptual-exams-status-chips {
+  margin-bottom: 14px;
+}
+
 table.table-condensed.table-bordered > tbody > tr > td.knowledge-area-table-data {
   padding-top: 10px !important;
   padding-bottom: 10px !important;

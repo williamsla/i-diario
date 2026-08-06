@@ -3,8 +3,8 @@ class ContentsRecordFetcher
     # Verifica se existe algum plano de aula (do mesmo professor ou de outro)
     same_teacher_plans_exist = same_teacher_lesson_plans.exists?
     other_teacher_plans_exist = other_teacher_lesson_plans.exists?
-    has_lesson_plan = same_teacher_plans_exist || other_teacher_plans_exist    
-    
+    has_lesson_plan = same_teacher_plans_exist || other_teacher_plans_exist
+
     if has_lesson_plan
       # Se existe plano de aula, retorna apenas conteúdos dos planos de aula
       # Não inclui conteúdos do plano de ensino
@@ -13,6 +13,8 @@ class ContentsRecordFetcher
       # Se não existe plano de aula, busca planos de ensino
       plans = same_teacher_teaching_plans.presence ||
               same_teacher_yearly_teaching_plans.presence ||
+              unificado_teaching_plans.presence ||
+              unificado_yearly_teaching_plans.presence ||
               other_teacher_teaching_plans.presence ||
               []
     end
@@ -24,7 +26,7 @@ class ContentsRecordFetcher
   def fetch_objectives
     # Verifica se existe algum plano de aula (do mesmo professor ou de outro)
     has_lesson_plan = same_teacher_lesson_plans_objectives.exists? || other_teacher_lesson_plans_objectives.exists?
-    
+
     if has_lesson_plan
       # Se existe plano de aula, retorna apenas objetivos dos planos de aula
       # Não inclui objetivos do plano de ensino
@@ -33,6 +35,8 @@ class ContentsRecordFetcher
       # Se não existe plano de aula, busca planos de ensino
       plans = same_teacher_teaching_plans.presence ||
               same_teacher_yearly_teaching_plans.presence ||
+              unificado_teaching_plans.presence ||
+              unificado_yearly_teaching_plans.presence ||
               other_teacher_teaching_plans.presence ||
               []
     end
@@ -60,6 +64,16 @@ class ContentsRecordFetcher
                   .by_school_term_type_id(yearly_school_term_type_id)
   end
 
+  def unificado_teaching_plans
+    teaching_plans.unificado
+                  .by_school_term_type_step_id(school_term_type_steps_ids)
+  end
+
+  def unificado_yearly_teaching_plans
+    teaching_plans.unificado
+                  .by_school_term_type_id(yearly_school_term_type_id)
+  end
+
   def other_teacher_lesson_plans
     lesson_plans.by_other_teacher_id(@teacher.id)
   end
@@ -69,11 +83,7 @@ class ContentsRecordFetcher
   end
 
   def other_teacher_teaching_plans
-    other_teachers_plans = teaching_plans.by_other_teacher_id(@teacher.id)
-
-    return other_teachers_plans if other_teachers_plans.present?
-
-    teaching_plans.by_secretary
+    teaching_plans.by_other_teacher_id(@teacher.id)
   end
 
   def steps_fetcher

@@ -16,11 +16,13 @@ class TeachingPlanObjectivesFetcher
       teacher_teaching_plans = teaching_plans.by_teacher_id(@teacher.id)
       return teacher_teaching_plans if teacher_teaching_plans.exists?
 
+      unificado_teaching_plans = teaching_plans.unificado
+      return unificado_teaching_plans if unificado_teaching_plans.exists?
+
       other_teaching_plans = teaching_plans.by_other_teacher_id(@teacher.id)
       return other_teaching_plans if other_teaching_plans.exists?
 
-      general_teaching_plans = teaching_plans.by_secretary
-      general_teaching_plans || []
+      teaching_plans.by_secretary
     end
   end
 

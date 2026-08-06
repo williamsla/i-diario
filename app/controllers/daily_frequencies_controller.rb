@@ -1294,38 +1294,33 @@ class DailyFrequenciesController < ApplicationController
   end
 
   def fetch_disciplines_with_contents_by_day
-    date_str = params.dig(:daily_frequency, :frequency_date)
-    return [] unless date_str
-
-    if date_str.include?('/')
-      date = Date.strptime(date_str, "%d/%m/%Y")
-    else
-      date = Date.strptime(date_str, "%Y-%m-%d")
+    date = parse_frequency_date(params.dig(:daily_frequency, :frequency_date))
+    if date.blank? && @daily_frequency&.frequency_date.present?
+      date = @daily_frequency.frequency_date.to_date
     end
-    
+    return [] if date.blank?
+
     classroom_id = resolved_classroom_id_for_lessons_board
     return [] if classroom_id.blank?
 
     DisciplineContentRecord.by_classroom_id(classroom_id)
                            .by_date(date)
+                           .includes(:content_record)
   end
 
   def fetch_knowledge_areas_with_contents_by_day
-    date_str = params.dig(:daily_frequency, :frequency_date)
-    return [] unless date_str
-
-    if date_str.include?('/')
-      date = Date.strptime(date_str, "%d/%m/%Y")
-    else
-      date = Date.strptime(date_str, "%Y-%m-%d")
+    date = parse_frequency_date(params.dig(:daily_frequency, :frequency_date))
+    if date.blank? && @daily_frequency&.frequency_date.present?
+      date = @daily_frequency.frequency_date.to_date
     end
-    
+    return [] if date.blank?
+
     classroom_id = resolved_classroom_id_for_lessons_board
     return [] if classroom_id.blank?
 
     KnowledgeAreaContentRecord.by_classroom_id(classroom_id)
                               .by_date(date)
-                              .includes(:knowledge_areas)
+                              .includes(:knowledge_areas, :content_record)
   end
 
   def count_classes_of_the_day(discipline_id)
@@ -1425,26 +1420,30 @@ class DailyFrequenciesController < ApplicationController
   end
 
   def get_discipline_content_record_id_by_date(discipline_id)
-    # Com conteúdo por aluno (AEE ou NEE), sempre abre "novo" para não sobrescrever
-    # o registro de outro aluno ao reabrir o primeiro do dia/disciplina.
-    return 0 if content_record_by_student_enabled?
-
     @disciplines_with_contents ||= fetch_disciplines_with_contents_by_day
-    result = @disciplines_with_contents.select { |c| c.discipline_id == discipline_id }.map(&:id)
+    records = @disciplines_with_contents.select { |c| c.discipline_id == discipline_id }
 
+    if content_record_by_student_enabled?
+      # Registro geral (sem aluno): abre edição. Registros por aluno ficam a cargo do find_existing no form.
+      general = records.find { |c| c.content_record&.student_id.blank? }
+      return general&.id || 0
+    end
+
+    result = records.map(&:id)
     result.count >= 1 ? result.first : 0
   end
   helper_method :get_discipline_content_record_id_by_date
 
   def get_knowledge_area_content_record_id_by_date(knowledge_area_id)
-    # Com conteúdo por aluno (AEE ou NEE), sempre abre "novo" para não sobrescrever
-    # o registro de outro aluno ao reabrir o primeiro do dia/área.
-    return 0 if content_record_by_student_enabled?
-
     @knowledge_areas_with_contents ||= fetch_knowledge_areas_with_contents_by_day
-    Rails.logger.info("Knowledge areas with contents: #{@knowledge_areas_with_contents.inspect}")
-    result = @knowledge_areas_with_contents.select { |c| c.knowledge_areas.map(&:id).include?(knowledge_area_id.to_i) }.map(&:id)
+    records = @knowledge_areas_with_contents.select { |c| c.knowledge_areas.map(&:id).include?(knowledge_area_id.to_i) }
 
+    if content_record_by_student_enabled?
+      general = records.find { |c| c.content_record&.student_id.blank? }
+      return general&.id || 0
+    end
+
+    result = records.map(&:id)
     result.count >= 1 ? result.first : 0
   end
   helper_method :get_knowledge_area_content_record_id_by_date

@@ -12,4 +12,8 @@ class ConceptualExamPolicy < ApplicationPolicy
   def create_batch?
     create?
   end
+
+  def students_by_step?
+    index?
+  end
 end

@@ -5,7 +5,9 @@ class LessonBoardsService
 
     allocations = TeacherDisciplineClassroom.where(classroom_id: classroom_id)
                                             .includes(:teacher, discipline: :knowledge_area)
-                                            .where(disciplines: { descriptor: false })
+                                            .joins(discipline: :knowledge_area)
+                                            .where(disciplines: { descriptor: false, grouper: false })
+                                            .where(knowledge_areas: { group_descriptors: false })
                                             .where(grade_id: grade_id)
                                             .order('teachers.name')
 
