@@ -238,6 +238,15 @@ module ApplicationHelper
     }
   end
 
+  EXPERIENCE_FIELD_BADGE_COLORS = 5
+
+  def experience_field_badge_class(experience_fields)
+    return if experience_fields.blank?
+
+    index = experience_fields.to_s.codepoints.sum % EXPERIENCE_FIELD_BADGE_COLORS
+    "experience-field-badge experience-field-badge--color-#{index}"
+  end
+
   private
 
   def cache_key_to_user

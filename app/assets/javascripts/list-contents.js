@@ -1,3 +1,14 @@
+function experienceFieldBadgeClass(experienceFields) {
+  if (!experienceFields) return '';
+
+  var sum = 0;
+  for (var i = 0; i < experienceFields.length; i++) {
+    sum += experienceFields.charCodeAt(i);
+  }
+
+  return 'experience-field-badge experience-field-badge--color-' + (sum % 5);
+}
+
 function initializeListEvents() {
   // Settings
   var $widget = $(this),

@@ -12,7 +12,11 @@ class Objective < ApplicationRecord
     joins("join unnest('{#{ids.join(',')}}'::int[]) WITH ORDINALITY t(id, ord) USING (id)").order('t.ord')
   }
 
-  attr_accessor :is_editable
+  attr_accessor :is_editable, :experience_fields
+
+  def as_json(options = nil)
+    super(options).merge('experience_fields' => experience_fields)
+  end
 
   def to_s
     description

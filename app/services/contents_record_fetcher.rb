@@ -19,8 +19,7 @@ class ContentsRecordFetcher
               []
     end
 
-    contents = plans.map(&:contents).uniq.flatten
-    contents
+    items_from_plans(plans, :contents)
   end
 
   def fetch_objectives
@@ -41,10 +40,41 @@ class ContentsRecordFetcher
               []
     end
 
-    plans.map(&:objectives).uniq.flatten
+    items_from_plans(plans, :objectives)
   end
 
   protected
+
+  def items_from_plans(plans, association)
+    items_by_id = {}
+
+    Array(plans).each do |plan|
+      experience_fields = plan.try(:experience_fields).presence
+
+      Array(plan.public_send(association)).each do |item|
+        existing = items_by_id[item.id]
+
+        if existing
+          merge_experience_fields!(existing, experience_fields)
+        else
+          item.experience_fields = experience_fields if item.respond_to?(:experience_fields=)
+          items_by_id[item.id] = item
+        end
+      end
+    end
+
+    items_by_id.values
+  end
+
+  def merge_experience_fields!(item, experience_fields)
+    return if experience_fields.blank? || !item.respond_to?(:experience_fields=)
+
+    current = item.experience_fields.to_s.split(', ').reject(&:blank?)
+    return if current.include?(experience_fields)
+
+    item.experience_fields = (current + [experience_fields]).join(', ')
+  end
+
 
   def same_teacher_lesson_plans
     lesson_plans.by_teacher_id(@teacher.id)

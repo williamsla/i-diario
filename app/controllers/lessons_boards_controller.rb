@@ -323,16 +323,17 @@ class LessonsBoardsController < ApplicationController
   def not_exists_by_classroom
     return if params[:classroom_id].blank?
 
-    render json: LessonsBoard.by_classroom(params[:classroom_id])
-                             .empty?
+    board = LessonsBoard.by_classroom(params[:classroom_id]).first
+    render json: { id: board&.id }
   end
 
   def not_exists_by_classroom_and_grade
     return if params[:classroom_id].blank? || params[:grade_id].blank?
 
-    render json: LessonsBoard.by_classroom(params[:classroom_id])
-                              .by_grade(params[:grade_id])
-                              .empty?
+    board = LessonsBoard.by_classroom(params[:classroom_id])
+                        .by_grade(params[:grade_id])
+                        .first
+    render json: { id: board&.id }
   end
 
   def not_exists_by_classroom_and_period
@@ -342,7 +343,7 @@ class LessonsBoardsController < ApplicationController
                                  .by_period(params[:period])
     lessons_boards = lessons_boards.by_grade(params[:grade_id]) if params[:grade_id].present?
 
-    render json: lessons_boards.empty?
+    render json: { id: lessons_boards.first&.id }
   end
 
   def classroom_multi_grade

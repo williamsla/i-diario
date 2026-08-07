@@ -1,3 +1,3 @@
 class ContentSerializer < ActiveModel::Serializer
-  attributes :id, :description
+  attributes :id, :description, :experience_fields
 end

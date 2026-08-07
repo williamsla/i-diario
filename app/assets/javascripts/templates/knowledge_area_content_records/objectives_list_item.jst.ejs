@@ -1,8 +1,8 @@
-<li class="list-group-item">
+<li class="list-group-item" style="display: flex; align-items: center;">
   <input type="checkbox" name="knowledge_area_content_record[content_record_attributes][objective_ids][]" id="knowledge_area_content_record_content_record_attributes_objective_ids_" value="<%= id %>" hidden="hidden"
     data-objective_description="<%= description %>">
-  <span style="margin-left: 5px;"><%= description %></span>
+  <span class="content-record-item-text"><%= description %></span>
+  <% if (typeof experience_fields !== 'undefined' && experience_fields) { %>
+    <span class="<%= experienceFieldBadgeClass(experience_fields) %>"><%= experience_fields %></span>
+  <% } %>
 </li>
-
-
-
