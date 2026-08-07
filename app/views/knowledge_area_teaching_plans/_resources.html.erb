@@ -7,6 +7,9 @@
     <% @knowledge_area_teaching_plans.each do |knowledge_area_teaching_plan| %>
       <tr>
         <td>
+          <% if teaching_plan_from_administrator?(knowledge_area_teaching_plan.teaching_plan) %>
+            <span class="label label-info label-list"><%= t('enumerations.plans_authors.unificado') %></span>
+          <% end %>
           <% if knowledge_area_teaching_plan.teaching_plan.validated %>
             <i class="fa fa-check-circle-o apply_tooltip_right"
                data-original-title="Plano validado e aprovado"
@@ -54,6 +57,7 @@
                 t('helpers.links.edit_html'),
                 edit_knowledge_area_teaching_plan_path(knowledge_area_teaching_plan),
                 class: 'btn btn-success apply_tooltip',
+                disabled: !teaching_plan_edit?(knowledge_area_teaching_plan.teaching_plan),
                 data: { original_title: t('views.index.tooltips.edit') }
               ) %>
           <%= link_to(
