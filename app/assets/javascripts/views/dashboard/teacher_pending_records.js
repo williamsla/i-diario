@@ -41,10 +41,8 @@ $(function(){
 
     var currentStep = null;
     _.each(steps, function(step) {
-      var startDate = new Date(step.start_at_iso);
-      var endDate = new Date(step.end_at_iso);
-      startDate.setHours(0, 0, 0, 0);
-      endDate.setHours(0, 0, 0, 0);
+      var startDate = parseStepDate(step.start_at_iso);
+      var endDate = parseStepDate(step.end_at_iso);
 
       if (today >= startDate && today <= endDate) {
         currentStep = step;
@@ -64,17 +62,26 @@ $(function(){
 
     _.each(steps, function(step) {
       var isCurrent = currentStep && String(currentStep.id) === String(step.id);
+      var isFuture = isFutureStep(step, today);
       var fullName = stepFullName(step);
       var compactLabel = stepCompactLabel(step);
       var datesLabel = (step.start_at || '') + ' a ' + (step.end_at || '');
-      var badgeHtml = isCurrent ?
-        '<span class="pending-step-btn__badge">Atual</span>' :
-        '';
+      var badgeHtml = '';
+
+      if (isCurrent) {
+        badgeHtml = '<span class="pending-step-btn__badge">Atual</span>';
+      } else if (isFuture) {
+        badgeHtml = '<span class="pending-step-btn__badge pending-step-btn__badge--future">Não iniciado</span>';
+      }
 
       var $button = $('<button type="button" class="pending-step-btn" role="option" aria-selected="false"></button>')
         .attr('data-step-id', step.id)
-        .attr('aria-label', fullName)
+        .attr('aria-label', isFuture ? fullName + ' (não iniciado)' : fullName)
         .toggleClass('is-current', isCurrent)
+        .toggleClass('is-disabled', isFuture)
+        .prop('disabled', isFuture)
+        .attr('aria-disabled', isFuture ? 'true' : 'false')
+        .attr('title', isFuture ? 'Etapa ainda não iniciada. Disponível a partir de ' + (step.start_at || '') + '.' : null)
         .html(
           '<span class="pending-step-btn__compact">' + _.escape(compactLabel) + '</span>' +
           '<span class="pending-step-btn__desktop">' +
@@ -89,12 +96,36 @@ $(function(){
       $stepsList.append($button);
     });
 
-    $stepsList.on('click', '.pending-step-btn', function() {
+    $stepsList.on('click', '.pending-step-btn:not(:disabled)', function() {
       selectStep($(this).data('step-id'));
     });
 
-    var stepToSelect = currentStep || steps[0];
-    selectStep(stepToSelect.id);
+    var startedSteps = _.filter(steps, function(step) {
+      return !isFutureStep(step, today);
+    });
+    var stepToSelect = currentStep || _.last(startedSteps);
+
+    if (stepToSelect) {
+      selectStep(stepToSelect.id);
+    } else {
+      $('#step-data-container').html(
+        '<div class="alert alert-info">Nenhuma etapa iniciada ainda.</div>'
+      );
+    }
+  }
+
+  function parseStepDate(isoDate) {
+    var parts = String(isoDate || '').split('-');
+    var year = parseInt(parts[0], 10);
+    var month = parseInt(parts[1], 10) - 1;
+    var day = parseInt(parts[2], 10);
+    var date = new Date(year, month, day);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+
+  function isFutureStep(step, today) {
+    return parseStepDate(step.start_at_iso) > today;
   }
 
   function stepFullName(step) {
@@ -152,10 +183,18 @@ $(function(){
   }
 
   function selectStep(stepId) {
-    var $buttons = $container.find('.pending-step-btn');
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     var selectedStep = _.find(steps, function(step) {
       return String(step.id) === String(stepId);
     });
+
+    if (selectedStep && isFutureStep(selectedStep, today)) {
+      return;
+    }
+
+    var $buttons = $container.find('.pending-step-btn');
 
     $buttons.each(function() {
       var $btn = $(this);

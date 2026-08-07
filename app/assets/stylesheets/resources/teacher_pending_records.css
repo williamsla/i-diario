@@ -56,6 +56,25 @@
   box-shadow: 0 0 0 3px rgba(0, 84, 149, 0.2);
 }
 
+.pending-step-btn:disabled,
+.pending-step-btn.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #f5f6f8;
+  color: #8b949e;
+  border-color: #e1e4e8;
+  box-shadow: none;
+}
+
+.pending-step-btn:disabled:hover,
+.pending-step-btn:disabled:focus,
+.pending-step-btn.is-disabled:hover,
+.pending-step-btn.is-disabled:focus {
+  border-color: #e1e4e8;
+  background: #f5f6f8;
+  box-shadow: none;
+}
+
 .pending-step-btn__compact {
   display: none;
 }
@@ -107,6 +126,11 @@
   color: #fff;
 }
 
+.pending-step-btn__badge--future {
+  background: #eef0f2;
+  color: #6b7280;
+}
+
 .pending-step-btn.is-current:not(.is-active) {
   border-color: #7eb6d9;
   background: #f3f9fd;
@@ -155,6 +179,11 @@
   .pending-step-btn.is-current:not(.is-active) {
     border-color: #d8dde3;
     background: #fff;
+  }
+
+  .pending-step-btn:disabled,
+  .pending-step-btn.is-disabled {
+    opacity: 0.5;
   }
 
   .pending-step-btn__compact {
