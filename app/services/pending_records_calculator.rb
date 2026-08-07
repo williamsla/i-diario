@@ -1346,10 +1346,11 @@ class PendingRecordsCalculator
   end
 
   INFANTIL_GRADE_PATTERN = /creche|pre|pre i|pre ii|pre[- ]escola(r)?|maternal|bercario|jardim|infantil|aee/
+  INFANTIL_COURSE_PATTERN = /infantil|aee/
 
   def is_infantil_classroom?(classroom)
     classroom.classrooms_grades.any? do |classroom_grade|
-      infantil_grade_description?(classroom_grade.grade&.description)
+      infantil_grade?(classroom_grade.grade)
     end
   end
 
@@ -1360,7 +1361,7 @@ class PendingRecordsCalculator
     has_non_infantil = false
 
     classroom.classrooms_grades.each do |classroom_grade|
-      if infantil_grade_description?(classroom_grade.grade&.description)
+      if infantil_grade?(classroom_grade.grade)
         has_infantil = true
       else
         has_non_infantil = true
@@ -1374,7 +1375,7 @@ class PendingRecordsCalculator
     return [] if classroom.blank?
 
     classroom.classrooms_grades.select do |classroom_grade|
-      infantil_grade_description?(classroom_grade.grade&.description)
+      infantil_grade?(classroom_grade.grade)
     end.map(&:grade_id)
   end
 
@@ -1382,7 +1383,7 @@ class PendingRecordsCalculator
     return [] if classroom.blank?
 
     classroom.classrooms_grades.reject do |classroom_grade|
-      infantil_grade_description?(classroom_grade.grade&.description)
+      infantil_grade?(classroom_grade.grade)
     end.map(&:grade_id)
   end
 
@@ -1414,10 +1415,24 @@ class PendingRecordsCalculator
       .uniq
   end
 
+  def infantil_grade?(grade)
+    return false if grade.blank?
+    return true if infantil_course_description?(grade.course&.description)
+    return true if infantil_grade_description?(grade.description)    
+
+    false
+  end
+
   def infantil_grade_description?(description)
     return false if description.blank?
 
     I18n.transliterate(description.to_s.downcase).match?(INFANTIL_GRADE_PATTERN)
+  end
+
+  def infantil_course_description?(description)
+    return false if description.blank?
+
+    I18n.transliterate(description.to_s.downcase).match?(INFANTIL_COURSE_PATTERN)
   end
 
   def add_saturdays_from_lesson_boards(all_school_days, start_date, end_date, classroom_id)

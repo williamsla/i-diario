@@ -44,7 +44,7 @@ module LessonsBoardAvailability
     return false if classroom.blank?
 
     classroom.classrooms_grades.any? do |classroom_grade|
-      infantil_grade_description?(classroom_grade.grade&.description)
+      infantil_grade?(classroom_grade.grade)
     end
   end
 

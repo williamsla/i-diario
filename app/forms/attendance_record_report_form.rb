@@ -256,7 +256,15 @@ class AttendanceRecordReportForm
     return false if classroom_obj.blank?
 
     classroom_obj.classrooms_grades.each do |classroom_grade|
-      return true if classroom_grade.grade.description.match?(/creche|pre|pre-escola|pré|pré-escola|maternal|bercario|berçario|infantil|aee/i)
+      grade = classroom_grade.grade
+      next if grade.blank?
+
+      course_description = I18n.transliterate(grade.course&.description.to_s.downcase)      
+      return true if course_description.match?(/infantil|aee/)
+
+      description = I18n.transliterate(grade.description.to_s.downcase)
+      return true if description.match?(/creche|pre|pre-escola|maternal|bercario|jardim|infantil|aee/)
+      
     end
     false
   end
