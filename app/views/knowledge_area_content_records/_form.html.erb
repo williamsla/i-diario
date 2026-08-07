@@ -50,10 +50,12 @@
         <% modal_knowledge_area_ids = params[:knowledge_area_id].presence || @knowledge_area_content_record.knowledge_area_ids %>
         <% if params[:modal] == 'true' %>
           <%= f.hidden_field :knowledge_area_ids, value: modal_knowledge_area_ids %>
-        <% elsif @knowledge_areas.present? && @knowledge_areas.count == 1 %>
-          <%= f.hidden_field :knowledge_area_ids, value: @knowledge_areas.first.id %>
         <% else %>
-          <div class="col col-sm-4">
+          <% single_knowledge_area = @knowledge_areas.present? && @knowledge_areas.count == 1 %>
+          <% if single_knowledge_area && Array(@knowledge_area_content_record.knowledge_area_ids).reject(&:blank?).empty? %>
+            <% @knowledge_area_content_record.knowledge_area_ids = [@knowledge_areas.first.id] %>
+          <% end %>
+          <div class="col col-sm-4" id="knowledge-area-field-wrapper"<%= ' style="display: none;"'.html_safe if single_knowledge_area %>>
             <%= f.input :knowledge_area_ids, as: :select2, elements: @knowledge_areas, multiple: true,
                   input_html: { data: { without_json_parser: true } } %>
           </div>

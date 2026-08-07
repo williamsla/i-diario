@@ -244,6 +244,40 @@ ul#objectives-list li.list-group-item.active .experience-field-badge {
   background-color: #fff;
 }
 
+@media (max-width: 767px) {
+  .smart-form ul#contents-list li.list-group-item,
+  .smart-form ul#objectives-list li.list-group-item {
+    padding-left: 6px;
+    padding-right: 8px;
+    gap: 6px;
+  }
+
+  ul#contents-list li.list-group-item .state-icon,
+  ul#objectives-list li.list-group-item .state-icon {
+    flex-shrink: 0;
+    width: 14px;
+    margin-left: 0;
+    text-align: center;
+  }
+
+  ul#contents-list li.list-group-item .state-icon.margin-left-17px,
+  ul#objectives-list li.list-group-item .state-icon.margin-left-17px {
+    margin-left: 0;
+  }
+
+  ul#contents-list .content-record-item-text,
+  ul#objectives-list .content-record-item-text {
+    margin-left: 0;
+  }
+
+  ul#contents-list .experience-field-badge,
+  ul#objectives-list .experience-field-badge {
+    max-width: 38%;
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+}
+
 .margin-left-17px{
   margin-left: 17px;
 }

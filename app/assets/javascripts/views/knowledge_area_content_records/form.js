@@ -226,11 +226,16 @@ $(function () {
       return item.id && item.id !== 'empty';
     });
 
+    if (!$knowledgeArea.length) {
+      toggleRecordDateAlert(payload.message);
+      return;
+    }
+
     var previousValues = $knowledgeArea.select2('val') || [];
 
     $knowledgeArea.select2({ data: selectedKnowledgeAreas });
 
-    var hiddenKnowledgeArea = $('input[name="knowledge_area_content_record[knowledge_area_ids]"]');
+    var hiddenKnowledgeArea = $('input[name="knowledge_area_content_record[knowledge_area_ids]"]').not($knowledgeArea);
     var hiddenIds = [];
     if (hiddenKnowledgeArea.length && hiddenKnowledgeArea.val()) {
       hiddenIds = hiddenKnowledgeArea.val().split(',').filter(function (id) {
@@ -256,6 +261,8 @@ $(function () {
       $knowledgeArea.select2('val', []);
     }
 
+    toggleKnowledgeAreaFieldVisibility(selectedKnowledgeAreas.length);
+
     $knowledgeArea.trigger('change');
     toggleRecordDateAlert(payload.message);
 
@@ -263,6 +270,28 @@ $(function () {
       setTimeout(function () {
         loadContentsAfterKnowledgeAreasIfNeeded();
       }, 200);
+    }
+  };
+
+  var countAvailableKnowledgeAreas = function (elements) {
+    return _.filter(elements || [], function (item) {
+      return item && item.id && item.id !== 'empty';
+    }).length;
+  };
+
+  var toggleKnowledgeAreaFieldVisibility = function (areasCount) {
+    var $wrapper = $('#knowledge-area-field-wrapper');
+    if (!$wrapper.length) {
+      $wrapper = $knowledgeArea.closest('.col');
+    }
+    if (!$wrapper.length) return;
+
+    if (areasCount === 1) {
+      $wrapper.hide();
+    } else if (areasCount > 1) {
+      $wrapper.show();
+    } else {
+      $wrapper.hide();
     }
   };
 
@@ -492,14 +521,21 @@ $(function () {
         
     // Se há classroom_id, carrega as knowledge areas primeiro
     if (!_.isEmpty(classroom_id)) {
-      // Verifica se as knowledge areas já foram carregadas
-      var knowledgeAreaData = [];
-      if ($knowledgeArea.length && $knowledgeArea.is('select')) {
-        knowledgeAreaData = $knowledgeArea.select2('data') || [];
-      }
-      
-      if (_.isEmpty(knowledgeAreaData) || knowledgeAreaData.length === 0) {
+      var knowledgeAreaElements = ($knowledgeArea.length && $knowledgeArea.data('elements')) || [];
+      var availableAreasCount = countAvailableKnowledgeAreas(knowledgeAreaElements);
+
+      if (availableAreasCount === 0) {
         reloadKnowledgeAreasForSelectedDate();
+      } else {
+        if (availableAreasCount === 1) {
+          var singleArea = _.find(knowledgeAreaElements, function (item) {
+            return item && item.id && item.id !== 'empty';
+          });
+          if (singleArea) {
+            $knowledgeArea.select2('val', [singleArea.id]);
+          }
+        }
+        toggleKnowledgeAreaFieldVisibility(availableAreasCount);
       }
     }
     

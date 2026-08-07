@@ -135,7 +135,7 @@ $(function () {
     if (!$('li.list-group-item.active input[type=checkbox][data-objective_description="' + content.description + '"]').length) {
       const newLine = JST['templates/layouts/objectives_list_manual_item']({
         id: content.id,
-        description: description,
+        description: content.description,
         model_name: window['content_list_model_name'],
         submodel_name: window['content_list_submodel_name']
       });
