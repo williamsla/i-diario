@@ -337,7 +337,7 @@ class LessonsBoardsController < ApplicationController
   end
 
   def not_exists_by_classroom_and_period
-    return if params[:classroom_id].blank?
+    return if params[:classroom_id].blank? || params[:period].blank?
 
     lessons_boards = LessonsBoard.by_classroom(params[:classroom_id])
                                  .by_period(params[:period])
