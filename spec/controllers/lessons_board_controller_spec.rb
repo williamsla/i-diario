@@ -125,6 +125,26 @@ RSpec.describe LessonsBoardsController, type: :controller do
     end
   end
 
+  describe '#show' do
+    context 'when lessons board is archived' do
+      let!(:archived_board) do
+        create(:lessons_board, :full_lessons_board, classrooms_grade: classroom_grade).tap(&:discard)
+      end
+
+      it 'keeps discarded lessons and weekdays available for display' do
+        get :show, params: { locale: 'pt-BR', id: archived_board.id }
+
+        lessons = assigns(:lessons_board).lessons_board_lessons
+        weekdays = lessons.flat_map(&:lessons_board_lesson_weekdays)
+
+        expect(response).to have_http_status(:ok)
+        expect(lessons.size).to eq(4)
+        expect(weekdays).not_to be_empty
+        expect(weekdays.map(&:teacher_discipline_classroom_id)).to all(be_present)
+      end
+    end
+  end
+
   describe '#destroy' do
     context 'with success' do
       it 'when delete one lessons board' do
