@@ -87,8 +87,8 @@ class DisciplineContentRecord < ActiveRecord::Base
 
   def allow_class_number?
     begin
-      GeneralConfiguration.first.allow_class_number_on_content_records
-    rescue
+      GeneralConfiguration.current.allow_class_number_on_content_records
+    rescue StandardError
       false
     end
   end
@@ -129,7 +129,6 @@ class DisciplineContentRecord < ActiveRecord::Base
   end
 
   def uniqueness_of_class_number
-    return if allow_class_number?
     return unless content_record.present? && content_record.classroom.present? && content_record.record_date.present?
 
     discipline_content_records = DisciplineContentRecord.by_teacher_id(content_record.teacher_id)

@@ -9,7 +9,7 @@ class DisciplineContentRecordsController < ApplicationController
   before_action :require_current_classroom, only: [:index, :new, :create, :edit, :update]
   before_action :require_allow_to_modify_prev_years, only: [:create, :update, :destroy, :clone]
   before_action :set_number_of_classes, only: [:new, :create, :edit, :update, :show]
-  before_action :allow_class_number, only: [:index, :new, :edit, :show]
+  before_action :set_allow_class_number, only: [:index, :new, :create, :edit, :update, :show]
 
   def check_teacher_absence
     record_date = parse_record_date(params[:record_date])
@@ -81,7 +81,7 @@ class DisciplineContentRecordsController < ApplicationController
 
     # Filtra por class_number só quando a config exige; senão tenta com filtro e cai sem ele
     # (a frequência envia a quantidade de aulas do dia, que pode diferir do valor salvo).
-    records = if class_number.present? && allow_class_number
+    records = if class_number.present? && allow_class_number?
                 query.by_class_number(class_number).includes(:content_record).to_a
               elsif class_number.present?
                 with_class = query.by_class_number(class_number).includes(:content_record).to_a
@@ -147,8 +147,6 @@ class DisciplineContentRecordsController < ApplicationController
       student_id: params[:student_id]
     )
 
-    @has_lesson_board_map = false
-
     if params[:class_number].present?
       @class_number_qtd = params[:class_number]
     else
@@ -157,7 +155,6 @@ class DisciplineContentRecordsController < ApplicationController
         @discipline_content_record.discipline_id,
         @discipline_content_record.content_record.record_date
       )
-      @has_lesson_board_map = qtd > 0
 
       @class_number_qtd = qtd || 0
     end
@@ -291,7 +288,6 @@ class DisciplineContentRecordsController < ApplicationController
         @discipline_content_record.discipline_id,
         @discipline_content_record.content_record.record_date
     )
-    @has_lesson_board_map = qtd > 0
 
     if @discipline_content_record[:class_number].present?
       @class_number_qtd = @discipline_content_record[:class_number]
@@ -447,20 +443,27 @@ class DisciplineContentRecordsController < ApplicationController
         .ordered)
   end
 
-  def allow_class_number
-    begin
-      @allow_class_number ||= GeneralConfiguration.first.allow_class_number_on_content_records
-    rescue
-      @allow_class_number ||= false
+  def set_allow_class_number
+    @allow_class_number = allow_class_number?
+  end
+
+  def allow_class_number?
+    return @allow_class_number unless @allow_class_number.nil?
+
+    @allow_class_number = begin
+      GeneralConfiguration.current.allow_class_number_on_content_records
+    rescue StandardError
+      false
     end
   end
+  helper_method :allow_class_number?
 
   def set_number_of_classes
     @number_of_classes = current_school_calendar.number_of_classes
   end
 
   def validate_class_numbers
-    return true unless allow_class_number
+    return true unless allow_class_number?
     return true if @class_numbers.present?
 
     @error_on_class_numbers = true

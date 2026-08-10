@@ -77,9 +77,9 @@
           </div>
         <% end %>
 
-        <% if @allow_class_number || @has_lesson_board_map == false || ['edit', 'update'].include?(action_name) %>
+        <% if @allow_class_number %>
           <div class="col col-sm-4">
-            <% isDisabled = ['new', 'create', 'edit', 'update'].include?(action_name) ? false : true %>
+            <% isDisabled = !%w[new create edit update].include?(action_name) %>
             <%= f.input :class_number, as: :select2, multiple: false,
                                      elements: number_of_classes_elements(@number_of_classes),
                                      placeholder: 'Selecione a quantidade de aulas',
@@ -87,7 +87,7 @@
                                      input_html: { value: @class_number_qtd } %>
           </div>
         <% else %>
-            <%= f.input :class_number, as: :hidden, input_html: { value: @class_number_qtd } %>
+          <%= f.input :class_number, as: :hidden, input_html: { value: @class_number_qtd } %>
         <% end %>
       </div>
 

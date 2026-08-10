@@ -157,11 +157,11 @@ $(function(){
         .replace(/^unidade$/i, 'Uni')
         .replace(/^etapa$/i, 'Eta');
 
-      if (compactType !== type || /^(Bi|Tri|Sem|Un|Et)$/i.test(compactType)) {
+      if (compactType !== type || /^(Bim|Tri|Sem|Uni|Eta)$/i.test(compactType)) {
         return number + 'º ' + compactType;
       }
 
-      return number + 'º ' + type.substring(0, 3);
+      return number + 'º ' + type.substring(0, 5);
     }
 
     if (step.step_number) {
