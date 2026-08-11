@@ -55,65 +55,38 @@ RSpec.describe DisciplineTeachingPlan, type: :model do
       )
     end
 
-    def create_copied_plan_for(teacher)
-      teaching_plan = create(
-        :teaching_plan,
-        teacher: teacher,
-        unity: unity,
-        grade: grade,
-        school_term_type: school_term_type,
-        school_term_type_step: school_term_type_step,
-        year: year
-      )
-      teaching_plan.audits.where(action: 'create').update_all(user_id: nil, user_type: nil)
-      create(
-        :discipline_teaching_plan,
-        teaching_plan: teaching_plan,
-        discipline: discipline,
-        thematic_unit: copied_thematic_unit
-      )
-    end
-
     let!(:my_plan) { create_plan_for(current_teacher, as_user: teacher_user) }
     let!(:other_plan) { create_plan_for(other_teacher, as_user: teacher_user) }
 
-    let!(:unificado_plan) do
-      create(
-        :discipline_teaching_plan,
-        discipline: discipline,
-        thematic_unit: 'Outra unidade',
-        teaching_plan: create(
-          :teaching_plan,
-          teacher: nil,
-          unity: unity,
-          grade: grade,
-          school_term_type: school_term_type,
-          school_term_type_step: school_term_type_step,
-          year: year
-        )
-      )
+    let!(:nil_teacher_plan) do
+      create_plan_for(nil, as_user: teacher_user, thematic_unit: 'Sem professor')
     end
 
     let!(:admin_created_plan) do
       create_plan_for(other_teacher, as_user: admin, thematic_unit: 'Unidade admin')
     end
 
-    let!(:copied_plan_a) { create_copied_plan_for(other_teacher) }
-    let!(:copied_plan_b) { create_copied_plan_for(third_teacher) }
-
-    it 'includes own plans and unificados for MY_PLANS' do
-      result = described_class.by_author(PlansAuthors::MY_PLANS, current_teacher)
-
-      expect(result).to include(my_plan, unificado_plan, admin_created_plan)
-      expect(result).not_to include(other_plan)
+    let!(:admin_copied_plan_a) do
+      create_plan_for(other_teacher, as_user: admin, thematic_unit: copied_thematic_unit)
     end
 
-    it 'dedupes copied unificado plans with the same key for MY_PLANS' do
+    let!(:admin_copied_plan_b) do
+      create_plan_for(third_teacher, as_user: admin, thematic_unit: copied_thematic_unit)
+    end
+
+    it 'includes own plans and admin unificados for MY_PLANS' do
       result = described_class.by_author(PlansAuthors::MY_PLANS, current_teacher)
-      copied_in_result = result.select { |plan| [copied_plan_a.id, copied_plan_b.id].include?(plan.id) }
+
+      expect(result).to include(my_plan, admin_created_plan)
+      expect(result).not_to include(other_plan, nil_teacher_plan)
+    end
+
+    it 'dedupes admin-created unificado plans with the same key for MY_PLANS' do
+      result = described_class.by_author(PlansAuthors::MY_PLANS, current_teacher)
+      copied_in_result = result.select { |plan| [admin_copied_plan_a.id, admin_copied_plan_b.id].include?(plan.id) }
 
       expect(copied_in_result.size).to eq(1)
-      expect(copied_in_result.first.id).to eq([copied_plan_a.id, copied_plan_b.id].min)
+      expect(copied_in_result.first.id).to eq([admin_copied_plan_a.id, admin_copied_plan_b.id].min)
     end
 
     it 'excludes own plans and unificados for OTHERS' do
@@ -121,7 +94,7 @@ RSpec.describe DisciplineTeachingPlan, type: :model do
 
       expect(result).to include(other_plan)
       expect(result).not_to include(
-        my_plan, unificado_plan, admin_created_plan, copied_plan_a, copied_plan_b
+        my_plan, admin_created_plan, admin_copied_plan_a, admin_copied_plan_b
       )
     end
 
@@ -129,31 +102,22 @@ RSpec.describe DisciplineTeachingPlan, type: :model do
       result = described_class.by_author(PlansAuthors::ALL, current_teacher)
 
       expect(result).to include(
-        my_plan, other_plan, unificado_plan, admin_created_plan, copied_plan_a, copied_plan_b
+        my_plan, other_plan, nil_teacher_plan, admin_created_plan, admin_copied_plan_a, admin_copied_plan_b
       )
     end
 
     it 'prefers teacher_id nil when deduping unificados' do
-      nil_teacher_copy = create(
-        :discipline_teaching_plan,
-        discipline: discipline,
-        thematic_unit: copied_thematic_unit,
-        teaching_plan: create(
-          :teaching_plan,
-          teacher: nil,
-          unity: unity,
-          grade: grade,
-          school_term_type: school_term_type,
-          school_term_type_step: school_term_type_step,
-          year: year
-        )
+      nil_teacher_admin_copy = create_plan_for(
+        nil,
+        as_user: admin,
+        thematic_unit: copied_thematic_unit
       )
 
       result = described_class.by_author(PlansAuthors::MY_PLANS, current_teacher)
       group = result.select { |plan| plan.thematic_unit == copied_thematic_unit }
 
       expect(group.size).to eq(1)
-      expect(group.first).to eq(nil_teacher_copy)
+      expect(group.first).to eq(nil_teacher_admin_copy)
       expect(group.first.teaching_plan[:teacher_id]).to be_nil
     end
   end

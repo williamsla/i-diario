@@ -167,7 +167,11 @@ RSpec.describe CopyDisciplineTeachingPlanService, type: :service do
 
       subject(:copy_discipline_teaching_plan) {
         CopyDisciplineTeachingPlanService.call(
-          discipline_teaching_plan.id, classroom.year, [other_unity.id], [classroom_grades.grade_id]
+          discipline_teaching_plan.id,
+          classroom.year,
+          [other_unity.id],
+          [classroom_grades.grade_id],
+          created_by_administrator: true
         )
       }
 
@@ -181,7 +185,11 @@ RSpec.describe CopyDisciplineTeachingPlanService, type: :service do
     context 'when an unificado plan already exists in the destination' do
       subject(:copy_discipline_teaching_plan) {
         CopyDisciplineTeachingPlanService.call(
-          discipline_teaching_plan.id, classroom.year, [classroom.unity_id], [classroom_grades.grade_id]
+          discipline_teaching_plan.id,
+          classroom.year,
+          [classroom.unity_id],
+          [classroom_grades.grade_id],
+          created_by_administrator: true
         )
       }
 

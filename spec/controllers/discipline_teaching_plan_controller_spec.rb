@@ -73,16 +73,21 @@ RSpec.describe DisciplineTeachingPlansController, type: :controller do
       discipline: discipline
     )
   }
+  let(:admin) { create(:user, :with_user_role_administrator) }
   let(:unificado_teaching_plan) {
-    create(
-      :teaching_plan,
-      teacher: nil,
-      unity: classroom.unity,
-      year: classroom.year,
-      grade: classroom.classrooms_grades.first.grade,
-      school_term_type: school_term_type,
-      school_term_type_step: school_term_type_step
-    )
+    plan = nil
+    Audited.audit_class.as_user(admin) do
+      plan = create(
+        :teaching_plan,
+        teacher: nil,
+        unity: classroom.unity,
+        year: classroom.year,
+        grade: classroom.classrooms_grades.first.grade,
+        school_term_type: school_term_type,
+        school_term_type_step: school_term_type_step
+      )
+    end
+    plan
   }
   let(:unificado_discipline_teaching_plan) {
     create(

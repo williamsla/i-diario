@@ -40,8 +40,8 @@ class CopyKnowledgeAreaTeachingPlanService
 
   private
 
-  def copy_as_unificado?(teaching_plan)
-    created_by_administrator || teaching_plan.semed?
+  def copy_as_unificado?(_teaching_plan)
+    created_by_administrator
   end
 
   def fetch_contents_and_objectives(teaching_plan)
