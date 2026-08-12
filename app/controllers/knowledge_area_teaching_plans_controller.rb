@@ -320,9 +320,12 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
   end
 
   def set_knowledge_area_by_classroom(classroom_id)
-    @knowledge_areas = KnowledgeArea.by_teacher(current_teacher)
-                                    .by_classroom_id(classroom_id)
-                                    .ordered
+    classroom = Classroom.find_by(id: Array(classroom_id).first)
+    knowledge_areas = KnowledgeArea.by_teacher(current_teacher)
+                                   .by_classroom_id(classroom_id)
+                                   .ordered
+
+    @knowledge_areas = filter_knowledge_areas_for_content_registration(knowledge_areas, classroom)
   end
 
   def yearly_term_type_id

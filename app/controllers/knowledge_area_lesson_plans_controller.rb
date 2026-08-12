@@ -353,7 +353,8 @@ class KnowledgeAreaLessonPlansController < ApplicationController
                       else
                         knowledge_areas.by_classroom_id(@classrooms.map(&:id))
                       end
-    knowledge_areas
+
+    filter_knowledge_areas_for_content_registration(knowledge_areas, current_user_classroom)
   end
 
   def fetch_knowledge_area_by_user
