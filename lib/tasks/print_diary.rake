@@ -1,6 +1,6 @@
 require 'hexapdf'
 
-desc "Print diary"
+desc "Print diary (obrigatório: YEAR= e DOMAIN= ou TENANT=). Ex: YEAR=2024 DOMAIN=escola.gov.br rake print_diary"
 task print_diary: :environment do
 
   DISCIPLINE_LESSON_PLAN_REPORT = "1"
@@ -102,14 +102,28 @@ task print_diary: :environment do
     )
   end
 
-  puts "Informe o ano letivo: "
-  year = 2024 # $stdin.gets.chomp
+  year = ENV.fetch("YEAR") do
+    raise "Informe YEAR=. Ex: YEAR=2024 DOMAIN=escola.gov.br rake print_diary"
+  end.to_i
+  raise "YEAR inválido" if year <= 0
   root = "#{Rails.root}/impressao-diarios/#{year}"
   system("mkdir -p #{root}")
 
-  entity = Entity.active.last
-    
-    entity.using_connection do
+  entity = if ENV["DOMAIN"].present?
+             e = Entity.find_by(domain: ENV["DOMAIN"])
+             raise "Entidade não encontrada para DOMAIN=#{ENV['DOMAIN']}" unless e
+             e
+           elsif ENV["TENANT"].present?
+             e = Entity.find_by(name: ENV["TENANT"])
+             raise "Entidade não encontrada para TENANT=#{ENV['TENANT']}" unless e
+             e
+           else
+             raise "Obrigatório informar DOMAIN= ou TENANT=. Ex: YEAR=2024 DOMAIN=escola.gov.br rake print_diary"
+           end
+
+  puts "Imprimindo diários: #{entity.name} (#{entity.domain}), ano #{year}"
+
+  entity.using_connection do
       connection = ActiveRecord::Base.connection
 
       current_user = User.find_by(login: 'admin')
