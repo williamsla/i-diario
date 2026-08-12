@@ -106,8 +106,6 @@ task print_diary: :environment do
     raise "Informe YEAR=. Ex: YEAR=2024 DOMAIN=escola.gov.br rake print_diary"
   end.to_i
   raise "YEAR inválido" if year <= 0
-  root = "#{Rails.root}/impressao-diarios/#{year}"
-  system("mkdir -p #{root}")
 
   entity = if ENV["DOMAIN"].present?
              e = Entity.find_by(domain: ENV["DOMAIN"])
@@ -121,7 +119,12 @@ task print_diary: :environment do
              raise "Obrigatório informar DOMAIN= ou TENANT=. Ex: YEAR=2024 DOMAIN=escola.gov.br rake print_diary"
            end
 
+  tenant_folder = entity.name.presence || entity.domain
+  root = "#{Rails.root}/impressao-diarios/#{tenant_folder}/#{year}"
+  system("mkdir -p #{root}")
+
   puts "Imprimindo diários: #{entity.name} (#{entity.domain}), ano #{year}"
+  puts "Saída: #{root}"
 
   entity.using_connection do
       connection = ActiveRecord::Base.connection
