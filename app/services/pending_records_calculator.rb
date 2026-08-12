@@ -1,8 +1,9 @@
 class PendingRecordsCalculator
-  FICHA_CONCEITUAL_NAME_PATTERNS = [
-    /ficha\s*conceitual/,
-    /\beixo\s+(i{1,3}|iv|v)\s*-/,
-    /\Az\s+.*\beixo\b/
+  # Áreas/disciplinas com "EIXO" ou "FICHA" no nome não entram em datas pendentes
+  # nem no registro de conteúdo por área de conhecimento.
+  EXCLUDED_KNOWLEDGE_AREA_NAME_PATTERNS = [
+    /eixo/,
+    /ficha/
   ].freeze
 
   def self.reset_pending_records_discipline_cache!
@@ -12,7 +13,7 @@ class PendingRecordsCalculator
   end
 
   def self.exclude_pending_record_row?(discipline_name:, knowledge_area_id: nil, discipline_id: nil)
-    # Exclui fichas conceituais tanto como disciplina quanto como área de conhecimento
+    # Exclui fichas/eixos tanto como disciplina quanto como área de conhecimento
     # (no iEducar cada eixo pode ser uma área com o mesmo nome da ficha).
     return true if discipline_name_excluded?(discipline_name)
     return false if knowledge_area_id.present?
@@ -27,7 +28,7 @@ class PendingRecordsCalculator
     return false if name.blank?
 
     normalized = I18n.transliterate(name.to_s.downcase)
-    FICHA_CONCEITUAL_NAME_PATTERNS.any? { |pattern| normalized.match?(pattern) }
+    EXCLUDED_KNOWLEDGE_AREA_NAME_PATTERNS.any? { |pattern| normalized.match?(pattern) }
   end
 
   def self.discipline_excluded_from_pending_records?(discipline)

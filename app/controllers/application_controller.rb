@@ -233,6 +233,10 @@ class ApplicationController < ActionController::Base
   end
 
   def filter_knowledge_areas_for_content_registration(knowledge_areas, classroom = current_user_classroom)
+    knowledge_areas = knowledge_areas.reject do |knowledge_area|
+      PendingRecordsCalculator.discipline_name_excluded?(knowledge_area.description)
+    end
+
     return knowledge_areas unless multigrade_infantil_fundamental_classroom?(classroom)
 
     allowed_ids = knowledge_area_ids_for_grade_ids(classroom, infantil_grade_ids(classroom))
