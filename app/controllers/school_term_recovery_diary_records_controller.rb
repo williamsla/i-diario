@@ -137,10 +137,19 @@ class SchoolTermRecoveryDiaryRecordsController < ApplicationController
     return if params[:classroom_id].blank?
 
     classroom = Classroom.find(params[:classroom_id])
-    step_numbers = StepsFetcher.new(classroom)&.steps    
-    steps = step_numbers.map { |step| { id: step.id, description: step.to_s } }
+    steps = StepsFetcher.new(classroom).steps
+    exam_rule = classroom.first_exam_rule_with_recovery
 
-    render json: steps.to_json
+    if ActiveRecord::Type::Boolean.new.cast(params[:specific_recovery]) &&
+       exam_rule&.recovery_exam_rules&.any?
+      steps = steps.select do |step|
+        exam_rule.recovery_exam_rules.any? do |recovery_specific|
+          recovery_specific.steps.last.eql?(step.to_number)
+        end
+      end
+    end
+
+    render json: steps.map { |step| { id: step.id, description: step.to_s } }.to_json
   end
 
   def fetch_number_of_decimal_places

@@ -67,6 +67,7 @@ $(function () {
     return $.ajax({
       url: Routes.fetch_step_school_term_recovery_diary_records_pt_br_path({
         classroom_id: classroom_id,
+        specific_recovery: true,
         format: 'json'
       }),
       success: handleFetchStepByClassroomSuccess,
