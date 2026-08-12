@@ -92,9 +92,12 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
 
   def edit
     @knowledge_area_teaching_plan = KnowledgeAreaTeachingPlan.find(params[:id]).localized
-    @knowledge_areas = @knowledge_area_teaching_plan.knowledge_areas
 
     set_options_by_user
+    set_knowledge_area_by_classroom(
+      current_user_classroom.id,
+      keep_ids: @knowledge_area_teaching_plan.knowledge_area_ids
+    )
 
     authorize @knowledge_area_teaching_plan
   end
@@ -125,7 +128,10 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
     else
       yearly_term_type_id
       set_options_by_user
-      @knowledge_areas = @knowledge_area_teaching_plan.knowledge_areas
+      set_knowledge_area_by_classroom(
+        current_user_classroom.id,
+        keep_ids: @knowledge_area_teaching_plan.knowledge_area_ids
+      )
 
       render :edit
     end
@@ -319,13 +325,17 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
     @classrooms ||= [current_user_classroom]
   end
 
-  def set_knowledge_area_by_classroom(classroom_id)
+  def set_knowledge_area_by_classroom(classroom_id, keep_ids: [])
     classroom = Classroom.find_by(id: Array(classroom_id).first)
     knowledge_areas = KnowledgeArea.by_teacher(current_teacher)
                                    .by_classroom_id(classroom_id)
                                    .ordered
 
-    @knowledge_areas = filter_knowledge_areas_for_content_registration(knowledge_areas, classroom)
+    @knowledge_areas = filter_knowledge_areas_for_content_registration(
+      knowledge_areas,
+      classroom,
+      keep_ids: keep_ids
+    )
   end
 
   def yearly_term_type_id

@@ -118,7 +118,7 @@ class KnowledgeAreaLessonPlansController < ApplicationController
     fetch_unities
     fetch_classrooms if current_user.current_role_is_admin_or_employee?
     fetch_students_with_disabilities
-    @knowledge_areas = fetch_knowledge_area
+    @knowledge_areas = fetch_knowledge_area(keep_ids: @knowledge_area_lesson_plan.knowledge_area_ids)
   end
 
   def update
@@ -151,7 +151,7 @@ class KnowledgeAreaLessonPlansController < ApplicationController
       fetch_unities
       fetch_classrooms if current_user.current_role_is_admin_or_employee?
       fetch_students_with_disabilities
-      @knowledge_areas = fetch_knowledge_area
+      @knowledge_areas = fetch_knowledge_area(keep_ids: @knowledge_area_lesson_plan.knowledge_area_ids)
 
       render :edit
     end
@@ -345,7 +345,7 @@ class KnowledgeAreaLessonPlansController < ApplicationController
     @classrooms ||= [current_user_classroom]
   end
 
-  def fetch_knowledge_area
+  def fetch_knowledge_area(keep_ids: [])
     knowledge_areas = KnowledgeArea.by_teacher(current_teacher).ordered
 
     knowledge_areas = if current_user.current_role_is_admin_or_employee?
@@ -354,7 +354,11 @@ class KnowledgeAreaLessonPlansController < ApplicationController
                         knowledge_areas.by_classroom_id(@classrooms.map(&:id))
                       end
 
-    filter_knowledge_areas_for_content_registration(knowledge_areas, current_user_classroom)
+    filter_knowledge_areas_for_content_registration(
+      knowledge_areas,
+      current_user_classroom,
+      keep_ids: keep_ids
+    )
   end
 
   def fetch_knowledge_area_by_user
