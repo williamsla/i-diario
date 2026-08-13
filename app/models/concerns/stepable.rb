@@ -48,23 +48,24 @@ module Stepable
   def ensure_is_school_day
     return unless classroom.present? && recorded_at.present? && school_calendar.present?
 
-    school_day = true
-    grade_ids = classroom.grade_ids
-
-    loop do
-      grade_id = grade_ids&.shift
-      school_day = false unless school_calendar.school_day?(recorded_at, grade_id, classroom.id, nil)
-
-      break if grade_ids.blank? || !school_day
-    end
-
-    errors.add(:recorded_at, :not_school_term_day) unless school_day
+    errors.add(:recorded_at, :not_school_term_day) unless recorded_at_allows_entry?
   end
 
   def recorded_at_is_in_selected_step
     return if step_id.blank? || recorded_at.blank?
     return if steps_fetcher.step_belongs_to_date?(step_id, recorded_at)
+    # Eventos "permite lançamentos" podem ficar fora dos períodos letivos (ex.: recuperação)
+    return if steps_fetcher.step_by_date(recorded_at).nil? && recorded_at_allows_entry?
 
     errors.add(:recorded_at, :not_school_term_day)
+  end
+
+  def recorded_at_allows_entry?
+    grade_ids = classroom.grade_ids
+    grade_ids = [nil] if grade_ids.blank?
+
+    grade_ids.all? do |grade_id|
+      school_calendar.day_allows_entry?(recorded_at, grade_id, classroom.id, nil)
+    end
   end
 end
