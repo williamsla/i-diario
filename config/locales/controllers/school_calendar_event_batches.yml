@@ -6,3 +6,5 @@ pt-BR:
       by_type: "Filtrar tipo"
       by_year: "Filtrar ano"
       by_status: "Filtrar status"
+    reprocess:
+      notice: "O evento em lote está sendo reprocessado."

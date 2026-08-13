@@ -178,7 +178,11 @@ Rails.application.routes.draw do
     end
     resources :test_setting_tests, only: [:index, :show]
 
-    resources :school_calendar_event_batches
+    resources :school_calendar_event_batches do
+      member do
+        post :reprocess
+      end
+    end
     resources :school_calendars, concerns: :history do
       collection do
         get :step

@@ -47,20 +47,17 @@ module SchoolCalendarEventBatchManager
               event.legend = school_calendar_event_batch.legend
               event.show_in_frequency_record = school_calendar_event_batch.show_in_frequency_record
               event.equivalent_weekday = school_calendar_event_batch.equivalent_weekday
-              # Define coverage como by_unity para eventos em lote (padrão para eventos globais)
               event.coverage = EventCoverageType::BY_UNITY
-              
+
               if event.changed?
                 event.save!
                 Rails.logger.info("Evento criado/atualizado com sucesso para calendário escolar ID #{school_calendar.id} (Unity ID: #{school_calendar.unity_id})")
-                events_created_count += 1
-                created = true
-                school_calendars_days(school_calendar_event_batch, action_name)
               else
                 Rails.logger.info("Evento já existe e não foi alterado para calendário escolar ID #{school_calendar.id} (Unity ID: #{school_calendar.unity_id})")
-                events_created_count += 1
-                created = true
               end
+
+              events_created_count += 1
+              created = true
             rescue ActiveRecord::RecordInvalid => e
               events_failed_count += 1
               unity_name = Unity.find_by(id: school_calendar.unity_id)&.name || "ID #{school_calendar.unity_id}"
@@ -131,7 +128,9 @@ module SchoolCalendarEventBatchManager
             raise EventsNotCreatedError, error_message
           end
 
-          school_calendar_event_batch.update(batch_status: BatchStatus::COMPLETED)
+          school_calendar_event_batch.school_calendar_events.reload
+          school_calendars_days(school_calendar_event_batch, action_name)
+          school_calendar_event_batch.mark_as_completed!
           Rails.logger.info("Evento em lote #{school_calendar_event_batch_id} finalizado com sucesso")
           notify(
             school_calendar_event_batch,

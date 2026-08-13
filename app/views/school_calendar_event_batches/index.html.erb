@@ -11,7 +11,7 @@
           <td><%= f.input :by_description, label: false, placeholder: t('.by_description') %></td>
           <td><%= f.input :by_type, label: false, as: :select2, elements: EventTypes.to_select.to_json, placeholder: t('.by_type') %></td>
           <td><%= f.input :by_status, label: false, as: :select2, elements: BatchStatus.to_select.to_json, placeholder: t('.by_status') %></td>
-          <td style="width: 160px">
+          <td style="width: 240px">
             <%= link_to new_school_calendar_event_batch_path, class: "btn btn-primary pul" do %>
               <%= t('.new_html') %>
             <% end %>
