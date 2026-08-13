@@ -1,12 +1,15 @@
 class DailyFrequencyQuery
   def self.call(filters = {})
-    DailyFrequency.all.extending(Scopes)
+    relation = DailyFrequency.all.extending(Scopes)
       .by_classroom_id(filters[:classroom_id])
       .by_period(filters[:period])
       .by_frequency_date_between(filters[:frequency_date])
       .by_discipline_id(filters[:discipline_id], filters[:all_students_frequencies])
       .by_class_number(filters[:class_numbers], filters[:all_students_frequencies])
-      .includes([students: :student], :school_calendar, :discipline, :classroom, :unity)
+
+    return relation if filters[:skip_includes]
+
+    relation.includes([students: :student], :school_calendar, :discipline, :classroom, :unity)
   end
 
   module Scopes

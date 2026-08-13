@@ -36,22 +36,21 @@ task print_diary: :environment do
   end
 
   def add_pdf_to_merge(pdfTarget, name, render)
-    file_path = "#{Rails.root}/public#{name}"
-    
-    File.open(file_path, 'wb') do |f|
-      f.write(render)
+    require 'stringio' unless defined?(StringIO)
+
+    localpdf = HexaPDF::Document.new(io: StringIO.new(render.to_s))
+    localpdf.pages.each { |page| pdfTarget.pages << pdfTarget.import(page) }
+  rescue StandardError => error
+    Rails.logger.warn("HexaPDF merge via StringIO falhou (#{error.message}), usando arquivo temporário")
+    require 'tempfile'
+
+    Tempfile.create(['pdf_merge', '.pdf']) do |file|
+      file.binmode
+      file.write(render)
+      file.flush
+      localpdf = HexaPDF::Document.open(file.path)
+      localpdf.pages.each { |page| pdfTarget.pages << pdfTarget.import(page) }
     end
-
-    # last_page_number = pdfTarget.pages.size
-
-    localpdf = HexaPDF::Document.open(file_path)
-    localpdf.pages.each {|page| pdfTarget.pages << pdfTarget.import(page)}
-
-    # pdfTarget.outline.add_item("Main") do |main|
-    #   main.add_item(name, destination: last_page_number)      
-    # end
-
-    File.delete(file_path)
   end
 
   def merge_pdf(pdfTarget, name, rootPath="#{Rails.root}/public")
@@ -170,6 +169,8 @@ task print_diary: :environment do
                 next if is_active == false
 
                 puts "\t\t#{teacher.name} - #{teacher.id}"
+
+                ReportQueryCache.clear!
 
                 pdfTarget = HexaPDF::Document.new
 
@@ -434,6 +435,7 @@ task print_diary: :environment do
                   # --
                   filename_diary = report_name("diario#{calendar.year}-#{classroom.description.gsub('/','')}-#{teacher.name.split.first}", 4)
                   filename_diary_full_path = merge_pdf(pdfTarget, filename_diary, directory_name)
+                  ReportQueryCache.clear!
             end
         end
           

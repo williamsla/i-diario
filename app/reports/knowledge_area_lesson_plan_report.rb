@@ -274,11 +274,7 @@ class KnowledgeAreaLessonPlanReport < BaseReport
     lesson_plan = knowledge_area_lesson_plan.lesson_plan
     activities_text = lesson_plan.activities.to_s.gsub(/<[^>]*>/, '')
 
-    knowledge_area_lesson_plans_knowledge_areas = KnowledgeAreaLessonPlanKnowledgeArea.where(
-      knowledge_area_lesson_plan_id: knowledge_area_lesson_plan.id
-    )
-    knowledge_area_ids = knowledge_area_lesson_plans_knowledge_areas.map(&:knowledge_area_id)
-    knowledge_area_descriptions = KnowledgeArea.where(id: knowledge_area_ids).map(&:description).join(', ')
+    knowledge_area_descriptions = knowledge_area_lesson_plan.knowledge_areas.map(&:description).join(', ')
 
     knowledge_area_and_content = [
       knowledge_area_descriptions.to_s.gsub("\n", ' ').squeeze(' '),

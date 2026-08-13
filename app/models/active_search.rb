@@ -26,6 +26,8 @@ class ActiveSearch < ApplicationRecord
   def in_active_search_in_range(student_enrollments_ids, dates)
     students_active_searchs = ActiveSearch.where(student_enrollment_id: student_enrollments_ids)
                                           .includes(student_enrollment: [:student])
+    return [] if students_active_searchs.empty?
+
     in_active_searchs = []
 
     dates.each do |date|

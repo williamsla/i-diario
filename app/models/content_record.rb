@@ -64,8 +64,9 @@ class ContentRecord < ApplicationRecord
   end
 
   def unity
-    return unless unity_id
-    Unity.find(unity_id)
+    return classroom.unity if classroom
+
+    Unity.find(unity_id) if unity_id
   end
 
   def unity_id
@@ -79,11 +80,19 @@ class ContentRecord < ApplicationRecord
   end
 
   def contents_ordered
-    contents.order(' "content_records_contents"."id" ')
+    if content_records_contents.loaded?
+      content_records_contents.sort_by { |item| item.id.to_i }.map(&:content).compact
+    else
+      contents.order(' "content_records_contents"."id" ')
+    end
   end
 
   def objectives_ordered
-    objectives.order('objectives_content_records.position')
+    if objectives_content_records.loaded?
+      objectives_content_records.sort_by { |item| item.position.to_i }.map(&:objective).compact
+    else
+      objectives.order('objectives_content_records.position')
+    end
   end
 
   def origin=(value)

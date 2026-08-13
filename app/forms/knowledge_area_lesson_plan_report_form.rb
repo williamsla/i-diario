@@ -28,7 +28,15 @@ class KnowledgeAreaLessonPlanReportForm
     relation = KnowledgeAreaLessonPlan.by_classroom_id(classroom_id)
                                       .by_date_range(date_start.to_date, date_end.to_date)
                                       .by_author(author, teacher_id)
-                                      .includes(lesson_plan: :student)
+                                      .preload(
+                                        :knowledge_areas,
+                                        lesson_plan: [
+                                          :student,
+                                          { classroom: :unity },
+                                          { contents_lesson_plans: :content },
+                                          { objectives_lesson_plans: :objective }
+                                        ]
+                                      )
                                       .order_by_lesson_plan_date
 
     relation = relation.by_knowledge_area_id(knowledge_area_id) if knowledge_area_id.present?
@@ -40,7 +48,15 @@ class KnowledgeAreaLessonPlanReportForm
     relation = KnowledgeAreaContentRecord.by_classroom_id(classroom_id)
                                          .by_date_range(date_start.to_date, date_end.to_date)
                                          .by_author(author, teacher_id)
-                                         .includes(content_record: :student)
+                                         .preload(
+                                           :knowledge_areas,
+                                           content_record: [
+                                             :student,
+                                             { classroom: :unity },
+                                             { content_records_contents: :content },
+                                             { objectives_content_records: :objective }
+                                           ]
+                                         )
                                          .order_by_content_record_date
 
     relation = relation.by_knowledge_area_id(knowledge_area_id) if knowledge_area_id.present?
@@ -59,10 +75,10 @@ class KnowledgeAreaLessonPlanReportForm
   end
 
   def invalid_lesson_plan?
-    report_type == ContentRecordReportTypes::LESSON_PLAN && knowledge_area_lesson_plan.count.zero?
+    report_type == ContentRecordReportTypes::LESSON_PLAN && !knowledge_area_lesson_plan.exists?
   end
 
   def invalid_content_record?
-    report_type == ContentRecordReportTypes::CONTENT_RECORD && knowledge_area_content_record.count.zero?
+    report_type == ContentRecordReportTypes::CONTENT_RECORD && !knowledge_area_content_record.exists?
   end
 end

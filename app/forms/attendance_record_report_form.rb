@@ -41,7 +41,8 @@ class AttendanceRecordReportForm
       period: period_for_frequency_query,
       frequency_date: start_at..end_at,
       discipline_id: !global_absence? && discipline_id,
-      class_numbers: !global_absence? && normalized_class_numbers
+      class_numbers: !global_absence? && normalized_class_numbers,
+      skip_includes: true
     ).group_by(&:frequency_date).map do |frequency_date, frequencies_aux|
       collapse_frequencies_for_date(frequencies_aux)
     end.flatten
@@ -235,9 +236,8 @@ class AttendanceRecordReportForm
   private
 
   def days_enrollment
-    days = daily_frequencies.map(&:frequency_date)
-
-    students_ids = daily_frequencies.flat_map(&:students).map(&:student_id).uniq
+    days = daily_frequencies.map(&:frequency_date).uniq
+    students_ids = daily_frequency_students_by_frequency_id.values.flatten.map(&:student_id).uniq
 
     EnrollmentFromStudentFetcher.new.current_enrollments(students_ids, classroom_id, days)
   end
@@ -252,21 +252,18 @@ class AttendanceRecordReportForm
   def is_infantil?
     return false if classroom_id.blank?
 
-    classroom_obj = Classroom.find_by(id: classroom_id)
-    return false if classroom_obj.blank?
+    @is_infantil ||= begin
+      classroom.classrooms_grades.any? do |classroom_grade|
+        grade = classroom_grade.grade
+        next false if grade.blank?
 
-    classroom_obj.classrooms_grades.each do |classroom_grade|
-      grade = classroom_grade.grade
-      next if grade.blank?
+        course_description = I18n.transliterate(grade.course&.description.to_s.downcase)
+        next true if course_description.match?(/infantil|aee/)
 
-      course_description = I18n.transliterate(grade.course&.description.to_s.downcase)      
-      return true if course_description.match?(/infantil|aee/)
-
-      description = I18n.transliterate(grade.description.to_s.downcase)
-      return true if description.match?(/creche|pre|pre-escola|maternal|bercario|jardim|infantil|aee/)
-      
+        description = I18n.transliterate(grade.description.to_s.downcase)
+        description.match?(/creche|pre|pre-escola|maternal|bercario|jardim|infantil|aee/)
+      end
     end
-    false
   end
 
   def must_have_daily_frequencies
@@ -276,7 +273,7 @@ class AttendanceRecordReportForm
   end
 
   def classroom
-    @classroom ||= Classroom.find(@classroom_id)
+    @classroom ||= Classroom.includes(classrooms_grades: [:exam_rule, { grade: :course }]).find(@classroom_id)
   end
 
   def teacher
@@ -284,29 +281,39 @@ class AttendanceRecordReportForm
   end
 
   def frequency_type_for_classroom_and_discipline
-    return FrequencyTypes::GENERAL if classroom.blank?
+    @frequency_type_for_classroom_and_discipline ||= begin
+      if classroom.blank?
+        FrequencyTypes::GENERAL
+      else
+        exam_rule_frequency_type = classroom.classrooms_grades.first&.exam_rule&.frequency_type
+        if exam_rule_frequency_type == FrequencyTypes::BY_DISCIPLINE
+          FrequencyTypes::BY_DISCIPLINE
+        elsif discipline_id.blank? || @current_teacher_id.blank?
+          FrequencyTypes::GENERAL
+        else
+          grade_ids = classroom.classrooms_grades.map(&:grade_id)
+          linked_by_discipline = TeacherDisciplineClassroom.where(
+            teacher_id: @current_teacher_id,
+            classroom_id: classroom_id,
+            discipline_id: discipline_id,
+            year: classroom.year,
+            grade_id: grade_ids,
+            allow_absence_by_discipline: 1,
+            active: true,
+            discarded_at: nil
+          ).exists?
 
-    exam_rule_frequency_type = classroom.classrooms_grades
-                                      .first
-                                      &.exam_rule
-                                      &.frequency_type
-    return FrequencyTypes::BY_DISCIPLINE if exam_rule_frequency_type == FrequencyTypes::BY_DISCIPLINE
-    return FrequencyTypes::GENERAL if discipline_id.blank?
-    return FrequencyTypes::GENERAL if @current_teacher_id.blank?
+          linked_by_discipline ? FrequencyTypes::BY_DISCIPLINE : FrequencyTypes::GENERAL
+        end
+      end
+    end
+  end
 
-    grade_ids = classroom.classrooms_grades.pluck(:grade_id)
-    linked_by_discipline = TeacherDisciplineClassroom.where(
-      teacher_id: @current_teacher_id,
-      classroom_id: classroom_id,
-      discipline_id: discipline_id,
-      year: classroom.year,
-      grade_id: grade_ids,
-      allow_absence_by_discipline: 1,
-      active: true,
-      discarded_at: nil
-    ).exists?
-
-    linked_by_discipline ? FrequencyTypes::BY_DISCIPLINE : FrequencyTypes::GENERAL
+  def daily_frequency_students_by_frequency_id
+    @daily_frequency_students_by_frequency_id ||= begin
+      ids = daily_frequencies.map(&:id)
+      ids.empty? ? {} : DailyFrequencyStudent.by_daily_frequency_id(ids).group_by(&:daily_frequency_id)
+    end
   end
 
   def absences_students
@@ -314,12 +321,13 @@ class AttendanceRecordReportForm
     count_days = {}
     enrollments = days_enrollment
     @do_not_send_justified_absence = GeneralConfiguration.current.do_not_send_justified_absence
+    students_by_frequency_id = daily_frequency_students_by_frequency_id
 
     daily_frequencies.each do |daily_frequency|
-      daily_frequency.students.each do |daily_frequency_student|
-        next if daily_frequency_student.student.nil?
+      (students_by_frequency_id[daily_frequency.id] || []).each do |daily_frequency_student|
+        student_id = daily_frequency_student.student_id
+        next if student_id.nil?
 
-        student_id = daily_frequency_student.student.id
         student_enrollment_id = enrollments[student_id][daily_frequency.frequency_date] if enrollments[student_id]
 
         next if student_enrollment_id.nil?
@@ -410,28 +418,25 @@ class AttendanceRecordReportForm
 
   def inactives_on_dates
     inactives_on_dates = {}
+    enrollment_ranges = enrollment_classrooms_list.map do |enrollment_classroom|
+      joined_at = enrollment_classroom[:student_enrollment_classroom].joined_at.to_date
+      left_at = enrollment_classroom[:student_enrollment_classroom].left_at
+      left_at = left_at.empty? ? Date.current.end_of_year : left_at.to_date
 
-    daily_frequencies.each do |daily_frequency|
-      frequency_date = daily_frequency.frequency_date
+      [enrollment_classroom[:student_enrollment].id, joined_at, left_at]
+    end
 
-      enrollments_on_date = enrollment_classrooms_list.select { |enrollment_classroom|
-        joined_at = enrollment_classroom[:student_enrollment_classroom].joined_at.to_date
-        left_at = enrollment_classroom[:student_enrollment_classroom].left_at
+    daily_frequencies.map(&:frequency_date).uniq.each do |frequency_date|
+      enrollments_on_date_ids = enrollment_ranges.each_with_object([]) do |(enrollment_id, joined_at, left_at), ids|
+        ids << enrollment_id if frequency_date >= joined_at && frequency_date < left_at
+      end
 
-        left_at = left_at.empty? ? Date.current.end_of_year : left_at.to_date
+      not_enrolled_on_the_date = student_enrollment_ids - enrollments_on_date_ids
+      next if not_enrolled_on_the_date.empty?
 
-        frequency_date >= joined_at && frequency_date < left_at
-      }
-
-      enrollments_on_date_ids = enrollments_on_date.map { |enrollment| enrollment[:student_enrollment].id }
-      not_enrrolled_on_the_date = student_enrollment_ids - enrollments_on_date_ids
-
-      next if not_enrrolled_on_the_date.empty?
-
-      not_enrrolled_on_the_date.each do |not_enrolled|
-        enrollment = student_enrollment_ids.select { |student_enrollment| student_enrollment == not_enrolled }.first
-        inactives_on_dates[enrollment] ||= []
-        inactives_on_dates[enrollment] << daily_frequency.frequency_date
+      not_enrolled_on_the_date.each do |enrollment_id|
+        inactives_on_dates[enrollment_id] ||= []
+        inactives_on_dates[enrollment_id] << frequency_date
       end
     end
 

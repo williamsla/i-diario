@@ -124,6 +124,6 @@ class StudentEnrollmentClassroomsRetriever
   end
 
   def show_inactive_enrollments
-    @show_inactive_enrollments ||= GeneralConfiguration.first.show_inactive_enrollments
+    @show_inactive_enrollments ||= GeneralConfiguration.current.show_inactive_enrollments
   end
 end
