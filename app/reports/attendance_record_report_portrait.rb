@@ -282,7 +282,7 @@ class AttendanceRecordReportPortrait < BaseReport
         sequence += 1 unless @show_inactive_enrollments
       end
 
-      sliced_students = student_list.each_slice(student_slice_size(students)).to_a
+      sliced_students = student_list.each_slice(student_slice_size(student_list)).to_a
 
       sliced_students.each_with_index do |students_slice, slice_index|
         aulas_dadas = if slice_index == sliced_students.count - 1 && index == sliced_frequencies_and_events.count - 1
@@ -487,9 +487,9 @@ class AttendanceRecordReportPortrait < BaseReport
   end
 
   def student_slice_size(students)
-    student_with_social_name_count = students.select { |(_key, value)|
-      value[:social_name].present?
-    }.length
+    student_with_social_name_count = students.count { |student|
+      student && student[:social_name].present?
+    }
 
     second_signature_offset = @second_teacher_signature ? 3 : 0
     social_name_factor = (student_with_social_name_count / SOCIAL_NAME_REDUCTION_FACTOR)
