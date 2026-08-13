@@ -2,11 +2,9 @@ class AttendanceRecordReportPortrait < BaseReport
   NULL_FREQUENCY_STUDENT = NullDailyFrequencyStudent.new
   ACTIVE_SEARCH_FREQUENCY_STUDENT = ActiveSearchFrequencyStudent.new
 
-  # This number represent how many students are printed on each page
-  STUDENT_BY_PAGE_COUNT = 31
-
-  # This factor represent the quantitty of students with social name needed to reduce 1 student by page
-  SOCIAL_NAME_REDUCTION_FACTOR = 2
+  FREQUENCY_ROW_H = 11.0
+  FREQUENCY_HEADER_H = 11.0
+  FREQUENCY_FOOTER_RESERVE = 55.0
 
   NUMBER_OF_COLS = 25
 
@@ -282,20 +280,30 @@ class AttendanceRecordReportPortrait < BaseReport
         sequence += 1 unless @show_inactive_enrollments
       end
 
-      sliced_students = student_list.each_slice(student_slice_size(student_list)).to_a
+      remaining_students = student_list.dup
+      page_slice = 0
 
-      sliced_students.each_with_index do |students_slice, slice_index|
-        aulas_dadas = if slice_index == sliced_students.count - 1 && index == sliced_frequencies_and_events.count - 1
-                        daily_frequencies.count
-                      end
+      while remaining_students.any?
+        start_new_page if page_slice.positive?
+        position_frequency_grid
 
-        page_content do
-          draw_frequency_grid(class_numbers, days, months, students_slice, aulas_dadas)
+        last_frequency_slice = index == sliced_frequencies_and_events.count - 1
+        fit_with_aulas = frequency_students_that_fit(include_aulas_dadas: true)
+        fit_without_aulas = frequency_students_that_fit(include_aulas_dadas: false)
+
+        if last_frequency_slice && remaining_students.size <= fit_with_aulas
+          take = remaining_students.size
+          aulas_dadas = daily_frequencies.count
+        else
+          take = [fit_without_aulas, remaining_students.size].min
+          aulas_dadas = nil
         end
+        take = 1 if take < 1
 
+        students_slice = remaining_students.shift(take)
+        draw_frequency_grid(class_numbers, days, months, students_slice, aulas_dadas)
         text_box(self.legend, size: 8, at: [0, 30 + bottom_offset], width: 585, height: 20)
-
-        start_new_page if slice_index < sliced_students.count - 1
+        page_slice += 1
       end
 
       text_box(self.legend, size: 8, at: [0, 30 + bottom_offset], width: 585, height: 20)
@@ -320,25 +328,44 @@ class AttendanceRecordReportPortrait < BaseReport
     end
   end
 
+  def position_frequency_grid
+    return unless @display_header_on_all_reports_pages && @cursor_page
+    return unless cursor > @cursor_page
+
+    move_cursor_to(@cursor_page)
+  end
+
+  def frequency_students_that_fit(include_aulas_dadas:)
+    footer_reserve = FREQUENCY_FOOTER_RESERVE
+    footer_reserve += 24 if @second_teacher_signature
+    extra_h = include_aulas_dadas ? FREQUENCY_ROW_H : 0
+    available = cursor - footer_reserve - (3 * FREQUENCY_HEADER_H) - extra_h
+    count = (available / FREQUENCY_ROW_H).floor
+    [count, 1].max
+  end
+
   def draw_frequency_grid(class_numbers, days, months, student_rows, aulas_dadas)
+    position_frequency_grid
+
     width = bounds.width
-    num_w = 18.0
-    abs_w = 28.0
-    freq_w = @show_percentage_on_attendance ? 26.0 : 0.0
+    num_w = 20.0
+    abs_w = 30.0
+    freq_w = @show_percentage_on_attendance ? 28.0 : 0.0
     att_count = NUMBER_OF_COLS
     att_w = 13.0
     name_w = width - num_w - (att_count * att_w) - abs_w - freq_w
-    row_h = 11.0
-    header_h = 11.0
+    row_h = FREQUENCY_ROW_H
+    header_h = FREQUENCY_HEADER_H
     extra_h = aulas_dadas ? row_h : 0
-    total_h = (3 * header_h) + (student_rows.size * row_h) + extra_h
+    rows_h = (3 * header_h) + (student_rows.size * row_h) + extra_h
     start_y = cursor
-    bottom = start_y - total_h
+    grid_bottom = start_y - rows_h
+    students_bottom = start_y - (3 * header_h) - (student_rows.size * row_h)
+    vline_bottom = aulas_dadas ? students_bottom : grid_bottom
     x_att = num_w + name_w
     x_abs = x_att + (att_count * att_w)
     x_freq = x_abs + abs_w
-
-    pad = ->(values) { values + Array.new([att_count - values.size, 0].max, '') }
+    pad = ->(values) { Array(values)[0, att_count] + Array.new([att_count - Array(values).size, 0].max, '') }
 
     line_width 0.25
     stroke_color '000000'
@@ -354,12 +381,12 @@ class AttendanceRecordReportPortrait < BaseReport
     fill_color '000000'
 
     header_mid_y = start_y - (2 * header_h) + 3
-    draw_text 'Nº', size: 8, style: :bold, at: [3, header_mid_y]
+    draw_text 'Nº', size: 8, style: :bold, at: [4, header_mid_y]
     draw_text 'Nome do aluno', size: 8, style: :bold, at: [num_w + 4, header_mid_y]
     draw_text 'Aula', size: 7, style: :bold, at: [x_att - 22, start_y - header_h + 3]
     draw_text 'Dia', size: 7, style: :bold, at: [x_att - 18, start_y - (2 * header_h) + 3]
     draw_text 'Mês', size: 7, style: :bold, at: [x_att - 18, start_y - (3 * header_h) + 3]
-    draw_text 'Faltas', size: 7, style: :bold, at: [x_abs + 2, header_mid_y]
+    draw_text 'Faltas', size: 7, style: :bold, at: [x_abs + 4, header_mid_y]
     draw_text 'Freq.', size: 7, style: :bold, at: [x_freq + 2, header_mid_y] if @show_percentage_on_attendance
 
     pad.call(class_numbers).each_with_index do |value, index|
@@ -374,11 +401,17 @@ class AttendanceRecordReportPortrait < BaseReport
 
     student_rows.each_with_index do |row, index|
       y_bottom = start_y - (3 * header_h) - ((index + 1) * row_h)
-      name = row[:display_name].to_s
-      name = "#{name[0, 40]}..." if name.length > 42
-
-      draw_text row[:sequence].to_s, size: 8, at: [4, y_bottom + 3]
-      draw_text name, size: 8, at: [num_w + 2, y_bottom + 3]
+      draw_text row[:sequence].to_s, size: 8, at: [5, y_bottom + 3]
+      text_box(
+        row[:display_name].to_s,
+        at: [num_w + 2, y_bottom + row_h - 1],
+        width: name_w - 4,
+        height: row_h - 1,
+        size: 8,
+        overflow: :truncate,
+        single_line: true,
+        valign: :center
+      )
       Array(row[:attendances]).each_with_index do |mark, mark_index|
         break if mark_index >= att_count
 
@@ -387,14 +420,14 @@ class AttendanceRecordReportPortrait < BaseReport
       draw_text row[:absences].to_s, size: 8, at: [x_abs + 8, y_bottom + 3]
       next unless @show_percentage_on_attendance
 
-      draw_text (row[:absences_percentage] || '100%').to_s, size: 7, at: [x_freq + 1, y_bottom + 3]
+      draw_text (row[:absences_percentage] || '100%').to_s, size: 7, at: [x_freq + 2, y_bottom + 3]
     end
 
     if aulas_dadas
-      draw_text "Aulas dadas: #{aulas_dadas}", size: 8, at: [(width / 2) - 40, bottom + 3]
+      draw_text "Aulas dadas: #{aulas_dadas}", size: 8, at: [(width / 2) - 40, grid_bottom + 3]
     end
 
-    stroke_rectangle [0, bottom], width, total_h
+    stroke_polygon [0, start_y], [width, start_y], [width, grid_bottom], [0, grid_bottom]
     3.times do |index|
       y = start_y - ((index + 1) * header_h)
       if index < 2
@@ -407,15 +440,15 @@ class AttendanceRecordReportPortrait < BaseReport
       stroke_horizontal_line 0, width, at: start_y - (3 * header_h) - ((index + 1) * row_h)
     end
 
-    stroke_vertical_line start_y, bottom, at: num_w
-    stroke_vertical_line start_y, bottom, at: x_att
+    stroke_vertical_line start_y, vline_bottom, at: num_w
+    stroke_vertical_line start_y, vline_bottom, at: x_att
     att_count.times do |index|
-      stroke_vertical_line start_y, bottom, at: x_att + ((index + 1) * att_w)
+      stroke_vertical_line start_y, vline_bottom, at: x_att + ((index + 1) * att_w)
     end
-    stroke_vertical_line start_y, bottom, at: x_abs
-    stroke_vertical_line start_y, bottom, at: x_freq if @show_percentage_on_attendance
+    stroke_vertical_line start_y, vline_bottom, at: x_abs
+    stroke_vertical_line start_y, vline_bottom, at: x_freq if @show_percentage_on_attendance
 
-    move_cursor_to bottom
+    move_cursor_to(grid_bottom)
   end
 
   def draw_centered_mark(text, x, y_bottom, col_width)
@@ -484,21 +517,6 @@ class AttendanceRecordReportPortrait < BaseReport
                 }
 
     exemption.present?
-  end
-
-  def student_slice_size(students)
-    student_with_social_name_count = students.count { |student|
-      student && student[:social_name].present?
-    }
-
-    second_signature_offset = @second_teacher_signature ? 3 : 0
-    social_name_factor = (student_with_social_name_count / SOCIAL_NAME_REDUCTION_FACTOR)
-
-    slice_size = STUDENT_BY_PAGE_COUNT - second_signature_offset - social_name_factor
-
-    return slice_size unless show_school_day_event_description?
-
-    slice_size - 3
   end
 
   def step_number(daily_frequency)

@@ -43,12 +43,12 @@ class DisciplineLessonPlanReport < BaseReport
         image: entity_logo_io,
         fit: [50, 50],
         width: 70,
-        rowspan: 4,
+        rowspan: 1,
         position: :center,
         vposition: :center
       )
     rescue
-      entity_logo_cell = make_cell(content: '', width: 70, rowspan: 4)
+      entity_logo_cell = make_cell(content: '', width: 70, rowspan: 1)
     end
 
     entity_organ_and_unity_cell = make_cell(
@@ -57,7 +57,7 @@ class DisciplineLessonPlanReport < BaseReport
       leading: 1.5,
       align: :center,
       valign: :center,
-      rowspan: 4,
+      rowspan: 1,
       padding: [6, 0, 8, 0]
     )
 
@@ -170,7 +170,7 @@ class DisciplineLessonPlanReport < BaseReport
     )
 
     move_down GAP
-    start_new_page if cursor < 80
+    start_new_content_page if cursor < 80
 
     table([[section_header_cell]], width: bounds.width, header: true) do
       cells.border_width = 0.25
@@ -202,7 +202,7 @@ class DisciplineLessonPlanReport < BaseReport
       colspan: 3
     )
 
-    start_new_page if cursor < 60
+    start_new_content_page if cursor < 60
 
     table([[student_header_cell]], width: bounds.width, header: true) do
       cells.border_width = 0.25
@@ -260,15 +260,14 @@ class DisciplineLessonPlanReport < BaseReport
   end
 
   def body
-    page_content do
-      identification
-      general_information
-      signatures
-    end
+    position_below_header
+    identification
+    general_information
+    signatures
   end
 
   def signatures
-    start_new_page if cursor < 45
+    start_new_content_page if cursor < 45
 
     move_down 30
     text_box("______________________________________________\nProfessor(a)", size: 10, align: :center, at: [0, cursor], width: 260)
