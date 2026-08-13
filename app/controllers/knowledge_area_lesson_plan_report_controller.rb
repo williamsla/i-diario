@@ -58,11 +58,17 @@ class KnowledgeAreaLessonPlanReportController < ApplicationController
   def fetch_knowledge_areas
     return if params[:classroom_id].blank?
 
-    if current_user.current_role_is_admin_or_employee?
-      knowledge_areas = KnowledgeArea.by_classroom_id(params[:classroom_id]).ordered
-    else
-      knowledge_areas = KnowledgeArea.by_teacher(current_teacher_id).by_classroom_id(params[:classroom_id]).ordered
-    end
+    classroom = Classroom.find_by(id: params[:classroom_id])
+
+    knowledge_areas = if current_user.current_role_is_admin_or_employee?
+                        KnowledgeArea.by_classroom_id(params[:classroom_id]).ordered
+                      else
+                        KnowledgeArea.by_teacher(current_teacher_id)
+                                     .by_classroom_id(params[:classroom_id])
+                                     .ordered
+                      end
+
+    knowledge_areas = filter_knowledge_areas_for_content_registration(knowledge_areas, classroom)
 
     render json: knowledge_areas.to_json
   end
@@ -72,9 +78,12 @@ class KnowledgeAreaLessonPlanReportController < ApplicationController
   def select_options_by_user
     @admin_or_teacher ||= current_user.current_role_is_admin_or_employee?
     @unities ||= @admin_or_teacher ? Unity.ordered : [current_user_unity]
-    @knowledge_areas ||= KnowledgeArea.by_teacher(current_teacher_id)
-                                      .by_classroom_id(current_user_classroom.id)
-                                      .ordered
+    @knowledge_areas ||= filter_knowledge_areas_for_content_registration(
+      KnowledgeArea.by_teacher(current_teacher_id)
+                   .by_classroom_id(current_user_classroom.id)
+                   .ordered,
+      current_user_classroom
+    )
 
     return fetch_linked_by_teacher unless @admin_or_teacher
 
@@ -91,9 +100,13 @@ class KnowledgeAreaLessonPlanReportController < ApplicationController
     @classrooms = Classroom.by_unity(@knowledge_area_lesson_plan_report_form.unity_id)
                            .by_year(current_user_school_year || Date.current.year)
                            .ordered
-    
+
     if @knowledge_area_lesson_plan_report_form.classroom_id.present?
-      @knowledge_areas = KnowledgeArea.by_classroom_id(@knowledge_area_lesson_plan_report_form.classroom_id).ordered
+      classroom = Classroom.find_by(id: @knowledge_area_lesson_plan_report_form.classroom_id)
+      @knowledge_areas = filter_knowledge_areas_for_content_registration(
+        KnowledgeArea.by_classroom_id(@knowledge_area_lesson_plan_report_form.classroom_id).ordered,
+        classroom
+      )
     else
       @knowledge_areas = []
     end
