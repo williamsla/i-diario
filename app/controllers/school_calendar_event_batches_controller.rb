@@ -54,12 +54,15 @@ class SchoolCalendarEventBatchesController < ApplicationController
 
     authorize school_calendar_event_batch
 
-    school_calendar_event_batch.update_columns(
-      batch_status: BatchStatus::STARTED,
-      updated_at: Time.current
-    )
-
-    destroy_batch(school_calendar_event_batch.id, keep_teacher_records?)
+    if keep_teacher_records?
+      destroy_keeping_teacher_records!(school_calendar_event_batch)
+    else
+      school_calendar_event_batch.update_columns(
+        batch_status: BatchStatus::STARTED,
+        updated_at: Time.current
+      )
+      destroy_batch(school_calendar_event_batch.id, false)
+    end
 
     respond_with school_calendar_event_batch, location: school_calendar_event_batches_path
   end
@@ -127,6 +130,19 @@ class SchoolCalendarEventBatchesController < ApplicationController
 
   def keep_teacher_records?
     params[:keep_teacher_records].to_s == 'true'
+  end
+
+  def destroy_keeping_teacher_records!(batch)
+    SchoolCalendarEvent.where(batch_id: batch.id).find_each do |event|
+      event.keep_teacher_records = true
+      event.destroy!
+    end
+
+    batch.destroy!
+  rescue StandardError => e
+    Rails.logger.error("Erro ao excluir evento em lote #{batch.id} mantendo registros: #{e.class} - #{e.message}")
+    Rails.logger.error(e.backtrace.join("\n")) if e.backtrace
+    batch.mark_with_error!("Erro ao excluir mantendo registros: #{e.message}")
   end
 
   def enqueue_or_run_worker(worker_class, school_calendar_event_batch_id, worker_action, *extra_args)

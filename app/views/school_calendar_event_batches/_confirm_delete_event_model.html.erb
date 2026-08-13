@@ -20,14 +20,16 @@
         <button type="button" class="btn new-school-calendar-event-cancel" data-dismiss="modal">
           <%= t('.cancel') %>
         </button>
-        <%= link_to t('.keep_records'),
-                    school_calendar_event_batch_path(school_calendar_event, keep_teacher_records: true),
-                    class: 'btn btn-success',
-                    method: :delete %>
-        <%= link_to t('.remove_records'),
-                    school_calendar_event_batch_path(school_calendar_event, keep_teacher_records: false),
-                    class: 'btn btn-danger',
-                    method: :delete %>
+        <%= button_to t('.keep_records'),
+                      school_calendar_event_batch_path(school_calendar_event),
+                      method: :delete,
+                      params: { keep_teacher_records: true },
+                      class: 'btn btn-success' %>
+        <%= button_to t('.remove_records'),
+                      school_calendar_event_batch_path(school_calendar_event),
+                      method: :delete,
+                      params: { keep_teacher_records: false },
+                      class: 'btn btn-danger' %>
       </div>
     </div>
   </div>
