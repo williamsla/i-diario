@@ -253,14 +253,7 @@ class KnowledgeAreaLessonPlanReport < BaseReport
     ]
 
     table_data = [headers] + plans.flat_map { |plan| lesson_plan_rows(plan) }
-
-    table(table_data, row_colors: ['DEDEDE', 'FFFFFF'], width: bounds.width, header: true, column_widths: lesson_plan_column_widths) do
-      cells.border_width = 0.25
-      row(0).border_top_width = 0.25
-      row(-1).border_bottom_width = 0.25
-      column(0).border_left_width = 0.25
-      column(-1).border_right_width = 0.25
-    end
+    render_chunked_table(table_data, column_widths: lesson_plan_column_widths)
   end
 
   def lesson_plan_column_widths

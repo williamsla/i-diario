@@ -182,9 +182,9 @@ class AttendanceRecordReportPortrait < BaseReport
           daily_frequency = daily_frequency_or_event
           frequency_date = daily_frequency.frequency_date.to_date
 
-          class_numbers << make_cell(content: daily_frequency.class_number.to_s, background_color: 'FFFFFF', align: :center)
-          days << make_cell(content: frequency_date.day.to_s, background_color: 'FFFFFF', align: :center)
-          months << make_cell(content: frequency_date.month.to_s, background_color: 'FFFFFF', align: :center)
+          class_numbers << daily_frequency.class_number.to_s
+          days << frequency_date.day.to_s
+          months << frequency_date.month.to_s
           students_by_id = frequency_students_index[daily_frequency.id] || {}
           active_search_ids = active_searches_index[daily_frequency.frequency_date]
 
@@ -234,16 +234,16 @@ class AttendanceRecordReportPortrait < BaseReport
               student_row[:absences] += absences
             end
 
-            student_row[:attendances] << make_cell(content: attendance_mark(student_frequency), align: :center)
+            student_row[:attendances] << attendance_mark(student_frequency)
           end
         else # Se não for dia letivo
           school_calendar_event = daily_frequency_or_event
           legend = ', ' + school_calendar_event[:legend].to_s + ' - ' + school_calendar_event[:description]
           self.legend += legend unless self.legend.include?(legend)
 
-          class_numbers << make_cell(content: '', background_color: 'FFFFFF', align: :center)
-          days << make_cell(content: school_calendar_event[:date].day.to_s, background_color: 'FFFFFF', align: :center)
-          months << make_cell(content: school_calendar_event[:date].month.to_s, background_color: 'FFFFFF', align: :center)
+          class_numbers << ''
+          days << school_calendar_event[:date].day.to_s
+          months << school_calendar_event[:date].month.to_s
 
           enrollments_meta.each do |enrollment|
             student_row = (students[enrollment[:id]] ||= {
@@ -259,112 +259,43 @@ class AttendanceRecordReportPortrait < BaseReport
               student_row[:absences_percentage] = @students_frequency_percentage[enrollment[:student_enrollment_id]]
             end
 
-            student_row[:attendances] << make_cell(content: school_calendar_event[:legend].to_s, align: :center)
+            student_row[:attendances] << school_calendar_event[:legend].to_s
           end
         end
       end
 
-      sequential_number_header = make_cell(content: 'Nº', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, valign: :center, rowspan: 3)
-      student_name_header = make_cell(content: 'Nome do aluno', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, valign: :center, rowspan: 3)
-      class_number_header = make_cell(content: 'Aula', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, width: 20)
-      day_header = make_cell(content: 'Dia', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center)
-      month_header = make_cell(content: 'Mês', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center)
-      absences_header = make_cell(content: 'Faltas', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, valign: :center, rowspan: 3)
-      percentage_absences_header = make_cell(content: 'Freq.', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, valign: :center, rowspan: 3)
-
-      first_headers_and_class_numbers_cells = [sequential_number_header, student_name_header, class_number_header].concat(class_numbers)
-      
-      (NUMBER_OF_COLS - class_numbers.count).times { first_headers_and_class_numbers_cells << make_cell(content: '', background_color: 'FFFFFF') }
-
-      first_headers_and_class_numbers_cells << absences_header
-
-      first_headers_and_class_numbers_cells << percentage_absences_header if @show_percentage_on_attendance
-
-      days_header_and_cells = [day_header].concat(days)
-      
-      (NUMBER_OF_COLS - days.count).times { days_header_and_cells << make_cell(content: '', background_color: 'FFFFFF') }
-
-      months_header_and_cells = [month_header].concat(months)
-      
-      (NUMBER_OF_COLS - months.count).times { months_header_and_cells << make_cell(content: '', background_color: 'FFFFFF') }
-
-      students_cells = []
-      students = students.sort_by { |(_key, value)| value[:dependence] ? 1 : 0 }
+      bottom_offset = @second_teacher_signature ? 24 : 0
+      student_list = []
       sequence = 1 unless @show_inactive_enrollments
       sequence_reseted = false
 
-      students.each do |_key, value|
+      students.sort_by { |(_key, value)| value[:dependence] ? 1 : 0 }.each do |_key, value|
         if !sequence_reseted && value[:dependence]
           sequence = 1
           sequence_reseted = true
         end
 
-        if @show_inactive_enrollments
-          sequence_cell = make_cell(content: value[:sequence].to_s, align: :center)
-        else
-          sequence_cell = make_cell(content: sequence.to_s, align: :center)
-        end
-
-        #nome do aluno
-        student_cells = [sequence_cell, { content: (value[:dependence] ? '* ' : '') + value[:name], colspan: 2 }].concat(value[:attendances])
-        
-        (NUMBER_OF_COLS - value[:attendances].count).times { student_cells << nil }
-
-        student_cells << make_cell(content: value[:absences].to_s, align: :center)
-
-        if @show_percentage_on_attendance
-          student_cells << make_cell(content: value[:absences_percentage] || '100%', align: :center)
-        end
-
-        students_cells << student_cells
+        student_list << value.merge(
+          sequence: @show_inactive_enrollments ? value[:sequence] : sequence,
+          display_name: (value[:dependence] ? '* ' : '') + value[:name].to_s
+        )
         sequence += 1 unless @show_inactive_enrollments
       end
 
-      bottom_offset = @second_teacher_signature ? 24 : 0
-      sliced_students_cells = students_cells.each_slice(student_slice_size(students)).to_a
+      sliced_students = student_list.each_slice(student_slice_size(students)).to_a
 
-      sliced_students_cells.each_with_index do |students_cells_slice, slice_index|
-        data = [
-          first_headers_and_class_numbers_cells,
-          days_header_and_cells,
-          months_header_and_cells
-        ]
+      sliced_students.each_with_index do |students_slice, slice_index|
+        aulas_dadas = if slice_index == sliced_students.count - 1 && index == sliced_frequencies_and_events.count - 1
+                        daily_frequencies.count
+                      end
 
-        if slice_index == sliced_students_cells.count - 1 && index == sliced_frequencies_and_events.count - 1
-          columns = @show_percentage_on_attendance ? NUMBER_OF_COLS + 5 : NUMBER_OF_COLS + 4
-          students_cells_slice <<
-            [{ content: "Aulas dadas: #{daily_frequencies.count}", colspan: columns, align: :center }]
-        end
-
-        data.concat(students_cells_slice)
-
-        column_widths = { 0 => 20, 1 => 140, (NUMBER_OF_COLS+3) => 30 } #43
-
-        # 3..42
-        (3..(NUMBER_OF_COLS+2)).each { |i| column_widths[i] = 13 }
-        
         page_content do
-          begin
-            table(data, row_colors: ['FFFFFF', 'DEDEDE'], cell_style: { size: 8, padding: [2, 2, 2, 2] },
-                        column_widths: column_widths, width: bounds.width) do |t|
-              t.cells.border_width = 0.25
-
-              t.before_rendering_page do |page|
-                page.row(0).border_top_width = 0.25
-                page.row(-1).border_bottom_width = 0.25
-                page.column(0).border_left_width = 0.25
-                page.column(-1).border_right_width = 0.25
-              end
-            end
-          rescue Exception => e
-            Rails.logger.info "#{e.message}"
-            Rails.logger.info "#{e.inspect}"
-          end
+          draw_frequency_grid(class_numbers, days, months, students_slice, aulas_dadas)
         end
 
         text_box(self.legend, size: 8, at: [0, 30 + bottom_offset], width: 585, height: 20)
 
-        start_new_page if slice_index < sliced_students_cells.count - 1
+        start_new_page if slice_index < sliced_students.count - 1
       end
 
       text_box(self.legend, size: 8, at: [0, 30 + bottom_offset], width: 585, height: 20)
@@ -387,6 +318,112 @@ class AttendanceRecordReportPortrait < BaseReport
         text_box_overflow_to_new_page(events, 8, at, 585, height)
       end
     end
+  end
+
+  def draw_frequency_grid(class_numbers, days, months, student_rows, aulas_dadas)
+    width = bounds.width
+    num_w = 18.0
+    abs_w = 28.0
+    freq_w = @show_percentage_on_attendance ? 26.0 : 0.0
+    att_count = NUMBER_OF_COLS
+    att_w = 13.0
+    name_w = width - num_w - (att_count * att_w) - abs_w - freq_w
+    row_h = 11.0
+    header_h = 11.0
+    extra_h = aulas_dadas ? row_h : 0
+    total_h = (3 * header_h) + (student_rows.size * row_h) + extra_h
+    start_y = cursor
+    bottom = start_y - total_h
+    x_att = num_w + name_w
+    x_abs = x_att + (att_count * att_w)
+    x_freq = x_abs + abs_w
+
+    pad = ->(values) { values + Array.new([att_count - values.size, 0].max, '') }
+
+    line_width 0.25
+    stroke_color '000000'
+    fill_color '000000'
+
+    student_rows.each_with_index do |_row, index|
+      next if index.even?
+
+      y_bottom = start_y - (3 * header_h) - ((index + 1) * row_h)
+      fill_color 'DEDEDE'
+      fill_rectangle [0, y_bottom], width, row_h
+    end
+    fill_color '000000'
+
+    header_mid_y = start_y - (2 * header_h) + 3
+    draw_text 'Nº', size: 8, style: :bold, at: [3, header_mid_y]
+    draw_text 'Nome do aluno', size: 8, style: :bold, at: [num_w + 4, header_mid_y]
+    draw_text 'Aula', size: 7, style: :bold, at: [x_att - 22, start_y - header_h + 3]
+    draw_text 'Dia', size: 7, style: :bold, at: [x_att - 18, start_y - (2 * header_h) + 3]
+    draw_text 'Mês', size: 7, style: :bold, at: [x_att - 18, start_y - (3 * header_h) + 3]
+    draw_text 'Faltas', size: 7, style: :bold, at: [x_abs + 2, header_mid_y]
+    draw_text 'Freq.', size: 7, style: :bold, at: [x_freq + 2, header_mid_y] if @show_percentage_on_attendance
+
+    pad.call(class_numbers).each_with_index do |value, index|
+      draw_centered_mark(value, x_att + (index * att_w), start_y - header_h, att_w)
+    end
+    pad.call(days).each_with_index do |value, index|
+      draw_centered_mark(value, x_att + (index * att_w), start_y - (2 * header_h), att_w)
+    end
+    pad.call(months).each_with_index do |value, index|
+      draw_centered_mark(value, x_att + (index * att_w), start_y - (3 * header_h), att_w)
+    end
+
+    student_rows.each_with_index do |row, index|
+      y_bottom = start_y - (3 * header_h) - ((index + 1) * row_h)
+      name = row[:display_name].to_s
+      name = "#{name[0, 40]}..." if name.length > 42
+
+      draw_text row[:sequence].to_s, size: 8, at: [4, y_bottom + 3]
+      draw_text name, size: 8, at: [num_w + 2, y_bottom + 3]
+      Array(row[:attendances]).each_with_index do |mark, mark_index|
+        break if mark_index >= att_count
+
+        draw_centered_mark(mark, x_att + (mark_index * att_w), y_bottom, att_w)
+      end
+      draw_text row[:absences].to_s, size: 8, at: [x_abs + 8, y_bottom + 3]
+      next unless @show_percentage_on_attendance
+
+      draw_text (row[:absences_percentage] || '100%').to_s, size: 7, at: [x_freq + 1, y_bottom + 3]
+    end
+
+    if aulas_dadas
+      draw_text "Aulas dadas: #{aulas_dadas}", size: 8, at: [(width / 2) - 40, bottom + 3]
+    end
+
+    stroke_rectangle [0, bottom], width, total_h
+    3.times do |index|
+      y = start_y - ((index + 1) * header_h)
+      if index < 2
+        stroke_horizontal_line x_att, width, at: y
+      else
+        stroke_horizontal_line 0, width, at: y
+      end
+    end
+    student_rows.size.times do |index|
+      stroke_horizontal_line 0, width, at: start_y - (3 * header_h) - ((index + 1) * row_h)
+    end
+
+    stroke_vertical_line start_y, bottom, at: num_w
+    stroke_vertical_line start_y, bottom, at: x_att
+    att_count.times do |index|
+      stroke_vertical_line start_y, bottom, at: x_att + ((index + 1) * att_w)
+    end
+    stroke_vertical_line start_y, bottom, at: x_abs
+    stroke_vertical_line start_y, bottom, at: x_freq if @show_percentage_on_attendance
+
+    move_cursor_to bottom
+  end
+
+  def draw_centered_mark(text, x, y_bottom, col_width)
+    value = text.to_s
+    return if value.empty?
+
+    offset = value.length <= 1 ? (col_width / 2) - 2 : (col_width / 2) - 5
+    draw_text value, size: 7, at: [x + offset, y_bottom + 3]
   end
 
   def content

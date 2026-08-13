@@ -74,6 +74,30 @@ class BaseReport
     "<font size='8'><b>#{text}</b></font>\n"
   end
 
+  def render_chunked_table(table_data, rows_per_page: 8, **options)
+    headers = table_data.first
+    rows = table_data.drop(1)
+    return if headers.blank?
+
+    table_options = {
+      row_colors: ['DEDEDE', 'FFFFFF'],
+      width: bounds.width,
+      header: true
+    }.merge(options)
+
+    rows.each_slice(rows_per_page).with_index do |slice, index|
+      start_new_page if index.positive? || cursor < 90
+
+      table([headers] + slice, **table_options) do
+        cells.border_width = 0.25
+        row(0).border_top_width = 0.25
+        row(-1).border_bottom_width = 0.25
+        column(0).border_left_width = 0.25
+        column(-1).border_right_width = 0.25
+      end
+    end
+  end
+
   def numeric_parser
     I18n::Alchemy::NumericParser
   end

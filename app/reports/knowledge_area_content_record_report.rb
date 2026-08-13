@@ -284,14 +284,7 @@ class KnowledgeAreaContentRecordReport < BaseReport
     end
 
     table_data = [headers] + records.map { |record| content_record_row(record) }
-
-    table(table_data, row_colors: ['DEDEDE', 'FFFFFF'], width: bounds.width, header: true, column_widths: content_record_column_widths) do
-      cells.border_width = 0.25
-      row(0).border_top_width = 0.25
-      row(-1).border_bottom_width = 0.25
-      column(0).border_left_width = 0.25
-      column(-1).border_right_width = 0.25
-    end
+    render_chunked_table(table_data, column_widths: content_record_column_widths)
   end
 
   def content_record_column_widths

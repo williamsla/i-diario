@@ -244,14 +244,7 @@ class DisciplineLessonPlanReport < BaseReport
     ]
 
     table_data = [headers] + plans.map { |plan| lesson_plan_row(plan) }
-
-    table(table_data, row_colors: ['DEDEDE', 'FFFFFF'], width: bounds.width, header: true) do
-      cells.border_width = 0.25
-      row(0).border_top_width = 0.25
-      row(-1).border_bottom_width = 0.25
-      column(0).border_left_width = 0.25
-      column(-1).border_right_width = 0.25
-    end
+    render_chunked_table(table_data)
   end
 
   def lesson_plan_row(discipline_lesson_plan)

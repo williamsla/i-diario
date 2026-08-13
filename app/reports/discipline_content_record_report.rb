@@ -266,14 +266,7 @@ class DisciplineContentRecordReport < BaseReport
     headers << make_cell(content: 'Habilidade', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4], colspan: 2)
 
     table_data = [headers] + records.map { |record| content_record_row(record) }
-
-    table(table_data, row_colors: ['DEDEDE', 'FFFFFF'], width: bounds.width, header: true) do
-      cells.border_width = 0.25
-      row(0).border_top_width = 0.25
-      row(-1).border_bottom_width = 0.25
-      column(0).border_left_width = 0.25
-      column(-1).border_right_width = 0.25
-    end
+    render_chunked_table(table_data)
   end
 
   def content_record_row(discipline_content_record)
