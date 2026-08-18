@@ -1316,10 +1316,11 @@ class DailyFrequenciesController < ApplicationController
     return [] if date.blank?
 
     classroom_id = resolved_classroom_id_for_lessons_board
-    return [] if classroom_id.blank?
+    return [] if classroom_id.blank? || current_teacher.blank?
 
     KnowledgeAreaContentRecord.by_classroom_id(classroom_id)
                               .by_date(date)
+                              .by_teacher_id(current_teacher.id)
                               .includes(:knowledge_areas, :content_record)
   end
 

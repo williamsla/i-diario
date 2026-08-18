@@ -55,23 +55,20 @@ class KnowledgeAreaContentRecordsController < ApplicationController
               .by_date(record_date)
               .by_student_id(student_id)
               .by_knowledge_area_id(knowledge_area_ids)
+              .by_teacher_id(current_teacher.id)
               .includes(:knowledge_areas, :content_record)
               .distinct
               .to_a
 
-    # Prefere registro do professor atual; senão qualquer correspondente
-    teacher_records = records.select { |record| record.content_record.teacher_id == current_teacher.id }
-    candidates = teacher_records.presence || records
-
-    matching = candidates.find do |record|
+    matching = records.find do |record|
       record.knowledge_areas.map(&:id).sort == knowledge_area_ids
     end
 
-    matching ||= candidates.find do |record|
+    matching ||= records.find do |record|
       (knowledge_area_ids - record.knowledge_areas.map(&:id)).empty?
     end
 
-    matching ||= candidates.first
+    matching ||= records.first
 
     render json: { id: matching&.id }
   end

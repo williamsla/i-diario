@@ -161,4 +161,52 @@ RSpec.describe KnowledgeAreaContentRecordsController, type: :controller do
       expect(payload['message']).to be_nil
     end
   end
+
+  describe 'GET #find_existing' do
+    let(:other_teacher) { create(:teacher) }
+    let(:record_date) { Date.new(2017, 2, 28) }
+
+    def create_knowledge_area_content_record_for(teacher)
+      content_record = build(
+        :content_record,
+        :with_contents,
+        classroom: classroom,
+        teacher: teacher,
+        record_date: record_date
+      )
+      content_record.save!(validate: false)
+
+      record = KnowledgeAreaContentRecord.new(content_record: content_record)
+      record.save!(validate: false)
+      record.knowledge_areas << knowledge_area
+      record
+    end
+
+    it 'não devolve registro de outro professor da mesma turma, data e área' do
+      create_knowledge_area_content_record_for(other_teacher)
+
+      get :find_existing, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        record_date: record_date.to_s,
+        knowledge_area_ids: [knowledge_area.id]
+      }
+
+      expect(JSON.parse(response.body)['id']).to be_nil
+    end
+
+    it 'devolve o registro do professor atual mesmo com registro de outro professor no mesmo dia' do
+      current_record = create_knowledge_area_content_record_for(current_teacher)
+      create_knowledge_area_content_record_for(other_teacher)
+
+      get :find_existing, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        record_date: record_date.to_s,
+        knowledge_area_ids: [knowledge_area.id]
+      }
+
+      expect(JSON.parse(response.body)['id']).to eq(current_record.id)
+    end
+  end
 end

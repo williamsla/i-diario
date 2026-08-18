@@ -701,4 +701,54 @@ RSpec.describe DailyFrequenciesController, type: :controller do
       expect(result).to eq(FrequencyTypes::GENERAL)
     end
   end
+
+  describe '#get_knowledge_area_content_record_id_by_date' do
+    let(:knowledge_area) { create(:knowledge_area) }
+    let(:record_date) { Date.new(2017, 2, 28) }
+
+    def create_knowledge_area_content_record_for(teacher)
+      content_record = build(
+        :content_record,
+        :with_contents,
+        classroom: classroom,
+        teacher: teacher,
+        record_date: record_date
+      )
+      content_record.save!(validate: false)
+
+      record = KnowledgeAreaContentRecord.new(content_record: content_record)
+      record.save!(validate: false)
+      record.knowledge_areas << knowledge_area
+      record
+    end
+
+    before do
+      allow(controller).to receive(:content_record_by_student_enabled?).and_return(false)
+      allow(controller).to receive(:params).and_return(
+        ActionController::Parameters.new(
+          daily_frequency: {
+            classroom_id: classroom.id,
+            frequency_date: record_date.to_s
+          }
+        )
+      )
+    end
+
+    it 'não usa conteúdo lançado por outro professor da mesma turma e data' do
+      create_knowledge_area_content_record_for(other_teacher)
+
+      result = controller.send(:get_knowledge_area_content_record_id_by_date, knowledge_area.id)
+
+      expect(result).to eq(0)
+    end
+
+    it 'retorna o conteúdo do professor atual mesmo havendo lançamento de outro professor' do
+      current_record = create_knowledge_area_content_record_for(current_teacher)
+      create_knowledge_area_content_record_for(other_teacher)
+
+      result = controller.send(:get_knowledge_area_content_record_id_by_date, knowledge_area.id)
+
+      expect(result).to eq(current_record.id)
+    end
+  end
 end
