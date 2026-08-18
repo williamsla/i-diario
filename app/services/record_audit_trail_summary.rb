@@ -61,14 +61,15 @@ class RecordAuditTrailSummary
     scope = scope.by_owner_teacher_id(@teacher_id) if @teacher_id.present?
     scope = apply_frequency_discipline_filter(scope)
 
-    scope.includes(:classroom, :discipline, :teacher).map do |record|
+    scope.includes(:classroom, :discipline, :teacher, :students).map do |record|
       build_entry(
         auditable_type: 'DailyFrequency',
         auditable_id: record.id,
         record_type: 'frequency',
         record: record,
         occurred_on: record.frequency_date,
-        label: frequency_label(record)
+        label: frequency_label(record),
+        **frequency_context(record)
       )
     end
   end
@@ -81,14 +82,15 @@ class RecordAuditTrailSummary
     scope = scope.by_teacher_id(@teacher_id) if @teacher_id.present?
     scope = apply_discipline_filter(scope)
 
-    scope.includes(:discipline, content_record: :classroom).map do |record|
+    scope.includes(:discipline, content_record: %i[classroom teacher]).map do |record|
       build_entry(
         auditable_type: 'DisciplineContentRecord',
         auditable_id: record.id,
         record_type: 'content',
         record: record,
         occurred_on: record.content_record.record_date,
-        label: discipline_content_label(record)
+        label: discipline_content_label(record),
+        **discipline_content_context(record)
       )
     end
   end
@@ -101,14 +103,15 @@ class RecordAuditTrailSummary
     scope = scope.by_teacher_id(@teacher_id) if @teacher_id.present?
     scope = apply_knowledge_area_filter(scope)
 
-    scope.includes(content_record: :classroom, knowledge_areas: []).map do |record|
+    scope.includes(content_record: %i[classroom teacher], knowledge_areas: []).map do |record|
       build_entry(
         auditable_type: 'KnowledgeAreaContentRecord',
         auditable_id: record.id,
         record_type: 'content',
         record: record,
         occurred_on: record.content_record.record_date,
-        label: knowledge_area_content_label(record)
+        label: knowledge_area_content_label(record),
+        **knowledge_area_content_context(record)
       )
     end
   end
@@ -312,7 +315,7 @@ class RecordAuditTrailSummary
     auditable_types = @record_types.flat_map { |type| AUDITABLE_TYPES_BY_RECORD_TYPE[type] }.uniq
     return [] if auditable_types.blank?
 
-    period = @start_date.beginning_of_day..@end_date.end_of_day
+    period = destroy_audit_search_period
 
     Audited::Audit.where(auditable_type: auditable_types, action: 'destroy', created_at: period)
                   .includes(:user)
@@ -328,7 +331,7 @@ class RecordAuditTrailSummary
 
     case audit.auditable_type
     when 'DailyFrequency'
-      matches_frequency_changes?(changes)
+      matches_frequency_changes?(changes, audit)
     when 'DisciplineContentRecord'
       matches_discipline_content_changes?(changes, audit)
     when 'KnowledgeAreaContentRecord'
@@ -350,13 +353,13 @@ class RecordAuditTrailSummary
     end
   end
 
-  def matches_frequency_changes?(changes)
+  def matches_frequency_changes?(changes, audit = nil)
     return false unless unity_matches?(changes['unity_id'])
     return false if @classroom_id.present? && changes['classroom_id'].to_i != @classroom_id.to_i
     return false if @teacher_id.present? && changes['owner_teacher_id'].to_i != @teacher_id.to_i
     return false unless discipline_id_matches_filter?(changes['discipline_id'], allow_blank: true)
 
-    frequency_date_in_range?(changes['frequency_date'])
+    date_matches_filter?(changes['frequency_date'], audit)
   end
 
   def matches_discipline_content_changes?(changes, audit)
@@ -369,7 +372,7 @@ class RecordAuditTrailSummary
     return false if @teacher_id.present? && content_attrs['teacher_id'].to_i != @teacher_id.to_i
     return false unless discipline_id_matches_filter?(changes['discipline_id'])
 
-    record_date_in_range?(content_attrs['record_date'])
+    date_matches_filter?(content_attrs['record_date'], audit)
   end
 
   def matches_knowledge_area_content_changes?(changes, audit)
@@ -380,7 +383,7 @@ class RecordAuditTrailSummary
     return false if @teacher_id.present? && content_attrs['teacher_id'].to_i != @teacher_id.to_i
     return false unless knowledge_area_ids_match_filter?(knowledge_area_ids_from_content_audit(audit, changes))
 
-    record_date_in_range?(content_attrs['record_date'])
+    date_matches_filter?(content_attrs['record_date'], audit)
   end
 
   def matches_avaliation_changes?(changes)
@@ -512,7 +515,8 @@ class RecordAuditTrailSummary
       record: nil,
       occurred_on: occurred_on,
       label: label,
-      avaliation_id: avaliation_id
+      avaliation_id: avaliation_id,
+      **destroyed_context(audit, changes)
     )
   end
 
@@ -568,6 +572,7 @@ class RecordAuditTrailSummary
       audits = audit_groups[entry_key(entry)] || []
       events = build_events(audits)
       record_exists = entry[:record].present?
+      status = result_status(entry, record_exists)
 
       {
         auditable_type: entry[:auditable_type],
@@ -575,15 +580,32 @@ class RecordAuditTrailSummary
         record_type: entry[:record_type],
         record_type_label: record_type_label(entry[:record_type]),
         occurred_on: entry[:occurred_on],
+        pedagogical_date: entry[:occurred_on],
         primary_at: primary_event_at(events),
+        event_at: primary_event_at(events),
         label: entry[:label],
+        detail: entry[:detail],
         record_exists: record_exists,
+        status: status,
         avaliation_id: entry[:avaliation_id],
         events: events,
         summary: build_entry_summary(entry, events),
-        verdict: build_verdict(entry, events, record_exists)
+        verdict: build_verdict(entry, events, record_exists),
+        classroom_id: entry[:classroom_id],
+        classroom_name: entry[:classroom_name],
+        discipline_id: entry[:discipline_id],
+        discipline_name: entry[:discipline_name],
+        class_number: entry[:class_number],
+        period_label: entry[:period_label],
+        teacher_id: entry[:teacher_id],
+        teacher_name: entry[:teacher_name],
+        completeness: entry[:completeness]
       }
-    end.sort_by { |result| [result[:primary_at] || result[:occurred_on].to_time, result[:label]] }.reverse
+    end.sort_by do |result|
+      pedagogical = result[:occurred_on] || Date.new(0)
+      event_time = result[:event_at] || Time.zone.at(0)
+      [pedagogical, event_time, result[:label].to_s]
+    end.reverse
   end
 
   def build_events(audits)
@@ -670,6 +692,10 @@ class RecordAuditTrailSummary
     update_events = events.select { |event| event[:action] == 'update' }
 
     if events.blank?
+      if record_exists && incomplete_frequency?(entry)
+        return incomplete_frequency_verdict(entry, nil)
+      end
+
       return I18n.t('services.record_audit_trail_summary.verdict.no_audit_trail') if record_exists
 
       return I18n.t('services.record_audit_trail_summary.verdict.never_persisted')
@@ -707,6 +733,11 @@ class RecordAuditTrailSummary
         user: create_event[:user_name],
         test_date: I18n.l(test_date)
       )
+    end
+
+    if record_exists && incomplete_frequency?(entry)
+      last_change = update_events.last || create_event
+      return incomplete_frequency_verdict(entry, last_change)
     end
 
     if create_event.present? && record_exists
@@ -770,17 +801,37 @@ class RecordAuditTrailSummary
   end
 
   def frequency_label(record)
-    discipline = record.discipline&.to_s || I18n.t('services.record_audit_trail_summary.general_frequency')
-    "#{discipline} — #{record.classroom} — #{I18n.l(record.frequency_date)}"
+    parts = [
+      record.discipline&.to_s || I18n.t('services.record_audit_trail_summary.general_frequency'),
+      record.classroom&.to_s,
+      class_number_label(record.class_number),
+      period_label_for(record.period),
+      (I18n.l(record.frequency_date) if record.frequency_date),
+      teacher_name_label(record.teacher)
+    ]
+    parts.compact.reject(&:blank?).join(' — ')
   end
 
   def discipline_content_label(record)
-    "#{record.discipline} — #{record.classroom} — #{I18n.l(record.content_record.record_date)}"
+    parts = [
+      record.discipline&.to_s,
+      record.classroom&.to_s,
+      class_number_label(record.class_number),
+      (I18n.l(record.content_record.record_date) if record.content_record&.record_date),
+      teacher_name_label(record.content_record&.teacher)
+    ]
+    parts.compact.reject(&:blank?).join(' — ')
   end
 
   def knowledge_area_content_label(record)
     areas = record.knowledge_areas.map(&:to_s).join(', ')
-    "#{areas} — #{record.classroom} — #{I18n.l(record.content_record.record_date)}"
+    parts = [
+      areas.presence,
+      record.classroom&.to_s,
+      (I18n.l(record.content_record.record_date) if record.content_record&.record_date),
+      teacher_name_label(record.content_record&.teacher)
+    ]
+    parts.compact.reject(&:blank?).join(' — ')
   end
 
   def discipline_teaching_plan_label(record)
@@ -983,7 +1034,17 @@ class RecordAuditTrailSummary
                         I18n.t('services.record_audit_trail_summary.general_frequency')
       classroom_name = Classroom.find_by(id: changes['classroom_id'])&.to_s || '-'
       date = parse_date(changes['frequency_date'])
-      "#{discipline_name} — #{classroom_name} — #{I18n.l(date)} (#{I18n.t('services.record_audit_trail_summary.removed')})"
+      teacher_name = Teacher.find_by(id: changes['owner_teacher_id'])&.to_s
+      parts = [
+        discipline_name,
+        classroom_name,
+        class_number_label(changes['class_number']),
+        period_label_for(changes['period']),
+        (I18n.l(date) if date),
+        teacher_name_label_from_name(teacher_name),
+        "(#{I18n.t('services.record_audit_trail_summary.removed')})"
+      ]
+      parts.compact.reject(&:blank?).join(' — ')
     when 'DisciplineContentRecord'
       discipline_name = Discipline.find_by(id: changes['discipline_id'])&.to_s || '-'
       content_attrs = changes['content_record'] || {}
@@ -1336,6 +1397,204 @@ class RecordAuditTrailSummary
 
   def record_date_in_range?(value)
     frequency_date_in_range?(value)
+  end
+
+  def date_matches_filter?(value, audit = nil)
+    return true if frequency_date_in_range?(value)
+    return true if audit && audit.created_at.to_date.between?(@start_date, @end_date)
+
+    false
+  end
+
+  def destroy_audit_search_period
+    end_at = [@end_date, Date.current].max
+    @start_date.beginning_of_day..end_at.end_of_day
+  end
+
+  def result_status(entry, record_exists)
+    return 'removed' unless record_exists
+    return 'incomplete' if incomplete_frequency?(entry)
+
+    'active'
+  end
+
+  def incomplete_frequency?(entry)
+    completeness = entry[:completeness]
+    return false if completeness.blank?
+
+    completeness[:unmarked].to_i.positive? || completeness[:total].to_i.zero?
+  end
+
+  def incomplete_frequency_verdict(entry, event)
+    completeness = entry[:completeness] || {}
+
+    if completeness[:total].to_i.zero?
+      if event.present?
+        return I18n.t(
+          'services.record_audit_trail_summary.verdict.frequency_without_students',
+          datetime: I18n.l(event[:at], format: :compressed),
+          user: event[:user_name]
+        )
+      end
+
+      return I18n.t('services.record_audit_trail_summary.verdict.frequency_without_students_no_audit')
+    end
+
+    common = {
+      marked: completeness[:marked],
+      unmarked: completeness[:unmarked],
+      total: completeness[:total]
+    }
+
+    if event.present?
+      return I18n.t(
+        'services.record_audit_trail_summary.verdict.frequency_incomplete',
+        **common,
+        datetime: I18n.l(event[:at], format: :compressed),
+        user: event[:user_name]
+      )
+    end
+
+    I18n.t('services.record_audit_trail_summary.verdict.frequency_incomplete_no_audit', **common)
+  end
+
+  def frequency_context(record)
+    completeness = frequency_completeness(record)
+
+    {
+      classroom_id: record.classroom_id,
+      classroom_name: record.classroom&.to_s,
+      discipline_id: record.discipline_id,
+      discipline_name: record.discipline&.to_s || I18n.t('services.record_audit_trail_summary.general_frequency'),
+      class_number: record.class_number,
+      period_label: period_label_for(record.period),
+      teacher_id: record.owner_teacher_id,
+      teacher_name: record.teacher&.to_s,
+      completeness: completeness,
+      detail: frequency_detail(completeness)
+    }
+  end
+
+  def discipline_content_context(record)
+    content_record = record.content_record
+
+    {
+      classroom_id: record.classroom_id,
+      classroom_name: record.classroom&.to_s,
+      discipline_id: record.discipline_id,
+      discipline_name: record.discipline&.to_s,
+      class_number: record.class_number,
+      teacher_id: content_record&.teacher_id,
+      teacher_name: content_record&.teacher&.to_s,
+      detail: content_preview(content_record)
+    }
+  end
+
+  def knowledge_area_content_context(record)
+    content_record = record.content_record
+
+    {
+      classroom_id: record.classroom_id,
+      classroom_name: record.classroom&.to_s,
+      discipline_id: nil,
+      discipline_name: record.knowledge_areas.map(&:to_s).join(', '),
+      teacher_id: content_record&.teacher_id,
+      teacher_name: content_record&.teacher&.to_s,
+      detail: content_preview(content_record)
+    }
+  end
+
+  def destroyed_context(_audit, changes)
+    content_attrs = changes['content_record'] if changes['content_record'].is_a?(Hash)
+    classroom_id = changes['classroom_id'] || content_attrs&.fetch('classroom_id', nil)
+    teacher_id = changes['owner_teacher_id'] || content_attrs&.fetch('teacher_id', nil)
+
+    {
+      classroom_id: classroom_id,
+      classroom_name: Classroom.find_by(id: classroom_id)&.to_s,
+      discipline_id: changes['discipline_id'],
+      discipline_name: Discipline.find_by(id: changes['discipline_id'])&.to_s,
+      class_number: changes['class_number'],
+      period_label: period_label_for(changes['period']),
+      teacher_id: teacher_id,
+      teacher_name: Teacher.find_by(id: teacher_id)&.to_s
+    }
+  end
+
+  def frequency_completeness(record)
+    students = frequency_active_students(record)
+    unmarked = students.count { |student| student.read_attribute(:present).nil? }
+
+    {
+      total: students.size,
+      unmarked: unmarked,
+      marked: students.size - unmarked
+    }
+  end
+
+  def frequency_active_students(record)
+    students = record.students
+    if students.loaded?
+      students.select(&:active)
+    else
+      students.active.to_a
+    end
+  end
+
+  def frequency_detail(completeness)
+    return if completeness.blank?
+
+    I18n.t(
+      'services.record_audit_trail_summary.frequency_completeness',
+      marked: completeness[:marked],
+      total: completeness[:total]
+    )
+  end
+
+  def content_preview(content_record)
+    return if content_record.blank?
+
+    titles = Array(content_record.contents).map(&:to_s).reject(&:blank?)
+    parts = []
+    if titles.present?
+      preview = titles.first(3).join('; ')
+      preview = "#{preview.truncate(120)}…" if titles.size > 3 && !preview.end_with?('…')
+      parts << I18n.t('services.record_audit_trail_summary.content_preview', contents: preview)
+    end
+
+    activities = content_record.daily_activities_record.to_s.strip
+    if activities.present?
+      parts << I18n.t(
+        'services.record_audit_trail_summary.activities_preview',
+        activities: activities.truncate(120)
+      )
+    end
+
+    parts.join(' ')
+  end
+
+  def class_number_label(class_number)
+    return if class_number.blank?
+
+    I18n.t('services.record_audit_trail_summary.class_number', number: class_number)
+  end
+
+  def period_label_for(period)
+    return if period.blank?
+
+    Periods.t(period)
+  rescue StandardError
+    period.to_s
+  end
+
+  def teacher_name_label(teacher)
+    teacher_name_label_from_name(teacher&.to_s)
+  end
+
+  def teacher_name_label_from_name(name)
+    return if name.blank?
+
+    I18n.t('services.record_audit_trail_summary.owner_teacher', name: name)
   end
 
   def test_date_in_range?(value)

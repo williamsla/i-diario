@@ -176,5 +176,71 @@ RSpec.describe RecordAuditTrailSummary, type: :service do
 
       expect(results.map { |result| result[:auditable_id] }).to eq([matching_frequency.id])
     end
+
+    it 'separa data letiva da data do evento e inclui aula e professor no rótulo' do
+      matching_frequency = create(
+        :daily_frequency,
+        classroom: classroom,
+        unity: classroom.unity,
+        school_calendar: classroom.calendar.school_calendar,
+        teacher: teacher,
+        discipline: regular_discipline,
+        frequency_date: record_date,
+        class_number: 2,
+        period: Periods::MATUTINAL
+      )
+
+      results = summary(discipline_id: regular_discipline.id, record_types: ['frequency'])
+      result = results.first
+
+      expect(result[:occurred_on]).to eq(record_date)
+      expect(result[:pedagogical_date]).to eq(record_date)
+      expect(result[:label]).to include('Aula 2')
+      expect(result[:label]).to include(teacher.name)
+      expect(result[:status]).to eq('incomplete')
+    end
+
+    it 'marca frequência como incompleta quando há aluno sem marcação' do
+      matching_frequency = create(
+        :daily_frequency,
+        classroom: classroom,
+        unity: classroom.unity,
+        school_calendar: classroom.calendar.school_calendar,
+        teacher: teacher,
+        discipline: regular_discipline,
+        frequency_date: record_date,
+        class_number: 1
+      )
+      create(
+        :daily_frequency_student,
+        daily_frequency: matching_frequency,
+        present: nil,
+        active: true
+      )
+
+      results = summary(discipline_id: regular_discipline.id, record_types: ['frequency'])
+
+      expect(results.first[:status]).to eq('incomplete')
+      expect(results.first[:completeness][:unmarked]).to eq(1)
+    end
+
+    it 'traz conteúdo com prévia dos textos lançados' do
+      content_record = create(
+        :content_record,
+        :with_contents,
+        classroom: classroom,
+        teacher: teacher,
+        record_date: record_date
+      )
+      create(
+        :discipline_content_record,
+        content_record: content_record,
+        discipline: regular_discipline
+      )
+
+      results = summary(discipline_id: regular_discipline.id, record_types: ['content'])
+
+      expect(results.first[:detail]).to include('Conteúdos:')
+    end
   end
 end

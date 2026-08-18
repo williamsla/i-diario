@@ -16,7 +16,7 @@ class RecordAuditTrailsController < ApplicationController
       discipline_id: params[:discipline_id] || current_user_discipline&.id,
       start_at: date_to_br(steps.first&.start_at || Date.current.beginning_of_year),
       end_at: date_to_br(steps.last&.end_at || Date.current),
-      record_types: RecordAuditTrailForm::RECORD_TYPES
+      record_types: RecordAuditTrailForm::DEFAULT_RECORD_TYPES
     )
 
     set_options_by_user
@@ -28,23 +28,34 @@ class RecordAuditTrailsController < ApplicationController
     @record_audit_trail_form = RecordAuditTrailForm.new(resource_params)
 
     if @record_audit_trail_form.valid?
-      results = RecordAuditTrailSummary.new(
+      diagnostic = RecordAuditTrailDiagnostic.new(
         unity_id: @record_audit_trail_form.unity_id,
         classroom_id: @record_audit_trail_form.classroom_id,
         teacher_id: @record_audit_trail_form.teacher_id,
         discipline_id: @record_audit_trail_form.discipline_id,
         start_date: @record_audit_trail_form.start_at,
         end_date: @record_audit_trail_form.end_at,
-        record_types: @record_audit_trail_form.selected_record_types
+        record_types: @record_audit_trail_form.selected_record_types,
+        school_year: @record_audit_trail_form.school_calendar_year || current_school_year
       ).call
 
-      pdf_report = RecordAuditTrailReport.build(
-        current_entity_configuration,
-        @record_audit_trail_form,
-        results
-      )
+      @results = diagnostic[:results]
+      @neighbors = diagnostic[:neighbors]
+      @calendar = diagnostic[:calendar]
+      @phrase = diagnostic[:phrase]
+      @diagnostic_stats = diagnostic[:stats]
 
-      send_pdf(t('routes.record_audit_trails'), pdf_report.render)
+      if params[:export_pdf].present?
+        pdf_report = RecordAuditTrailReport.build(
+          current_entity_configuration,
+          @record_audit_trail_form,
+          diagnostic
+        )
+
+        send_pdf(t('routes.record_audit_trails'), pdf_report.render)
+      else
+        render :report
+      end
     else
       @record_audit_trail_form.school_calendar_year = current_school_year
       set_options_by_user

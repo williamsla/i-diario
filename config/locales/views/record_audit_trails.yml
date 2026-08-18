@@ -1,17 +1,42 @@
 pt-BR:
   record_audit_trails:
     form:
-      submit: "Gerar relatório em PDF"
-      help: "Gera um PDF com o histórico de criação, alteração e exclusão dos lançamentos no período selecionado. Ideal para compartilhar com o professor e verificar se os registros foram salvos ou excluídos."
+      submit: "Consultar"
+      help: "Consulta o histórico de criação, alteração e exclusão dos lançamentos no período. O resultado aparece na tela, com uma frase pronta para o chamado. Use turma e professor para ver o calendário esperado e lançamentos em disciplina, turma ou data próximas. O PDF continua disponível na tela de resultado."
     report:
-      help: "Esta consulta mostra o histórico de criação, alteração e exclusão dos lançamentos no período selecionado. Para notas, busca exclusões de diário, lançamentos e remoções de notas com base na data do evento de auditoria (não apenas na data da prova). Planos de ensino são filtrados pelo ano e pela data de criação/alteração; planos de aula, pelo período de vigência."
-      back: "Voltar"
+      help: "Data letiva é o dia da aula ou do conteúdo. Data do evento é quando alguém criou, alterou ou excluiu o registro. Lançamentos próximos aparecem quando o recorte (turma/disciplina/data) não encontra o registro no lugar esperado."
+      back: "Nova consulta"
+      export_pdf: "Exportar PDF"
       empty: "Nenhum lançamento ou evento de auditoria encontrado para os filtros informados."
       view_history: "Histórico completo"
+      phrase_title: "Frase para o chamado"
+      copy_phrase: "Copiar frase"
+      phrase_copied: "Copiada."
+      calendar_title: "Calendário do período"
+      calendar_help: "Compara o que deveria ter sido lançado (calendário/quadro) com o que existe ou foi excluído no recorte."
+      neighbors_title: "Lançamentos próximos"
+      neighbors_help: "Registros do mesmo professor em outra disciplina, outra turma ou até 3 dias fora do período filtrado."
+      results_title: "Lançamentos no recorte"
       status:
         active: "Ativo"
+        incomplete: "Incompleto"
         removed: "Excluído"
+      calendar:
+        recorded: "Registrado"
+        incomplete: "Incompleto"
+        mixed: "Parcial"
+        deleted: "Excluído"
+        missing: "Não lançado"
+        none: "—"
+      stats:
+        total: "No recorte"
+        active: "Ativos"
+        incomplete: "Incompletos"
+        removed: "Excluídos"
+        pending_frequency: "Freq. pendente"
+        pending_content: "Conteúdo pendente"
       columns:
+        pedagogical_date: "Data letiva"
         event_at: "Data do evento"
         record_type: "Tipo"
         record: "Lançamento"
@@ -19,3 +44,6 @@ pt-BR:
         audit_trail: "Trilha resumida"
         verdict: "Conclusão"
         actions: "Ações"
+        frequency: "Frequência"
+        content: "Conteúdo"
+        mismatch: "Por que está fora do recorte"

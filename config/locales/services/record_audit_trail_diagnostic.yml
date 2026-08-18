@@ -1,0 +1,27 @@
+pt-BR:
+  services:
+    record_audit_trail_diagnostic:
+      cell:
+        recorded: "Registrado"
+        incomplete: "Incompleto"
+        mixed: "Parcial"
+        deleted: "Excluído"
+        missing: "Não lançado"
+        none: "—"
+        missing_item: "Não lançado: %{name}"
+    record_audit_trail_phrase:
+      scope: "Consulta de %{types} no período %{period}."
+      empty: "Não há lançamento ativo, excluído nem pendente para os filtros informados."
+      deleted: "%{type} excluído: %{record}. %{verdict}"
+      incomplete: "Frequência incompleta: %{record}. %{verdict}"
+      missing_frequency: "Não há frequência lançada nas datas: %{dates}."
+      missing_frequency_partial: "Ainda falta frequência nas datas: %{dates}."
+      missing_content: "Não há conteúdo lançado nas datas: %{dates}."
+      missing_content_partial: "Ainda falta conteúdo nas datas: %{dates}."
+      active: "Há %{count} lançamento(s) ativo(s) de %{type} nas datas: %{dates}."
+      neighbors: "Foram encontrados lançamentos próximos, fora do recorte: %{items}."
+      neighbor_item: "%{type} — %{record} (%{reasons})"
+      reasons:
+        other_classroom: "outra turma"
+        other_discipline: "outra disciplina"
+        nearby_date: "data próxima"
