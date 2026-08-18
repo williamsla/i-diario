@@ -355,11 +355,13 @@ bundle exec rake upgrade:versions:1_1_0
 
 ### Tasks
 impressão 
-`nohup docker compose -f docker-compose.production.yml --env-file .env.production \
+`
+nohup docker compose -f docker-compose.production.yml --env-file .env.production \
   exec -T app-blue \
-  env RAILS_ENV=production YEAR=2024 DOMAIN=seu.dominio.gov.br \
+  env RAILS_ENV=production YEAR=2024 DOMAIN=idiario.x.educaonline.tec.br \
   bundle exec rake print_diary \
-  > log/print_diary-seu-dominio.log 2>&1 &`
+  > log/print_diary-seu-dominio.log 2>&1 &
+`
 
 migrando conteudo por disciplina para área
 `# Execução real (remove os antigos)

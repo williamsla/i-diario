@@ -43,13 +43,13 @@ class RecordAuditTrailSummary
 
     entries.concat(frequency_entries) if @record_types.include?('frequency')
     entries.concat(discipline_content_entries) if @record_types.include?('content')
-    entries.concat(knowledge_area_content_entries) if @record_types.include?('content') && @discipline_id.blank?
+    entries.concat(knowledge_area_content_entries) if @record_types.include?('content')
     entries.concat(avaliation_entries) if @record_types.include?('avaliation')
     entries.concat(daily_note_entries) if @record_types.include?('grades')
     entries.concat(discipline_teaching_plan_entries) if @record_types.include?('teaching_plan')
-    entries.concat(knowledge_area_teaching_plan_entries) if @record_types.include?('teaching_plan') && @discipline_id.blank?
+    entries.concat(knowledge_area_teaching_plan_entries) if @record_types.include?('teaching_plan')
     entries.concat(discipline_lesson_plan_entries) if @record_types.include?('lesson_plan')
-    entries.concat(knowledge_area_lesson_plan_entries) if @record_types.include?('lesson_plan') && @discipline_id.blank?
+    entries.concat(knowledge_area_lesson_plan_entries) if @record_types.include?('lesson_plan')
 
     entries
   end
@@ -59,7 +59,7 @@ class RecordAuditTrailSummary
                           .where(frequency_date: @start_date..@end_date)
     scope = scope.where(classroom_id: @classroom_id) if @classroom_id.present?
     scope = scope.by_owner_teacher_id(@teacher_id) if @teacher_id.present?
-    scope = scope.where(discipline_id: @discipline_id) if @discipline_id.present?
+    scope = apply_frequency_discipline_filter(scope)
 
     scope.includes(:classroom, :discipline, :teacher).map do |record|
       build_entry(
@@ -79,7 +79,7 @@ class RecordAuditTrailSummary
                                    .where(content_records: { record_date: @start_date..@end_date })
     scope = scope.by_classroom_id(@classroom_id) if @classroom_id.present?
     scope = scope.by_teacher_id(@teacher_id) if @teacher_id.present?
-    scope = scope.where(discipline_id: @discipline_id) if @discipline_id.present?
+    scope = apply_discipline_filter(scope)
 
     scope.includes(:discipline, content_record: :classroom).map do |record|
       build_entry(
@@ -99,6 +99,7 @@ class RecordAuditTrailSummary
                                       .where(content_records: { record_date: @start_date..@end_date })
     scope = scope.by_classroom_id(@classroom_id) if @classroom_id.present?
     scope = scope.by_teacher_id(@teacher_id) if @teacher_id.present?
+    scope = apply_knowledge_area_filter(scope)
 
     scope.includes(content_record: :classroom, knowledge_areas: []).map do |record|
       build_entry(
@@ -117,7 +118,7 @@ class RecordAuditTrailSummary
                       .by_test_date_between(@start_date, @end_date)
     scope = scope.by_classroom_id(@classroom_id) if @classroom_id.present?
     scope = scope.by_teacher(@teacher_id) if @teacher_id.present?
-    scope = scope.by_discipline_id(@discipline_id) if @discipline_id.present?
+    scope = apply_discipline_filter(scope)
 
     scope.includes(:classroom, :discipline).map do |record|
       build_entry(
@@ -161,7 +162,7 @@ class RecordAuditTrailSummary
                                     end_date: @end_date
                                   )
     scope = scope.by_teacher_id(@teacher_id) if @teacher_id.present?
-    scope = scope.by_discipline(@discipline_id) if @discipline_id.present?
+    scope = apply_discipline_filter(scope)
     scope = scope.by_grade(classroom_grade_ids) if @classroom_id.present?
 
     scope.includes(:discipline, teaching_plan: %i[grade school_term_type school_term_type_step]).map do |record|
@@ -188,6 +189,7 @@ class RecordAuditTrailSummary
                                      )
     scope = scope.by_teacher_id(@teacher_id) if @teacher_id.present?
     scope = scope.by_grade(classroom_grade_ids) if @classroom_id.present?
+    scope = apply_knowledge_area_filter(scope, :by_knowledge_area)
 
     scope.includes(:knowledge_areas, teaching_plan: %i[grade school_term_type school_term_type_step]).map do |record|
       build_entry(
@@ -206,7 +208,7 @@ class RecordAuditTrailSummary
                                 .by_date_range(@start_date, @end_date)
     scope = scope.by_classroom_id(@classroom_id) if @classroom_id.present?
     scope = scope.by_teacher_id(@teacher_id) if @teacher_id.present?
-    scope = scope.by_discipline_id(@discipline_id) if @discipline_id.present?
+    scope = apply_discipline_filter(scope)
 
     scope.includes(:discipline, lesson_plan: :classroom).map do |record|
       build_entry(
@@ -226,6 +228,7 @@ class RecordAuditTrailSummary
                                    .by_date_range(@start_date, @end_date)
     scope = scope.by_classroom_id(@classroom_id) if @classroom_id.present?
     scope = scope.by_teacher_id(@teacher_id) if @teacher_id.present?
+    scope = apply_knowledge_area_filter(scope)
 
     scope.includes(:knowledge_areas, lesson_plan: :classroom).map do |record|
       build_entry(
@@ -351,7 +354,7 @@ class RecordAuditTrailSummary
     return false unless unity_matches?(changes['unity_id'])
     return false if @classroom_id.present? && changes['classroom_id'].to_i != @classroom_id.to_i
     return false if @teacher_id.present? && changes['owner_teacher_id'].to_i != @teacher_id.to_i
-    return false if @discipline_id.present? && changes['discipline_id'].to_i != @discipline_id.to_i
+    return false unless discipline_id_matches_filter?(changes['discipline_id'], allow_blank: true)
 
     frequency_date_in_range?(changes['frequency_date'])
   end
@@ -364,7 +367,7 @@ class RecordAuditTrailSummary
     return false unless unity_matches?(classroom&.unity_id)
     return false if @classroom_id.present? && content_attrs['classroom_id'].to_i != @classroom_id.to_i
     return false if @teacher_id.present? && content_attrs['teacher_id'].to_i != @teacher_id.to_i
-    return false if @discipline_id.present? && changes['discipline_id'].to_i != @discipline_id.to_i
+    return false unless discipline_id_matches_filter?(changes['discipline_id'])
 
     record_date_in_range?(content_attrs['record_date'])
   end
@@ -375,6 +378,7 @@ class RecordAuditTrailSummary
     return false unless unity_matches?(Classroom.find_by(id: content_attrs['classroom_id'])&.unity_id)
     return false if @classroom_id.present? && content_attrs['classroom_id'].to_i != @classroom_id.to_i
     return false if @teacher_id.present? && content_attrs['teacher_id'].to_i != @teacher_id.to_i
+    return false unless knowledge_area_ids_match_filter?(knowledge_area_ids_from_content_audit(audit, changes))
 
     record_date_in_range?(content_attrs['record_date'])
   end
@@ -389,7 +393,7 @@ class RecordAuditTrailSummary
     classroom = Classroom.find_by(id: changes['classroom_id'])
     return false unless unity_matches?(classroom&.unity_id)
     return false if @classroom_id.present? && changes['classroom_id'].to_i != @classroom_id.to_i
-    return false if @discipline_id.present? && changes['discipline_id'].to_i != @discipline_id.to_i
+    return false unless discipline_id_matches_filter?(changes['discipline_id'])
     return false if @teacher_id.present? && !teacher_linked_to_avaliation?(changes)
 
     true
@@ -399,7 +403,7 @@ class RecordAuditTrailSummary
     classroom = Classroom.find_by(id: changes['classroom_id'])
     return false unless unity_matches?(classroom&.unity_id)
     return false if @classroom_id.present? && changes['classroom_id'].to_i != @classroom_id.to_i
-    return false if @discipline_id.present? && changes['discipline_id'].to_i != @discipline_id.to_i
+    return false unless discipline_id_matches_filter?(changes['discipline_id'])
     return false if @teacher_id.present? && !teacher_linked_to_avaliation?(changes)
 
     true
@@ -408,7 +412,7 @@ class RecordAuditTrailSummary
   def matches_daily_note_changes?(changes)
     return false unless unity_matches?(changes['unity_id'])
     return false if @classroom_id.present? && changes['classroom_id'].to_i != @classroom_id.to_i
-    return false if @discipline_id.present? && changes['discipline_id'].to_i != @discipline_id.to_i
+    return false unless discipline_id_matches_filter?(changes['discipline_id'])
 
     true
   end
@@ -419,21 +423,20 @@ class RecordAuditTrailSummary
 
     return false unless unity_matches?(teaching_plan_attrs['unity_id'])
     return false if @teacher_id.present? && teaching_plan_attrs['teacher_id'].to_i != @teacher_id.to_i
-    return false if @discipline_id.present? && changes['discipline_id'].to_i != @discipline_id.to_i
+    return false unless discipline_id_matches_filter?(changes['discipline_id'])
     return false if @classroom_id.present? && !grade_matches_classroom?(teaching_plan_attrs['grade_id'])
 
     teaching_plan_year_in_range?(teaching_plan_attrs['year'])
   end
 
   def matches_knowledge_area_teaching_plan_changes?(changes, audit)
-    return false if @discipline_id.present?
-
     teaching_plan_attrs = teaching_plan_attrs_from_audit(audit, changes)
     return false if teaching_plan_attrs.blank?
 
     return false unless unity_matches?(teaching_plan_attrs['unity_id'])
     return false if @teacher_id.present? && teaching_plan_attrs['teacher_id'].to_i != @teacher_id.to_i
     return false if @classroom_id.present? && !grade_matches_classroom?(teaching_plan_attrs['grade_id'])
+    return false unless knowledge_area_ids_match_filter?(knowledge_area_ids_from_teaching_plan_audit(audit, changes))
 
     teaching_plan_year_in_range?(teaching_plan_attrs['year'])
   end
@@ -446,14 +449,12 @@ class RecordAuditTrailSummary
     return false unless unity_matches?(classroom&.unity_id)
     return false if @classroom_id.present? && lesson_plan_attrs['classroom_id'].to_i != @classroom_id.to_i
     return false if @teacher_id.present? && lesson_plan_attrs['teacher_id'].to_i != @teacher_id.to_i
-    return false if @discipline_id.present? && changes['discipline_id'].to_i != @discipline_id.to_i
+    return false unless discipline_id_matches_filter?(changes['discipline_id'])
 
     lesson_plan_date_range_overlaps?(lesson_plan_attrs)
   end
 
   def matches_knowledge_area_lesson_plan_changes?(changes, audit)
-    return false if @discipline_id.present?
-
     lesson_plan_attrs = lesson_plan_attrs_from_audit(audit, changes)
     return false if lesson_plan_attrs.blank?
 
@@ -461,6 +462,7 @@ class RecordAuditTrailSummary
     return false unless unity_matches?(classroom&.unity_id)
     return false if @classroom_id.present? && lesson_plan_attrs['classroom_id'].to_i != @classroom_id.to_i
     return false if @teacher_id.present? && lesson_plan_attrs['teacher_id'].to_i != @teacher_id.to_i
+    return false unless knowledge_area_ids_match_filter?(knowledge_area_ids_from_lesson_plan_audit(audit, changes))
 
     lesson_plan_date_range_overlaps?(lesson_plan_attrs)
   end
@@ -468,7 +470,7 @@ class RecordAuditTrailSummary
   def matches_daily_note_context?(context)
     return false unless unity_matches?(context[:unity_id])
     return false if @classroom_id.present? && context[:classroom_id].to_i != @classroom_id.to_i
-    return false if @discipline_id.present? && context[:discipline_id].to_i != @discipline_id.to_i
+    return false unless discipline_id_matches_filter?(context[:discipline_id])
 
     true
   end
@@ -480,8 +482,12 @@ class RecordAuditTrailSummary
       TeacherDisciplineClassroom.exists?(
         teacher_id: @teacher_id,
         classroom_id: changes['classroom_id'],
-        discipline_id: changes['discipline_id']
+        discipline_id: discipline_ids_for_teacher_link(changes['discipline_id'])
       )
+  end
+
+  def discipline_ids_for_teacher_link(discipline_id)
+    records_by_knowledge_area? ? related_discipline_ids : discipline_id
   end
 
   def teacher_audit_matches?(audit)
@@ -964,7 +970,7 @@ class RecordAuditTrailSummary
     avaliations = Avaliation.by_test_date_between(@start_date, @end_date)
     avaliations = avaliations.by_unity_id(@unity_id) if @unity_id.present?
     avaliations = avaliations.by_classroom_id(@classroom_id) if @classroom_id.present?
-    avaliations = avaliations.by_discipline_id(@discipline_id) if @discipline_id.present?
+    avaliations = apply_discipline_filter(avaliations)
     avaliations = avaliations.by_teacher(@teacher_id) if @teacher_id.present?
 
     DailyNote.joins(:avaliation).merge(avaliations).distinct
@@ -1175,6 +1181,96 @@ class RecordAuditTrailSummary
 
     KnowledgeAreaLessonPlanKnowledgeArea.where(knowledge_area_lesson_plan_id: audit.auditable_id)
                                         .pluck(:knowledge_area_id)
+  end
+
+  def knowledge_area_ids_from_content_audit(audit, changes)
+    nested = changes['knowledge_areas']
+    if nested.is_a?(Array)
+      return nested.map { |item| item['id'] || item['knowledge_area_id'] }.compact
+    end
+
+    ids = changes['knowledge_area_ids']
+    if ids.is_a?(String)
+      return ids.split(',').map(&:to_i)
+    elsif ids.present?
+      return Array(ids)
+    end
+
+    KnowledgeAreaContentRecord.unscoped.find_by(id: audit.auditable_id)&.knowledge_areas&.pluck(:id)
+  end
+
+  def apply_discipline_filter(scope)
+    return scope if @discipline_id.blank?
+
+    scope.where(discipline_id: discipline_ids_for_filter)
+  end
+
+  def apply_frequency_discipline_filter(scope)
+    return scope if @discipline_id.blank?
+
+    if records_by_knowledge_area?
+      scope.where(discipline_id: related_discipline_ids + [nil])
+    else
+      scope.where(discipline_id: @discipline_id)
+    end
+  end
+
+  def apply_knowledge_area_filter(scope, scope_name = :by_knowledge_area_id)
+    return scope if selected_knowledge_area_id.blank?
+
+    table_name = scope.klass.table_name
+    ids = scope.public_send(scope_name, selected_knowledge_area_id)
+               .distinct
+               .pluck("#{table_name}.id")
+
+    scope.klass.where(id: ids)
+  end
+
+  def discipline_id_matches_filter?(discipline_id, allow_blank: false)
+    return true if @discipline_id.blank?
+    return true if allow_blank && discipline_id.blank? && records_by_knowledge_area?
+
+    discipline_ids_for_filter.map(&:to_i).include?(discipline_id.to_i)
+  end
+
+  def knowledge_area_ids_match_filter?(knowledge_area_ids)
+    return true if selected_knowledge_area_id.blank?
+    return records_by_knowledge_area? if knowledge_area_ids.blank?
+
+    Array(knowledge_area_ids).map(&:to_i).include?(selected_knowledge_area_id.to_i)
+  end
+
+  def selected_discipline
+    return if @discipline_id.blank?
+
+    @selected_discipline ||= Discipline.find_by(id: @discipline_id)
+  end
+
+  def selected_knowledge_area_id
+    selected_discipline&.knowledge_area_id
+  end
+
+  def records_by_knowledge_area?
+    discipline = selected_discipline
+    return false unless discipline
+
+    discipline.grouper? || discipline.descriptor? || discipline.knowledge_area&.group_descriptors?
+  end
+
+  def related_discipline_ids
+    @related_discipline_ids ||= begin
+      knowledge_area_id = selected_knowledge_area_id
+
+      if knowledge_area_id.blank?
+        [@discipline_id.to_i]
+      else
+        Discipline.where(knowledge_area_id: knowledge_area_id).pluck(:id)
+      end
+    end
+  end
+
+  def discipline_ids_for_filter
+    records_by_knowledge_area? ? related_discipline_ids : [@discipline_id]
   end
 
   def classroom_grade_ids
