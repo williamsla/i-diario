@@ -1318,9 +1318,12 @@ class DailyFrequenciesController < ApplicationController
     classroom_id = resolved_classroom_id_for_lessons_board
     return [] if classroom_id.blank? || current_teacher.blank?
 
+    period = params.dig(:daily_frequency, :period).presence || @daily_frequency&.period
+    teacher_ids = teacher_ids_for_classroom_period(classroom_id: classroom_id, period: period)
+
     KnowledgeAreaContentRecord.by_classroom_id(classroom_id)
                               .by_date(date)
-                              .by_teacher_id(current_teacher.id)
+                              .by_teacher_id(teacher_ids)
                               .includes(:knowledge_areas, :content_record)
   end
 
@@ -1440,12 +1443,11 @@ class DailyFrequenciesController < ApplicationController
     records = @knowledge_areas_with_contents.select { |c| c.knowledge_areas.map(&:id).include?(knowledge_area_id.to_i) }
 
     if content_record_by_student_enabled?
-      general = records.find { |c| c.content_record&.student_id.blank? }
-      return general&.id || 0
+      general = records.select { |c| c.content_record&.student_id.blank? }
+      return prefer_current_teacher_records(general).first&.id || 0
     end
 
-    result = records.map(&:id)
-    result.count >= 1 ? result.first : 0
+    prefer_current_teacher_records(records).first&.id || 0
   end
   helper_method :get_knowledge_area_content_record_id_by_date
 

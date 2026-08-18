@@ -73,6 +73,11 @@ $(function () {
     return knowledge_area_ids;
   };
 
+  var readPeriod = function () {
+    var match = window.location.search.match(/[?&]period=([^&]*)/);
+    return match ? decodeURIComponent(match[1]) : '';
+  };
+
   var redirectToEdit = function (recordId) {
     if (!recordId || String(recordId) === String(currentRecordId)) {
       loadContents();
@@ -108,6 +113,10 @@ $(function () {
         params.push('knowledge_area_id=' + encodeURIComponent(firstAreaId));
       }
     }
+    var period = readPeriod();
+    if (!_.isEmpty(period)) {
+      params.push('period=' + encodeURIComponent(period));
+    }
     if (isModalForm) {
       params.push('modal=true');
     }
@@ -140,7 +149,8 @@ $(function () {
         classroom_id: classroom_id,
         knowledge_area_ids: knowledge_area_ids,
         record_date: date,
-        student_id: studentId
+        student_id: studentId,
+        period: readPeriod()
       }
     }).done(function (payload) {
       var existingId = payload && payload.id;

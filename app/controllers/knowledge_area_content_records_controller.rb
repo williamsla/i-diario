@@ -50,25 +50,32 @@ class KnowledgeAreaContentRecordsController < ApplicationController
       return
     end
 
+    teacher_ids = teacher_ids_for_classroom_period(
+      classroom_id: classroom_id,
+      period: params[:period]
+    )
+
     records = KnowledgeAreaContentRecord
               .by_classroom_id(classroom_id)
               .by_date(record_date)
               .by_student_id(student_id)
               .by_knowledge_area_id(knowledge_area_ids)
-              .by_teacher_id(current_teacher.id)
+              .by_teacher_id(teacher_ids)
               .includes(:knowledge_areas, :content_record)
               .distinct
               .to_a
 
-    matching = records.find do |record|
+    candidates = prefer_current_teacher_records(records)
+
+    matching = candidates.find do |record|
       record.knowledge_areas.map(&:id).sort == knowledge_area_ids
     end
 
-    matching ||= records.find do |record|
+    matching ||= candidates.find do |record|
       (knowledge_area_ids - record.knowledge_areas.map(&:id)).empty?
     end
 
-    matching ||= records.first
+    matching ||= candidates.first
 
     render json: { id: matching&.id }
   end

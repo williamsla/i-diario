@@ -281,13 +281,15 @@
                     const recordedAt = document.querySelector('[name="daily_frequency[frequency_date]"]')?.value ||
                                       document.querySelector('[name="filter[by_date]"]')?.value ||
                                       new Date().toISOString().slice(0, 10);
+                    const period = document.querySelector('[name="daily_frequency[period]"]')?.value;
                     
                     let url;
                     if (is_infantil === true) {
                         const knowledgeAreaId = this.getAttribute('data-knowledge-area-id');
+                        const periodQuery = period ? `&period=${encodeURIComponent(period)}` : '';
                         url = (lastContent >= 1) 
                                   ? `/registros-de-conteudos-por-areas-de-conhecimento/${lastContent}/editar?modal=true`
-                                  : `/registros-de-conteudos-por-areas-de-conhecimento/novo?classroom_id=${classroomId}&knowledge_area_id=${knowledgeAreaId}&recorded_at=${recordedAt}&modal=true`;
+                                  : `/registros-de-conteudos-por-areas-de-conhecimento/novo?classroom_id=${classroomId}&knowledge_area_id=${knowledgeAreaId}&recorded_at=${recordedAt}&modal=true${periodQuery}`;
                     } else {
                         const classNumber = [this.getAttribute('data-class-number')];
                         const disciplineId = this.getAttribute('data-discipline-id');

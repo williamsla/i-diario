@@ -705,6 +705,8 @@ RSpec.describe DailyFrequenciesController, type: :controller do
   describe '#get_knowledge_area_content_record_id_by_date' do
     let(:knowledge_area) { create(:knowledge_area) }
     let(:record_date) { Date.new(2017, 2, 28) }
+    let(:predecessor_teacher) { create(:teacher) }
+    let(:classroom_grade) { classroom.classrooms_grades.first&.grade || create(:grade) }
 
     def create_knowledge_area_content_record_for(teacher)
       content_record = build(
@@ -722,19 +724,36 @@ RSpec.describe DailyFrequenciesController, type: :controller do
       record
     end
 
+    def allocate_teacher(teacher, period, active: true)
+      create(
+        :teacher_discipline_classroom,
+        teacher: teacher,
+        classroom: classroom,
+        discipline: discipline,
+        grade: classroom_grade,
+        year: classroom.year,
+        period: period,
+        active: active
+      )
+    end
+
     before do
+      TeacherDisciplineClassroom.where(teacher_id: current_teacher.id, classroom_id: classroom.id)
+                                .update_all(period: Periods::MATUTINAL)
       allow(controller).to receive(:content_record_by_student_enabled?).and_return(false)
       allow(controller).to receive(:params).and_return(
         ActionController::Parameters.new(
           daily_frequency: {
             classroom_id: classroom.id,
-            frequency_date: record_date.to_s
+            frequency_date: record_date.to_s,
+            period: Periods::MATUTINAL
           }
         )
       )
     end
 
-    it 'não usa conteúdo lançado por outro professor da mesma turma e data' do
+    it 'não usa conteúdo lançado por professor do turno contrário' do
+      allocate_teacher(other_teacher, Periods::VESPERTINE)
       create_knowledge_area_content_record_for(other_teacher)
 
       result = controller.send(:get_knowledge_area_content_record_id_by_date, knowledge_area.id)
@@ -742,9 +761,19 @@ RSpec.describe DailyFrequenciesController, type: :controller do
       expect(result).to eq(0)
     end
 
-    it 'retorna o conteúdo do professor atual mesmo havendo lançamento de outro professor' do
+    it 'herda o conteúdo do professor substituído do mesmo turno' do
+      allocate_teacher(predecessor_teacher, Periods::MATUTINAL, active: false)
+      predecessor_record = create_knowledge_area_content_record_for(predecessor_teacher)
+
+      result = controller.send(:get_knowledge_area_content_record_id_by_date, knowledge_area.id)
+
+      expect(result).to eq(predecessor_record.id)
+    end
+
+    it 'prefere o conteúdo do professor atual quando também existe o do mesmo turno' do
+      allocate_teacher(predecessor_teacher, Periods::MATUTINAL, active: false)
       current_record = create_knowledge_area_content_record_for(current_teacher)
-      create_knowledge_area_content_record_for(other_teacher)
+      create_knowledge_area_content_record_for(predecessor_teacher)
 
       result = controller.send(:get_knowledge_area_content_record_id_by_date, knowledge_area.id)
 
