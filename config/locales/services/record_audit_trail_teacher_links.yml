@@ -1,0 +1,4 @@
+pt-BR:
+  services:
+    record_audit_trail_teacher_links:
+      unlinked_option: "%{name} (vínculo encerrado)"

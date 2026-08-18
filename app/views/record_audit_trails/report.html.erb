@@ -3,6 +3,33 @@
     <%= t('record_audit_trails.report.help') %>
   </div>
 
+  <% if @allocation.present? && %w[unlinked missing].include?(@allocation[:status]) && (@results.present? || @allocation[:status] == 'unlinked') %>
+    <div class="alert <%= @allocation[:status] == 'unlinked' ? 'alert-danger' : 'alert-warning' %>">
+      <strong>
+        <%= t("record_audit_trails.report.allocation_#{@allocation[:status]}_title") %>
+      </strong>
+      <p style="margin: 8px 0 0;">
+        <% if @allocation[:status] == 'unlinked' %>
+          <%= t(
+                'services.record_audit_trail_phrase.allocation_unlinked',
+                teacher: @allocation[:teacher_name],
+                classroom: @allocation[:classroom_name],
+                details: [
+                  (@allocation[:left_at].present? ? t('services.record_audit_trail_phrase.allocation_left_at', date: l(@allocation[:left_at])) : nil),
+                  (@allocation[:discarded_at].present? ? t('services.record_audit_trail_phrase.allocation_discarded_at', date: l(@allocation[:discarded_at].to_date)) : nil)
+                ].compact.join(' ')
+              ) %>
+        <% else %>
+          <%= t(
+                'services.record_audit_trail_phrase.allocation_missing',
+                teacher: @allocation[:teacher_name],
+                classroom: @allocation[:classroom_name]
+              ) %>
+        <% end %>
+      </p>
+    </div>
+  <% end %>
+
   <% if @phrase.present? %>
     <div class="alert alert-warning" style="margin-bottom: 15px;">
       <strong><%= t('record_audit_trails.report.phrase_title') %></strong>

@@ -7,10 +7,12 @@ class RecordAuditTrailSummary
     'avaliation' => ['Avaliation'],
     'grades' => %w[DailyNote DailyNoteStudent],
     'teaching_plan' => %w[DisciplineTeachingPlan KnowledgeAreaTeachingPlan],
-    'lesson_plan' => %w[DisciplineLessonPlan KnowledgeAreaLessonPlan]
+    'lesson_plan' => %w[DisciplineLessonPlan KnowledgeAreaLessonPlan],
+    'opinion' => %w[DescriptiveExam ConceptualExam]
   }.freeze
 
   GRADE_NOTE_BATCH_TYPE = 'GradeNoteBatch'
+  CONCEPTUAL_EXAM_BATCH_TYPE = 'ConceptualExamBatch'
 
   def initialize(unity_id:, classroom_id:, teacher_id:, discipline_id:, start_date:, end_date:, record_types:)
     @unity_id = unity_id
@@ -50,6 +52,8 @@ class RecordAuditTrailSummary
     entries.concat(knowledge_area_teaching_plan_entries) if @record_types.include?('teaching_plan')
     entries.concat(discipline_lesson_plan_entries) if @record_types.include?('lesson_plan')
     entries.concat(knowledge_area_lesson_plan_entries) if @record_types.include?('lesson_plan')
+    entries.concat(descriptive_exam_entries) if @record_types.include?('opinion')
+    entries.concat(conceptual_exam_batch_entries) if @record_types.include?('opinion')
 
     entries
   end
@@ -245,6 +249,60 @@ class RecordAuditTrailSummary
     end
   end
 
+  def descriptive_exam_entries
+    scope = DescriptiveExam.joins(:classroom).where(classrooms: { unity_id: @unity_id })
+    scope = scope.where(recorded_at: @start_date..@end_date)
+    scope = scope.by_classroom_id(@classroom_id) if @classroom_id.present?
+    scope = apply_descriptive_discipline_filter(scope)
+    scope = scope.includes(:classroom, :discipline, :students)
+
+    scope.select { |record| opinion_teacher_matches_classroom?(record.classroom_id) }.map do |record|
+      build_entry(
+        auditable_type: 'DescriptiveExam',
+        auditable_id: record.id,
+        record_type: 'opinion',
+        record: descriptive_exam_persisted?(record) ? record : nil,
+        occurred_on: record.recorded_at,
+        label: descriptive_exam_label(record),
+        **descriptive_exam_context(record)
+      )
+    end
+  end
+
+  def conceptual_exam_batch_entries
+    scope = conceptual_exam_base_scope
+    scope = apply_conceptual_discipline_filter(scope)
+    exams = scope.includes(:classroom, :student, :conceptual_exam_values).select do |exam|
+      opinion_teacher_matches_classroom?(exam.classroom_id)
+    end
+
+    exams.group_by { |exam| [exam.classroom_id, exam.step_number] }.map do |(classroom_id, step_number), group|
+      kept_exams = group.select { |exam| exam.discarded_at.blank? }
+      audits = Audited::Audit.where(auditable_type: 'ConceptualExam', auditable_id: group.map(&:id))
+                             .includes(:user)
+                             .order(:created_at)
+
+      completeness = conceptual_exam_completeness(kept_exams.presence || group)
+      sample = kept_exams.first || group.first
+
+      build_entry(
+        auditable_type: CONCEPTUAL_EXAM_BATCH_TYPE,
+        auditable_id: "#{classroom_id}-#{step_number}",
+        entry_key_override: [CONCEPTUAL_EXAM_BATCH_TYPE, "#{classroom_id}-#{step_number}"],
+        record_type: 'opinion',
+        record: kept_exams.first,
+        occurred_on: group.map(&:recorded_at).compact.max,
+        label: conceptual_exam_batch_label(sample, completeness),
+        classroom_id: classroom_id,
+        classroom_name: sample.classroom&.to_s,
+        completeness: completeness,
+        detail: opinion_completeness_detail(completeness),
+        inline_audits: audits,
+        history_id: kept_exams.first&.id
+      )
+    end
+  end
+
   def collect_grade_note_batch_entries(collected_keys)
     return [] unless @record_types.include?('grades')
 
@@ -348,6 +406,10 @@ class RecordAuditTrailSummary
       matches_discipline_lesson_plan_changes?(changes, audit)
     when 'KnowledgeAreaLessonPlan'
       matches_knowledge_area_lesson_plan_changes?(changes, audit)
+    when 'DescriptiveExam'
+      matches_descriptive_exam_changes?(changes, audit)
+    when 'ConceptualExam'
+      matches_conceptual_exam_changes?(changes, audit)
     else
       false
     end
@@ -599,7 +661,8 @@ class RecordAuditTrailSummary
         period_label: entry[:period_label],
         teacher_id: entry[:teacher_id],
         teacher_name: entry[:teacher_name],
-        completeness: entry[:completeness]
+        completeness: entry[:completeness],
+        history_id: entry[:history_id]
       }
     end.sort_by do |result|
       pedagogical = result[:occurred_on] || Date.new(0)
@@ -687,6 +750,10 @@ class RecordAuditTrailSummary
       return build_grade_batch_verdict(entry, events)
     end
 
+    if entry[:auditable_type] == CONCEPTUAL_EXAM_BATCH_TYPE
+      return build_opinion_batch_verdict(entry, events)
+    end
+
     create_event = events.find { |event| event[:action] == 'create' }
     destroy_event = events.find { |event| event[:action] == 'destroy' }
     update_events = events.select { |event| event[:action] == 'update' }
@@ -694,6 +761,9 @@ class RecordAuditTrailSummary
     if events.blank?
       if record_exists && incomplete_frequency?(entry)
         return incomplete_frequency_verdict(entry, nil)
+      end
+      if record_exists && incomplete_opinion?(entry)
+        return incomplete_opinion_verdict(entry, nil)
       end
 
       return I18n.t('services.record_audit_trail_summary.verdict.no_audit_trail') if record_exists
@@ -740,7 +810,17 @@ class RecordAuditTrailSummary
       return incomplete_frequency_verdict(entry, last_change)
     end
 
+    if record_exists && incomplete_opinion?(entry)
+      last_change = update_events.last || create_event
+      return incomplete_opinion_verdict(entry, last_change)
+    end
+
     if create_event.present? && record_exists
+      if incomplete_opinion?(entry)
+        last_change = update_events.last || create_event
+        return incomplete_opinion_verdict(entry, last_change)
+      end
+
       last_change = update_events.last || create_event
       return I18n.t(
         'services.record_audit_trail_summary.verdict.active',
@@ -1075,6 +1155,28 @@ class RecordAuditTrailSummary
       discipline_lesson_plan_destroyed_label(changes, audit)
     when 'KnowledgeAreaLessonPlan'
       knowledge_area_lesson_plan_destroyed_label(changes, audit)
+    when 'DescriptiveExam'
+      classroom_name = Classroom.find_by(id: changes['classroom_id'])&.to_s || '-'
+      discipline_name = Discipline.find_by(id: changes['discipline_id'])&.to_s
+      date = parse_date(changes['recorded_at'])
+      parts = [
+        I18n.t('services.record_audit_trail_summary.opinion_descriptive'),
+        discipline_name,
+        classroom_name,
+        (I18n.l(date) if date),
+        "(#{I18n.t('services.record_audit_trail_summary.removed')})"
+      ]
+      parts.compact.reject(&:blank?).join(' — ')
+    when 'ConceptualExam'
+      classroom_name = Classroom.find_by(id: changes['classroom_id'])&.to_s || '-'
+      date = parse_date(changes['recorded_at'])
+      parts = [
+        I18n.t('services.record_audit_trail_summary.opinion_conceptual'),
+        classroom_name,
+        (I18n.l(date) if date),
+        "(#{I18n.t('services.record_audit_trail_summary.removed')})"
+      ]
+      parts.compact.reject(&:blank?).join(' — ')
     else
       I18n.t('services.record_audit_trail_summary.removed_record')
     end
@@ -1106,6 +1208,8 @@ class RecordAuditTrailSummary
     when 'DisciplineLessonPlan', 'KnowledgeAreaLessonPlan'
       lesson_plan_attrs = lesson_plan_attrs_from_audit(audit, changes)
       parse_date(lesson_plan_attrs['start_at']) || audit.created_at.to_date
+    when 'DescriptiveExam', 'ConceptualExam'
+      parse_date(changes['recorded_at']) || audit.created_at.to_date
     else
       audit.created_at.to_date
     end
@@ -1413,7 +1517,7 @@ class RecordAuditTrailSummary
 
   def result_status(entry, record_exists)
     return 'removed' unless record_exists
-    return 'incomplete' if incomplete_frequency?(entry)
+    return 'incomplete' if incomplete_frequency?(entry) || incomplete_opinion?(entry)
 
     'active'
   end
@@ -1456,6 +1560,56 @@ class RecordAuditTrailSummary
     end
 
     I18n.t('services.record_audit_trail_summary.verdict.frequency_incomplete_no_audit', **common)
+  end
+
+  def incomplete_opinion?(entry)
+    return false unless entry[:record_type] == 'opinion'
+
+    completeness = entry[:completeness]
+    return false if completeness.blank?
+
+    completeness[:unmarked].to_i.positive? || completeness[:total].to_i.zero?
+  end
+
+  def incomplete_opinion_verdict(entry, event)
+    completeness = entry[:completeness] || {}
+    common = {
+      marked: completeness[:marked],
+      unmarked: completeness[:unmarked],
+      total: completeness[:total]
+    }
+
+    if event.present?
+      return I18n.t(
+        'services.record_audit_trail_summary.verdict.opinion_incomplete',
+        **common,
+        datetime: I18n.l(event[:at], format: :compressed),
+        user: event[:user_name]
+      )
+    end
+
+    I18n.t('services.record_audit_trail_summary.verdict.opinion_incomplete_no_audit', **common)
+  end
+
+  def build_opinion_batch_verdict(entry, events)
+    event = events.max_by { |item| item[:at] }
+    return incomplete_opinion_verdict(entry, event) if incomplete_opinion?(entry) && entry[:record].present?
+
+    return I18n.t('services.record_audit_trail_summary.verdict.unknown') if event.blank?
+
+    if entry[:record].blank?
+      return I18n.t(
+        'services.record_audit_trail_summary.verdict.destroyed',
+        datetime: I18n.l(event[:at], format: :compressed),
+        user: event[:user_name]
+      )
+    end
+
+    I18n.t(
+      'services.record_audit_trail_summary.verdict.active',
+      datetime: I18n.l(event[:at], format: :compressed),
+      user: event[:user_name]
+    )
   end
 
   def frequency_context(record)
@@ -1595,6 +1749,145 @@ class RecordAuditTrailSummary
     return if name.blank?
 
     I18n.t('services.record_audit_trail_summary.owner_teacher', name: name)
+  end
+
+  def conceptual_exam_base_scope
+    scope = ConceptualExam.with_discarded.joins(:classroom).where(classrooms: { unity_id: @unity_id })
+    scope = scope.where(recorded_at: @start_date..@end_date)
+    scope = scope.by_classroom_id(@classroom_id) if @classroom_id.present?
+    scope
+  end
+
+  def apply_descriptive_discipline_filter(scope)
+    return scope if @discipline_id.blank?
+
+    if records_by_knowledge_area?
+      scope.where(discipline_id: discipline_ids_for_filter + [nil])
+    else
+      apply_discipline_filter(scope)
+    end
+  end
+
+  def apply_conceptual_discipline_filter(scope)
+    return scope if @discipline_id.blank?
+
+    scope.by_discipline(discipline_ids_for_filter)
+  end
+
+  def opinion_teacher_matches_classroom?(classroom_id)
+    return true if @teacher_id.blank?
+    return true if teacher_historically_linked_to_classroom?(classroom_id)
+
+    false
+  end
+
+  def teacher_historically_linked_to_classroom?(classroom_id)
+    return false if @teacher_id.blank? || classroom_id.blank?
+
+    TeacherDisciplineClassroom.unscoped.exists?(
+      teacher_id: @teacher_id,
+      classroom_id: classroom_id,
+      year: (@start_date.year..@end_date.year).to_a
+    )
+  end
+
+  def descriptive_exam_persisted?(record)
+    !record.respond_to?(:deleted_at) || record.deleted_at.blank?
+  end
+
+  def descriptive_exam_label(record)
+    parts = [
+      I18n.t('services.record_audit_trail_summary.opinion_descriptive'),
+      record.discipline&.to_s,
+      record.classroom&.to_s,
+      step_number_label(record.step_number),
+      (I18n.l(record.recorded_at) if record.recorded_at)
+    ]
+    parts.compact.reject(&:blank?).join(' — ')
+  end
+
+  def conceptual_exam_batch_label(sample, completeness)
+    parts = [
+      I18n.t(
+        'services.record_audit_trail_summary.opinion_conceptual_batch',
+        count: completeness[:total]
+      ),
+      sample.classroom&.to_s,
+      step_number_label(sample.step_number),
+      (I18n.l(sample.recorded_at) if sample.recorded_at)
+    ]
+    parts.compact.reject(&:blank?).join(' — ')
+  end
+
+  def step_number_label(step_number)
+    return if step_number.blank? || step_number.to_i.zero?
+
+    I18n.t('services.record_audit_trail_summary.step_number', number: step_number)
+  end
+
+  def descriptive_exam_context(record)
+    completeness = descriptive_exam_completeness(record)
+
+    {
+      classroom_id: record.classroom_id,
+      classroom_name: record.classroom&.to_s,
+      discipline_id: record.discipline_id,
+      discipline_name: record.discipline&.to_s,
+      completeness: completeness,
+      detail: opinion_completeness_detail(completeness)
+    }
+  end
+
+  def descriptive_exam_completeness(record)
+    students = Array(record.students)
+    marked = students.count { |student| DescriptiveExamValue.present?(student.value) }
+
+    {
+      total: students.size,
+      marked: marked,
+      unmarked: students.size - marked
+    }
+  end
+
+  def conceptual_exam_completeness(exams)
+    marked = exams.count do |exam|
+      exam.conceptual_exam_values.any? { |value| value.value.present? }
+    end
+
+    {
+      total: exams.size,
+      marked: marked,
+      unmarked: exams.size - marked
+    }
+  end
+
+  def opinion_completeness_detail(completeness)
+    return if completeness.blank?
+
+    I18n.t(
+      'services.record_audit_trail_summary.opinion_completeness',
+      marked: completeness[:marked],
+      total: completeness[:total]
+    )
+  end
+
+  def matches_descriptive_exam_changes?(changes, audit)
+    classroom = Classroom.find_by(id: changes['classroom_id'])
+    return false unless unity_matches?(classroom&.unity_id)
+    return false if @classroom_id.present? && changes['classroom_id'].to_i != @classroom_id.to_i
+    return false unless opinion_teacher_matches_classroom?(changes['classroom_id'])
+    return false unless discipline_id_matches_filter?(changes['discipline_id'], allow_blank: true)
+
+    date_matches_filter?(changes['recorded_at'], audit)
+  end
+
+  def matches_conceptual_exam_changes?(changes, audit)
+    classroom = Classroom.find_by(id: changes['classroom_id'])
+    return false unless unity_matches?(classroom&.unity_id)
+    return false if @classroom_id.present? && changes['classroom_id'].to_i != @classroom_id.to_i
+    return false unless opinion_teacher_matches_classroom?(changes['classroom_id'])
+
+    date_matches_filter?(changes['recorded_at'], audit)
   end
 
   def test_date_in_range?(value)

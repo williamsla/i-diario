@@ -2,9 +2,11 @@ pt-BR:
   record_audit_trails:
     form:
       submit: "Consultar"
-      help: "Consulta o histórico de criação, alteração e exclusão dos lançamentos no período. O resultado aparece na tela, com uma frase pronta para o chamado. Use turma e professor para ver o calendário esperado e lançamentos em disciplina, turma ou data próximas. O PDF continua disponível na tela de resultado."
+      help: "Consulta o histórico de criação, alteração e exclusão dos lançamentos no período. O resultado aparece na tela, com uma frase pronta para o chamado. Professores com vínculo encerrado continuam na lista. Use turma e professor para ver o calendário esperado, parecer e lançamentos em disciplina, turma ou data próximas."
     report:
-      help: "Data letiva é o dia da aula ou do conteúdo. Data do evento é quando alguém criou, alterou ou excluiu o registro. Lançamentos próximos aparecem quando o recorte (turma/disciplina/data) não encontra o registro no lugar esperado."
+      help: "Data letiva é o dia da aula ou do conteúdo. Data do evento é quando alguém criou, alterou ou excluiu o registro. Se o vínculo da professora com a turma foi encerrado, o diário dela esconde os lançamentos; esta consulta mostra o que ainda está no sistema."
+      allocation_unlinked_title: "Vínculo encerrado"
+      allocation_missing_title: "Sem vínculo atual"
       back: "Nova consulta"
       export_pdf: "Exportar PDF"
       empty: "Nenhum lançamento ou evento de auditoria encontrado para os filtros informados."

@@ -2,7 +2,8 @@
 
 class RecordAuditTrailDiagnostic
   NEIGHBOR_WINDOW_DAYS = 3
-  NEIGHBOR_RECORD_TYPES = %w[frequency content].freeze
+  CALENDAR_RECORD_TYPES = %w[frequency content].freeze
+  NEIGHBOR_RECORD_TYPES = %w[frequency content opinion].freeze
 
   def initialize(unity_id:, classroom_id:, teacher_id:, discipline_id:, start_date:, end_date:,
                  record_types:, school_year: nil)
@@ -22,7 +23,8 @@ class RecordAuditTrailDiagnostic
       neighbors: neighbors,
       calendar: calendar,
       phrase: phrase,
-      stats: stats
+      stats: stats,
+      allocation: allocation
     }
   end
 
@@ -91,7 +93,7 @@ class RecordAuditTrailDiagnostic
   end
 
   def calendar
-    return [] unless frequency_or_content?
+    return [] unless calendar_record_types?
     return [] if interesting_dates.blank?
 
     interesting_dates.map { |date| calendar_row(date) }
@@ -101,8 +103,8 @@ class RecordAuditTrailDiagnostic
     @classroom_id.present? && @teacher_id.present?
   end
 
-  def frequency_or_content?
-    (@record_types & NEIGHBOR_RECORD_TYPES).present?
+  def calendar_record_types?
+    (@record_types & CALENDAR_RECORD_TYPES).present?
   end
 
   def interesting_dates
@@ -113,7 +115,7 @@ class RecordAuditTrailDiagnostic
         Array(row[:pending_content_dates]).each { |date| dates << date.to_date }
       end
       results.each do |result|
-        next unless NEIGHBOR_RECORD_TYPES.include?(result[:record_type])
+        next unless CALENDAR_RECORD_TYPES.include?(result[:record_type])
         dates << result[:occurred_on].to_date if result[:occurred_on].present?
       end
       dates.select { |date| date.between?(@start_date, @end_date) }.sort
@@ -221,9 +223,15 @@ class RecordAuditTrailDiagnostic
       record_types: @record_types,
       start_date: @start_date,
       end_date: @end_date,
+      allocation: allocation
+    ).call
+  end
+
+  def allocation
+    @allocation ||= RecordAuditTrailTeacherLinks.allocation(
       classroom_id: @classroom_id,
       teacher_id: @teacher_id,
-      discipline_id: @discipline_id
-    ).call
+      year: @school_year
+    )
   end
 end

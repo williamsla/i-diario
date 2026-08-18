@@ -118,4 +118,14 @@ RSpec.describe RecordAuditTrailDiagnostic, type: :service do
     expect(result[:calendar].first[:content][:status]).to eq('missing')
     expect(result[:phrase]).to include('Não há frequência lançada')
   end
+
+  it 'avisa quando o vínculo da professora com a turma foi encerrado' do
+    TeacherDisciplineClassroom.where(teacher: teacher, classroom: classroom).find_each(&:discard)
+
+    result = diagnostic
+
+    expect(result[:allocation][:status]).to eq('unlinked')
+    expect(result[:phrase]).to include('vínculo')
+    expect(result[:phrase]).to include('encerrado')
+  end
 end

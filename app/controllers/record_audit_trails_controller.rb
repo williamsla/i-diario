@@ -44,6 +44,7 @@ class RecordAuditTrailsController < ApplicationController
       @calendar = diagnostic[:calendar]
       @phrase = diagnostic[:phrase]
       @diagnostic_stats = diagnostic[:stats]
+      @allocation = diagnostic[:allocation]
 
       if params[:export_pdf].present?
         pdf_report = RecordAuditTrailReport.build(
@@ -69,15 +70,8 @@ class RecordAuditTrailsController < ApplicationController
 
     return render json: { teachers: [] } if params[:classroom_id].blank?
 
-    classroom = Classroom.find(params[:classroom_id])
     school_year = current_school_year || Date.current.year
-    teachers = Teacher.joins(:teacher_discipline_classrooms)
-                      .where(teacher_discipline_classrooms: {
-                        classroom_id: classroom.id,
-                        year: school_year
-                      })
-                      .distinct
-                      .order_by_name
+    teachers = RecordAuditTrailTeacherLinks.teachers_for_select(params[:classroom_id], school_year)
 
     render json: {
       teachers: teachers.map { |teacher| { id: teacher.id, name: teacher.name } }
@@ -100,15 +94,13 @@ class RecordAuditTrailsController < ApplicationController
     return Discipline.none if classroom_id.blank? || teacher_id.blank?
 
     school_year = current_school_year || Date.current.year
+    discipline_ids = RecordAuditTrailTeacherLinks.discipline_ids_for(
+      classroom_id: classroom_id,
+      teacher_id: teacher_id,
+      year: school_year
+    )
 
-    Discipline.joins(:teacher_discipline_classrooms)
-              .where(teacher_discipline_classrooms: {
-                classroom_id: classroom_id,
-                teacher_id: teacher_id,
-                year: school_year
-              })
-              .distinct
-              .ordered
+    Discipline.where(id: discipline_ids).ordered
   end
 
   def steps_fetcher
@@ -160,13 +152,10 @@ class RecordAuditTrailsController < ApplicationController
                            .ordered
 
     if @record_audit_trail_form.classroom_id.present?
-      @teachers = Teacher.joins(:teacher_discipline_classrooms)
-                         .where(teacher_discipline_classrooms: {
-                           classroom_id: @record_audit_trail_form.classroom_id,
-                           year: current_school_year || Date.current.year
-                         })
-                         .distinct
-                         .order_by_name
+      @teachers = RecordAuditTrailTeacherLinks.teachers_for_select(
+        @record_audit_trail_form.classroom_id,
+        current_school_year || Date.current.year
+      )
 
       @disciplines = disciplines_for_form(
         @record_audit_trail_form.classroom_id,

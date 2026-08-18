@@ -243,4 +243,71 @@ RSpec.describe RecordAuditTrailSummary, type: :service do
       expect(results.first[:detail]).to include('Conteúdos:')
     end
   end
+
+  describe 'parecer e vínculo encerrado' do
+    let(:regular_discipline) { create(:discipline) }
+
+    before do
+      create(
+        :teacher_discipline_classroom,
+        teacher: teacher,
+        classroom: classroom,
+        discipline: regular_discipline
+      )
+    end
+
+    def persist_conceptual_exam(student, value)
+      exam = ConceptualExam.new(
+        classroom: classroom,
+        student: student,
+        recorded_at: record_date,
+        unity_id: classroom.unity_id
+      )
+      exam.teacher_id = teacher.id
+      exam.step_number = step.step_number
+      exam.step_id = step.id
+      exam.save!(validate: false)
+      ConceptualExamValue.create!(
+        conceptual_exam: exam,
+        discipline: regular_discipline,
+        value: value
+      )
+      exam
+    end
+
+    it 'traz parecer descritivo mesmo depois de retirar a professora da turma' do
+      exam = create(
+        :descriptive_exam,
+        classroom: classroom,
+        discipline: regular_discipline,
+        recorded_at: record_date,
+        teacher_id: teacher.id
+      )
+
+      TeacherDisciplineClassroom.unscoped
+                                .where(teacher_id: teacher.id, classroom_id: classroom.id)
+                                .find_each(&:discard)
+
+      results = summary(discipline_id: regular_discipline.id, record_types: ['opinion'])
+      result = results.find { |item| item[:auditable_type] == 'DescriptiveExam' }
+
+      expect(result).to be_present
+      expect(result[:auditable_id]).to eq(exam.id)
+      expect(result[:record_exists]).to eq(true)
+    end
+
+    it 'agrupa avaliações conceituais da mesma etapa' do
+      persist_conceptual_exam(create(:student), 8)
+      persist_conceptual_exam(create(:student), nil)
+
+      results = summary(discipline_id: regular_discipline.id, record_types: ['opinion'])
+      result = results.find { |item| item[:auditable_type] == 'ConceptualExamBatch' }
+
+      expect(result).to be_present
+      expect(result[:completeness][:total]).to eq(2)
+      expect(result[:completeness][:unmarked]).to eq(1)
+      expect(result[:status]).to eq('incomplete')
+      expect(result[:history_id]).to be_present
+    end
+  end
 end

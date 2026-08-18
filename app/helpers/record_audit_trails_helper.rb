@@ -21,17 +21,26 @@ module RecordAuditTrailsHelper
       history_discipline_lesson_plan_path(result[:auditable_id])
     when 'KnowledgeAreaLessonPlan'
       history_knowledge_area_lesson_plan_path(result[:auditable_id])
+    when 'DescriptiveExam'
+      history_descriptive_exam_path(result[:auditable_id])
+    when 'ConceptualExam'
+      history_conceptual_exam_path(result[:auditable_id])
+    when 'ConceptualExamBatch'
+      history_conceptual_exam_path(result[:history_id]) if result[:history_id].present?
     end
   end
 
   def record_audit_trail_show_history?(result)
+    return true if result[:auditable_type] == 'ConceptualExamBatch' && result[:history_id].present?
     return true if result[:record_exists]
 
     result[:avaliation_id].present? && result[:auditable_type] != 'Avaliation'
   end
 
   def record_audit_trail_history_link(result)
-    if result[:record_exists]
+    if result[:auditable_type] == 'ConceptualExamBatch' && result[:history_id].present?
+      history_conceptual_exam_path(result[:history_id])
+    elsif result[:record_exists]
       record_audit_trail_history_path(result)
     elsif result[:avaliation_id].present?
       history_avaliation_path(result[:avaliation_id])

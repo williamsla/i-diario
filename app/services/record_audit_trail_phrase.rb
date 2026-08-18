@@ -2,7 +2,7 @@
 
 class RecordAuditTrailPhrase
   def initialize(results:, neighbors:, stats:, pending_frequency_dates:, pending_content_dates:,
-                 record_types:, start_date:, end_date:, **)
+                 record_types:, start_date:, end_date:, allocation: nil, **)
     @results = results
     @neighbors = neighbors
     @stats = stats
@@ -11,21 +11,48 @@ class RecordAuditTrailPhrase
     @record_types = record_types
     @start_date = start_date
     @end_date = end_date
+    @allocation = allocation
   end
 
   def call
     sentences = []
+    sentences << allocation_sentence
     sentences << scope_sentence
     sentences.concat(deleted_sentences)
     sentences.concat(incomplete_sentences)
     sentences.concat(missing_sentences)
     sentences.concat(active_sentences)
     sentences.concat(neighbor_sentences)
-    sentences << empty_sentence if sentences.size == 1 && nothing_found?
+    sentences << empty_sentence if nothing_found?
     sentences.compact.join(' ')
   end
 
   private
+
+  def allocation_sentence
+    return if @allocation.blank?
+
+    case @allocation[:status]
+    when 'unlinked'
+      extras = []
+      extras << I18n.t('services.record_audit_trail_phrase.allocation_left_at', date: I18n.l(@allocation[:left_at])) if @allocation[:left_at].present?
+      extras << I18n.t('services.record_audit_trail_phrase.allocation_discarded_at', date: I18n.l(@allocation[:discarded_at].to_date)) if @allocation[:discarded_at].present?
+      I18n.t(
+        'services.record_audit_trail_phrase.allocation_unlinked',
+        teacher: @allocation[:teacher_name],
+        classroom: @allocation[:classroom_name],
+        details: extras.join(' ')
+      )
+    when 'missing'
+      return if @results.blank?
+
+      I18n.t(
+        'services.record_audit_trail_phrase.allocation_missing',
+        teacher: @allocation[:teacher_name],
+        classroom: @allocation[:classroom_name]
+      )
+    end
+  end
 
   def scope_sentence
     I18n.t(

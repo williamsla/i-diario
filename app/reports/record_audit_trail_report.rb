@@ -18,6 +18,7 @@ class RecordAuditTrailReport < BaseReportOld
     @neighbors = Array(diagnostic[:neighbors])
     @calendar = Array(diagnostic[:calendar])
     @phrase = diagnostic[:phrase]
+    @allocation = diagnostic[:allocation]
     @summary_stats = compute_summary_stats
 
     header
@@ -34,6 +35,7 @@ class RecordAuditTrailReport < BaseReportOld
   def body
     page_content do
       filters_section
+      allocation_section
       phrase_section
       executive_summary
       legend_section
@@ -49,12 +51,43 @@ class RecordAuditTrailReport < BaseReportOld
 
   private
 
-  attr_reader :results, :summary_stats, :neighbors, :calendar, :phrase
+  attr_reader :results, :summary_stats, :neighbors, :calendar, :phrase, :allocation
 
   def normalize_diagnostic(diagnostic)
     return diagnostic if diagnostic.is_a?(Hash)
 
-    { results: diagnostic, neighbors: [], calendar: [], phrase: nil }
+    { results: diagnostic, neighbors: [], calendar: [], phrase: nil, allocation: nil }
+  end
+
+  def allocation_section
+    return if allocation.blank?
+    return unless %w[unlinked missing].include?(allocation[:status])
+    return if allocation[:status] == 'missing' && results.blank?
+
+    text I18n.t("record_audit_trails.report.allocation_#{allocation[:status]}_title"), size: 10, style: :bold
+    move_down 4
+    text allocation_text, size: 9, leading: 1.4
+    move_down GAP
+  end
+
+  def allocation_text
+    if allocation[:status] == 'unlinked'
+      extras = []
+      extras << I18n.t('services.record_audit_trail_phrase.allocation_left_at', date: I18n.l(allocation[:left_at])) if allocation[:left_at].present?
+      extras << I18n.t('services.record_audit_trail_phrase.allocation_discarded_at', date: I18n.l(allocation[:discarded_at].to_date)) if allocation[:discarded_at].present?
+      I18n.t(
+        'services.record_audit_trail_phrase.allocation_unlinked',
+        teacher: allocation[:teacher_name],
+        classroom: allocation[:classroom_name],
+        details: extras.join(' ')
+      )
+    else
+      I18n.t(
+        'services.record_audit_trail_phrase.allocation_missing',
+        teacher: allocation[:teacher_name],
+        classroom: allocation[:classroom_name]
+      )
+    end
   end
 
   def phrase_section
