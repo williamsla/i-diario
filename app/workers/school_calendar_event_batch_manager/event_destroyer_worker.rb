@@ -4,8 +4,9 @@ module SchoolCalendarEventBatchManager
 
     EVENT_NOT_DESTROYED = 'Não foi possível excluir o evento'.freeze
 
-    def perform(entity_id, school_calendar_event_batch_id, user_id, action_name)
+    def perform(entity_id, school_calendar_event_batch_id, user_id, action_name, keep_teacher_records = false)
       Rails.logger.info("=== INÍCIO: Excluindo evento em lote #{school_calendar_event_batch_id} para entity #{entity_id} ===")
+      keep_teacher_records = ActiveRecord::Type::Boolean.new.cast(keep_teacher_records)
       
       # Tenta usar Entity.current primeiro (definido pelo controller), senão busca por ID
       entity = Entity.current || begin
@@ -34,11 +35,13 @@ module SchoolCalendarEventBatchManager
             return
           end
 
+          school_calendars_days(school_calendar_event_batch, action_name) unless keep_teacher_records
+
           destroyed = false
 
           events.each do |event|
             begin
-              school_calendars_days(school_calendar_event_batch, action_name)
+              event.keep_teacher_records = keep_teacher_records
               event.destroy!
               destroyed = true
               Rails.logger.info("Evento #{event.id} excluído com sucesso")

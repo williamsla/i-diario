@@ -44,7 +44,7 @@ module LessonsBoardAvailability
     return false if classroom.blank?
 
     classroom.classrooms_grades.any? do |classroom_grade|
-      infantil_grade_description?(classroom_grade.grade&.description)
+      infantil_grade?(classroom_grade.grade)
     end
   end
 
@@ -310,5 +310,47 @@ module LessonsBoardAvailability
         schedule_ids: scheduled_teacher_discipline_ids
       )
     }
+  end
+
+  # Professores da turma no mesmo turno, inclusive vínculos inativos/desativados
+  # (substituição). Sem período específico, fica só o professor logado.
+  def teacher_ids_for_classroom_period(classroom_id:, period: nil)
+    current_id = current_teacher&.id
+    return Array(current_id) if classroom_id.blank?
+
+    period = period.presence || teacher_period_for_classroom(classroom_id)
+    period_value = period.to_i
+
+    unless period_value.positive? && period_value != Periods::FULL.to_i
+      return Array(current_id)
+    end
+
+    scope = TeacherDisciplineClassroom.unscoped.where(classroom_id: classroom_id)
+    year = Classroom.unscoped.where(id: classroom_id).limit(1).pluck(:year).first
+    scope = scope.where(year: year) if year.present?
+
+    ids = scope.where(period: [period_value, period_value.to_s])
+               .distinct
+               .pluck(:teacher_id)
+               .compact
+
+    ids | Array(current_id)
+  end
+
+  def teacher_period_for_classroom(classroom_id)
+    return if current_teacher.blank? || classroom_id.blank?
+
+    TeacherPeriodFetcher.new(
+      current_teacher.id,
+      classroom_id,
+      try(:current_user).try(:current_discipline_id)
+    ).teacher_period
+  end
+
+  def prefer_current_teacher_records(records)
+    return records if current_teacher.blank?
+
+    own = records.select { |record| record.content_record&.teacher_id == current_teacher.id }
+    own.presence || records
   end
 end

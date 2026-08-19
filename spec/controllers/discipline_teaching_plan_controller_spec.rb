@@ -73,6 +73,29 @@ RSpec.describe DisciplineTeachingPlansController, type: :controller do
       discipline: discipline
     )
   }
+  let(:admin) { create(:user, :with_user_role_administrator) }
+  let(:unificado_teaching_plan) {
+    plan = nil
+    Audited.audit_class.as_user(admin) do
+      plan = create(
+        :teaching_plan,
+        teacher: nil,
+        unity: classroom.unity,
+        year: classroom.year,
+        grade: classroom.classrooms_grades.first.grade,
+        school_term_type: school_term_type,
+        school_term_type_step: school_term_type_step
+      )
+    end
+    plan
+  }
+  let(:unificado_discipline_teaching_plan) {
+    create(
+      :discipline_teaching_plan,
+      teaching_plan: unificado_teaching_plan,
+      discipline: discipline
+    )
+  }
   let(:teacher_discipline_classroom) {
     create(
       :teacher_discipline_classroom,
@@ -143,21 +166,41 @@ RSpec.describe DisciplineTeachingPlansController, type: :controller do
     context 'with author filter' do
       context 'when the author is the current teacher' do
         before do
+          current_teacher_discipline_teaching_plan
+          other_teacher_discipline_teaching_plan
+          unificado_discipline_teaching_plan
+
           get :index, params: { locale: 'pt-BR', filter: { by_author: PlansAuthors::MY_PLANS } }
         end
 
-        it 'lists the current teacher plans' do
-          expect(assigns(:discipline_teaching_plans)).to eq([current_teacher_discipline_teaching_plan])
+        it 'lists the current teacher plans and unificados' do
+          expect(assigns(:discipline_teaching_plans)).to include(
+            current_teacher_discipline_teaching_plan,
+            unificado_discipline_teaching_plan
+          )
+          expect(assigns(:discipline_teaching_plans)).not_to include(
+            other_teacher_discipline_teaching_plan
+          )
         end
       end
 
       context 'when the author is other teacher' do
         before do
+          current_teacher_discipline_teaching_plan
+          other_teacher_discipline_teaching_plan
+          unificado_discipline_teaching_plan
+
           get :index, params: { locale: 'pt-BR', filter: { by_author: PlansAuthors::OTHERS } }
         end
 
-        it 'lists the other teachers plans' do
-          expect(assigns(:discipline_teaching_plans)).to eq([other_teacher_discipline_teaching_plan])
+        it 'lists other teachers plans without unificados' do
+          expect(assigns(:discipline_teaching_plans)).to include(
+            other_teacher_discipline_teaching_plan
+          )
+          expect(assigns(:discipline_teaching_plans)).not_to include(
+            current_teacher_discipline_teaching_plan,
+            unificado_discipline_teaching_plan
+          )
         end
       end
     end

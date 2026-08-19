@@ -37,6 +37,49 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     }
   end
 
+  def find_existing
+    authorize KnowledgeAreaContentRecord.new, :new?
+
+    classroom_id = params[:classroom_id].presence || current_user_classroom&.id
+    record_date = parse_lessons_board_date(params[:record_date])
+    knowledge_area_ids = Array(params[:knowledge_area_ids]).flat_map { |ids| ids.to_s.split(',') }.map(&:to_i).reject(&:zero?).uniq.sort
+    student_id = params[:student_id].presence
+
+    if classroom_id.blank? || record_date.blank? || knowledge_area_ids.blank?
+      render json: { id: nil }
+      return
+    end
+
+    teacher_ids = teacher_ids_for_classroom_period(
+      classroom_id: classroom_id,
+      period: params[:period]
+    )
+
+    records = KnowledgeAreaContentRecord
+              .by_classroom_id(classroom_id)
+              .by_date(record_date)
+              .by_student_id(student_id)
+              .by_knowledge_area_id(knowledge_area_ids)
+              .by_teacher_id(teacher_ids)
+              .includes(:knowledge_areas, :content_record)
+              .distinct
+              .to_a
+
+    candidates = prefer_current_teacher_records(records)
+
+    matching = candidates.find do |record|
+      record.knowledge_areas.map(&:id).sort == knowledge_area_ids
+    end
+
+    matching ||= candidates.find do |record|
+      (knowledge_area_ids - record.knowledge_areas.map(&:id)).empty?
+    end
+
+    matching ||= candidates.first
+
+    render json: { id: matching&.id }
+  end
+
   def index
     params[:filter] ||= {}
     author_type = PlansAuthors::MY_PLANS.to_s if params[:filter].empty?
@@ -49,6 +92,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
 
     if author_type.present?
       @knowledge_area_content_records = @knowledge_area_content_records.by_author(author_type, current_teacher.id)
+      params[:filter][:by_author] = author_type
     end
 
     authorize @knowledge_area_content_records
@@ -76,7 +120,7 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     @knowledge_area_content_record.content_record ||= ContentRecord.new
 
     if params[:recorded_at].present?
-      record_date = Date.parse(params[:recorded_at])
+      record_date = parse_lessons_board_date(params[:recorded_at]) || Time.zone.now
     else
       record_date = Time.zone.now
     end
@@ -84,7 +128,8 @@ class KnowledgeAreaContentRecordsController < ApplicationController
     @knowledge_area_content_record.build_content_record(
       record_date: record_date,
       unity_id: current_unity.id,
-      classroom_id: current_user_classroom.id
+      classroom_id: current_user_classroom.id,
+      student_id: params[:student_id]
     )
 
     set_knowledge_area_by_classroom(current_user_classroom.id)

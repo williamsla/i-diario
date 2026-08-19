@@ -9,7 +9,9 @@ class ObjectivesController < ApplicationController
       discipline = Discipline.find(params[:discipline_id])
       date = params[:date]
       return unless teacher && classroom && discipline && date
-      @objectives = ContentsForDisciplineRecordFetcher.new(teacher, classroom, discipline, date).fetch_objectives
+      @objectives = ContentsForDisciplineRecordFetcher.new(
+        teacher, classroom, discipline, date, params[:student_id]
+      ).fetch_objectives
     elsif params[:fetch_for_knowledge_area_records]
       teacher = current_teacher
       classroom = Classroom.find(params[:classroom_id])

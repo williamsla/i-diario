@@ -36,54 +36,176 @@ $(function(){
       return;
     }
 
-    // Criar select de etapas
-    var selectHtml = '<div class="form-group">' +
-      '<label for="step-select">Selecione a etapa:</label>' +
-      '<select id="step-select" class="form-control" style="max-width: 400px;">' +
-      '<option value="">Selecione uma etapa...</option>';
-    
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    var currentStep = null;
     _.each(steps, function(step) {
-      selectHtml += '<option value="' + step.id + '">' + step.name + '</option>';
-    });
-    
-    selectHtml += '</select>' +
-      '</div>' +
-      '<div id="step-data-container"></div>';
+      var startDate = parseStepDate(step.start_at_iso);
+      var endDate = parseStepDate(step.end_at_iso);
 
-    $container.html(selectHtml);
-
-    // Event listener para mudança de etapa
-    $('#step-select').on('change', function() {
-      var stepId = $(this).val();
-      if(stepId) {
-        fetchStepData(stepId);
-      } else {
-        $('#step-data-container').html('');
+      if (today >= startDate && today <= endDate) {
+        currentStep = step;
+        return false;
       }
     });
 
-    // Selecionar etapa da data atual automaticamente
-    if(steps.length > 0) {
-      var today = new Date();
-      today.setHours(0, 0, 0, 0); // Zerar horas para comparação apenas de data
-      
-      var currentStep = null;
-      _.each(steps, function(step) {
-        var startDate = new Date(step.start_at_iso);
-        var endDate = new Date(step.end_at_iso);
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(0, 0, 0, 0);
-        
-        // Verificar se a data atual está dentro do período da etapa
-        if(today >= startDate && today <= endDate) {
-          currentStep = step;
-          return false; // break do loop
-        }
-      });
-      
-      // Se não encontrou etapa atual, usar a primeira etapa
-      var stepToSelect = currentStep || steps[0];
-      $('#step-select').val(stepToSelect.id).trigger('change');
+    var stepsHtml = '<div class="pending-steps-selector form-group">' +
+      '<div class="pending-steps-list" role="listbox" aria-label="Etapas"></div>' +
+      '<div class="pending-step-detail" aria-live="polite"></div>' +
+      '</div>' +
+      '<div id="step-data-container"></div>';
+
+    $container.html(stepsHtml);
+
+    var $stepsList = $container.find('.pending-steps-list');
+
+    _.each(steps, function(step) {
+      var isCurrent = currentStep && String(currentStep.id) === String(step.id);
+      var isFuture = isFutureStep(step, today);
+      var fullName = stepFullName(step);
+      var compactLabel = stepCompactLabel(step);
+      var datesLabel = (step.start_at || '') + ' a ' + (step.end_at || '');
+      var badgeHtml = '';
+
+      if (isCurrent) {
+        badgeHtml = '<span class="pending-step-btn__badge">Atual</span>';
+      } else if (isFuture) {
+        badgeHtml = '<span class="pending-step-btn__badge pending-step-btn__badge--future">Não iniciado</span>';
+      }
+
+      var $button = $('<button type="button" class="pending-step-btn" role="option" aria-selected="false"></button>')
+        .attr('data-step-id', step.id)
+        .attr('aria-label', isFuture ? fullName + ' (não iniciado)' : fullName)
+        .toggleClass('is-current', isCurrent)
+        .toggleClass('is-disabled', isFuture)
+        .prop('disabled', isFuture)
+        .attr('aria-disabled', isFuture ? 'true' : 'false')
+        .attr('title', isFuture ? 'Etapa ainda não iniciada. Disponível a partir de ' + (step.start_at || '') + '.' : null)
+        .html(
+          '<span class="pending-step-btn__compact">' + _.escape(compactLabel) + '</span>' +
+          '<span class="pending-step-btn__desktop">' +
+            '<span class="pending-step-btn__header">' +
+              '<span class="pending-step-btn__name">' + _.escape(fullName) + '</span>' +
+              badgeHtml +
+            '</span>' +
+            '<span class="pending-step-btn__dates">' + _.escape(datesLabel) + '</span>' +
+          '</span>'
+        );
+
+      $stepsList.append($button);
+    });
+
+    $stepsList.on('click', '.pending-step-btn:not(:disabled)', function() {
+      selectStep($(this).data('step-id'));
+    });
+
+    var startedSteps = _.filter(steps, function(step) {
+      return !isFutureStep(step, today);
+    });
+    var stepToSelect = currentStep || _.last(startedSteps);
+
+    if (stepToSelect) {
+      selectStep(stepToSelect.id);
+    } else {
+      $('#step-data-container').html(
+        '<div class="alert alert-info">Nenhuma etapa iniciada ainda.</div>'
+      );
+    }
+  }
+
+  function parseStepDate(isoDate) {
+    var parts = String(isoDate || '').split('-');
+    var year = parseInt(parts[0], 10);
+    var month = parseInt(parts[1], 10) - 1;
+    var day = parseInt(parts[2], 10);
+    var date = new Date(year, month, day);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+
+  function isFutureStep(step, today) {
+    return parseStepDate(step.start_at_iso) > today;
+  }
+
+  function stepFullName(step) {
+    var name = step.name || '';
+    var withoutDates = name.replace(/\s*\([^)]*\)\s*$/, '').trim();
+
+    if (withoutDates) {
+      return withoutDates;
+    }
+
+    if (step.step_number) {
+      return step.step_number + 'ª etapa';
+    }
+
+    return name;
+  }
+
+  function stepCompactLabel(step) {
+    var fullName = stepFullName(step);
+    var match = fullName.match(/^(\d+)\s*[ºª°]?\s*(.+)$/i);
+
+    if (match) {
+      var number = match[1];
+      var type = match[2].trim();
+      var compactType = type
+        .replace(/^bimestre$/i, 'Bim')
+        .replace(/^trimestre$/i, 'Tri')
+        .replace(/^semestre$/i, 'Sem')
+        .replace(/^unidade$/i, 'Uni')
+        .replace(/^etapa$/i, 'Eta');
+
+      if (compactType !== type || /^(Bim|Tri|Sem|Uni|Eta)$/i.test(compactType)) {
+        return number + 'º ' + compactType;
+      }
+
+      return number + 'º ' + type.substring(0, 5);
+    }
+
+    if (step.step_number) {
+      return step.step_number + 'º';
+    }
+
+    return fullName;
+  }
+
+  function stepTypeLabel(step) {
+    var fullName = stepFullName(step);
+    var match = fullName.match(/^\d+\s*[ºª°]?\s*(.+)$/i);
+
+    if (match) {
+      return match[1].trim().toLowerCase();
+    }
+
+    return 'etapa';
+  }
+
+  function selectStep(stepId) {
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    var selectedStep = _.find(steps, function(step) {
+      return String(step.id) === String(stepId);
+    });
+
+    if (selectedStep && isFutureStep(selectedStep, today)) {
+      return;
+    }
+
+    var $buttons = $container.find('.pending-step-btn');
+
+    $buttons.each(function() {
+      var $btn = $(this);
+      var isActive = String($btn.data('step-id')) === String(stepId);
+      $btn.toggleClass('is-active', isActive).attr('aria-selected', isActive ? 'true' : 'false');
+    });
+
+    if (stepId) {
+      fetchStepData(stepId);
+    } else {
+      $('#step-data-container').html('');
     }
   }
 
@@ -141,10 +263,9 @@ $(function(){
       '<th style="width: 160px; text-align: center;">Alunos sem Nota</th>' :
       '';
 
-    var stepHtml = '<div class="panel panel-default" style="margin-top: 20px;">' +
-      '<div class="panel-body">' +
+    var stepHtml = '<div class="pending-records-table-wrap">' +
         '<div class="table-responsive">' +
-          '<table class="table table-bordered table-only-inner-bordered table-striped table-hover" style="font-size: 14px;">' +
+          '<table class="table table-bordered table-only-inner-bordered table-striped table-hover pending-records-table">' +
             '<thead>' +
               '<tr>' +
                 '<th>Disciplina</th>' +
@@ -268,8 +389,7 @@ $(function(){
     stepHtml += '</tbody>' +
           '</table>' +
         '</div>' +
-      '</div>' +
-    '</div>';
+      '</div>';
 
     $stepContainer.html(stepHtml);
     

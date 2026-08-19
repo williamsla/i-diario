@@ -52,6 +52,8 @@ class DiaryReportController < ApplicationController
 
       @diary_report_form = DiaryReportForm.new(resource_params)
 
+      current_user_classroom.classrooms_grades.includes(:exam_rule, grade: :course).load
+
       pdfTarget = HexaPDF::Document.new
       
       coverReport = DiaryCoverReport.build(
@@ -95,6 +97,7 @@ class DiaryReportController < ApplicationController
         )
 
         if @attendance_record_report_form.valid?
+          query_done = Time.now
           frequencies_percentage = if GeneralConfiguration.current.show_percentage_on_attendance_record_report
                                       @attendance_record_report_form.students_frequencies_percentage
                                     else
@@ -118,7 +121,8 @@ class DiaryReportController < ApplicationController
             current_user_classroom.description
           )
           
-          add_pdf_to_merge(pdfTarget, report_name('frequencia'), attendance_record_report.render)        
+          add_pdf_to_merge(pdfTarget, report_name('frequencia'), attendance_record_report.render)
+          my_logger.info("Tempo de frequência #{discipline.description}: consulta=#{query_done - ini} pdf=#{Time.now - query_done}")        
         else
           Rails.logger.error "Ocorreu um erro ao carregar frequência"        
         end

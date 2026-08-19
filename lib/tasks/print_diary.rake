@@ -1,6 +1,6 @@
 require 'hexapdf'
 
-desc "Print diary"
+desc "Print diary (obrigatório: YEAR= e DOMAIN= ou TENANT=). Ex: YEAR=2024 DOMAIN=escola.gov.br rake print_diary"
 task print_diary: :environment do
 
   DISCIPLINE_LESSON_PLAN_REPORT = "1"
@@ -14,12 +14,8 @@ task print_diary: :environment do
                               and x.active = true and x.discarded_at is null")
   end
 
-  def teacher_is_specific_area(connection, classroom_id, teacher_id)
-    connection.select_value("SELECT x.allow_absence_by_discipline
-                              FROM public.teacher_discipline_classrooms x
-                              where x.classroom_id = #{classroom_id}
-                              and x.teacher_id = #{teacher_id}
-                              and x.active = true and x.discarded_at is null")
+  def teacher_allow_absence_by_discipline?(classroom, teacher_id, year)
+    FrequencyTypeDefiner.allow_frequency_by_discipline?(classroom, teacher_id, year: year)
   end
 
   def classroom_has_general_absence(classroom)
@@ -40,22 +36,21 @@ task print_diary: :environment do
   end
 
   def add_pdf_to_merge(pdfTarget, name, render)
-    file_path = "#{Rails.root}/public#{name}"
-    
-    File.open(file_path, 'wb') do |f|
-      f.write(render)
+    require 'stringio' unless defined?(StringIO)
+
+    localpdf = HexaPDF::Document.new(io: StringIO.new(render.to_s))
+    localpdf.pages.each { |page| pdfTarget.pages << pdfTarget.import(page) }
+  rescue StandardError => error
+    Rails.logger.warn("HexaPDF merge via StringIO falhou (#{error.message}), usando arquivo temporário")
+    require 'tempfile'
+
+    Tempfile.create(['pdf_merge', '.pdf']) do |file|
+      file.binmode
+      file.write(render)
+      file.flush
+      localpdf = HexaPDF::Document.open(file.path)
+      localpdf.pages.each { |page| pdfTarget.pages << pdfTarget.import(page) }
     end
-
-    # last_page_number = pdfTarget.pages.size
-
-    localpdf = HexaPDF::Document.open(file_path)
-    localpdf.pages.each {|page| pdfTarget.pages << pdfTarget.import(page)}
-
-    # pdfTarget.outline.add_item("Main") do |main|
-    #   main.add_item(name, destination: last_page_number)      
-    # end
-
-    File.delete(file_path)
   end
 
   def merge_pdf(pdfTarget, name, rootPath="#{Rails.root}/public")
@@ -102,14 +97,31 @@ task print_diary: :environment do
     )
   end
 
-  puts "Informe o ano letivo: "
-  year = 2024 # $stdin.gets.chomp
-  root = "#{Rails.root}/impressao-diarios/#{year}"
+  year = ENV.fetch("YEAR") do
+    raise "Informe YEAR=. Ex: YEAR=2024 DOMAIN=escola.gov.br rake print_diary"
+  end.to_i
+  raise "YEAR inválido" if year <= 0
+
+  entity = if ENV["DOMAIN"].present?
+             e = Entity.find_by(domain: ENV["DOMAIN"])
+             raise "Entidade não encontrada para DOMAIN=#{ENV['DOMAIN']}" unless e
+             e
+           elsif ENV["TENANT"].present?
+             e = Entity.find_by(name: ENV["TENANT"])
+             raise "Entidade não encontrada para TENANT=#{ENV['TENANT']}" unless e
+             e
+           else
+             raise "Obrigatório informar DOMAIN= ou TENANT=. Ex: YEAR=2024 DOMAIN=escola.gov.br rake print_diary"
+           end
+
+  tenant_folder = entity.name.presence || entity.domain
+  root = "#{Rails.root}/impressao-diarios/#{tenant_folder}/#{year}"
   system("mkdir -p #{root}")
 
-  entity = Entity.active.last
-    
-    entity.using_connection do
+  puts "Imprimindo diários: #{entity.name} (#{entity.domain}), ano #{year}"
+  puts "Saída: #{root}"
+
+  entity.using_connection do
       connection = ActiveRecord::Base.connection
 
       current_user = User.find_by(login: 'admin')
@@ -158,32 +170,32 @@ task print_diary: :environment do
 
                 puts "\t\t#{teacher.name} - #{teacher.id}"
 
+                ReportQueryCache.clear!
+
                 pdfTarget = HexaPDF::Document.new
-                      
-                fetch_linked_by_teacher ||= TeacherClassroomAndDisciplineFetcher.fetch!(
+
+                fetch_linked_by_teacher = TeacherClassroomAndDisciplineFetcher.fetch!(
                   teacher.id,
                   school,
                   calendar.year
                 )
-                disciplines ||= fetch_linked_by_teacher[:disciplines].by_classroom_id(
+                disciplines = fetch_linked_by_teacher[:disciplines].by_classroom_id(
                   classroom.id
                 ).not_descriptor.not_grouper
-                
+
                 knowledge_areas = KnowledgeArea.by_teacher(teacher.id)
                                               .by_classroom_id(classroom.id)
                                               .ordered
-                
-                
-                teacher_has_frequency_by_discipline = teacher_is_specific_area(connection, classroom.id, teacher.id)
-                if teacher_has_frequency_by_discipline == true
+
+                # Mesma regra do DiaryReportController: área específica OU turma sem frequência geral
+                # usa frequência por disciplina com aulas 1..5.
+                if teacher_allow_absence_by_discipline?(classroom, teacher.id, calendar.year) ||
+                   classroom_has_general_absence(classroom) == false
                   aux_disciplines = disciplines
-                  class_numbers_array = [1..5] # get all class_numbers
-                elsif classroom_has_general_absence(classroom) == true
-                  aux_disciplines = [disciplines.first]
-                  class_numbers_array = []
+                  class_numbers_array = (1..5).to_a
                 else
-                  aux_disciplines = disciplines
-                  class_numbers_array = [1..5] # get all class_numbers
+                  aux_disciplines = [disciplines.first].compact
+                  class_numbers_array = []
                 end
 
                   DiaryCoverReport.build(
@@ -200,7 +212,7 @@ task print_diary: :environment do
                       unity_id: school.id,
                       classroom_id: classroom.id,
                       school_calendar_year: calendar.year,
-                      discipline_id: disciplines.first.id.presence || 0,
+                      discipline_id: disciplines.first&.id.presence || 0,
                       teacher_id: teacher.id,
                       start_at: steps.first.start_at,
                       end_at: steps.last.end_at,
@@ -219,14 +231,13 @@ task print_diary: :environment do
                         start_at: @diary_report_form.start_at,
                         end_at: @diary_report_form.end_at,
                         class_numbers: class_numbers_array,
-                        # global_absence: true
                       )
-                      
+
                       @attendance_record_report_form.school_calendar = SchoolCalendar.find_by(
                         unity: @attendance_record_report_form.unity_id,
                         year: calendar.year
                       )
-              
+
                       if @attendance_record_report_form.valid?
                         attendance_record_report = AttendanceRecordReportPortrait.build(
                           current_entity_configuration,
@@ -244,10 +255,11 @@ task print_diary: :environment do
                           current_user,
                           classroom.description
                         )
-                        
-                        add_pdf_to_merge(pdfTarget, report_name('frequencia'), attendance_record_report.render)        
+
+                        add_pdf_to_merge(pdfTarget, report_name('frequencia'), attendance_record_report.render)
                       else
-                        Rails.logger.error "Ocorreu um erro ao carregar frequência"        
+                        puts "Ocorreu um erro ao carregar frequência (#{teacher.name} / #{discipline.description}): #{@attendance_record_report_form.errors.full_messages.join(', ')}"
+                        Rails.logger.error "Ocorreu um erro ao carregar frequência: #{@attendance_record_report_form.errors.full_messages.join(', ')}"
                       end
                   end # frequency
                   
@@ -423,6 +435,7 @@ task print_diary: :environment do
                   # --
                   filename_diary = report_name("diario#{calendar.year}-#{classroom.description.gsub('/','')}-#{teacher.name.split.first}", 4)
                   filename_diary_full_path = merge_pdf(pdfTarget, filename_diary, directory_name)
+                  ReportQueryCache.clear!
             end
         end
           

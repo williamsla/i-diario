@@ -131,7 +131,10 @@ class CurrentProfile
       return Discipline.none unless classroom && teacher
 
       Discipline.not_descriptor
+                .not_grouper
                 .by_teacher_and_classroom(teacher.id, classroom.id)
+                .joins(:knowledge_area)
+                .where(knowledge_areas: { group_descriptors: false })
                 .grouped_by_knowledge_area
                 .to_a
     end
@@ -146,7 +149,9 @@ class CurrentProfile
       return [] unless GeneralConfiguration.current.grouped_teacher_profile?
       return [] if user.teacher_id.blank?
 
-      teacher_profiles = GroupedDiscipline.by_teacher_unity_and_year(user.teacher_id, unity&.id, school_year).to_a
+      teacher_profiles = GroupedDiscipline.by_teacher_unity_and_year(user.teacher_id, unity&.id, school_year)
+                                          .where(group_descriptors: false)
+                                          .to_a
       teacher_profiles = [] if teacher_profiles.size >= 20
       teacher_profiles
     end

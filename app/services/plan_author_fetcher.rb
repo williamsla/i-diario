@@ -5,14 +5,19 @@ class PlanAuthorFetcher
   end
 
   def author
-    return I18n.t('enumerations.plans_authors.my_plans') if my_plans?
+    return I18n.t('enumerations.plans_authors.my_plans') if unificado? || my_plans?
 
     I18n.t('enumerations.plans_authors.others')
   end
 
   private
 
+  def unificado?
+    @component.try(:semed?)
+  end
+
   def my_plans?
-    @component.teacher.try(:id) == @current_teacher.try(:id) && !@component.teacher.nil?
+    teacher = @component.try(:teacher)
+    teacher.present? && teacher.id == @current_teacher.try(:id)
   end
 end

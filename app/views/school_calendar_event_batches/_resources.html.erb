@@ -12,9 +12,13 @@
         <td><%= school_calendar_event.event_type_humanize %></td>
         <td><%= school_calendar_event.batch_status_humanize %></td>
         <td class="actions">
+          <% if school_calendar_event.started? || school_calendar_event.error? %>
+            <%= link_to 'Reprocessar', reprocess_school_calendar_event_batch_path(school_calendar_event),
+              method: :post, class: 'btn btn-info' %>
+          <% end %>
           <%= link_to 'Editar', edit_school_calendar_event_batch_path(school_calendar_event),
             class: "btn btn-success", disabled: school_calendar_event.started? %>
-          <%= link_to '#', class: 'btn btn-danger', disabled: school_calendar_event.started?,
+          <%= link_to '#', class: 'btn btn-danger',
                       data: { toggle: "modal", target: "#modal-delete-school_calendar_event-#{school_calendar_event.id}" } do %>
             Excluir
           <% end %>

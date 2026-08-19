@@ -1,0 +1,73 @@
+<div class="conceptual-exams-by-step-index conceptual-exams-panel">
+  <div class="well well-sm">
+    <h4>
+      <%= @only_one_conceptual_avaliation ? t('conceptual_exams.index.by_step_title_annual') : t('conceptual_exams.index.by_step_title') %>
+    </h4>
+    <p class="text-muted">
+      <%= @only_one_conceptual_avaliation ? t('conceptual_exams.index.by_step_subtitle_annual') : t('conceptual_exams.index.by_step_subtitle') %>
+    </p>
+    <% if @classroom.present? %>
+      <p>
+        <strong><%= t('conceptual_exams.index.batch_layout_classroom') %>:</strong>
+        <%= @classroom.description %>
+        <% if @classroom.unity.present? %>
+          · <%= @classroom.unity %>
+        <% end %>
+      </p>
+    <% end %>
+  </div>
+
+  <% if @step_overviews.present? %>
+    <div class="list-group conceptual-exams-step-list">
+      <% @step_overviews.each do |overview| %>
+        <% step = overview.step %>
+        <div class="list-group-item <%= 'conceptual-exams-step-list__current' if overview.current %>">
+          <div class="conceptual-exams-step-list__header">
+            <div class="conceptual-exams-step-list__title">
+              <% if @only_one_conceptual_avaliation %>
+                <strong><%= t('conceptual_exams.index.batch_layout_annual_label') %></strong>
+                <div class="text-muted small">
+                  <%= l(@annual_period_start) %> a <%= l(@annual_period_end) %>
+                </div>
+              <% else %>
+                <strong>
+                  <%= step.to_s %>
+                  <% if overview.current %>
+                    <span class="label label-primary"><%= t('conceptual_exams.index.current_step') %></span>
+                  <% end %>
+                </strong>
+                <div class="text-muted small">
+                  <%= l(step.start_at) %> a <%= l(step.end_at) %>
+                </div>
+              <% end %>
+            </div>
+            <div class="conceptual-exams-step-list__action">
+              <%= link_to students_by_step_conceptual_exams_path(step_id: step.id),
+                          class: "btn btn-sm #{overview.current ? 'btn-primary' : 'btn-default'}" do %>
+                <i class="fa fa-users"></i> <%= t('conceptual_exams.index.manage_students') %>
+              <% end %>
+            </div>
+          </div>
+          <div class="conceptual-exams-step-list__stats">
+            <span class="conceptual-exams-step-list__stat text-success">
+              <strong><%= overview.complete %></strong>
+              <%= t('conceptual_exams.index.stat_complete') %>
+            </span>
+            <span class="conceptual-exams-step-list__stat text-warning">
+              <strong><%= overview.incomplete %></strong>
+              <%= t('conceptual_exams.index.stat_incomplete') %>
+            </span>
+            <span class="conceptual-exams-step-list__stat text-info">
+              <strong><%= overview.pending %></strong>
+              <%= t('conceptual_exams.index.stat_pending') %>
+            </span>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <div class="alert alert-info">
+      <i class="fa fa-info-circle"></i> <%= t('conceptual_exams.index.batch_layout_no_steps') %>
+    </div>
+  <% end %>
+</div>

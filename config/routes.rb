@@ -178,7 +178,11 @@ Rails.application.routes.draw do
     end
     resources :test_setting_tests, only: [:index, :show]
 
-    resources :school_calendar_event_batches
+    resources :school_calendar_event_batches do
+      member do
+        post :reprocess
+      end
+    end
     resources :school_calendars, concerns: :history do
       collection do
         get :step
@@ -254,12 +258,14 @@ Rails.application.routes.draw do
         post :clone
         get :check_teacher_absence
         get :disciplines_for_record_date
+        get :find_existing
       end
     end
     resources :knowledge_area_content_records, concerns: :history do
       collection do
         post :clone
         get :knowledge_areas_for_record_date
+        get :find_existing
       end
     end
     resources :classrooms, only: [:index, :show] do
@@ -353,6 +359,7 @@ Rails.application.routes.draw do
         get :new_batch
         get :form_batch
         post :create_batch
+        get :students_by_step
       end
     end
     resources :old_steps_conceptual_values, except: [:only]

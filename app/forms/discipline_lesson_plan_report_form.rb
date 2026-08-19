@@ -35,7 +35,15 @@ class DisciplineLessonPlanReportForm
                         .by_classroom_id(classroom_id)
                         .by_discipline_id(discipline_id)
                         .by_date_range(date_start.to_date, date_end.to_date)
-                        .includes(lesson_plan: :student)
+                        .preload(
+                          :discipline,
+                          lesson_plan: [
+                            :student,
+                            { classroom: :unity },
+                            { contents_lesson_plans: :content },
+                            { objectives_lesson_plans: :objective }
+                          ]
+                        )
                         .order_by_lesson_plan_date
   end
 
@@ -45,7 +53,15 @@ class DisciplineLessonPlanReportForm
                            .by_classroom_id(classroom_id)
                            .by_discipline_id(discipline_id)
                            .by_date_range(date_start.to_date, date_end.to_date)
-                           .includes(content_record: :student)
+                           .preload(
+                             :discipline,
+                             content_record: [
+                               :student,
+                               { classroom: :unity },
+                               { content_records_contents: :content },
+                               { objectives_content_records: :objective }
+                             ]
+                           )
                            .order_by_content_record_date
   end
 
@@ -55,8 +71,8 @@ class DisciplineLessonPlanReportForm
     return if errors.present?
 
     if report_type == ContentRecordReportTypes::LESSON_PLAN
-      errors.add(:discipline_lesson_plan, :must_have_discipline_lesson_plan) if discipline_lesson_plan.count.zero?
-    elsif discipline_content_record.count.zero?
+      errors.add(:discipline_lesson_plan, :must_have_discipline_lesson_plan) unless discipline_lesson_plan.exists?
+    elsif !discipline_content_record.exists?
       errors.add(:discipline_lesson_plan, :must_have_discipline_lesson_plan)
     end
   end

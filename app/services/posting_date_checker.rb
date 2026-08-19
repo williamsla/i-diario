@@ -8,6 +8,7 @@ class PostingDateChecker
     return true if thread_origin_type_is_api?
     return true unless User.current
     return true if User.current.can_change?(Features::IEDUCAR_API_EXAM_POSTING_WITHOUT_RESTRICTIONS)
+    return true if date_allows_entry_outside_steps?
     return false unless step
     return current_between_step? && record_date_between_step?
   end
@@ -24,6 +25,15 @@ class PostingDateChecker
 
   def step
     @step ||= StepsFetcher.new(@classroom).step_by_date(@record_date)
+  end
+
+  def date_allows_entry_outside_steps?
+    return false if step.present?
+
+    school_calendar = StepsFetcher.new(@classroom).school_calendar
+    return false if school_calendar.blank?
+
+    school_calendar.day_allows_entry?(@record_date, nil, @classroom.id, nil)
   end
 
   def thread_origin_type_is_api?

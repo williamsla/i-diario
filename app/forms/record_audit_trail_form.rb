@@ -3,7 +3,8 @@
 class RecordAuditTrailForm
   include ActiveModel::Model
 
-  RECORD_TYPES = %w[frequency content avaliation grades teaching_plan lesson_plan].freeze
+  RECORD_TYPES = %w[frequency content avaliation grades teaching_plan lesson_plan opinion].freeze
+  DEFAULT_RECORD_TYPES = %w[frequency content].freeze
 
   attr_accessor :unity_id,
                 :classroom_id,
@@ -25,7 +26,7 @@ class RecordAuditTrailForm
 
   def selected_record_types
     types = Array(record_types).reject(&:blank?)
-    types = RECORD_TYPES if types.empty?
+    types = DEFAULT_RECORD_TYPES if types.empty?
 
     types & RECORD_TYPES
   end

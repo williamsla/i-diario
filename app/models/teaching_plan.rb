@@ -41,8 +41,49 @@ class TeachingPlan < ApplicationRecord
   scope :by_unity_id, ->(unity_id) { where(unity_id: unity_id) }
   scope :by_teacher_id, ->(teacher_id) { where(teacher_id: teacher_id) }
   scope :by_year, ->(year) { where(year: year) }
+  scope :semed, -> { where(teacher_id: nil) }
+  scope :unificado, lambda {
+    where("#{table_name}.id IN (#{administrator_created_ids_sql})")
+  }
 
   attr_accessor :grade_ids, :contents_created_at_position, :objectives_created_at_position
+
+  def self.administrator_created_ids_sql
+    Audited::Audit
+      .joins("INNER JOIN users ON users.id = audits.user_id AND audits.user_type = 'User'")
+      .joins('INNER JOIN user_roles ON user_roles.user_id = users.id')
+      .joins('INNER JOIN roles ON roles.id = user_roles.role_id')
+      .where(auditable_type: name, action: 'create')
+      .where(roles: { access_level: AccessLevel::ADMINISTRATOR })
+      .select('audits.auditable_id')
+      .to_sql
+  end
+
+  def semed?
+    unificado?
+  end
+
+  def unificado?
+    created_by_administrator?
+  end
+
+  def created_by_administrator?
+    creation_user&.has_administrator_access_level?
+  end
+
+  def creation_user
+    creation_audit&.user
+  end
+
+  def creation_audit
+    create_audits = if association(:audits).loaded?
+                      audits.select { |audit| audit.action == 'create' }
+                    else
+                      audits.where(action: 'create').to_a
+                    end
+
+    create_audits.min_by(&:id)
+  end
 
   def to_s
     return discipline_teaching_plan.discipline.to_s if discipline_teaching_plan

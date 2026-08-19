@@ -1,0 +1,313 @@
+require 'rails_helper'
+
+RSpec.describe RecordAuditTrailSummary, type: :service do
+  let(:knowledge_area) do
+    create(:knowledge_area, description: 'Educação Infantil', group_descriptors: true)
+  end
+  let(:grouper) do
+    create(
+      :discipline,
+      knowledge_area: knowledge_area,
+      grouper: true,
+      description: 'Educação Infantil'
+    )
+  end
+  let(:other_knowledge_area) { create(:knowledge_area, description: 'Linguagens') }
+  let(:teacher) { create(:teacher) }
+  let(:classroom) do
+    create(
+      :classroom,
+      :score_type_numeric,
+      :with_classroom_semester_steps
+    )
+  end
+  let(:step) { classroom.calendar.classroom_steps.first }
+  let(:record_date) { step.first_school_calendar_date }
+
+  before do
+    create(
+      :teacher_discipline_classroom,
+      teacher: teacher,
+      classroom: classroom,
+      discipline: grouper
+    )
+  end
+
+  def summary(discipline_id:, record_types:)
+    described_class.new(
+      unity_id: classroom.unity_id,
+      classroom_id: classroom.id,
+      teacher_id: teacher.id,
+      discipline_id: discipline_id,
+      start_date: Date.new(classroom.year, 1, 1),
+      end_date: Date.new(classroom.year, 12, 31),
+      record_types: record_types
+    ).call
+  end
+
+  describe 'quando a turma lança por área de conhecimento' do
+    it 'traz conteúdo por área ao filtrar pela disciplina agrupadora' do
+      content_record = create(
+        :content_record,
+        :with_contents,
+        classroom: classroom,
+        teacher: teacher,
+        record_date: record_date
+      )
+      ka_record = create(
+        :knowledge_area_content_record,
+        content_record: content_record,
+        knowledge_areas: [knowledge_area]
+      )
+
+      other_content_record = create(
+        :content_record,
+        :with_contents,
+        classroom: classroom,
+        teacher: teacher,
+        record_date: record_date
+      )
+      create(
+        :knowledge_area_content_record,
+        content_record: other_content_record,
+        knowledge_areas: [other_knowledge_area]
+      )
+
+      results = summary(discipline_id: grouper.id, record_types: ['content'])
+
+      expect(results.map { |result| result[:auditable_id] }).to eq([ka_record.id])
+      expect(results.first[:auditable_type]).to eq('KnowledgeAreaContentRecord')
+    end
+
+    it 'traz frequência geral ao filtrar pela disciplina agrupadora' do
+      daily_frequency = create(
+        :daily_frequency,
+        :without_discipline,
+        classroom: classroom,
+        unity: classroom.unity,
+        school_calendar: classroom.calendar.school_calendar,
+        teacher: teacher,
+        frequency_date: record_date
+      )
+
+      results = summary(discipline_id: grouper.id, record_types: ['frequency'])
+
+      expect(results.map { |result| result[:auditable_id] }).to eq([daily_frequency.id])
+      expect(results.first[:auditable_type]).to eq('DailyFrequency')
+    end
+
+    it 'traz plano de aula por área ao filtrar pela disciplina agrupadora' do
+      lesson_plan = create(
+        :lesson_plan,
+        classroom: classroom,
+        teacher: teacher,
+        teacher_id: teacher.id
+      )
+      ka_lesson_plan = create(
+        :knowledge_area_lesson_plan,
+        lesson_plan: lesson_plan,
+        knowledge_area_ids: knowledge_area.id,
+        teacher_id: teacher.id
+      )
+
+      results = summary(discipline_id: grouper.id, record_types: ['lesson_plan'])
+
+      expect(results.map { |result| result[:auditable_id] }).to eq([ka_lesson_plan.id])
+      expect(results.first[:auditable_type]).to eq('KnowledgeAreaLessonPlan')
+    end
+
+    it 'traz plano de ensino por área ao filtrar pela disciplina agrupadora' do
+      teaching_plan = create(
+        :teaching_plan,
+        unity: classroom.unity,
+        teacher: teacher,
+        teacher_id: teacher.id,
+        grade: classroom.classrooms_grades.first.grade,
+        year: classroom.year
+      )
+      ka_teaching_plan = create(
+        :knowledge_area_teaching_plan,
+        teaching_plan: teaching_plan
+      )
+      ka_teaching_plan.knowledge_areas << knowledge_area
+
+      results = summary(discipline_id: grouper.id, record_types: ['teaching_plan'])
+
+      expect(results.map { |result| result[:auditable_id] }).to eq([ka_teaching_plan.id])
+      expect(results.first[:auditable_type]).to eq('KnowledgeAreaTeachingPlan')
+    end
+  end
+
+  describe 'quando a disciplina não é por área de conhecimento' do
+    let(:regular_discipline) { create(:discipline) }
+
+    before do
+      create(
+        :teacher_discipline_classroom,
+        teacher: teacher,
+        classroom: classroom,
+        discipline: regular_discipline
+      )
+    end
+
+    it 'não traz frequência de outra disciplina' do
+      create(
+        :daily_frequency,
+        classroom: classroom,
+        unity: classroom.unity,
+        school_calendar: classroom.calendar.school_calendar,
+        teacher: teacher,
+        discipline: create(:discipline),
+        frequency_date: record_date,
+        class_number: 1
+      )
+      matching_frequency = create(
+        :daily_frequency,
+        classroom: classroom,
+        unity: classroom.unity,
+        school_calendar: classroom.calendar.school_calendar,
+        teacher: teacher,
+        discipline: regular_discipline,
+        frequency_date: record_date,
+        class_number: 1
+      )
+
+      results = summary(discipline_id: regular_discipline.id, record_types: ['frequency'])
+
+      expect(results.map { |result| result[:auditable_id] }).to eq([matching_frequency.id])
+    end
+
+    it 'separa data letiva da data do evento e inclui aula e professor no rótulo' do
+      matching_frequency = create(
+        :daily_frequency,
+        classroom: classroom,
+        unity: classroom.unity,
+        school_calendar: classroom.calendar.school_calendar,
+        teacher: teacher,
+        discipline: regular_discipline,
+        frequency_date: record_date,
+        class_number: 2,
+        period: Periods::MATUTINAL
+      )
+
+      results = summary(discipline_id: regular_discipline.id, record_types: ['frequency'])
+      result = results.first
+
+      expect(result[:occurred_on]).to eq(record_date)
+      expect(result[:pedagogical_date]).to eq(record_date)
+      expect(result[:label]).to include('Aula 2')
+      expect(result[:label]).to include(teacher.name)
+      expect(result[:status]).to eq('incomplete')
+    end
+
+    it 'marca frequência como incompleta quando há aluno sem marcação' do
+      matching_frequency = create(
+        :daily_frequency,
+        classroom: classroom,
+        unity: classroom.unity,
+        school_calendar: classroom.calendar.school_calendar,
+        teacher: teacher,
+        discipline: regular_discipline,
+        frequency_date: record_date,
+        class_number: 1
+      )
+      create(
+        :daily_frequency_student,
+        daily_frequency: matching_frequency,
+        present: nil,
+        active: true
+      )
+
+      results = summary(discipline_id: regular_discipline.id, record_types: ['frequency'])
+
+      expect(results.first[:status]).to eq('incomplete')
+      expect(results.first[:completeness][:unmarked]).to eq(1)
+    end
+
+    it 'traz conteúdo com prévia dos textos lançados' do
+      content_record = create(
+        :content_record,
+        :with_contents,
+        classroom: classroom,
+        teacher: teacher,
+        record_date: record_date
+      )
+      create(
+        :discipline_content_record,
+        content_record: content_record,
+        discipline: regular_discipline
+      )
+
+      results = summary(discipline_id: regular_discipline.id, record_types: ['content'])
+
+      expect(results.first[:detail]).to include('Conteúdos:')
+    end
+  end
+
+  describe 'parecer e vínculo encerrado' do
+    let(:regular_discipline) { create(:discipline) }
+
+    before do
+      create(
+        :teacher_discipline_classroom,
+        teacher: teacher,
+        classroom: classroom,
+        discipline: regular_discipline
+      )
+    end
+
+    def persist_conceptual_exam(student, value)
+      exam = ConceptualExam.new(
+        classroom: classroom,
+        student: student,
+        recorded_at: record_date,
+        unity_id: classroom.unity_id
+      )
+      exam.teacher_id = teacher.id
+      exam.step_number = step.step_number
+      exam.step_id = step.id
+      exam.save!(validate: false)
+      ConceptualExamValue.create!(
+        conceptual_exam: exam,
+        discipline: regular_discipline,
+        value: value
+      )
+      exam
+    end
+
+    it 'traz parecer descritivo mesmo depois de retirar a professora da turma' do
+      exam = create(
+        :descriptive_exam,
+        classroom: classroom,
+        discipline: regular_discipline,
+        recorded_at: record_date,
+        teacher_id: teacher.id
+      )
+
+      TeacherDisciplineClassroom.unscoped
+                                .where(teacher_id: teacher.id, classroom_id: classroom.id)
+                                .find_each(&:discard)
+
+      results = summary(discipline_id: regular_discipline.id, record_types: ['opinion'])
+      result = results.find { |item| item[:auditable_type] == 'DescriptiveExam' }
+
+      expect(result).to be_present
+      expect(result[:auditable_id]).to eq(exam.id)
+      expect(result[:record_exists]).to eq(true)
+    end
+
+    it 'agrupa avaliações conceituais da mesma etapa' do
+      persist_conceptual_exam(create(:student), 8)
+      persist_conceptual_exam(create(:student), nil)
+
+      results = summary(discipline_id: regular_discipline.id, record_types: ['opinion'])
+      result = results.find { |item| item[:auditable_type] == 'ConceptualExamBatch' }
+
+      expect(result).to be_present
+      expect(result[:completeness][:total]).to eq(2)
+      expect(result[:completeness][:unmarked]).to eq(1)
+      expect(result[:status]).to eq('incomplete')
+      expect(result[:history_id]).to be_present
+    end
+  end
+end

@@ -63,12 +63,14 @@
         <ul class="list-group checked-list-box" id="contents-list">
 
           <% contents.each do |content| %>
-            <li class="list-group-item manual" style="display: flex;" id="content_record_<%= content.id %>">
+            <li class="list-group-item manual" style="display: flex; align-items: center;" id="content_record_<%= content.id %>">
                 <%= check_box_tag("knowledge_area_content_record[content_record_attributes][content_ids][]",
                     content.id, content.id.in?(@knowledge_area_content_record.contents.collect(&:id)),
                     hidden: true, 'data-content_description': content.to_s ) %>
-                <span style="margin-left: 5px;display: block;width: calc(100% - 85px);"><%= content %></span>
-
+                <span class="content-record-item-text"><%= content %></span>
+                <% if content.experience_fields.present? %>
+                  <span class="<%= experience_field_badge_class(content.experience_fields) %>"><%= content.experience_fields %></span>
+                <% end %>
               </li>
           <% end %>
         </ul>

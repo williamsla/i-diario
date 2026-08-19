@@ -39,6 +39,7 @@ class BaseReport
 
   def page_content
     @cursor_page = cursor unless page_number == 1 || @display_header_on_all_reports_pages
+    position_below_header
 
     if @display_header_on_all_reports_pages
       bounding_box([0, @cursor_page], width: bounds.width, height: @cursor_page - 10) do
@@ -47,6 +48,18 @@ class BaseReport
     else
       yield
     end
+  end
+
+  def position_below_header
+    return unless @display_header_on_all_reports_pages && @cursor_page
+    return unless cursor > @cursor_page
+
+    move_cursor_to(@cursor_page)
+  end
+
+  def start_new_content_page
+    start_new_page
+    position_below_header
   end
 
   def page_footer(draw_datetime: false)
@@ -72,6 +85,107 @@ class BaseReport
 
   def inline_formated_cell_header(text)
     "<font size='8'><b>#{text}</b></font>\n"
+  end
+
+  def render_chunked_table(table_data, **options)
+    headers = table_data.first
+    rows = table_data.drop(1)
+    return if headers.blank?
+
+    table_options = {
+      row_colors: ['DEDEDE', 'FFFFFF'],
+      width: bounds.width,
+      header: true
+    }.merge(options)
+
+    apply_borders = lambda do |t|
+      t.cells.border_width = 0.25
+      t.row(0).border_top_width = 0.25
+      t.row(-1).border_bottom_width = 0.25
+      t.column(0).border_left_width = 0.25
+      t.column(-1).border_right_width = 0.25
+    end
+
+    header_height, row_heights = estimate_table_row_heights(headers, rows, table_options, apply_borders)
+
+    index = 0
+    while index < rows.size
+      needed = header_height + row_heights[index] + 20
+      if cursor < needed && @cursor_page && cursor < (@cursor_page - 30)
+        start_new_content_page
+      end
+
+      available = [cursor - 20, header_height + 1].max
+      used = header_height
+      count = 0
+
+      while index + count < rows.size
+        next_height = row_heights[index + count]
+        break if count.positive? && (used + next_height) > available
+
+        used += next_height
+        count += 1
+      end
+      count = 1 if count.zero?
+
+      draw_report_table([headers] + rows[index, count], table_options, &apply_borders)
+      index += count
+    end
+  end
+
+  def estimate_table_row_heights(headers, rows, table_options, apply_borders)
+    header_height = fit_report_table([headers], table_options, &apply_borders).height
+    row_heights = rows.map do |row|
+      fit_report_table([headers, row], table_options, &apply_borders).height - header_height
+    end
+
+    [header_height, row_heights]
+  rescue Prawn::Errors::CannotFit
+    column_count = [headers.length, 1].max
+    column_width = bounds.width / column_count
+    header_height = 16.0
+    row_heights = rows.map do |row|
+      max_height = row.map { |cell| height_of(cell_content_for_height(cell), width: column_width, size: 8) }.max
+      [max_height + 8, 16].max
+    end
+
+    [header_height, row_heights]
+  end
+
+  def draw_report_table(data, table_options, &block)
+    fit_report_table(data, table_options, &block).draw
+  end
+
+  def fit_report_table(data, table_options, &block)
+    opts = fitted_table_options(table_options)
+    make_table(data, opts, &block)
+  rescue Prawn::Errors::CannotFit
+    make_table(data, opts.except(:width, :column_widths), &block)
+  end
+
+  def fitted_table_options(table_options)
+    opts = table_options.dup
+    opts[:width] ||= bounds.width
+    widths = opts[:column_widths]
+    return opts unless widths.is_a?(Hash) && widths.any?
+
+    sum = widths.values.inject(0.0, :+)
+    return opts if sum <= 0
+
+    scale = opts[:width] / sum
+    opts[:column_widths] = widths.each_with_object({}) { |(key, value), hash| hash[key] = value * scale }
+    opts[:width] = opts[:column_widths].values.inject(0.0, :+)
+    opts
+  end
+
+  def cell_content_for_height(cell)
+    if cell.respond_to?(:content)
+      cell.content.to_s
+    elsif cell.is_a?(Hash)
+      cell[:content].to_s
+    else
+      cell.to_s
+    end
   end
 
   def numeric_parser

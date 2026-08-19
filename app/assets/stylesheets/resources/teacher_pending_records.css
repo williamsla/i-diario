@@ -1,0 +1,249 @@
+/* Desktop: cartões com nome completo e período */
+.pending-steps-selector {
+  margin-bottom: 16px;
+}
+
+.pending-steps-selector > label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: #555;
+}
+
+.pending-steps-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pending-step-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 160px;
+  max-width: 240px;
+  padding: 12px 14px;
+  border: 2px solid #d0d7de;
+  border-radius: 8px;
+  background: #fff;
+  color: #444;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pending-step-btn:hover,
+.pending-step-btn:focus {
+  border-color: #005495;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 84, 149, 0.12);
+}
+
+.pending-step-btn.is-active {
+  border-color: #005495;
+  background: #005495;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 84, 149, 0.25);
+}
+
+.pending-step-btn.is-active:hover,
+.pending-step-btn.is-active:focus {
+  border-color: #004578;
+  background: #004578;
+  box-shadow: 0 0 0 3px rgba(0, 84, 149, 0.2);
+}
+
+.pending-step-btn:disabled,
+.pending-step-btn.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #f5f6f8;
+  color: #8b949e;
+  border-color: #e1e4e8;
+  box-shadow: none;
+}
+
+.pending-step-btn:disabled:hover,
+.pending-step-btn:disabled:focus,
+.pending-step-btn.is-disabled:hover,
+.pending-step-btn.is-disabled:focus {
+  border-color: #e1e4e8;
+  background: #f5f6f8;
+  box-shadow: none;
+}
+
+.pending-step-btn__compact {
+  display: none;
+}
+
+.pending-step-btn__desktop {
+  display: block;
+  width: 100%;
+}
+
+.pending-step-btn__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.pending-step-btn__name {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.pending-step-btn__dates {
+  font-size: 12px;
+  line-height: 1.35;
+  opacity: 0.85;
+}
+
+.pending-step-btn.is-active .pending-step-btn__dates {
+  opacity: 0.95;
+}
+
+.pending-step-btn__badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: #e8f4fc;
+  color: #005495;
+  white-space: nowrap;
+}
+
+.pending-step-btn.is-active .pending-step-btn__badge {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.pending-step-btn__badge--future {
+  background: #eef0f2;
+  color: #6b7280;
+}
+
+.pending-step-btn.is-current:not(.is-active) {
+  border-color: #7eb6d9;
+  background: #f3f9fd;
+}
+
+.pending-step-detail {
+  display: none;
+}
+
+/* Mobile: botões compactos + linha de período */
+@media (max-width: 767px) {
+  .pending-steps-list {
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .pending-step-btn {
+    flex: 1 1 0;
+    min-width: 64px;
+    max-width: none;
+    align-items: center;
+    padding: 10px 12px;
+    border-width: 1px;
+    border-color: #d8dde3;
+    border-radius: 10px;
+    color: #4a5560;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .pending-step-btn.is-active {
+    box-shadow: 0 2px 6px rgba(0, 84, 149, 0.28);
+  }
+
+  .pending-step-btn.is-active:hover,
+  .pending-step-btn.is-active:focus {
+    box-shadow: 0 2px 6px rgba(0, 84, 149, 0.28);
+  }
+
+  .pending-step-btn.is-current:not(.is-active) {
+    border-color: #d8dde3;
+    background: #fff;
+  }
+
+  .pending-step-btn:disabled,
+  .pending-step-btn.is-disabled {
+    opacity: 0.5;
+  }
+
+  .pending-step-btn__compact {
+    display: inline;
+  }
+
+  .pending-step-btn__desktop {
+    display: none;
+  }
+
+  .pending-step-detail {
+    display: block;
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #6b7280;
+  }
+
+  .pending-step-detail__dates {
+    color: #6b7280;
+  }
+
+  .pending-step-detail__sep {
+    margin: 0 2px;
+    color: #9ca3af;
+  }
+
+  .pending-step-detail__current {
+    color: #005495;
+    font-weight: 600;
+  }
+}
+
+.pending-records-table-wrap {
+  margin-top: 20px;
+}
+
+.pending-records-table-wrap > .table-responsive {
+  border: none !important;
+}
+
+.pending-records-table {
+  font-size: 14px;
+  border: none !important;
+}
+
+.pending-records-table > thead > tr > th:first-child,
+.pending-records-table > tbody > tr > td:first-child {
+  border-left: none !important;
+}
+
+.pending-records-table > thead > tr > th:last-child,
+.pending-records-table > tbody > tr > td:last-child {
+  border-right: none !important;
+}
+
+.pending-records-table > thead > tr > th {
+  border-top: none !important;
+}
+
+.pending-records-table > tbody > tr:last-child > td {
+  border-bottom: none !important;
+}

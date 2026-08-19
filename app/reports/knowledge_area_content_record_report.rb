@@ -41,12 +41,12 @@ class KnowledgeAreaContentRecordReport < BaseReport
         image: entity_logo_io,
         fit: [50, 50],
         width: 70,
-        rowspan: 4,
+        rowspan: 1,
         position: :center,
         vposition: :center
       )
     rescue
-      entity_logo_cell = make_cell(content: '', width: 70, rowspan: 4)
+      entity_logo_cell = make_cell(content: '', width: 70, rowspan: 1)
     end
 
     entity_organ_and_unity_cell = make_cell(
@@ -55,7 +55,7 @@ class KnowledgeAreaContentRecordReport < BaseReport
       leading: 1.5,
       align: :center,
       valign: :center,
-      rowspan: 4,
+      rowspan: 1,
       padding: [6, 0, 8, 0]
     )
 
@@ -178,7 +178,7 @@ class KnowledgeAreaContentRecordReport < BaseReport
     )
 
     move_down GAP
-    start_new_page if cursor < 80
+    start_new_content_page if cursor < 80
 
     table([[section_header_cell]], width: bounds.width, header: true) do
       cells.border_width = 0.25
@@ -211,7 +211,7 @@ class KnowledgeAreaContentRecordReport < BaseReport
       colspan: colspan
     )
 
-    start_new_page if cursor < 60
+    start_new_content_page if cursor < 60
 
     table([[student_header_cell]], width: bounds.width, header: true) do
       cells.border_width = 0.25
@@ -284,14 +284,7 @@ class KnowledgeAreaContentRecordReport < BaseReport
     end
 
     table_data = [headers] + records.map { |record| content_record_row(record) }
-
-    table(table_data, row_colors: ['DEDEDE', 'FFFFFF'], width: bounds.width, header: true, column_widths: content_record_column_widths) do
-      cells.border_width = 0.25
-      row(0).border_top_width = 0.25
-      row(-1).border_bottom_width = 0.25
-      column(0).border_left_width = 0.25
-      column(-1).border_right_width = 0.25
-    end
+    render_chunked_table(table_data, column_widths: content_record_column_widths)
   end
 
   def content_record_column_widths
@@ -329,11 +322,10 @@ class KnowledgeAreaContentRecordReport < BaseReport
   end
 
   def body
-    page_content do
-      identification
-      general_information
-      signatures
-    end
+    position_below_header
+    identification
+    general_information
+    signatures
   end
 
   def content_cell_content(content_record)
@@ -345,7 +337,7 @@ class KnowledgeAreaContentRecordReport < BaseReport
   end
 
   def signatures
-    start_new_page if cursor < 55
+    start_new_content_page if cursor < 55
 
     move_down 30
     text_box("______________________________________________\nProfessor(a)", size: 10, align: :center, at: [0, cursor], width: 260)

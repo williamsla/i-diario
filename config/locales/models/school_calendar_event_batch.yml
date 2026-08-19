@@ -37,3 +37,9 @@ pt-BR:
       new_html: "<i class='fa fa-plus'></i> Novo evento"
     form:
       equivalent_weekday_hint: "Opcional. Informe qual dia da semana (segunda a sexta) será utilizado no quadro de horários. Se não informar, o professor escolherá a disciplina ao registrar frequência ou conteúdo."
+    confirm_delete_event_model:
+      title: "Deseja excluir o evento?"
+      body: "O evento será excluído do calendário. O que deseja fazer com os lançamentos já feitos pelos professores (frequência, conteúdos etc.)?"
+      cancel: "Continuar sem excluir"
+      keep_records: "Manter os registros"
+      remove_records: "Remover os registros"

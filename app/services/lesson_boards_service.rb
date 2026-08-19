@@ -5,7 +5,9 @@ class LessonBoardsService
 
     allocations = TeacherDisciplineClassroom.where(classroom_id: classroom_id)
                                             .includes(:teacher, discipline: :knowledge_area)
-                                            .where(disciplines: { descriptor: false })
+                                            .joins(discipline: :knowledge_area)
+                                            .where(disciplines: { descriptor: false, grouper: false })
+                                            .where(knowledge_areas: { group_descriptors: false })
                                             .where(grade_id: grade_id)
                                             .order('teachers.name')
 
@@ -13,16 +15,17 @@ class LessonBoardsService
     # allocations.where(period: period) if classroom_period == Periods::FULL && period
 
     allocations.each do |teacher_discipline_classroom|
-      teachers_to_select2 << OpenStruct.new(
-        id: teacher_discipline_classroom.id,
-        name: discipline_teacher_name(teacher_discipline_classroom.discipline,
-                                      teacher_discipline_classroom.teacher.name.try(:strip)),
-        text: discipline_teacher_name(teacher_discipline_classroom.discipline,
-                                      teacher_discipline_classroom.teacher.name.try(:strip))
-      )
+      teachers_to_select2 << teacher_option(teacher_discipline_classroom)
     end
 
     teachers_to_select2.insert(0, OpenStruct.new(id: 'empty', name: '<option></option>', text: ''))
+  end
+
+  def teacher_options_for_ids(ids)
+    TeacherDisciplineClassroom.unscoped
+                              .includes(:teacher, :discipline)
+                              .where(id: ids)
+                              .map { |allocation| teacher_option(allocation) }
   end
 
   def linked_teacher(teacher_discipline_classroom_id, lesson_number, weekday, classroom, period)
@@ -53,6 +56,17 @@ class LessonBoardsService
   end
 
   private
+
+  def teacher_option(teacher_discipline_classroom)
+    name = discipline_teacher_name(teacher_discipline_classroom.discipline,
+                                   teacher_discipline_classroom.teacher.name.try(:strip))
+
+    OpenStruct.new(
+      id: teacher_discipline_classroom.id,
+      name: name,
+      text: name
+    )
+  end
 
   def end_period?(linked_classroom_id, classroom_id)
     linked_school_calendar_classroom = SchoolCalendarClassroom.by_classroom(linked_classroom_id)

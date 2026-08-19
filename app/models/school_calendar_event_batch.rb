@@ -36,9 +36,18 @@ class SchoolCalendarEventBatch < ApplicationRecord
   }
 
   def mark_with_error!(message)
-    update(
+    update_columns(
       batch_status: BatchStatus::ERROR,
-      error_message: message
+      error_message: message.to_s.truncate(255),
+      updated_at: Time.current
+    )
+  end
+
+  def mark_as_completed!
+    update_columns(
+      batch_status: BatchStatus::COMPLETED,
+      error_message: nil,
+      updated_at: Time.current
     )
   end
 

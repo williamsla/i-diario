@@ -44,12 +44,12 @@ class DisciplineContentRecordReport < BaseReport
         image: entity_logo_io,
         fit: [50, 50],
         width: 70,
-        rowspan: 4,
+        rowspan: 1,
         position: :center,
         vposition: :center
       )
     rescue
-      entity_logo_cell = make_cell(content: '', width: 70, rowspan: 4)
+      entity_logo_cell = make_cell(content: '', width: 70, rowspan: 1)
     end
 
     entity_organ_and_unity_cell = make_cell(
@@ -58,7 +58,7 @@ class DisciplineContentRecordReport < BaseReport
       leading: 1.5,
       align: :center,
       valign: :center,
-      rowspan: 4,
+      rowspan: 1,
       padding: [6, 0, 8, 0]
     )
 
@@ -172,7 +172,7 @@ class DisciplineContentRecordReport < BaseReport
     )
 
     move_down GAP
-    start_new_page if cursor < 80
+    start_new_content_page if cursor < 80
 
     table([[section_header_cell]], width: bounds.width, header: true) do
       cells.border_width = 0.25
@@ -205,7 +205,7 @@ class DisciplineContentRecordReport < BaseReport
       colspan: colspan
     )
 
-    start_new_page if cursor < 60
+    start_new_content_page if cursor < 60
 
     table([[student_header_cell]], width: bounds.width, header: true) do
       cells.border_width = 0.25
@@ -249,65 +249,64 @@ class DisciplineContentRecordReport < BaseReport
   end
 
   def records_table_colspan
-    @display_daily_activies_log ? 5 : 4
+    4
   end
 
   def render_records_table(records)
+    last_header = if @display_daily_activies_log
+                    'Práticas pedagógicas / Habilidade'
+                  else
+                    'Habilidade'
+                  end
+
     headers = [
-      make_cell(content: 'Data', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', width: 23, padding: [2, 2, 4, 4]),
-      make_cell(content: 'Aulas', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', width: 27, padding: [2, 2, 4, 4]),
-      make_cell(content: Translator.t('activerecord.attributes.discipline_content_record.contents'), size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
+      make_cell(content: 'Data', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4]),
+      make_cell(content: 'Aulas', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4]),
+      make_cell(content: Translator.t('activerecord.attributes.discipline_content_record.contents'), size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4]),
+      make_cell(content: last_header, size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
     ]
 
-    if @display_daily_activies_log
-      headers << make_cell(content: 'Práticas pedagógicas', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4])
-    end
-
-    headers << make_cell(content: 'Habilidade', size: 8, font_style: :bold, borders: [:left, :right, :top], background_color: 'FFFFFF', padding: [2, 2, 4, 4], colspan: 2)
-
     table_data = [headers] + records.map { |record| content_record_row(record) }
+    render_chunked_table(table_data, column_widths: content_record_column_widths)
+  end
 
-    table(table_data, row_colors: ['DEDEDE', 'FFFFFF'], width: bounds.width, header: true) do
-      cells.border_width = 0.25
-      row(0).border_top_width = 0.25
-      row(-1).border_bottom_width = 0.25
-      column(0).border_left_width = 0.25
-      column(-1).border_right_width = 0.25
-    end
+  def content_record_column_widths
+    date_width = 32.0
+    aulas_width = 30.0
+    remaining = bounds.width - date_width - aulas_width
+    content_width = remaining * 0.4
+    skills_width = remaining * 0.6
+
+    { 0 => date_width, 1 => aulas_width, 2 => content_width, 3 => skills_width }
   end
 
   def content_record_row(discipline_content_record)
     content_record = discipline_content_record.content_record
-    date_cell = make_cell(content: content_record.record_date.strftime('%d/%m'), size: 8, align: :left, width: 30)
 
     begin
-      class_number = make_cell(content: discipline_content_record.class_number.to_s, size: 8, align: :center)
+      class_number = discipline_content_record.class_number.to_s
     rescue
-      class_number = make_cell(content: '-', size: 8, align: :center)
+      class_number = '-'
     end
 
     texto_praticas_pedagogicas_e_habilidades = [
       content_record.daily_activities_record.to_s.gsub("\n", ' ').squeeze(' '),
       objective_cell_content(content_record)
-    ].join("\n")
-
-    content_cell = make_cell(content: content_cell_content(content_record), size: 8, align: :left, colspan: 1, width: 150)
-    habilidade_cell = make_cell(content: texto_praticas_pedagogicas_e_habilidades, size: 7, align: :left, colspan: 3)
+    ].reject(&:blank?).join("\n")
 
     [
-      date_cell,
-      class_number,
-      content_cell,
-      habilidade_cell
+      make_cell(content: content_record.record_date.strftime('%d/%m'), size: 8, align: :left),
+      make_cell(content: class_number, size: 8, align: :center),
+      make_cell(content: content_cell_content(content_record), size: 8, align: :left),
+      make_cell(content: texto_praticas_pedagogicas_e_habilidades, size: 7, align: :left)
     ]
   end
 
   def body
-    page_content do
-      identification
-      general_information
-      signatures
-    end
+    position_below_header
+    identification
+    general_information
+    signatures
   end
 
   def content_cell_content(content_record)
@@ -323,7 +322,7 @@ class DisciplineContentRecordReport < BaseReport
   end
 
   def signatures
-    start_new_page if cursor < 55
+    start_new_content_page if cursor < 55
 
     move_down 5
     begin

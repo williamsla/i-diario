@@ -9,7 +9,7 @@ class DisciplineContentRecordsController < ApplicationController
   before_action :require_current_classroom, only: [:index, :new, :create, :edit, :update]
   before_action :require_allow_to_modify_prev_years, only: [:create, :update, :destroy, :clone]
   before_action :set_number_of_classes, only: [:new, :create, :edit, :update, :show]
-  before_action :allow_class_number, only: [:index, :new, :edit, :show]
+  before_action :set_allow_class_number, only: [:index, :new, :create, :edit, :update, :show]
 
   def check_teacher_absence
     record_date = parse_record_date(params[:record_date])
@@ -59,6 +59,43 @@ class DisciplineContentRecordsController < ApplicationController
     }
   end
 
+  def find_existing
+    authorize DisciplineContentRecord.new, :new?
+
+    classroom_id = params[:classroom_id].presence || current_user_classroom&.id
+    record_date = parse_lessons_board_date(params[:record_date])
+    discipline_id = params[:discipline_id].presence
+    student_id = params[:student_id].presence
+    class_number = params[:class_number].presence
+
+    if classroom_id.blank? || record_date.blank? || discipline_id.blank?
+      render json: { id: nil }
+      return
+    end
+
+    query = DisciplineContentRecord
+            .by_classroom_id(classroom_id)
+            .by_date(record_date)
+            .by_discipline_id(discipline_id)
+            .by_student_id(student_id)
+
+    # Filtra por class_number só quando a config exige; senão tenta com filtro e cai sem ele
+    # (a frequência envia a quantidade de aulas do dia, que pode diferir do valor salvo).
+    records = if class_number.present? && allow_class_number?
+                query.by_class_number(class_number).includes(:content_record).to_a
+              elsif class_number.present?
+                with_class = query.by_class_number(class_number).includes(:content_record).to_a
+                with_class.presence || query.includes(:content_record).to_a
+              else
+                query.includes(:content_record).to_a
+              end
+
+    teacher_records = records.select { |record| record.content_record.teacher_id == current_teacher.id }
+    candidates = teacher_records.presence || records
+
+    render json: { id: candidates.first&.id }
+  end
+
   def index
     params[:filter] ||= {}
     author_type = PlansAuthors::ALL.to_s if params[:filter].empty?
@@ -71,6 +108,7 @@ class DisciplineContentRecordsController < ApplicationController
 
     if author_type.present?
       @discipline_content_records = @discipline_content_records.by_author(author_type, current_teacher.id)
+      params[:filter][:by_author] = author_type
     end
 
     authorize @discipline_content_records
@@ -97,7 +135,7 @@ class DisciplineContentRecordsController < ApplicationController
     @discipline_content_record.content_record ||= ContentRecord.new
 
     if params[:recorded_at].present?
-      record_date = Date.parse(params[:recorded_at])
+      record_date = parse_lessons_board_date(params[:recorded_at]) || Time.zone.now
     else
       record_date = Time.zone.now
     end
@@ -105,10 +143,9 @@ class DisciplineContentRecordsController < ApplicationController
     @discipline_content_record.build_content_record(
       record_date: record_date,
       unity_id: current_unity.id,
-      classroom_id: current_user_classroom.id
+      classroom_id: current_user_classroom.id,
+      student_id: params[:student_id]
     )
-
-    @has_lesson_board_map = false
 
     if params[:class_number].present?
       @class_number_qtd = params[:class_number]
@@ -118,7 +155,6 @@ class DisciplineContentRecordsController < ApplicationController
         @discipline_content_record.discipline_id,
         @discipline_content_record.content_record.record_date
       )
-      @has_lesson_board_map = qtd > 0
 
       @class_number_qtd = qtd || 0
     end
@@ -252,7 +288,6 @@ class DisciplineContentRecordsController < ApplicationController
         @discipline_content_record.discipline_id,
         @discipline_content_record.content_record.record_date
     )
-    @has_lesson_board_map = qtd > 0
 
     if @discipline_content_record[:class_number].present?
       @class_number_qtd = @discipline_content_record[:class_number]
@@ -400,7 +435,7 @@ class DisciplineContentRecordsController < ApplicationController
   def fetch_discipline_content_records_by_user
     @discipline_content_records =
       apply_scopes(DisciplineContentRecord
-        .includes(content_record: [:classroom, :teacher, :contents, :objectives])
+        .includes(content_record: [:classroom, :teacher, :student, :contents, :objectives])
         .by_unity_id(current_unity.id)
         .by_classroom_id(@classrooms.map(&:id))
         .by_discipline_id(@disciplines.map(&:id))
@@ -408,20 +443,27 @@ class DisciplineContentRecordsController < ApplicationController
         .ordered)
   end
 
-  def allow_class_number
-    begin
-      @allow_class_number ||= GeneralConfiguration.first.allow_class_number_on_content_records
-    rescue
-      @allow_class_number ||= false
+  def set_allow_class_number
+    @allow_class_number = allow_class_number?
+  end
+
+  def allow_class_number?
+    return @allow_class_number unless @allow_class_number.nil?
+
+    @allow_class_number = begin
+      GeneralConfiguration.current.allow_class_number_on_content_records
+    rescue StandardError
+      false
     end
   end
+  helper_method :allow_class_number?
 
   def set_number_of_classes
     @number_of_classes = current_school_calendar.number_of_classes
   end
 
   def validate_class_numbers
-    return true unless allow_class_number
+    return true unless allow_class_number?
     return true if @class_numbers.present?
 
     @error_on_class_numbers = true
@@ -500,6 +542,7 @@ class DisciplineContentRecordsController < ApplicationController
         :classroom_id,
         :record_date,
         :daily_activities_record,
+        :student_id,
         :content,
         :objective
         # NÃO permitir content_ids e objective_ids aqui - são processados pelos métodos content_ids() e objective_ids()
@@ -525,11 +568,14 @@ class DisciplineContentRecordsController < ApplicationController
     classroom = @discipline_content_record.content_record.classroom
     discipline = @discipline_content_record.discipline
     date = @discipline_content_record.content_record.record_date
-    
+    student_id = @discipline_content_record.content_record.student_id
+
     # Busca conteúdos dos planos de aula/ensino da disciplina
     plan_contents = []
     if teacher && classroom && discipline && date
-      plan_contents = ContentsForDisciplineRecordFetcher.new(teacher, classroom, discipline, date).fetch
+      plan_contents = ContentsForDisciplineRecordFetcher.new(
+        teacher, classroom, discipline, date, student_id
+      ).fetch
       plan_contents.each { |content| content.is_editable = false }
     end
     
@@ -571,11 +617,14 @@ class DisciplineContentRecordsController < ApplicationController
     classroom = @discipline_content_record.content_record.classroom
     discipline = @discipline_content_record.discipline
     date = @discipline_content_record.content_record.record_date
-    
+    student_id = @discipline_content_record.content_record.student_id
+
     # Busca objetivos dos planos de aula/ensino da disciplina
     plan_objectives = []
     if teacher && classroom && discipline && date
-      plan_objectives = ContentsForDisciplineRecordFetcher.new(teacher, classroom, discipline, date).fetch_objectives
+      plan_objectives = ContentsForDisciplineRecordFetcher.new(
+        teacher, classroom, discipline, date, student_id
+      ).fetch_objectives
       plan_objectives.each { |objective| objective.is_editable = false }
     end
 
@@ -638,9 +687,31 @@ class DisciplineContentRecordsController < ApplicationController
     # retorna os registros de todas as disciplinas e turmas do professor, somente na visão do professor
     # return fetch_linked_by_teacher unless current_user.current_role_is_admin_or_employee?
 
+    fetch_students_with_disabilities
     @classrooms ||= [current_user_classroom]
     fetch_linked_by_teacher
-    
+  end
+
+  def student_enrollments
+    StudentEnrollmentsList.new(
+      classroom: current_user_classroom,
+      discipline: current_user_discipline,
+      search_type: :by_year
+    ).student_enrollments
+  end
+
+  def fetch_students_with_disabilities
+    @students = []
+
+    @student_enrollments ||= student_enrollments
+
+    @student_ids = @student_enrollments.collect(&:student_id)
+
+    if is_aee == true
+      @students = Student.where(id: @student_ids).ordered
+    else
+      @students = Student.where(id: @student_ids).where(uses_differentiated_exam_rule: true).ordered
+    end
   end
 
   def fetch_linked_by_teacher

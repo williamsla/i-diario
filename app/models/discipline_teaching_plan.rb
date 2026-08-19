@@ -42,12 +42,45 @@ class DisciplineTeachingPlan < ApplicationRecord
     joins(:teaching_plan).where.not(teaching_plans: { teacher_id: [teacher_id, nil] })
   }
   scope :by_secretary, -> { joins(:teaching_plan).where(teaching_plans: { teacher_id: nil }) }
+  scope :unificado, -> { joins(:teaching_plan).merge(TeachingPlan.unificado) }
   scope :by_author, lambda { |author_type, current_teacher_id|
-    if author_type == PlansAuthors::MY_PLANS
-      joins(:teaching_plan).merge(TeachingPlan.where(teacher_id: current_teacher_id))
-    elsif author_type == PlansAuthors::ALL
+    teacher_id = current_teacher_id.respond_to?(:id) ? current_teacher_id.try(:id) : current_teacher_id
+    unificado_condition = unificado_sql_condition
+
+    case author_type.to_s
+    when PlansAuthors::MY_PLANS.to_s
+      # Planos pessoais do professor + unificados deduplicados (1 por unidade/série/disciplina/etapa/ano)
+      if teacher_id.present?
+        joins(:teaching_plan).where(
+          <<~SQL.squish,
+            (
+              teaching_plans.teacher_id = :teacher_id
+              AND NOT (#{unificado_condition})
+            )
+            OR discipline_teaching_plans.id IN (#{deduped_unificado_ids_sql})
+          SQL
+          teacher_id: teacher_id
+        )
+      else
+        joins(:teaching_plan).where(
+          "discipline_teaching_plans.id IN (#{deduped_unificado_ids_sql})"
+        )
+      end
+    when PlansAuthors::ALL.to_s, '', 'empty'
+      all
     else
-      joins(:teaching_plan).merge(TeachingPlan.where.not(teacher_id: current_teacher_id))
+      if teacher_id.present?
+        joins(:teaching_plan).where(
+          "teaching_plans.teacher_id IS NOT NULL
+           AND teaching_plans.teacher_id != :teacher_id
+           AND NOT (#{unificado_condition})",
+          teacher_id: teacher_id
+        )
+      else
+        joins(:teaching_plan).where(
+          "teaching_plans.teacher_id IS NOT NULL AND NOT (#{unificado_condition})"
+        )
+      end
     end
   }
   scope :order_by_school_term_type_step, lambda {
@@ -57,6 +90,38 @@ class DisciplineTeachingPlan < ApplicationRecord
 
   validates :teaching_plan, presence: true
   validates :discipline, presence: true
+
+  def self.unificado_sql_condition
+    "teaching_plans.id IN (#{TeachingPlan.administrator_created_ids_sql})"
+  end
+
+  def self.deduped_unificado_ids_sql
+    <<~SQL.squish
+      SELECT DISTINCT ON (
+        teaching_plans.unity_id,
+        teaching_plans.grade_id,
+        discipline_teaching_plans.discipline_id,
+        teaching_plans.school_term_type_id,
+        teaching_plans.school_term_type_step_id,
+        teaching_plans.year,
+        COALESCE(discipline_teaching_plans.thematic_unit, '')
+      ) discipline_teaching_plans.id
+      FROM discipline_teaching_plans
+      INNER JOIN teaching_plans
+        ON teaching_plans.id = discipline_teaching_plans.teaching_plan_id
+      WHERE #{unificado_sql_condition}
+      ORDER BY
+        teaching_plans.unity_id,
+        teaching_plans.grade_id,
+        discipline_teaching_plans.discipline_id,
+        teaching_plans.school_term_type_id,
+        teaching_plans.school_term_type_step_id,
+        teaching_plans.year,
+        COALESCE(discipline_teaching_plans.thematic_unit, ''),
+        CASE WHEN teaching_plans.teacher_id IS NULL THEN 0 ELSE 1 END,
+        discipline_teaching_plans.id ASC
+    SQL
+  end
 
   def optional_teacher
     true

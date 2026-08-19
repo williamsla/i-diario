@@ -352,3 +352,20 @@ bundle exec rake db:migrate
 # (Docker) docker-compose exec app bundle exec rake upgrade:versions:1_1_0
 bundle exec rake upgrade:versions:1_1_0
 ```
+
+### Tasks
+impressão 
+`
+nohup docker compose -f docker-compose.production.yml --env-file .env.production \
+  exec -T app-blue \
+  env RAILS_ENV=production YEAR=2024 DOMAIN=idiario.x.educaonline.tec.br \
+  bundle exec rake print_diary \
+  > log/print_diary-seu-dominio.log 2>&1 &
+`
+
+migrando conteudo por disciplina para área
+`# Execução real (remove os antigos)
+DOMAIN=delmiro.exemplo.gov.br \
+DCR_RECORD_IDS=101,102,103 \
+DRY_RUN=1 DELETE_OLD=0 \
+bundle exec rake content_records:migrate_from_discipline`

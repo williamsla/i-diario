@@ -1,6 +1,6 @@
 class CopyDisciplineTeachingPlanService
   class CopyDisciplineTeachingPlanError < StandardError; end
-  attr_reader :discipline_teaching_plan_id, :year, :unities_ids, :grades_ids
+  attr_reader :discipline_teaching_plan_id, :year, :unities_ids, :grades_ids, :created_by_administrator
 
   def self.call(*params)
     new(*params).call
@@ -10,12 +10,14 @@ class CopyDisciplineTeachingPlanService
     discipline_teaching_plan_id,
     year,
     unities_ids,
-    grades_ids
+    grades_ids,
+    created_by_administrator: false
   )
     @discipline_teaching_plan_id = discipline_teaching_plan_id
     @year = year
     @unities_ids = unities_ids
     @grades_ids = grades_ids
+    @created_by_administrator = created_by_administrator
 
     check_required_params
   end
@@ -28,16 +30,18 @@ class CopyDisciplineTeachingPlanService
 
     fetch_contents_and_objectives(model_teaching_plan)
 
-    new_discipline_teaching_plans = fetch_teacher_discipline_classrooms(
-      model_teaching_plan,
-      discipline_id,
-      thematic_unit
-    )
-
-    new_discipline_teaching_plans
+    if copy_as_unificado?(model_teaching_plan)
+      copy_unificado_plans(model_teaching_plan, discipline_id, thematic_unit)
+    else
+      fetch_teacher_discipline_classrooms(model_teaching_plan, discipline_id, thematic_unit)
+    end
   end
 
   private
+
+  def copy_as_unificado?(_teaching_plan)
+    created_by_administrator
+  end
 
   def fetch_contents_and_objectives(teaching_plan)
     objectives = teaching_plan.objectives_teaching_plans
@@ -54,6 +58,47 @@ class CopyDisciplineTeachingPlanService
       @objectives_created_at_position[objective_teaching_plan.objective_id] = index
       objective_teaching_plan.objective_id
     end
+  end
+
+  def copy_unificado_plans(teaching_plan, discipline_id, thematic_unit)
+    new_discipline_teaching_plans = []
+
+    unities_ids.each do |unity_id|
+      grades_ids.each do |grade_id|
+        classroom_ids = Classroom.by_unity(unity_id).by_grade(grade_id).pluck(:id)
+
+        next if classroom_ids.blank?
+        next if unificado_copy_exists?(teaching_plan, discipline_id, unity_id, grade_id)
+
+        new_discipline_teaching_plans << create_copies_discipline_teaching_plans(
+          teaching_plan,
+          discipline_id,
+          nil,
+          grade_id,
+          unity_id,
+          thematic_unit
+        )
+      end
+    end
+
+    new_discipline_teaching_plans
+  end
+
+  def unificado_copy_exists?(teaching_plan, discipline_id, unity_id, grade_id)
+    DisciplineTeachingPlan
+      .by_discipline(discipline_id)
+      .by_unity(unity_id)
+      .by_grade(grade_id)
+      .by_year(year)
+      .by_secretary
+      .joins(:teaching_plan)
+      .where(
+        teaching_plans: {
+          school_term_type_id: teaching_plan.school_term_type_id,
+          school_term_type_step_id: teaching_plan.school_term_type_step_id
+        }
+      )
+      .exists?
   end
 
   def fetch_teacher_discipline_classrooms(teaching_plan, discipline_id, thematic_unit)
@@ -111,13 +156,13 @@ class CopyDisciplineTeachingPlanService
     copy_teaching_plan.objectives_created_at_position = @objectives_created_at_position
     copy_teaching_plan.content_ids = @content_ids
     copy_teaching_plan.objective_ids = @objective_ids
+    copy_teaching_plan.teacher = teacher
 
     copy_teaching_plan.build_discipline_teaching_plan(
       discipline_id: discipline_id,
       thematic_unit: thematic_unit
     )
 
-    copy_teaching_plan.teacher = teacher
     error_message = "Erro ao salvar o plano de ensino: #{copy_teaching_plan.errors.full_messages}"
 
     raise CopyDisciplineTeachingPlanError, error_message unless copy_teaching_plan.valid?

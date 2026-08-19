@@ -76,4 +76,20 @@ RSpec.describe SchoolCalendarEvent, type: :model do
       end
     end
   end
+
+  describe '#periods=' do
+    it 'aceita string separada por vírgula' do
+      event = SchoolCalendarEvent.new
+      event.periods = '2,1,3'
+
+      expect(event.periods).to eq(%w[1 2 3])
+    end
+
+    it 'aceita array de períodos' do
+      event = SchoolCalendarEvent.new
+      event.periods = %w[3 1 2]
+
+      expect(event.periods).to eq(%w[1 2 3])
+    end
+  end
 end

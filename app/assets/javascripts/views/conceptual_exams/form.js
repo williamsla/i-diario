@@ -42,13 +42,33 @@ $(function () {
     let selectedSteps = data.map(function (step) {
       return { id: step['id'], text: step['description'], start_at: step['start_at'], end_at: step['end_at'] };
     });
-    $step.select2({ data: selectedSteps });
-    // Define a primeira opção como selecionada por padrão
-    $step.val(selectedSteps[0].id).trigger('change');
 
-    //preenche a data como sendo o ínicio da 1ª etapa
-    let inverterData = selectedSteps[0].end_at.split('-');
-    $recorded_at.val(`${inverterData[2]}/${inverterData[1]}/${inverterData[0]}`);
+    var currentStepId = $step.val();
+    var currentRecordedAt = $recorded_at.val();
+
+    $step.select2({ data: selectedSteps });
+
+    var matchedStep = _.find(selectedSteps, function (step) {
+      return String(step.id) === String(currentStepId);
+    });
+    var stepToSelect = matchedStep || selectedSteps[0];
+
+    if (!stepToSelect) {
+      return;
+    }
+
+    // Mantém a data já definida no servidor (último dia letivo da etapa)
+    // quando a etapa pré-selecionada é preservada.
+    var keepRecordedAt = !!matchedStep && !!currentRecordedAt;
+
+    $step.val(stepToSelect.id).trigger('change');
+
+    if (keepRecordedAt) {
+      $recorded_at.val(currentRecordedAt);
+    } else {
+      let inverterData = stepToSelect.end_at.split('-');
+      $recorded_at.val(`${inverterData[2]}/${inverterData[1]}/${inverterData[0]}`);
+    }
   }
 
   function handleFetchStepByClassroomError() {

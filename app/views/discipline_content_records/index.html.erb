@@ -8,7 +8,7 @@
         <thead>
           <tr>
             <td><%= f.input :by_date, as: :date, label: false, placeholder: t('.by_date') %></td>
-            <td colspan="3"></td>
+            <td colspan="4"></td>
             <td>
               <%= f.input :by_author, as: :select2_plans, label: false %>
             </td>
@@ -20,6 +20,7 @@
 
           <tr>
             <th><%= ContentRecord.human_attribute_name :record_date %></th>
+            <th width="18%"><%= ContentRecord.human_attribute_name :student_id %></th>
             <th><%= DisciplineContentRecord.human_attribute_name :contents %></th>
             <th><%= DisciplineContentRecord.human_attribute_name :objectives %></th>
             <th style='width: 10%' scope='col'>
@@ -35,7 +36,7 @@
         <%= render 'resources' %>
 
         <tfoot id="paginator" class="remote">
-          <td id="pagination-tfoot" colspan="6">
+          <td id="pagination-tfoot" colspan="7">
             <%= render 'shared/pagination', records: @discipline_content_records %>
           </td>
         </tfoot>

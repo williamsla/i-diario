@@ -71,6 +71,8 @@ class SchoolCalendarEvent < ApplicationRecord
   scope :by_course, ->(course_id) { where(course_id: course_id) }
   scope :all_events_for_classroom, ->(classroom) { all_events_for_classroom(classroom) }
 
+  attr_accessor :keep_teacher_records
+
   before_create :before_create
   before_destroy :before_destroy
 
@@ -82,8 +84,14 @@ class SchoolCalendarEvent < ApplicationRecord
     "#{I18n.l(start_date)} à #{I18n.l(end_date)}"
   end
 
-  def periods=(periods)
-    write_attribute(:periods, periods ? periods.split(',').sort : periods)
+  def periods=(value)
+    arr = case value
+          when String then value.split(',').map(&:strip).reject(&:blank?)
+          when Array then value.map(&:to_s).reject(&:blank?)
+          else value
+          end
+
+    write_attribute(:periods, arr.presence&.sort || arr)
   end
 
   def coverage_by_unity?
@@ -109,6 +117,8 @@ class SchoolCalendarEvent < ApplicationRecord
   end
 
   def before_destroy
+    return if keep_teacher_records
+
     SchoolDayChecker.new(self.school_calendar, self.start_date, nil , nil , nil).destroy(self)
   end
 

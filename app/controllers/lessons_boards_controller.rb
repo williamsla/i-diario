@@ -10,16 +10,11 @@ class LessonsBoardsController < ApplicationController
 
   def show
     @lessons_board = resource
+    prepare_lessons_board_associations
 
     @classrooms = classrooms_to_select2(resource.classrooms_grade.grade_id, resource.classrooms_grade.classroom.unity&.id)
     @teachers = teachers_to_select2(resource.classrooms_grade.classroom.id, resource.period, resource.grade_id)
-
-    ActiveRecord::Associations::Preloader.new.preload(
-      @lessons_board,
-      lessons_board_lessons: :lessons_board_lesson_weekdays
-    )
-
-    validate_lessons_number
+    merge_archived_teacher_options if resource.discarded?
 
     authorize @lessons_board
   end
@@ -45,16 +40,18 @@ class LessonsBoardsController < ApplicationController
 
   def edit
     @lessons_board = resource
+    prepare_lessons_board_associations
 
     @classrooms = Classroom.where(unity_id: resource.classrooms_grade.classroom&.unity&.id)
     @teachers = teachers_to_select2(resource.classrooms_grade.classroom.id, resource.period, resource.grade_id)
-    
-    validate_lessons_number
+    merge_archived_teacher_options if resource.discarded?
 
     authorize @lessons_board
   end
 
   def update
+    load_archived_lessons_for_display if resource.discarded?
+
     resource.assign_attributes(resource_params.to_h)
 
     authorize resource
@@ -62,6 +59,9 @@ class LessonsBoardsController < ApplicationController
     if resource.save
       respond_with resource, location: lessons_boards_path(show_archived: resource.discarded? ? 1 : nil)
     else
+      @classrooms = Classroom.where(unity_id: resource.classrooms_grade.classroom&.unity&.id)
+      @teachers = teachers_to_select2(resource.classrooms_grade.classroom.id, resource.period, resource.grade_id)
+      merge_archived_teacher_options if resource.discarded?
       render :edit
     end
   end
@@ -323,26 +323,27 @@ class LessonsBoardsController < ApplicationController
   def not_exists_by_classroom
     return if params[:classroom_id].blank?
 
-    render json: LessonsBoard.by_classroom(params[:classroom_id])
-                             .empty?
+    board = LessonsBoard.by_classroom(params[:classroom_id]).first
+    render json: { id: board&.id }
   end
 
   def not_exists_by_classroom_and_grade
     return if params[:classroom_id].blank? || params[:grade_id].blank?
 
-    render json: LessonsBoard.by_classroom(params[:classroom_id])
-                              .by_grade(params[:grade_id])
-                              .empty?
+    board = LessonsBoard.by_classroom(params[:classroom_id])
+                        .by_grade(params[:grade_id])
+                        .first
+    render json: { id: board&.id }
   end
 
   def not_exists_by_classroom_and_period
-    return if params[:classroom_id].blank?
+    return if params[:classroom_id].blank? || params[:period].blank?
 
     lessons_boards = LessonsBoard.by_classroom(params[:classroom_id])
                                  .by_period(params[:period])
     lessons_boards = lessons_boards.by_grade(params[:grade_id]) if params[:grade_id].present?
 
-    render json: lessons_boards.empty?
+    render json: { id: lessons_boards.first&.id }
   end
 
   def classroom_multi_grade
@@ -428,6 +429,56 @@ class LessonsBoardsController < ApplicationController
     return [] if params[:selected_grade_ids].blank?
 
     params[:selected_grade_ids].select(&:present?).map(&:to_i).uniq
+  end
+
+  def prepare_lessons_board_associations
+    if resource.discarded?
+      load_archived_lessons_for_display
+    else
+      ActiveRecord::Associations::Preloader.new.preload(
+        resource,
+        lessons_board_lessons: :lessons_board_lesson_weekdays
+      )
+      validate_lessons_number
+    end
+  end
+
+  # Arquivar faz soft-delete em cascata nas aulas/weekdays. O default_scope kept
+  # esconde esses registros; para show/edit do arquivado precisamos trazê-los de volta.
+  def load_archived_lessons_for_display
+    lessons = LessonsBoardLesson.with_discarded
+                                .where(lessons_board_id: resource.id)
+                                .order(:lesson_number)
+                                .to_a
+
+    weekdays_by_lesson = LessonsBoardLessonWeekday.with_discarded
+                                                  .where(lessons_board_lesson_id: lessons.map(&:id))
+                                                  .group_by(&:lessons_board_lesson_id)
+
+    lessons.each do |lesson|
+      association = lesson.association(:lessons_board_lesson_weekdays)
+      association.loaded!
+      association.target = weekdays_by_lesson[lesson.id] || []
+    end
+
+    association = resource.association(:lessons_board_lessons)
+    association.loaded!
+    association.target = lessons
+  end
+
+  def merge_archived_teacher_options
+    tdc_ids = resource.lessons_board_lessons
+                      .flat_map(&:lessons_board_lesson_weekdays)
+                      .map(&:teacher_discipline_classroom_id)
+                      .compact
+                      .uniq
+    return if tdc_ids.empty?
+
+    existing_ids = @teachers.map { |teacher| teacher.id.to_s }
+    missing_ids = tdc_ids.reject { |id| existing_ids.include?(id.to_s) }
+    return if missing_ids.empty?
+
+    @teachers.concat(service.teacher_options_for_ids(missing_ids))
   end
 
   def validate_lessons_number

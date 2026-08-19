@@ -184,8 +184,98 @@ https://github.com/select2/select2/issues/2412
   margin-bottom: -1px;
 }
 
-ul#contents-list li.list-group-item.active{
+ul#contents-list li.list-group-item.active,
+ul#objectives-list li.list-group-item.active {
   z-index: 1;
+}
+
+ul#contents-list li.list-group-item,
+ul#objectives-list li.list-group-item {
+  gap: 12px;
+}
+
+.content-record-item-text {
+  flex: 1;
+  margin-left: 5px;
+  min-width: 0;
+}
+
+.experience-field-badge {
+  display: inline-block;
+  flex-shrink: 0;
+  max-width: 45%;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.experience-field-badge--color-0 {
+  background-color: #e8f1fb;
+  color: #2f6fed;
+}
+
+.experience-field-badge--color-1 {
+  background-color: #e6f6ea;
+  color: #2f9e44;
+}
+
+.experience-field-badge--color-2 {
+  background-color: #fff3e0;
+  color: #ef6c00;
+}
+
+.experience-field-badge--color-3 {
+  background-color: #f3e8fd;
+  color: #8e24aa;
+}
+
+.experience-field-badge--color-4 {
+  background-color: #e0f7fa;
+  color: #00838f;
+}
+
+ul#contents-list li.list-group-item.active .experience-field-badge,
+ul#objectives-list li.list-group-item.active .experience-field-badge {
+  background-color: #fff;
+}
+
+@media (max-width: 767px) {
+  .smart-form ul#contents-list li.list-group-item,
+  .smart-form ul#objectives-list li.list-group-item {
+    padding-left: 6px;
+    padding-right: 8px;
+    gap: 6px;
+  }
+
+  ul#contents-list li.list-group-item .state-icon,
+  ul#objectives-list li.list-group-item .state-icon {
+    flex-shrink: 0;
+    width: 14px;
+    margin-left: 0;
+    text-align: center;
+  }
+
+  ul#contents-list li.list-group-item .state-icon.margin-left-17px,
+  ul#objectives-list li.list-group-item .state-icon.margin-left-17px {
+    margin-left: 0;
+  }
+
+  ul#contents-list .content-record-item-text,
+  ul#objectives-list .content-record-item-text {
+    margin-left: 0;
+  }
+
+  ul#contents-list .experience-field-badge,
+  ul#objectives-list .experience-field-badge {
+    max-width: 38%;
+    padding: 3px 8px;
+    font-size: 11px;
+  }
 }
 
 .margin-left-17px{

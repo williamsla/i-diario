@@ -21,20 +21,79 @@ module RecordAuditTrailsHelper
       history_discipline_lesson_plan_path(result[:auditable_id])
     when 'KnowledgeAreaLessonPlan'
       history_knowledge_area_lesson_plan_path(result[:auditable_id])
+    when 'DescriptiveExam'
+      history_descriptive_exam_path(result[:auditable_id])
+    when 'ConceptualExam'
+      history_conceptual_exam_path(result[:auditable_id])
+    when 'ConceptualExamBatch'
+      history_conceptual_exam_path(result[:history_id]) if result[:history_id].present?
     end
   end
 
   def record_audit_trail_show_history?(result)
+    return true if result[:auditable_type] == 'ConceptualExamBatch' && result[:history_id].present?
     return true if result[:record_exists]
 
     result[:avaliation_id].present? && result[:auditable_type] != 'Avaliation'
   end
 
   def record_audit_trail_history_link(result)
-    if result[:record_exists]
+    if result[:auditable_type] == 'ConceptualExamBatch' && result[:history_id].present?
+      history_conceptual_exam_path(result[:history_id])
+    elsif result[:record_exists]
       record_audit_trail_history_path(result)
     elsif result[:avaliation_id].present?
       history_avaliation_path(result[:avaliation_id])
     end
+  end
+
+  def record_audit_trail_status_label(result)
+    t("record_audit_trails.report.status.#{result[:status] || status_from_exists(result)}")
+  end
+
+  def record_audit_trail_status_badge_class(result)
+    case result[:status]
+    when 'active' then 'badge badge-success'
+    when 'incomplete' then 'badge badge-warning'
+    when 'removed' then 'badge badge-danger'
+    else
+      result[:record_exists] ? 'badge badge-success' : 'badge badge-danger'
+    end
+  end
+
+  def record_audit_trail_calendar_badge_class(status)
+    case status
+    when 'recorded' then 'badge badge-success'
+    when 'incomplete', 'mixed' then 'badge badge-warning'
+    when 'deleted', 'missing' then 'badge badge-danger'
+    else 'badge'
+    end
+  end
+
+  def record_audit_trail_mismatch_reasons(result)
+    Array(result[:mismatch_reasons]).map do |reason|
+      t("services.record_audit_trail_phrase.reasons.#{reason}")
+    end.join(', ')
+  end
+
+  def record_audit_trail_format_event_at(result)
+    if result[:event_at].present?
+      l(result[:event_at], format: :compressed)
+    elsif result[:primary_at].present?
+      l(result[:primary_at], format: :compressed)
+    else
+      '—'
+    end
+  end
+
+  def record_audit_trail_format_pedagogical_date(result)
+    date = result[:pedagogical_date] || result[:occurred_on]
+    date.present? ? l(date.to_date) : '—'
+  end
+
+  private
+
+  def status_from_exists(result)
+    result[:record_exists] ? 'active' : 'removed'
   end
 end

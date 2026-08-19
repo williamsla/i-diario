@@ -98,7 +98,7 @@ class Classroom < ApplicationRecord
   end
 
   def first_exam_rule
-    classrooms_grades.first.exam_rule
+    @first_exam_rule ||= classrooms_grades.first.exam_rule
   end
 
   def first_exam_rule_with_recovery

@@ -9,6 +9,10 @@
         id: 'knowledge-area-content-record-form',
         data: {
           knowledge_areas_for_record_date_url: knowledge_areas_for_record_date_knowledge_area_content_records_path,
+          find_existing_url: find_existing_knowledge_area_content_records_path(format: :json),
+          new_url: new_knowledge_area_content_record_path,
+          edit_url_template: edit_knowledge_area_content_record_path('__ID__'),
+          record_id: @knowledge_area_content_record.persisted? ? @knowledge_area_content_record.id : nil,
           modal: params[:modal] == 'true'
         }
       } do |f| %>
@@ -42,13 +46,16 @@
       <div class="row">
         <%= content_record.input :unity_id, as: :hidden, input_html: { value: current_user.current_unity_id } %>
         <%= content_record.input :classroom_id, as: :hidden, input_html: { value: current_user.current_classroom_id } %>
-        
+
+        <% modal_knowledge_area_ids = params[:knowledge_area_id].presence || @knowledge_area_content_record.knowledge_area_ids %>
         <% if params[:modal] == 'true' %>
-          <%= f.hidden_field :knowledge_area_ids, value: @knowledge_area_content_record.knowledge_area_ids %>
-        <% elsif @knowledge_areas.present? && @knowledge_areas.count == 1 %>
-          <%= f.hidden_field :knowledge_area_ids, value: @knowledge_areas.first.id %>
+          <%= f.hidden_field :knowledge_area_ids, value: modal_knowledge_area_ids %>
         <% else %>
-          <div class="col col-sm-4">
+          <% single_knowledge_area = @knowledge_areas.present? && @knowledge_areas.count == 1 %>
+          <% if single_knowledge_area && Array(@knowledge_area_content_record.knowledge_area_ids).reject(&:blank?).empty? %>
+            <% @knowledge_area_content_record.knowledge_area_ids = [@knowledge_areas.first.id] %>
+          <% end %>
+          <div class="col col-sm-4" id="knowledge-area-field-wrapper"<%= ' style="display: none;"'.html_safe if single_knowledge_area %>>
             <%= f.input :knowledge_area_ids, as: :select2, elements: @knowledge_areas, multiple: true,
                   input_html: { data: { without_json_parser: true } } %>
           </div>
@@ -57,7 +64,10 @@
 
       <div class="row">
         <% if params[:modal] == 'true' %>
-          <%= content_record.input :record_date, as: :hidden, input_html: {value: @knowledge_area_content_record.content_record.record_date} %>
+          <%= content_record.input :record_date, as: :hidden,
+                input_html: {
+                  value: l(@knowledge_area_content_record.content_record.record_date.to_date)
+                } %>
         <% else %>
           <div class="col col-sm-4">
             <%= content_record.input :record_date, as: :date %>
@@ -107,13 +117,16 @@
           <ul class="list-group checked-list-box" id="contents-list">
 
             <% contents.each do |content| %>
-              <li class="list-group-item<%= ' manual' if content.is_editable %>" style="display: flex;" id="content_record_<%= content.id %>">
+              <li class="list-group-item<%= ' manual' if content.is_editable %>" style="display: flex; align-items: center;" id="content_record_<%= content.id %>">
                 <%= check_box_tag("knowledge_area_content_record[content_record_attributes][content_ids][]",
                     content.id, content.id.in?(@knowledge_area_content_record.contents.collect(&:id)),
                     hidden: true, 'data-content_description': content.to_s ) %>
-                <span style="margin-left: 5px;display: block;width: calc(100% - 85px);"><%= content %></span>
+                <span class="content-record-item-text"><%= content %></span>
+                <% if content.experience_fields.present? %>
+                  <span class="<%= experience_field_badge_class(content.experience_fields) %>"><%= content.experience_fields %></span>
+                <% end %>
                 <% if content.is_editable %>
-                  <div style="width: 80px;">
+                  <div style="width: 80px; flex-shrink: 0;">
                     <a class="btn btn-success" onclick="editContent('content_record_<%= content.id %>')">
                       <i class="fa fa-pencil"></i>
                     </a>
@@ -162,13 +175,16 @@
               <div style="max-height: 300px;overflow-y: auto; margin-top: 10px;">
                 <ul class="list-group checked-list-box" id="objectives-list">
                 <% objectives.each do |objective| %>
-                  <li class="list-group-item<%= ' manual' if objective.is_editable %>" style="display: flex;" id="objective_<%= objective.id %>">
+                  <li class="list-group-item<%= ' manual' if objective.is_editable %>" style="display: flex; align-items: center;" id="objective_<%= objective.id %>">
                     <%= check_box_tag("knowledge_area_content_record[content_record_attributes][objective_ids][]",
                       objective.id, objective.id.in?(@knowledge_area_content_record.objectives.collect(&:id)),
                       hidden: true, 'data-objective_description': objective.to_s ) %>
-                    <span style="margin-left: 5px;display: block;width: calc(100% - 85px);"><%= objective %></span>
+                    <span class="content-record-item-text"><%= objective %></span>
+                    <% if objective.experience_fields.present? %>
+                      <span class="<%= experience_field_badge_class(objective.experience_fields) %>"><%= objective.experience_fields %></span>
+                    <% end %>
                     <% if objective.is_editable %>
-                      <div style="width: 80px;">
+                      <div style="width: 80px; flex-shrink: 0;">
                         <a class="btn btn-danger" onclick="removeObjective('objective_<%= objective.id %>')">
                           <i class="fa fa-trash"></i>
                         </a>

@@ -1,0 +1,31 @@
+pt-BR:
+  services:
+    record_audit_trail_diagnostic:
+      cell:
+        recorded: "Registrado"
+        incomplete: "Incompleto"
+        mixed: "Parcial"
+        deleted: "Excluído"
+        missing: "Não lançado"
+        none: "—"
+        missing_item: "Não lançado: %{name}"
+    record_audit_trail_phrase:
+      scope: "Consulta de %{types} no período %{period}."
+      empty: "Não há lançamento ativo, excluído nem pendente para os filtros informados."
+      deleted: "%{type} excluído: %{record}. %{verdict}"
+      incomplete: "%{record}. %{verdict}"
+      missing_frequency: "Não há frequência lançada nas datas: %{dates}."
+      missing_frequency_partial: "Ainda falta frequência nas datas: %{dates}."
+      missing_content: "Não há conteúdo lançado nas datas: %{dates}."
+      missing_content_partial: "Ainda falta conteúdo nas datas: %{dates}."
+      active: "Há %{count} lançamento(s) ativo(s) de %{type} nas datas: %{dates}."
+      neighbors: "Foram encontrados lançamentos próximos, fora do recorte: %{items}."
+      neighbor_item: "%{type} — %{record} (%{reasons})"
+      allocation_unlinked: "O vínculo de %{teacher} com a turma %{classroom} está encerrado. Os lançamentos abaixo continuam no sistema; o diário da professora deixa de listá-los. %{details}"
+      allocation_missing: "Não há vínculo ativo de %{teacher} com a turma %{classroom} neste ano. Se houver lançamentos abaixo, eles ficaram no nome da professora mesmo sem alocação atual."
+      allocation_left_at: "Data de saída: %{date}."
+      allocation_discarded_at: "Vínculo removido em %{date}."
+      reasons:
+        other_classroom: "outra turma"
+        other_discipline: "outra disciplina"
+        nearby_date: "data próxima"

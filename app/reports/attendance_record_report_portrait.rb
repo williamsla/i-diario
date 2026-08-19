@@ -1,9 +1,10 @@
 class AttendanceRecordReportPortrait < BaseReport
-  # This number represent how many students are printed on each page
-  STUDENT_BY_PAGE_COUNT = 31
+  NULL_FREQUENCY_STUDENT = NullDailyFrequencyStudent.new
+  ACTIVE_SEARCH_FREQUENCY_STUDENT = ActiveSearchFrequencyStudent.new
 
-  # This factor represent the quantitty of students with social name needed to reduce 1 student by page
-  SOCIAL_NAME_REDUCTION_FACTOR = 2
+  FREQUENCY_ROW_H = 11.0
+  FREQUENCY_HEADER_H = 11.0
+  FREQUENCY_FOOTER_RESERVE = 55.0
 
   NUMBER_OF_COLS = 25
 
@@ -78,7 +79,8 @@ class AttendanceRecordReportPortrait < BaseReport
 
     self.legend = 'Legenda: N - Não enturmado, D - Dispensado da disciplina, FJ - Falta justificada'
 
-    @general_configuration = GeneralConfiguration.first
+    @general_configuration = GeneralConfiguration.current
+    @presence_mark = TermsDictionary.cached_current.try(:presence_identifier_character) || '.'
     @show_percentage_on_attendance = @general_configuration.show_percentage_on_attendance_record_report
     @show_inactive_enrollments = @general_configuration.show_inactive_enrollments
     @do_not_send_justified_absence = @general_configuration.do_not_send_justified_absence
@@ -142,23 +144,29 @@ class AttendanceRecordReportPortrait < BaseReport
   def daily_frequencies_table
     self.any_student_with_dependence = false
 
-    daily_frequencies = @daily_frequencies.reject { |daily_frequency| !daily_frequency.students.any? }
-    frequencies_and_events = daily_frequencies.to_a #+ @events.to_a
-
-    @daily_frequency_students = DailyFrequencyStudent.by_daily_frequency_id(@daily_frequencies.map(&:id)).to_a
+    @daily_frequency_students = begin
+      frequency_ids = @daily_frequencies.map(&:id)
+      frequency_ids.empty? ? [] : DailyFrequencyStudent.by_daily_frequency_id(frequency_ids).to_a
+    end
     frequency_students_index = build_frequency_students_index
+    frequency_ids_with_students = @daily_frequency_students.each_with_object(Set.new) do |student_frequency, set|
+      set << student_frequency.daily_frequency_id
+    end
+
+    daily_frequencies = @daily_frequencies.select { |daily_frequency| frequency_ids_with_students.include?(daily_frequency.id) }
+    frequencies_and_events = daily_frequencies.to_a
 
     frequencies_and_events = frequencies_and_events.sort_by do |obj|
       daily_frequency?(obj) ? obj.frequency_date : obj[:date]
     end
 
-    student_enrollment_ids ||= @enrollment_classrooms.map { |student_enrollment|
+    student_enrollment_ids = @enrollment_classrooms.map { |student_enrollment|
       student_enrollment[:student_enrollment].id
     }
 
-    active_searches = active_searches_by_range(daily_frequencies, student_enrollment_ids)
-    all_dependances = StudentEnrollmentDependence.where(student_enrollment_id: student_enrollment_ids)
-    
+    active_searches_index = active_searches_index_by_date(daily_frequencies, student_enrollment_ids)
+    enrollments_meta = build_enrollments_meta
+
     sliced_frequencies_and_events = frequencies_and_events.each_slice(NUMBER_OF_COLS).to_a
 
     sliced_frequencies_and_events.each_with_index do |frequencies_and_events_slice, index|
@@ -170,50 +178,49 @@ class AttendanceRecordReportPortrait < BaseReport
       frequencies_and_events_slice.each do |daily_frequency_or_event|
         if daily_frequency?(daily_frequency_or_event)
           daily_frequency = daily_frequency_or_event
-          # next unless frequency_in_period(daily_frequency)
+          frequency_date = daily_frequency.frequency_date.to_date
 
-          class_numbers << make_cell(content: daily_frequency.class_number.to_s, background_color: 'FFFFFF', align: :center)
-          days << make_cell(content: daily_frequency.frequency_date.day.to_s, background_color: 'FFFFFF', align: :center)
-          months << make_cell(content: daily_frequency.frequency_date.month.to_s, background_color: 'FFFFFF', align: :center)
+          class_numbers << daily_frequency.class_number.to_s
+          days << frequency_date.day.to_s
+          months << frequency_date.month.to_s
           students_by_id = frequency_students_index[daily_frequency.id] || {}
+          active_search_ids = active_searches_index[daily_frequency.frequency_date]
 
-          @enrollment_classrooms.each do |enrollment_classroom|
-            student_enrollment = enrollment_classroom[:student_enrollment]
-            student = enrollment_classroom[:student]
-            student_enrollment_classroom = enrollment_classroom[:student_enrollment_classroom]
-            joined_at = enrollment_classroom[:student_enrollment_classroom].joined_at.to_date
-            left_at = get_left_at(enrollment_classroom[:student_enrollment_classroom].left_at)
-            sequence = enrollment_classroom[:student_enrollment_classroom].sequence
-            
-            if in_active_search?(student.id, active_searches, daily_frequency)
-              @show_legend_active_search = true
-              student_frequency = ActiveSearchFrequencyStudent.new
-            elsif @show_inactive_enrollments
-              frequency_date = daily_frequency.frequency_date.to_date
-              if frequency_date >= joined_at && frequency_date < left_at
-                student_frequency = students_by_id[student.id]
-              else
-                student_frequency ||= NullDailyFrequencyStudent.new
-              end
-            else
-              student_frequency = students_by_id[student.id]
-              student_frequency ||= NullDailyFrequencyStudent.new
-            end
+          enrollments_meta.each do |enrollment|
+            student_id = enrollment[:student_id]
+            enrollment_classroom_id = enrollment[:id]
+
+            student_frequency = if active_search_ids&.include?(student_id)
+                                  @show_legend_active_search = true
+                                  ACTIVE_SEARCH_FREQUENCY_STUDENT
+                                elsif @show_inactive_enrollments
+                                  if frequency_date >= enrollment[:joined_at] && frequency_date < enrollment[:left_at]
+                                    students_by_id[student_id]
+                                  else
+                                    NULL_FREQUENCY_STUDENT
+                                  end
+                                else
+                                  students_by_id[student_id] || NULL_FREQUENCY_STUDENT
+                                end
 
             if @show_legend_active_search && !@exists_active_search
               @exists_active_search = true
               self.legend += ', B - Busca ativa'
             end
 
-            (students[student_enrollment_classroom.id] ||= {})[:name] = student.to_s
-            students[student_enrollment_classroom.id] = {} if students[student_enrollment_classroom.id].nil?
-            students[student_enrollment_classroom.id][:dependence] = students[student_enrollment_classroom.id][:dependence] #|| student_has_dependence?(all_dependances, student_enrollment, daily_frequency)
-            self.any_student_with_dependence = self.any_student_with_dependence || students[student_enrollment_classroom.id][:dependence]
-            students[student_enrollment_classroom.id][:absences] ||= 0
-            students[student_enrollment_classroom.id][:sequence] ||= sequence if @show_inactive_enrollments
+            student_row = (students[enrollment_classroom_id] ||= {
+              name: enrollment[:name],
+              dependence: nil,
+              absences: 0,
+              sequence: @show_inactive_enrollments ? enrollment[:sequence] : nil,
+              social_name: enrollment[:social_name],
+              attendances: []
+            })
+
+            self.any_student_with_dependence ||= student_row[:dependence]
 
             if @show_percentage_on_attendance
-              students[student_enrollment_classroom.id][:absences_percentage] = @students_frequency_percentage[student_enrollment.id]
+              student_row[:absences_percentage] = @students_frequency_percentage[enrollment[:student_enrollment_id]]
             end
 
             unless student_frequency.present?
@@ -222,145 +229,81 @@ class AttendanceRecordReportPortrait < BaseReport
                 absences = 0
               end
 
-              students[student_enrollment_classroom.id][:absences] +=  absences
+              student_row[:absences] += absences
             end
 
-            student_frequency
-
-            (students[student_enrollment_classroom.id][:attendances] ||= []) <<
-              make_cell(content: student_frequency.to_s, align: :center)
+            student_row[:attendances] << attendance_mark(student_frequency)
           end
         else # Se não for dia letivo
           school_calendar_event = daily_frequency_or_event
           legend = ', ' + school_calendar_event[:legend].to_s + ' - ' + school_calendar_event[:description]
           self.legend += legend unless self.legend.include?(legend)
 
-          class_numbers << make_cell(content: '', background_color: 'FFFFFF', align: :center)
-          days << make_cell(content: school_calendar_event[:date].day.to_s, background_color: 'FFFFFF', align: :center)
-          months << make_cell(content: school_calendar_event[:date].month.to_s, background_color: 'FFFFFF', align: :center)
+          class_numbers << ''
+          days << school_calendar_event[:date].day.to_s
+          months << school_calendar_event[:date].month.to_s
 
-          @enrollment_classrooms.each do |enrollment_classroom|
-            student_enrollment = enrollment_classroom[:student_enrollment]
-            student = enrollment_classroom[:student]
-            student_enrollment_classroom = enrollment_classroom[:student_enrollment_classroom]
-            sequence = enrollment_classroom[:student_enrollment_classroom].sequence
-
-            (students[student_enrollment_classroom.id] ||= {})[:name] = student.to_s
-            students[student_enrollment_classroom.id] = {} if students[student_enrollment_classroom.id].nil?
-            students[student_enrollment_classroom.id][:absences] ||= 0
-            students[student_enrollment_classroom.id][:social_name] = student.social_name
-            students[student_enrollment_classroom.id][:sequence] ||= sequence if @show_inactive_enrollments
+          enrollments_meta.each do |enrollment|
+            student_row = (students[enrollment[:id]] ||= {
+              name: enrollment[:name],
+              dependence: nil,
+              absences: 0,
+              sequence: @show_inactive_enrollments ? enrollment[:sequence] : nil,
+              social_name: enrollment[:social_name],
+              attendances: []
+            })
 
             if @show_percentage_on_attendance
-              students[student_enrollment_classroom.id][:absences_percentage] = @students_frequency_percentage[student_enrollment.id]
+              student_row[:absences_percentage] = @students_frequency_percentage[enrollment[:student_enrollment_id]]
             end
 
-            (students[student_enrollment_classroom.id][:attendances] ||= []) << make_cell(content: (school_calendar_event[:legend]).to_s, align: :center)
+            student_row[:attendances] << school_calendar_event[:legend].to_s
           end
         end
       end
 
-      sequential_number_header = make_cell(content: 'Nº', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, valign: :center, rowspan: 3)
-      student_name_header = make_cell(content: 'Nome do aluno', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, valign: :center, rowspan: 3)
-      class_number_header = make_cell(content: 'Aula', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, width: 20)
-      day_header = make_cell(content: 'Dia', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center)
-      month_header = make_cell(content: 'Mês', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center)
-      absences_header = make_cell(content: 'Faltas', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, valign: :center, rowspan: 3)
-      percentage_absences_header = make_cell(content: 'Freq.', size: 8, font_style: :bold, background_color: 'FFFFFF', align: :center, valign: :center, rowspan: 3)
-
-      first_headers_and_class_numbers_cells = [sequential_number_header, student_name_header, class_number_header].concat(class_numbers)
-      
-      (NUMBER_OF_COLS - class_numbers.count).times { first_headers_and_class_numbers_cells << make_cell(content: '', background_color: 'FFFFFF') }
-
-      first_headers_and_class_numbers_cells << absences_header
-
-      first_headers_and_class_numbers_cells << percentage_absences_header if @show_percentage_on_attendance
-
-      days_header_and_cells = [day_header].concat(days)
-      
-      (NUMBER_OF_COLS - days.count).times { days_header_and_cells << make_cell(content: '', background_color: 'FFFFFF') }
-
-      months_header_and_cells = [month_header].concat(months)
-      
-      (NUMBER_OF_COLS - months.count).times { months_header_and_cells << make_cell(content: '', background_color: 'FFFFFF') }
-
-      students_cells = []
-      students = students.sort_by { |(_key, value)| value[:dependence] ? 1 : 0 }
+      bottom_offset = @second_teacher_signature ? 24 : 0
+      student_list = []
       sequence = 1 unless @show_inactive_enrollments
       sequence_reseted = false
 
-      students.each do |_key, value|
+      students.sort_by { |(_key, value)| value[:dependence] ? 1 : 0 }.each do |_key, value|
         if !sequence_reseted && value[:dependence]
           sequence = 1
           sequence_reseted = true
         end
 
-        if @show_inactive_enrollments
-          sequence_cell = make_cell(content: value[:sequence].to_s, align: :center)
-        else
-          sequence_cell = make_cell(content: sequence.to_s, align: :center)
-        end
-
-        #nome do aluno
-        student_cells = [sequence_cell, { content: (value[:dependence] ? '* ' : '') + value[:name], colspan: 2 }].concat(value[:attendances])
-        
-        (NUMBER_OF_COLS - value[:attendances].count).times { student_cells << nil }
-
-        student_cells << make_cell(content: value[:absences].to_s, align: :center)
-
-        if @show_percentage_on_attendance
-          student_cells << make_cell(content: value[:absences_percentage] || '100%', align: :center)
-        end
-
-        students_cells << student_cells
+        student_list << value.merge(
+          sequence: @show_inactive_enrollments ? value[:sequence] : sequence,
+          display_name: (value[:dependence] ? '* ' : '') + value[:name].to_s
+        )
         sequence += 1 unless @show_inactive_enrollments
       end
 
-      bottom_offset = @second_teacher_signature ? 24 : 0
-      sliced_students_cells = students_cells.each_slice(student_slice_size(students)).to_a
+      remaining_students = student_list.dup
+      page_slice = 0
 
-      sliced_students_cells.each_with_index do |students_cells_slice, slice_index|
-        data = [
-          first_headers_and_class_numbers_cells,
-          days_header_and_cells,
-          months_header_and_cells
-        ]
+      while remaining_students.any?
+        start_new_page if page_slice.positive?
+        position_frequency_grid
 
-        if slice_index == sliced_students_cells.count - 1 && index == sliced_frequencies_and_events.count - 1
-          columns = @show_percentage_on_attendance ? NUMBER_OF_COLS + 5 : NUMBER_OF_COLS + 4
-          students_cells_slice <<
-            [{ content: "Aulas dadas: #{daily_frequencies.count}", colspan: columns, align: :center }]
+        last_frequency_slice = index == sliced_frequencies_and_events.count - 1
+        fit_with_aulas = frequency_students_that_fit(include_aulas_dadas: true)
+        fit_without_aulas = frequency_students_that_fit(include_aulas_dadas: false)
+
+        if last_frequency_slice && remaining_students.size <= fit_with_aulas
+          take = remaining_students.size
+          aulas_dadas = daily_frequencies.count
+        else
+          take = [fit_without_aulas, remaining_students.size].min
+          aulas_dadas = nil
         end
+        take = 1 if take < 1
 
-        data.concat(students_cells_slice)
-
-        column_widths = { 0 => 20, 1 => 140, (NUMBER_OF_COLS+3) => 30 } #43
-
-        # 3..42
-        (3..(NUMBER_OF_COLS+2)).each { |i| column_widths[i] = 13 }
-        
-        page_content do
-          begin
-            table(data, row_colors: ['FFFFFF', 'DEDEDE'], cell_style: { size: 8, padding: [2, 2, 2, 2] },
-                        column_widths: column_widths, width: bounds.width) do |t|
-              t.cells.border_width = 0.25
-
-              t.before_rendering_page do |page|
-                page.row(0).border_top_width = 0.25
-                page.row(-1).border_bottom_width = 0.25
-                page.column(0).border_left_width = 0.25
-                page.column(-1).border_right_width = 0.25
-              end
-            end
-          rescue Exception => e
-            Rails.logger.info "#{e.message}"
-            Rails.logger.info "#{e.inspect}"
-          end
-        end
-
+        students_slice = remaining_students.shift(take)
+        draw_frequency_grid(class_numbers, days, months, students_slice, aulas_dadas)
         text_box(self.legend, size: 8, at: [0, 30 + bottom_offset], width: 585, height: 20)
-
-        start_new_page if slice_index < sliced_students_cells.count - 1
+        page_slice += 1
       end
 
       text_box(self.legend, size: 8, at: [0, 30 + bottom_offset], width: 585, height: 20)
@@ -383,6 +326,137 @@ class AttendanceRecordReportPortrait < BaseReport
         text_box_overflow_to_new_page(events, 8, at, 585, height)
       end
     end
+  end
+
+  def position_frequency_grid
+    return unless @display_header_on_all_reports_pages && @cursor_page
+    return unless cursor > @cursor_page
+
+    move_cursor_to(@cursor_page)
+  end
+
+  def frequency_students_that_fit(include_aulas_dadas:)
+    footer_reserve = FREQUENCY_FOOTER_RESERVE
+    footer_reserve += 24 if @second_teacher_signature
+    extra_h = include_aulas_dadas ? FREQUENCY_ROW_H : 0
+    available = cursor - footer_reserve - (3 * FREQUENCY_HEADER_H) - extra_h
+    count = (available / FREQUENCY_ROW_H).floor
+    [count, 1].max
+  end
+
+  def draw_frequency_grid(class_numbers, days, months, student_rows, aulas_dadas)
+    position_frequency_grid
+
+    width = bounds.width
+    num_w = 20.0
+    abs_w = 30.0
+    freq_w = @show_percentage_on_attendance ? 28.0 : 0.0
+    att_count = NUMBER_OF_COLS
+    att_w = 13.0
+    name_w = width - num_w - (att_count * att_w) - abs_w - freq_w
+    row_h = FREQUENCY_ROW_H
+    header_h = FREQUENCY_HEADER_H
+    extra_h = aulas_dadas ? row_h : 0
+    rows_h = (3 * header_h) + (student_rows.size * row_h) + extra_h
+    start_y = cursor
+    grid_bottom = start_y - rows_h
+    students_bottom = start_y - (3 * header_h) - (student_rows.size * row_h)
+    vline_bottom = aulas_dadas ? students_bottom : grid_bottom
+    x_att = num_w + name_w
+    x_abs = x_att + (att_count * att_w)
+    x_freq = x_abs + abs_w
+    pad = ->(values) { Array(values)[0, att_count] + Array.new([att_count - Array(values).size, 0].max, '') }
+
+    line_width 0.25
+    stroke_color '000000'
+    fill_color '000000'
+
+    student_rows.each_with_index do |_row, index|
+      next if index.even?
+
+      y_bottom = start_y - (3 * header_h) - ((index + 1) * row_h)
+      fill_color 'DEDEDE'
+      fill_rectangle [0, y_bottom], width, row_h
+    end
+    fill_color '000000'
+
+    header_mid_y = start_y - (2 * header_h) + 3
+    draw_text 'Nº', size: 8, style: :bold, at: [4, header_mid_y]
+    draw_text 'Nome do aluno', size: 8, style: :bold, at: [num_w + 4, header_mid_y]
+    draw_text 'Aula', size: 7, style: :bold, at: [x_att - 22, start_y - header_h + 3]
+    draw_text 'Dia', size: 7, style: :bold, at: [x_att - 18, start_y - (2 * header_h) + 3]
+    draw_text 'Mês', size: 7, style: :bold, at: [x_att - 18, start_y - (3 * header_h) + 3]
+    draw_text 'Faltas', size: 7, style: :bold, at: [x_abs + 4, header_mid_y]
+    draw_text 'Freq.', size: 7, style: :bold, at: [x_freq + 2, header_mid_y] if @show_percentage_on_attendance
+
+    pad.call(class_numbers).each_with_index do |value, index|
+      draw_centered_mark(value, x_att + (index * att_w), start_y - header_h, att_w)
+    end
+    pad.call(days).each_with_index do |value, index|
+      draw_centered_mark(value, x_att + (index * att_w), start_y - (2 * header_h), att_w)
+    end
+    pad.call(months).each_with_index do |value, index|
+      draw_centered_mark(value, x_att + (index * att_w), start_y - (3 * header_h), att_w)
+    end
+
+    student_rows.each_with_index do |row, index|
+      y_bottom = start_y - (3 * header_h) - ((index + 1) * row_h)
+      draw_text row[:sequence].to_s, size: 8, at: [5, y_bottom + 3]
+      text_box(
+        row[:display_name].to_s,
+        at: [num_w + 2, y_bottom + row_h - 1],
+        width: name_w - 4,
+        height: row_h - 1,
+        size: 8,
+        overflow: :truncate,
+        single_line: true,
+        valign: :center
+      )
+      Array(row[:attendances]).each_with_index do |mark, mark_index|
+        break if mark_index >= att_count
+
+        draw_centered_mark(mark, x_att + (mark_index * att_w), y_bottom, att_w)
+      end
+      draw_text row[:absences].to_s, size: 8, at: [x_abs + 8, y_bottom + 3]
+      next unless @show_percentage_on_attendance
+
+      draw_text (row[:absences_percentage] || '100%').to_s, size: 7, at: [x_freq + 2, y_bottom + 3]
+    end
+
+    if aulas_dadas
+      draw_text "Aulas dadas: #{aulas_dadas}", size: 8, at: [(width / 2) - 40, grid_bottom + 3]
+    end
+
+    stroke_polygon [0, start_y], [width, start_y], [width, grid_bottom], [0, grid_bottom]
+    3.times do |index|
+      y = start_y - ((index + 1) * header_h)
+      if index < 2
+        stroke_horizontal_line x_att, width, at: y
+      else
+        stroke_horizontal_line 0, width, at: y
+      end
+    end
+    student_rows.size.times do |index|
+      stroke_horizontal_line 0, width, at: start_y - (3 * header_h) - ((index + 1) * row_h)
+    end
+
+    stroke_vertical_line start_y, vline_bottom, at: num_w
+    stroke_vertical_line start_y, vline_bottom, at: x_att
+    att_count.times do |index|
+      stroke_vertical_line start_y, vline_bottom, at: x_att + ((index + 1) * att_w)
+    end
+    stroke_vertical_line start_y, vline_bottom, at: x_abs
+    stroke_vertical_line start_y, vline_bottom, at: x_freq if @show_percentage_on_attendance
+
+    move_cursor_to(grid_bottom)
+  end
+
+  def draw_centered_mark(text, x, y_bottom, col_width)
+    value = text.to_s
+    return if value.empty?
+
+    offset = value.length <= 1 ? (col_width / 2) - 2 : (col_width / 2) - 5
+    draw_text value, size: 7, at: [x + offset, y_bottom + 3]
   end
 
   def content
@@ -445,21 +519,6 @@ class AttendanceRecordReportPortrait < BaseReport
     exemption.present?
   end
 
-  def student_slice_size(students)
-    student_with_social_name_count = students.select { |(_key, value)|
-      value[:social_name].present?
-    }.length
-
-    second_signature_offset = @second_teacher_signature ? 3 : 0
-    social_name_factor = (student_with_social_name_count / SOCIAL_NAME_REDUCTION_FACTOR)
-
-    slice_size = STUDENT_BY_PAGE_COUNT - second_signature_offset - social_name_factor
-
-    return slice_size unless show_school_day_event_description?
-
-    slice_size - 3
-  end
-
   def step_number(daily_frequency)
     @steps ||= StepsFetcher.new(daily_frequency.classroom).steps
 
@@ -492,15 +551,47 @@ class AttendanceRecordReportPortrait < BaseReport
                                                                        .try(:allow_absence_by_discipline)
   end
 
-  def active_searches_by_range(daily_frequencies, student_enrollment_ids)
+  def active_searches_index_by_date(daily_frequencies, student_enrollment_ids)
     dates = daily_frequencies.map(&:frequency_date).uniq
+    result = {}
 
-    ActiveSearch.new.in_active_search_in_range(student_enrollment_ids, dates)
+    ActiveSearch.new.in_active_search_in_range(student_enrollment_ids, dates).each do |entry|
+      next if entry.blank? || entry[:student_ids].blank?
+
+      result[entry[:date]] = entry[:student_ids].to_set
+    end
+
+    result
   end
 
-  def in_active_search?(student_id, active_searches, daily_frequency)
-    active_searches.detect do |active_searche|
-      active_searche[:date].eql?(daily_frequency.frequency_date) && active_searche[:student_ids].include?(student_id)
+  def build_enrollments_meta
+    @enrollment_classrooms.map do |enrollment_classroom|
+      student_enrollment_classroom = enrollment_classroom[:student_enrollment_classroom]
+      student = enrollment_classroom[:student]
+
+      {
+        id: student_enrollment_classroom.id,
+        student_id: student.id,
+        name: student.to_s,
+        social_name: student.social_name,
+        student_enrollment_id: enrollment_classroom[:student_enrollment].id,
+        joined_at: student_enrollment_classroom.joined_at.to_date,
+        left_at: get_left_at(student_enrollment_classroom.left_at),
+        sequence: student_enrollment_classroom.sequence
+      }
+    end
+  end
+
+  def attendance_mark(student_frequency)
+    return '' if student_frequency.nil?
+    return student_frequency.to_s unless student_frequency.respond_to?(:absence_justification_student_id)
+
+    if student_frequency.absence_justification_student_id
+      'FJ'
+    elsif student_frequency.present?
+      @presence_mark
+    else
+      'F'
     end
   end
 
@@ -535,7 +626,7 @@ class AttendanceRecordReportPortrait < BaseReport
   end
 
   def report_include_event_date?(event)
-    ((event.start_date..event.end_date).to_a & (@start_at.to_date..@end_at.to_date).to_a).any?
+    event.start_date <= @end_at.to_date && event.end_date >= @start_at.to_date
   end
 
   def format_legend(events)
@@ -557,14 +648,10 @@ class AttendanceRecordReportPortrait < BaseReport
   def build_frequency_students_index
     index = {}
 
-    @daily_frequencies.each do |daily_frequency|
-      students_by_id = {}
-      daily_frequency.students.each do |student_frequency|
-        next unless student_frequency.active.eql?(true)
+    @daily_frequency_students.each do |student_frequency|
+      next unless student_frequency.active.eql?(true)
 
-        students_by_id[student_frequency.student_id] = student_frequency
-      end
-      index[daily_frequency.id] = students_by_id
+      (index[student_frequency.daily_frequency_id] ||= {})[student_frequency.student_id] = student_frequency
     end
 
     index

@@ -68,11 +68,19 @@ class LessonPlan < ApplicationRecord
   end
 
   def contents_ordered
-    contents.order('contents_lesson_plans.position')
+    if contents_lesson_plans.loaded?
+      contents_lesson_plans.sort_by { |item| item.position.to_i }.map(&:content).compact
+    else
+      contents.order('contents_lesson_plans.position')
+    end
   end
 
   def objectives_ordered
-    objectives.order('objectives_lesson_plans.position')
+    if objectives_lesson_plans.loaded?
+      objectives_lesson_plans.sort_by { |item| item.position.to_i }.map(&:objective).compact
+    else
+      objectives.order('objectives_lesson_plans.position')
+    end
   end
 
   def attachments?

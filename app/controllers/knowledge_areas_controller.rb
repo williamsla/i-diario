@@ -41,6 +41,7 @@ class KnowledgeAreasController < ApplicationController
                                   .map { |discipline| discipline.id }
 
       @knowledge_areas = @knowledge_areas.by_discipline_id(disciplines_ids)
+      @knowledge_areas = filter_knowledge_areas_for_content_registration(@knowledge_areas)
     end
 
     @knowledge_areas

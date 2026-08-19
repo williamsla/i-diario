@@ -84,6 +84,23 @@ RSpec.describe SchoolTermRecoveryDiaryRecord, type: :model do
             expect(subject.errors[:recorded_at]).to include(expected_message)
           end
         end
+
+        context 'when recorded_at is outside all steps but a calendar event allows entries' do
+          [
+            EventTypes::NO_SCHOOL_WITH_FREQUENCY,
+            EventTypes::EXTRA_SCHOOL
+          ].each do |event_type|
+            it "accepts recorded_at for #{event_type}" do
+              date = weekday_after_last_step(subject)
+              create_allowing_event(subject.school_calendar, date, event_type)
+
+              subject.recorded_at = date
+              subject.recovery_diary_record.recorded_at = date
+
+              expect(subject.valid?).to be true
+            end
+          end
+        end
       end
 
       context 'updating a existing school_term_recovery_diary_record' do
@@ -117,5 +134,30 @@ RSpec.describe SchoolTermRecoveryDiaryRecord, type: :model do
         end
       end
     end
+  end
+
+  def weekday_after_last_step(record)
+    last_step = StepsFetcher.new(record.classroom).steps.max_by(&:end_at)
+    new_end_at = last_step.end_at - 15.days
+    last_step.update_columns(end_at: new_end_at)
+    record.instance_variable_set(:@steps_fetcher, nil)
+    record.instance_variable_set(:@school_calendar, nil)
+
+    date = new_end_at + 1.day
+    date += 1.day while date.saturday? || date.sunday?
+    date
+  end
+
+  def create_allowing_event(school_calendar, date, event_type)
+    create(
+      :school_calendar_event,
+      school_calendar: school_calendar,
+      coverage: EventCoverageType::BY_UNITY,
+      start_date: date,
+      end_date: date,
+      event_type: event_type,
+      periods: Periods.list,
+      description: 'Recuperação'
+    )
   end
 end

@@ -54,6 +54,8 @@ $(function () {
   $('#lessons_board_classroom_id').on('change', async function () {
     errors = {};
     flashMessages.pop('');
+    clearFields();
+    $('#btn-submit').attr("disabled", true);
     $('#lessons_board_period').select2('val', '');
     await getPeriod();
     await updateClassroomGrades();
@@ -83,9 +85,9 @@ $(function () {
 
   $('#lessons_board_period').on('change', function() {
     errors = {};
-    let period = $('#lessons_number_classroom_id').val();
+    let selectedPeriod = $('#lessons_board_period').select2('val');
 
-    if (period == PERIOD_FULL) {
+    if (isFullPeriodClassroom() && !_.isEmpty(selectedPeriod)) {
       checkNotExistsLessonsBoardOnPeriod();
     }
   })
@@ -278,10 +280,17 @@ $(function () {
       success: handleClassroomGradesSuccess,
       error: function() {
         hideMultiGradeOptions();
-        checkNotExistsLessonsBoard();
+        // Em turma integral o período ainda não foi escolhido; a validação ocorre no change do período.
+        if (!isFullPeriodClassroom()) {
+          checkNotExistsLessonsBoard();
+        }
         flashMessages.error('Ocorreu um erro ao buscar as séries da turma.');
       }
     });
+  }
+
+  function isFullPeriodClassroom() {
+    return $('#lessons_number_classroom_id').val() == PERIOD_FULL;
   }
 
   function handleClassroomGradesSuccess(data) {
@@ -304,9 +313,18 @@ $(function () {
     if (multiGradeClassroom) {
       multiGradeOptions.show();
       $('#multi-grade-select-wrapper').show();
-      checkNotExistsLessonsBoardByClassroomGrade();
     } else {
       hideMultiGradeOptions();
+    }
+
+    // Turma integral pode ter um quadro por turno. Só redireciona/valida depois que o período for escolhido.
+    if (isFullPeriodClassroom()) {
+      return;
+    }
+
+    if (multiGradeClassroom) {
+      checkNotExistsLessonsBoardByClassroomGrade();
+    } else {
       checkNotExistsLessonsBoard();
     }
   }
@@ -352,17 +370,20 @@ $(function () {
     }
   }
 
+  function redirectToExistingLessonsBoard(id) {
+    window.location.href = Routes.edit_lessons_board_pt_br_path(id);
+  }
+
   function handleNotExistsLessonsBoardSuccess(data) {
-    if (data) {
-      $('#btn-submit').attr("disabled", false);
-      ensureLessonsBoardRows().then(function() {
-        getTeachersFromClassroom();
-      });
-    } else {
-      clearFields();
-      $('#btn-submit').attr("disabled", true);
-      flashMessages.error('Já existe um quadro de aula cadastrado para a turma selecionada.');
+    if (data && data.id) {
+      redirectToExistingLessonsBoard(data.id);
+      return;
     }
+
+    $('#btn-submit').attr("disabled", false);
+    ensureLessonsBoardRows().then(function() {
+      getTeachersFromClassroom();
+    });
   }
 
   function handleNotExistsLessonsBoardError() {
@@ -389,16 +410,15 @@ $(function () {
   }
 
   function handleNotExistsLessonsBoardOnPeriodSuccess(data) {
-    if (data) {
-      $('#btn-submit').attr("disabled", false);
-      ensureLessonsBoardRows().then(function() {
-        getTeachersFromClassroomAndPeriod();
-      });
-    } else {
-      clearFields();
-      $('#btn-submit').attr("disabled", true);
-      flashMessages.error('Já existe um quadro de aula cadastrado para a turma e período selecionado.');
+    if (data && data.id) {
+      redirectToExistingLessonsBoard(data.id);
+      return;
     }
+
+    $('#btn-submit').attr("disabled", false);
+    ensureLessonsBoardRows().then(function() {
+      getTeachersFromClassroomAndPeriod();
+    });
   }
 
   function handleNotExistsLessonsBoardOnPeriodError() {

@@ -18,10 +18,6 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
     set_options_by_user
     set_knowledge_area_by_classroom(@classrooms.map(&:id))
 
-    unless current_user.current_role_is_admin_or_employee?
-      @knowledge_area_teaching_plans = @knowledge_area_teaching_plans.by_grade(@grades.map(&:id))
-    end
-
     if author_type.present?
       @knowledge_area_teaching_plans = @knowledge_area_teaching_plans.by_author(author_type, current_teacher)
       params[:filter][:by_author] = author_type
@@ -53,7 +49,7 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
     @knowledge_area_teaching_plan = KnowledgeAreaTeachingPlan.new.localized
     @knowledge_area_teaching_plan.build_teaching_plan(
       year: current_school_calendar.year,
-      grade: current_grade,
+      grade: current_grade.first.grade,
       unity: current_unity
     )
 
@@ -65,10 +61,10 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
 
   def create
     @knowledge_area_teaching_plan = KnowledgeAreaTeachingPlan.new(resource_params).localized
-    @knowledge_area_teaching_plan.teaching_plan.teacher = current_teacher
+    @knowledge_area_teaching_plan.teaching_plan.teacher = teaching_plan_teacher_for_current_user
     @knowledge_area_teaching_plan.teaching_plan.content_ids = content_ids
     @knowledge_area_teaching_plan.teaching_plan.objective_ids = objective_ids
-    @knowledge_area_teaching_plan.teacher_id = current_teacher_id
+    @knowledge_area_teaching_plan.teacher_id = teaching_plan_teacher_for_current_user&.id
     @knowledge_area_teaching_plan.knowledge_area_ids = resource_params[:knowledge_area_ids].split(',')
     @knowledge_area_teaching_plan.teaching_plan.student_id = resource_params[:teaching_plan_attributes][:student_id]
     @knowledge_area_teaching_plan.teaching_plan.methodology = ActionController::Base.helpers.sanitize(
@@ -96,9 +92,12 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
 
   def edit
     @knowledge_area_teaching_plan = KnowledgeAreaTeachingPlan.find(params[:id]).localized
-    @knowledge_areas = @knowledge_area_teaching_plan.knowledge_areas
 
     set_options_by_user
+    set_knowledge_area_by_classroom(
+      current_user_classroom.id,
+      keep_ids: @knowledge_area_teaching_plan.knowledge_area_ids
+    )
 
     authorize @knowledge_area_teaching_plan
   end
@@ -129,7 +128,10 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
     else
       yearly_term_type_id
       set_options_by_user
-      @knowledge_areas = @knowledge_area_teaching_plan.knowledge_areas
+      set_knowledge_area_by_classroom(
+        current_user_classroom.id,
+        keep_ids: @knowledge_area_teaching_plan.knowledge_area_ids
+      )
 
       render :edit
     end
@@ -207,6 +209,12 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
   end
 
   private
+
+  def teaching_plan_teacher_for_current_user
+    return if current_user.administrator?
+
+    current_teacher
+  end
 
   def content_ids
     param_content_ids = params[:knowledge_area_teaching_plan][:teaching_plan_attributes][:content_ids] || []
@@ -317,10 +325,17 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
     @classrooms ||= [current_user_classroom]
   end
 
-  def set_knowledge_area_by_classroom(classroom_id)
-    @knowledge_areas = KnowledgeArea.by_teacher(current_teacher)
-                                    .by_classroom_id(classroom_id)
-                                    .ordered
+  def set_knowledge_area_by_classroom(classroom_id, keep_ids: [])
+    classroom = Classroom.find_by(id: Array(classroom_id).first)
+    knowledge_areas = KnowledgeArea.by_teacher(current_teacher)
+                                   .by_classroom_id(classroom_id)
+                                   .ordered
+
+    @knowledge_areas = filter_knowledge_areas_for_content_registration(
+      knowledge_areas,
+      classroom,
+      keep_ids: keep_ids
+    )
   end
 
   def yearly_term_type_id
@@ -331,7 +346,8 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
     @fetch_linked_by_teacher ||= TeacherClassroomAndDisciplineFetcher.fetch!(
       current_teacher.id,
       current_unity,
-      current_school_year
+      current_school_year,
+      current_user_classroom
     )
     @disciplines ||= @fetch_linked_by_teacher[:disciplines]
     @classrooms ||= @fetch_linked_by_teacher[:classrooms]
@@ -342,16 +358,18 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
     apply_scopes(
       KnowledgeAreaTeachingPlan.includes(:knowledge_areas, teaching_plan:
                                   [:unity, :grade, :teaching_plan_attachments, :teacher,
-                                   :school_term_type, :school_term_type_step])
+                                   :school_term_type, :school_term_type_step,
+                                   { audits: { user: :roles } }])
                                 .by_unity(current_unity)
                                 .by_year(current_school_year)
+                                .by_grade(current_grade.map(&:grade_id))
                                 .order_by_grades
                                 .order_by_school_term_type_step
     )
   end
 
   def current_grade
-    current_user_grade = ClassroomsGrade.by_classroom_id(current_user_classroom.id).first.grade
+    @current_user_grade ||= ClassroomsGrade.by_classroom_id(current_user_classroom.id)
   end
 
   def student_enrollments

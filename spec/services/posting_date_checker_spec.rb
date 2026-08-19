@@ -97,6 +97,33 @@ RSpec.describe PostingDateChecker, type: :service do
         end
 
         it { expect(subject.check).to be(false) }
+
+        context 'and there is a calendar event that allows entries' do
+          let(:date) { step.start_at - 1.day }
+
+          before do
+            date_to_use = date
+            date_to_use -= 1.day while date_to_use.saturday? || date_to_use.sunday?
+            @date_outside_steps = date_to_use
+
+            create(
+              :school_calendar_event,
+              school_calendar: classroom.calendar.school_calendar,
+              coverage: EventCoverageType::BY_UNITY,
+              start_date: @date_outside_steps,
+              end_date: @date_outside_steps,
+              event_type: EventTypes::NO_SCHOOL_WITH_FREQUENCY,
+              periods: Periods.list,
+              description: 'Recuperação'
+            )
+          end
+
+          subject do
+            described_class.new(classroom, @date_outside_steps)
+          end
+
+          it { expect(subject.check).to be(true) }
+        end
       end
     end
   end

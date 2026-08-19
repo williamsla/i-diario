@@ -97,6 +97,7 @@ class ExamRecordAllStepsAveragesAdaptiveReport < BaseReport
     total_steps = @steps.size
     first_semester_steps = @steps.first((total_steps.to_f / 2).ceil)
     second_semester_steps = @steps.last(total_steps - first_semester_steps.size)
+    recovery_scores = SchoolTermRecoveryScoresFetcher.new(@classroom, @discipline, @steps)
 
     @students_enrollments.each do |student_enrollment|
       student_id = student_enrollment.student_id
@@ -121,24 +122,8 @@ class ExamRecordAllStepsAveragesAdaptiveReport < BaseReport
           average = fetch_average_from_ieducar(student_id, step.step_number)
         end
         step_averages[student_enrollment.id] << average
-        
-        # Buscar recuperação por etapa
-        # Busca recuperações de ETAPA (SchoolTermRecoveryDiaryRecord) pela data de registro dentro do período da etapa
-        # Segue o mesmo padrão usado em exam_record_all_steps_averages_report.rb
-        step_recovery = SchoolTermRecoveryDiaryRecord
-          .joins(recovery_diary_record: :students)
-          .where(recovery_diary_records: { classroom_id: @classroom.id, discipline_id: @discipline.id })
-          .where(recovery_diary_record_students: { student_id: student_id })
-          .where('recovery_diary_records.recorded_at >= ? AND recovery_diary_records.recorded_at <= ?', 
-                 step.start_at, step.end_at)
-          .order('recovery_diary_records.recorded_at DESC')
-          .first
-        
-        step_recovery_score = nil
-        if step_recovery
-          recovery_student = step_recovery.recovery_diary_record.students.find_by(student_id: student_id)
-          step_recovery_score = recovery_student&.score
-        end
+
+        step_recovery_score = recovery_scores.score_for(student_id, step)
         step_recoveries[student_enrollment.id] << step_recovery_score
         
         # Aplicar recuperação de etapa na média usando SchoolTermAverageCalculator
@@ -153,7 +138,7 @@ class ExamRecordAllStepsAveragesAdaptiveReport < BaseReport
         .joins(recovery_diary_record: :students)
         .where(recovery_diary_records: { classroom_id: @classroom.id, discipline_id: @discipline.id })
         .where(recovery_diary_record_students: { student_id: student_id })
-        .where(school_calendar_id: @classroom.unity.school_calendars.by_year(@year).first&.id)
+        .where(school_calendar_id: StepsFetcher.new(@classroom).school_calendar&.id)
         .first
       
       final_recovery_score = nil

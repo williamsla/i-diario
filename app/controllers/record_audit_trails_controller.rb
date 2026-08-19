@@ -16,7 +16,7 @@ class RecordAuditTrailsController < ApplicationController
       discipline_id: params[:discipline_id] || current_user_discipline&.id,
       start_at: date_to_br(steps.first&.start_at || Date.current.beginning_of_year),
       end_at: date_to_br(steps.last&.end_at || Date.current),
-      record_types: RecordAuditTrailForm::RECORD_TYPES
+      record_types: RecordAuditTrailForm::DEFAULT_RECORD_TYPES
     )
 
     set_options_by_user
@@ -28,23 +28,35 @@ class RecordAuditTrailsController < ApplicationController
     @record_audit_trail_form = RecordAuditTrailForm.new(resource_params)
 
     if @record_audit_trail_form.valid?
-      results = RecordAuditTrailSummary.new(
+      diagnostic = RecordAuditTrailDiagnostic.new(
         unity_id: @record_audit_trail_form.unity_id,
         classroom_id: @record_audit_trail_form.classroom_id,
         teacher_id: @record_audit_trail_form.teacher_id,
         discipline_id: @record_audit_trail_form.discipline_id,
         start_date: @record_audit_trail_form.start_at,
         end_date: @record_audit_trail_form.end_at,
-        record_types: @record_audit_trail_form.selected_record_types
+        record_types: @record_audit_trail_form.selected_record_types,
+        school_year: @record_audit_trail_form.school_calendar_year || current_school_year
       ).call
 
-      pdf_report = RecordAuditTrailReport.build(
-        current_entity_configuration,
-        @record_audit_trail_form,
-        results
-      )
+      @results = diagnostic[:results]
+      @neighbors = diagnostic[:neighbors]
+      @calendar = diagnostic[:calendar]
+      @phrase = diagnostic[:phrase]
+      @diagnostic_stats = diagnostic[:stats]
+      @allocation = diagnostic[:allocation]
 
-      send_pdf(t('routes.record_audit_trails'), pdf_report.render)
+      if params[:export_pdf].present?
+        pdf_report = RecordAuditTrailReport.build(
+          current_entity_configuration,
+          @record_audit_trail_form,
+          diagnostic
+        )
+
+        send_pdf(t('routes.record_audit_trails'), pdf_report.render)
+      else
+        render :report
+      end
     else
       @record_audit_trail_form.school_calendar_year = current_school_year
       set_options_by_user
@@ -58,15 +70,8 @@ class RecordAuditTrailsController < ApplicationController
 
     return render json: { teachers: [] } if params[:classroom_id].blank?
 
-    classroom = Classroom.find(params[:classroom_id])
     school_year = current_school_year || Date.current.year
-    teachers = Teacher.joins(:teacher_discipline_classrooms)
-                      .where(teacher_discipline_classrooms: {
-                        classroom_id: classroom.id,
-                        year: school_year
-                      })
-                      .distinct
-                      .order_by_name
+    teachers = RecordAuditTrailTeacherLinks.teachers_for_select(params[:classroom_id], school_year)
 
     render json: {
       teachers: teachers.map { |teacher| { id: teacher.id, name: teacher.name } }
@@ -89,15 +94,13 @@ class RecordAuditTrailsController < ApplicationController
     return Discipline.none if classroom_id.blank? || teacher_id.blank?
 
     school_year = current_school_year || Date.current.year
+    discipline_ids = RecordAuditTrailTeacherLinks.discipline_ids_for(
+      classroom_id: classroom_id,
+      teacher_id: teacher_id,
+      year: school_year
+    )
 
-    Discipline.joins(:teacher_discipline_classrooms)
-              .where(teacher_discipline_classrooms: {
-                classroom_id: classroom_id,
-                teacher_id: teacher_id,
-                year: school_year
-              })
-              .distinct
-              .ordered
+    Discipline.where(id: discipline_ids).ordered
   end
 
   def steps_fetcher
@@ -149,13 +152,10 @@ class RecordAuditTrailsController < ApplicationController
                            .ordered
 
     if @record_audit_trail_form.classroom_id.present?
-      @teachers = Teacher.joins(:teacher_discipline_classrooms)
-                         .where(teacher_discipline_classrooms: {
-                           classroom_id: @record_audit_trail_form.classroom_id,
-                           year: current_school_year || Date.current.year
-                         })
-                         .distinct
-                         .order_by_name
+      @teachers = RecordAuditTrailTeacherLinks.teachers_for_select(
+        @record_audit_trail_form.classroom_id,
+        current_school_year || Date.current.year
+      )
 
       @disciplines = disciplines_for_form(
         @record_audit_trail_form.classroom_id,

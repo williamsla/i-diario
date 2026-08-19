@@ -637,9 +637,10 @@ class ClassCouncilReportDataService
       return abbreviation if description.match?(pattern)
     end
 
-    words = description.split(/\s+/).reject { |word| word.length < 2 }
-    return description[0, 3].upcase if words.size == 1
+    words = description.split(/\s+/).reject { |word| word.length <= 2 }
+    return description[0, 3].upcase if words.empty?
+    return words.first[0, 3].upcase if words.size == 1
 
-    words.map { |word| word[0] }.join.upcase[0, 3]
+    words.map { |word| word[0] }.join.upcase
   end
 end

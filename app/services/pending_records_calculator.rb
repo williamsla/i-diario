@@ -1,8 +1,9 @@
 class PendingRecordsCalculator
-  FICHA_CONCEITUAL_NAME_PATTERNS = [
-    /ficha\s*conceitual/,
-    /\beixo\s+(i{1,3}|iv|v)\s*-/,
-    /\Az\s+.*\beixo\b/
+  # Áreas/disciplinas com "EIXO" ou "FICHA" no nome não entram em datas pendentes
+  # nem no registro de conteúdo por área de conhecimento.
+  EXCLUDED_KNOWLEDGE_AREA_NAME_PATTERNS = [
+    /eixo/,
+    /ficha/
   ].freeze
 
   def self.reset_pending_records_discipline_cache!
@@ -12,7 +13,7 @@ class PendingRecordsCalculator
   end
 
   def self.exclude_pending_record_row?(discipline_name:, knowledge_area_id: nil, discipline_id: nil)
-    # Exclui fichas conceituais tanto como disciplina quanto como área de conhecimento
+    # Exclui fichas/eixos tanto como disciplina quanto como área de conhecimento
     # (no iEducar cada eixo pode ser uma área com o mesmo nome da ficha).
     return true if discipline_name_excluded?(discipline_name)
     return false if knowledge_area_id.present?
@@ -27,7 +28,7 @@ class PendingRecordsCalculator
     return false if name.blank?
 
     normalized = I18n.transliterate(name.to_s.downcase)
-    FICHA_CONCEITUAL_NAME_PATTERNS.any? { |pattern| normalized.match?(pattern) }
+    EXCLUDED_KNOWLEDGE_AREA_NAME_PATTERNS.any? { |pattern| normalized.match?(pattern) }
   end
 
   def self.discipline_excluded_from_pending_records?(discipline)
@@ -1346,10 +1347,11 @@ class PendingRecordsCalculator
   end
 
   INFANTIL_GRADE_PATTERN = /creche|pre|pre i|pre ii|pre[- ]escola(r)?|maternal|bercario|jardim|infantil|aee/
+  INFANTIL_COURSE_PATTERN = /infantil|aee/
 
   def is_infantil_classroom?(classroom)
     classroom.classrooms_grades.any? do |classroom_grade|
-      infantil_grade_description?(classroom_grade.grade&.description)
+      infantil_grade?(classroom_grade.grade)
     end
   end
 
@@ -1360,7 +1362,7 @@ class PendingRecordsCalculator
     has_non_infantil = false
 
     classroom.classrooms_grades.each do |classroom_grade|
-      if infantil_grade_description?(classroom_grade.grade&.description)
+      if infantil_grade?(classroom_grade.grade)
         has_infantil = true
       else
         has_non_infantil = true
@@ -1374,7 +1376,7 @@ class PendingRecordsCalculator
     return [] if classroom.blank?
 
     classroom.classrooms_grades.select do |classroom_grade|
-      infantil_grade_description?(classroom_grade.grade&.description)
+      infantil_grade?(classroom_grade.grade)
     end.map(&:grade_id)
   end
 
@@ -1382,7 +1384,7 @@ class PendingRecordsCalculator
     return [] if classroom.blank?
 
     classroom.classrooms_grades.reject do |classroom_grade|
-      infantil_grade_description?(classroom_grade.grade&.description)
+      infantil_grade?(classroom_grade.grade)
     end.map(&:grade_id)
   end
 
@@ -1414,10 +1416,24 @@ class PendingRecordsCalculator
       .uniq
   end
 
+  def infantil_grade?(grade)
+    return false if grade.blank?
+    return true if infantil_course_description?(grade.course&.description)
+    return true if infantil_grade_description?(grade.description)    
+
+    false
+  end
+
   def infantil_grade_description?(description)
     return false if description.blank?
 
     I18n.transliterate(description.to_s.downcase).match?(INFANTIL_GRADE_PATTERN)
+  end
+
+  def infantil_course_description?(description)
+    return false if description.blank?
+
+    I18n.transliterate(description.to_s.downcase).match?(INFANTIL_COURSE_PATTERN)
   end
 
   def add_saturdays_from_lesson_boards(all_school_days, start_date, end_date, classroom_id)

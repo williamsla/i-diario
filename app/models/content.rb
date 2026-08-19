@@ -10,7 +10,7 @@ class Content < ApplicationRecord
   has_many :lesson_plans, dependent: :restrict_with_error
   has_many :content_records, dependent: :restrict_with_error
 
-  attr_accessor :is_editable
+  attr_accessor :is_editable, :experience_fields
 
   validates :description, presence: true
 
@@ -31,6 +31,10 @@ class Content < ApplicationRecord
   }
 
   after_save :update_description_token
+
+  def as_json(options = nil)
+    super(options).merge('experience_fields' => experience_fields)
+  end
 
   def to_s
     description

@@ -161,4 +161,91 @@ RSpec.describe KnowledgeAreaContentRecordsController, type: :controller do
       expect(payload['message']).to be_nil
     end
   end
+
+  describe 'GET #find_existing' do
+    let(:other_teacher) { create(:teacher) }
+    let(:predecessor_teacher) { create(:teacher) }
+    let(:record_date) { Date.new(2017, 2, 28) }
+    let(:classroom_grade) { classroom.classrooms_grades.first&.grade || create(:grade) }
+
+    def create_knowledge_area_content_record_for(teacher)
+      content_record = build(
+        :content_record,
+        :with_contents,
+        classroom: classroom,
+        teacher: teacher,
+        record_date: record_date
+      )
+      content_record.save!(validate: false)
+
+      record = KnowledgeAreaContentRecord.new(content_record: content_record)
+      record.save!(validate: false)
+      record.knowledge_areas << knowledge_area
+      record
+    end
+
+    def allocate_teacher(teacher, period, active: true)
+      create(
+        :teacher_discipline_classroom,
+        teacher: teacher,
+        classroom: classroom,
+        discipline: discipline,
+        grade: classroom_grade,
+        year: classroom.year,
+        period: period,
+        active: active
+      )
+    end
+
+    before do
+      TeacherDisciplineClassroom.where(teacher_id: current_teacher.id, classroom_id: classroom.id)
+                                .update_all(period: Periods::MATUTINAL)
+    end
+
+    it 'não devolve registro de professor do turno contrário' do
+      allocate_teacher(other_teacher, Periods::VESPERTINE)
+      create_knowledge_area_content_record_for(other_teacher)
+
+      get :find_existing, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        record_date: record_date.to_s,
+        knowledge_area_ids: [knowledge_area.id],
+        period: Periods::MATUTINAL
+      }
+
+      expect(JSON.parse(response.body)['id']).to be_nil
+    end
+
+    it 'devolve o registro do professor substituído do mesmo turno' do
+      allocate_teacher(predecessor_teacher, Periods::MATUTINAL, active: false)
+      predecessor_record = create_knowledge_area_content_record_for(predecessor_teacher)
+
+      get :find_existing, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        record_date: record_date.to_s,
+        knowledge_area_ids: [knowledge_area.id],
+        period: Periods::MATUTINAL
+      }
+
+      expect(JSON.parse(response.body)['id']).to eq(predecessor_record.id)
+    end
+
+    it 'prefere o registro do professor atual quando também existe o do mesmo turno' do
+      allocate_teacher(predecessor_teacher, Periods::MATUTINAL, active: false)
+      current_record = create_knowledge_area_content_record_for(current_teacher)
+      create_knowledge_area_content_record_for(predecessor_teacher)
+
+      get :find_existing, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        record_date: record_date.to_s,
+        knowledge_area_ids: [knowledge_area.id],
+        period: Periods::MATUTINAL
+      }
+
+      expect(JSON.parse(response.body)['id']).to eq(current_record.id)
+    end
+  end
 end

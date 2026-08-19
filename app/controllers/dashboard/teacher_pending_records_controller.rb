@@ -17,8 +17,7 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
 
     return render json: { steps: [], step_data: nil, has_lessons_board: has_lessons_board } if steps.blank?
 
-    # Retornar lista de steps para o select
-    today = Date.current
+    # Lista de etapas para o seletor do dashboard
     steps_list = steps.map do |step|
       {
         id: step.id,

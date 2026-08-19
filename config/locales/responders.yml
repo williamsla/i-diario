@@ -78,6 +78,8 @@ pt-BR:
         notice: 'Os eventos estão sendo criados.'
       destroy:
         notice: 'Os eventos estão sendo apagados.'
+      reprocess:
+        notice: 'O evento em lote está sendo reprocessado.'
 
     discipline_lesson_plans:
       <<: *male
