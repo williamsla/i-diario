@@ -22,6 +22,9 @@ module Navigation
 
     def amount_nodes(nodes)
       nodes.map { |node|
+        visible = node['menu']['visible']
+        next if visible == 'only-when-aee' && !aee_navigation_context?
+        next if visible == 'hide-when-aee' && aee_navigation_context?
         next unless node['menu']['shortcut']
 
         node_values(node['menu'])
@@ -38,6 +41,10 @@ module Navigation
       else
         node.slice('type', 'icon', 'path', 'shortcut_highlight')
       end
+    end
+
+    def aee_navigation_context?
+      Thread.current[:navigation_is_aee]
     end
   end
 end

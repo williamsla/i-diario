@@ -40,6 +40,7 @@ class LessonPlan < ApplicationRecord
   validate :no_retroactive_dates
   validate :at_least_one_assigned_content
   validate :valid_attachments_size
+  validate :student_required_when_aee
 
   delegate :unity, :unity_id, to: :classroom, allow_nil: true
   delegate :grades, :grade_ids, :first_grade, to: :classroom, allow_nil: true
@@ -125,5 +126,12 @@ class LessonPlan < ApplicationRecord
 
   def contents_empty?
     contents.empty? || (contents.size == contents.select(&:marked_for_destruction?).size)
+  end
+
+  def student_required_when_aee
+    return unless AeeDetectable.classroom_aee?(classroom)
+    return if student_id.present?
+
+    errors.add(:student_id, :blank)
   end
 end

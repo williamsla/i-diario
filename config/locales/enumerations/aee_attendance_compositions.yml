@@ -1,0 +1,5 @@
+pt-BR:
+  enumerations:
+    aee_attendance_compositions:
+      individual: "Individual"
+      group: "Em grupo"

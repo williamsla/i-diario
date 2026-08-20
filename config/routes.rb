@@ -200,13 +200,20 @@ Rails.application.routes.draw do
     resources :school_calendar_steps, only: [:show, :index]
     resources :school_calendar_classroom_steps, only: [:show, :index]
 
-    resources :discipline_teaching_plans, concerns: :history
+    resources :discipline_teaching_plans, concerns: :history do
+      collection do
+        get :student_data
+      end
+    end
 
     get '/discipline_teaching_plans/:id/copy', as: :copy_discipline_teaching_plans, to: 'discipline_teaching_plans#copy'
     post '/discipline_teaching_plans/:id/copy', as: :copy_discipline_teaching_plans, to: 'discipline_teaching_plans#do_copy'
 
-    resources :knowledge_area_teaching_plans, concerns: :history
-    resources :knowledge_area_teaching_plans, concerns: :history
+    resources :knowledge_area_teaching_plans, concerns: :history do
+      collection do
+        get :student_data
+      end
+    end
 
     get '/knowledge_area_teaching_plans/:id/copy', as: :copy_knowledge_area_teaching_plans, to: 'knowledge_area_teaching_plans#copy'
     post '/knowledge_area_teaching_plans/:id/copy', as: :copy_knowledge_area_teaching_plans, to: 'knowledge_area_teaching_plans#do_copy'
@@ -259,6 +266,7 @@ Rails.application.routes.draw do
         get :check_teacher_absence
         get :disciplines_for_record_date
         get :find_existing
+        get :student_data
       end
     end
     resources :knowledge_area_content_records, concerns: :history do
@@ -266,6 +274,7 @@ Rails.application.routes.draw do
         post :clone
         get :knowledge_areas_for_record_date
         get :find_existing
+        get :student_data
       end
     end
     resources :classrooms, only: [:index, :show] do
@@ -402,6 +411,16 @@ Rails.application.routes.draw do
     end
     resources :teacher_absences, concerns: :history
     resources :observation_diary_records, concerns: :history
+    resources :aee_case_studies, concerns: :history do
+      collection do
+        get :student_data
+      end
+    end
+    resources :aee_individual_plans, concerns: :history do
+      collection do
+        get :student_data
+      end
+    end
     resources :ieducar_api_exam_postings do
       member do
         get :done_percentage

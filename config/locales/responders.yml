@@ -157,6 +157,12 @@ pt-BR:
         notice: 'Registro de falta do professor excluído com sucesso.'
       <<: *male
 
+    aee_case_studies:
+      <<: *male
+
+    aee_individual_plans:
+      <<: *male
+
     observation_diary_records:
       <<: *male
       destroy:

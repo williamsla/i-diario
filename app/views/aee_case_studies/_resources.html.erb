@@ -1,0 +1,33 @@
+<tbody id="resources-tbody">
+  <% if @aee_case_studies.empty? %>
+    <tr>
+      <td class="no_record_found" colspan="4"><%= t('views.index.no_record_found') %></td>
+    </tr>
+  <% else %>
+    <% @aee_case_studies.each do |aee_case_study| %>
+      <tr>
+        <td><%= aee_case_study.student %></td>
+        <td><%= aee_case_study.grade_stage %></td>
+        <td><%= l(aee_case_study.document_date) %></td>
+        <td class="actions" style="white-space: nowrap;">
+          <%= link_to(
+                t('helpers.links.print_html'),
+                aee_case_study_path(aee_case_study),
+                class: 'btn btn-info apply_tooltip',
+                target: '_blank',
+                data: { original_title: t('views.index.tooltips.show_report') }
+              ) %>
+          <%= link_to t('views.index.edit'),
+                edit_aee_case_study_path(aee_case_study),
+                class: 'btn btn-success' %>
+          <%= aee_next_step_button(:case_study, aee_case_study.student) %>
+          <%= link_to t('views.index.delete'),
+                aee_case_study_path(aee_case_study),
+                class: 'btn btn-danger',
+                method: 'delete',
+                data: { confirm: t('views.index.confirm_deletion') } %>
+        </td>
+      </tr>
+    <% end %>
+  <% end %>
+</tbody>

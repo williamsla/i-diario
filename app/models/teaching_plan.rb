@@ -16,7 +16,6 @@ class TeachingPlan < ApplicationRecord
   belongs_to :school_term_type_step
   belongs_to :student, optional: true
 
-
   validates :year, presence: true
   validates :unity, presence: true
   validates :grade, presence: true
@@ -31,12 +30,15 @@ class TeachingPlan < ApplicationRecord
 
   has_one :discipline_teaching_plan, dependent: :restrict_with_error
   has_one :knowledge_area_teaching_plan, dependent: :restrict_with_error
+  has_one :aee_teaching_plan_detail, inverse_of: :teaching_plan, dependent: :destroy
 
   accepts_nested_attributes_for :contents, allow_destroy: true
   accepts_nested_attributes_for :objectives, allow_destroy: true
   accepts_nested_attributes_for :teaching_plan_attachments, allow_destroy: true
+  accepts_nested_attributes_for :aee_teaching_plan_detail, update_only: true
 
   validate :at_least_one_content_assigned
+  validate :student_required_when_aee
 
   scope :by_unity_id, ->(unity_id) { where(unity_id: unity_id) }
   scope :by_teacher_id, ->(teacher_id) { where(teacher_id: teacher_id) }
@@ -126,9 +128,20 @@ class TeachingPlan < ApplicationRecord
     SchoolTermType.where("description ILIKE 'Anual%'").where(id: school_term_type.id)
   end
 
+  def aee?
+    AeeDetectable.grade_aee?(grade)
+  end
+
+  def ensure_aee_teaching_plan_detail
+    return aee_teaching_plan_detail if aee_teaching_plan_detail.present?
+
+    build_aee_teaching_plan_detail
+  end
+
   private
 
   def at_least_one_content_assigned
+    return if aee?
     return unless contents_empty?
 
     errors.add(:contents, :at_least_one_content_assigned)
@@ -136,5 +149,12 @@ class TeachingPlan < ApplicationRecord
 
   def contents_empty?
     contents.empty? || (contents.size == contents.select(&:marked_for_destruction?).size)
+  end
+
+  def student_required_when_aee
+    return unless aee?
+    return if student_id.present?
+
+    errors.add(:student_id, :blank)
   end
 end

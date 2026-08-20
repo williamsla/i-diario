@@ -1,0 +1,198 @@
+<% content_for :js do %>
+  <%= javascript_include_tag 'views/aee_individual_plans/form' %>
+<% end %>
+
+<%= simple_form_for @aee_individual_plan, html: { class: 'smart-form', id: 'aee_individual_plans_form' } do |f| %>
+  <%= f.error_notification %>
+  <%= f.hidden_field :aee_case_study_id %>
+  <%= aee_prefill_notice %>
+
+  <fieldset>
+    <legend><%= t('.identification_legend') %></legend>
+
+    <div class="row">
+      <div class="col col-sm-8">
+        <%= f.association :student, as: :select2, elements: @students, required: true,
+                          readonly: f.object.persisted? %>
+      </div>
+      <div class="col col-sm-4">
+        <%= f.input :age %>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-sm-4">
+        <%= f.input :birth_date_label, readonly: true %>
+      </div>
+      <div class="col col-sm-4">
+        <%= f.input :start_on, as: :date %>
+      </div>
+      <div class="col col-sm-4">
+        <%= f.input :review_on, as: :date %>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-sm-4">
+        <%= f.input :document_date, as: :date %>
+      </div>
+    </div>
+  </fieldset>
+
+  <details class="aee-legal">
+    <summary><%= t('aee.workflow.legal_summary') %></summary>
+    <p><strong><%= t('.objective_title') %></strong> <%= t('.objective_text') %></p>
+    <p><%= t('.legal_text') %></p>
+  </details>
+
+  <fieldset>
+    <legend><%= t('.characteristics_legend') %></legend>
+    <div class="row">
+      <div class="col col-sm-12">
+        <%= f.input :characteristics, as: :text,
+              hint: t('.characteristics_hint'),
+              input_html: { rows: 4 } %>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>
+      <%= t('.skills_legend') %>
+      <span class="aee-section-hint"><%= t('.skills_hint') %></span>
+    </legend>
+
+    <div class="row">
+      <div class="col col-sm-6">
+        <%= f.input :psychomotor_skills, as: :text, input_html: { rows: 3 } %>
+      </div>
+      <div class="col col-sm-6">
+        <%= f.input :cognitive_skills, as: :text, input_html: { rows: 3 } %>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-sm-6">
+        <%= f.input :socioemotional_skills, as: :text, input_html: { rows: 3 } %>
+      </div>
+      <div class="col col-sm-6">
+        <%= f.input :linguistic_skills, as: :text, input_html: { rows: 3 } %>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend><%= t('.difficulties_legend') %></legend>
+    <div class="row">
+      <div class="col col-sm-12">
+        <%= f.input :identified_difficulties, as: :text,
+              hint: t('.difficulties_hint'),
+              input_html: { rows: 4 } %>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend><%= t('.goals_legend') %></legend>
+    <div class="row">
+      <div class="col col-sm-12">
+        <%= f.input :goals, as: :text,
+              hint: t('.goals_hint'),
+              input_html: { rows: 4 } %>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend><%= t('.resources_legend') %></legend>
+    <div class="row">
+      <div class="col col-sm-6">
+        <%= f.input :resources, as: :text,
+              hint: t('.resources_hint'),
+              input_html: { rows: 4 } %>
+      </div>
+      <div class="col col-sm-6">
+        <%= f.input :strategies, as: :text, input_html: { rows: 4 } %>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend><%= t('.monitoring_legend') %></legend>
+    <div class="row">
+      <div class="col col-sm-12">
+        <%= f.input :monitoring, as: :text,
+              hint: t('.monitoring_hint'),
+              input_html: { rows: 4 } %>
+      </div>
+    </div>
+
+    <p class="help-block"><%= t('.attendance_records_hint') %></p>
+
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped table-condensed">
+        <thead>
+          <tr>
+            <th><%= t('.attendance_record_date') %></th>
+            <th><%= t('.attendance_record_area') %></th>
+            <th><%= t('.attendance_record_text') %></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% attendance_records = f.object.attendance_records %>
+          <% if attendance_records.any? %>
+            <% attendance_records.each do |record| %>
+              <tr>
+                <td><%= l(record.record_date) %></td>
+                <td><%= record.to_s %></td>
+                <td><%= truncate(record.daily_activities_record.to_s, length: 220) %></td>
+              </tr>
+            <% end %>
+          <% else %>
+            <tr>
+              <td colspan="3"><%= t('.attendance_records_empty') %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend><%= t('.term_goals_legend') %></legend>
+    <div class="row">
+      <div class="col col-sm-6">
+        <%= f.input :short_term_goals, as: :text, input_html: { rows: 3 } %>
+      </div>
+      <div class="col col-sm-6">
+        <%= f.input :long_term_goals, as: :text, input_html: { rows: 3 } %>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend><%= t('.final_considerations_legend') %></legend>
+    <div class="row">
+      <div class="col col-sm-12">
+        <%= f.input :final_considerations, as: :text, input_html: { rows: 4 } %>
+      </div>
+    </div>
+    <details class="aee-legal">
+      <summary><%= t('aee.workflow.legal_summary') %></summary>
+      <p><%= t('.final_considerations_text') %></p>
+    </details>
+  </fieldset>
+
+  <footer>
+    <%= link_to t('views.form.back'), aee_individual_plans_path, class: 'btn btn-default' %>
+
+    <% if f.object.persisted? %>
+      <%= link_to t('helpers.links.print_html'), aee_individual_plan_path(f.object),
+                  class: 'btn btn-info', target: '_blank' %>
+      <%= link_to t('views.form.history'), history_aee_individual_plan_path(f.object), class: 'btn btn-info' %>
+      <%= aee_next_step_button(:pei, f.object.student) %>
+    <% end %>
+
+    <%= f.submit t('views.form.save'), class: 'btn btn-primary', data: { disable_with: 'Salvando...' } %>
+  </footer>
+<% end %>

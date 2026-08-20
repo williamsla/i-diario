@@ -1,6 +1,7 @@
 <% content_for :js do %>
   <%= javascript_include_tag 'list-contents' %>
   <%= javascript_include_tag 'views/knowledge_area_content_records/form' %>
+  <%= javascript_include_tag 'views/aee/content_record_prefill' if is_aee %>
 <% end %>
 
 <%= simple_form_for @knowledge_area_content_record, url: polymorphic_path(@knowledge_area_content_record, params.permit(:modal).to_h),
@@ -13,7 +14,8 @@
           new_url: new_knowledge_area_content_record_path,
           edit_url_template: edit_knowledge_area_content_record_path('__ID__'),
           record_id: @knowledge_area_content_record.persisted? ? @knowledge_area_content_record.id : nil,
-          modal: params[:modal] == 'true'
+          modal: params[:modal] == 'true',
+          student_data_url: is_aee ? student_data_knowledge_area_content_records_path(format: :json) : nil
         }
       } do |f| %>
   <%= f.error_notification %>
@@ -78,6 +80,12 @@
             <% end %>
           </div>
         <% end %>
+        <% if @students&.any? || is_aee %>
+          <div class="col col-sm-4">
+            <%= content_record.input :student_id, as: :select2, elements: @students || [],
+                  required: is_aee %>
+          </div>
+        <% end %>
         <% if f.object.decorator.show_experience_fields && !is_aee %>
           <div class="col col-sm-4">
             <%= f.input :experience_fields %>
@@ -85,11 +93,15 @@
         <% end %>
       </div>
 
-      <% if @students&.any? %>
-        <div class="row">
-          <div class="col col-sm-4">
-            <%= content_record.input :student_id, as: :select2, elements: @students %>
-          </div>
+      <% if is_aee %>
+        <div class="alert alert-info fade in" id="aee-pei-context" style="display:none"
+             data-empty-message="<%= t('aee.fields.pei_context_empty') %>"
+             data-goals-label="<%= t('aee.fields.pei_context_goals') %>"
+             data-strategies-label="<%= t('aee.fields.pei_context_strategies') %>"
+             data-resources-label="<%= t('aee.fields.pei_context_resources') %>">
+          <i class="fa-fw fa fa-info"></i>
+          <strong><%= t('aee.fields.pei_context_title') %></strong>
+          <div id="aee-pei-context-body"></div>
         </div>
       <% end %>
 
@@ -97,6 +109,7 @@
         <div class="col col-sm-12">
           <%= content_record.input :daily_activities_record, as: :text,
                  label: aee_label(:daily_activities_record, ContentRecord.human_attribute_name(:daily_activities_record)),
+                 hint: is_aee ? t('aee.fields.daily_activities_hint') : nil,
                  required: f.object.decorator.daily_activities_required? %>
         </div>
       </div>

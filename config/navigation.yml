@@ -114,6 +114,12 @@ navigation:
             type: "translations"
             path: "translations_path"
   - menu:
+      type: "aee_case_studies"
+      icon: "fa-folder-open-o"
+      path: "aee_case_studies_path"
+      visible: "only-when-aee"
+      shortcut: true
+  - menu:
       type: "teaching_plans_menu"
       icon: "fa-book"
       shortcut: true
@@ -127,9 +133,16 @@ navigation:
             path: "knowledge_area_teaching_plans_path"
             shortcut: true
   - menu:
+      type: "aee_individual_plans"
+      icon: "fa-user"
+      path: "aee_individual_plans_path"
+      visible: "only-when-aee"
+      shortcut: true
+  - menu:
       type: "lesson_plans_menu"
       icon: "fa-pencil"
       shortcut: true
+      visible: "hide-when-aee"
       submenus:
         - menu:
             type: "discipline_lesson_plans"

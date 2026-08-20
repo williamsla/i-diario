@@ -1,6 +1,7 @@
 <% content_for :js do %>
   <%= javascript_include_tag 'list-contents' %>
   <%= javascript_include_tag 'views/discipline_content_records/form' %>
+  <%= javascript_include_tag 'views/aee/content_record_prefill' if is_aee %>
 <% end %>
 
 <%= simple_form_for @discipline_content_record, url: polymorphic_path(@discipline_content_record, params.permit(:modal).to_h),
@@ -13,7 +14,8 @@
           new_url: new_discipline_content_record_path,
           edit_url_template: edit_discipline_content_record_path('__ID__'),
           record_id: @discipline_content_record.persisted? ? @discipline_content_record.id : nil,
-          modal: params[:modal] == 'true'
+          modal: params[:modal] == 'true',
+          student_data_url: is_aee ? student_data_discipline_content_records_path(format: :json) : nil
         }
       } do |f| %>
   <%= f.error_notification %>
@@ -91,11 +93,24 @@
         <% end %>
       </div>
 
-      <% if @students&.any? %>
+      <% if @students&.any? || is_aee %>
         <div class="row">
           <div class="col col-sm-4">
-            <%= content_record.input :student_id, as: :select2, elements: @students %>
+            <%= content_record.input :student_id, as: :select2, elements: @students || [],
+                  required: is_aee %>
           </div>
+        </div>
+      <% end %>
+
+      <% if is_aee %>
+        <div class="alert alert-info fade in" id="aee-pei-context" style="display:none"
+             data-empty-message="<%= t('aee.fields.pei_context_empty') %>"
+             data-goals-label="<%= t('aee.fields.pei_context_goals') %>"
+             data-strategies-label="<%= t('aee.fields.pei_context_strategies') %>"
+             data-resources-label="<%= t('aee.fields.pei_context_resources') %>">
+          <i class="fa-fw fa fa-info"></i>
+          <strong><%= t('aee.fields.pei_context_title') %></strong>
+          <div id="aee-pei-context-body"></div>
         </div>
       <% end %>
 

@@ -1,4 +1,5 @@
 <div class="widget-body no-padding">
+  <%= aee_workflow_nav(:paee) if is_aee %>
   <%= simple_form_for :filter, { url: knowledge_area_teaching_plans_path, method: :get, html: { class: 'filterable_search_form' } } do |f| %>
     <div class="table-responsive">
       <table id="resources" class="table table-bordered table-only-inner-bordered table-striped table-condensed table-hover">

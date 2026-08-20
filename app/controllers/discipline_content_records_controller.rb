@@ -1,12 +1,13 @@
 class DisciplineContentRecordsController < ApplicationController
   include LessonsBoardAvailability
+  include AeeContentRecordSupport
 
   has_scope :page, default: 1
   has_scope :per, default: 10
 
-  before_action :require_current_classroom, only: [:index, :new, :edit, :create, :update]
+  before_action :require_current_classroom, only: [:index, :new, :edit, :create, :update, :student_data]
   before_action :require_current_teacher
-  before_action :require_current_classroom, only: [:index, :new, :create, :edit, :update]
+  before_action :require_current_classroom, only: [:index, :new, :create, :edit, :update, :student_data]
   before_action :require_allow_to_modify_prev_years, only: [:create, :update, :destroy, :clone]
   before_action :set_number_of_classes, only: [:new, :create, :edit, :update, :show]
   before_action :set_allow_class_number, only: [:index, :new, :create, :edit, :update, :show]

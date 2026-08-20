@@ -5,12 +5,19 @@
   <%= javascript_include_tag 'views/teaching_plans/shared' %>
   <%= javascript_include_tag 'views/knowledge_area_teaching_plans/form' %>
   <%= javascript_include_tag 'views/layouts/copy-objectives' %>
+  <%= javascript_include_tag 'views/aee/paee_prefill' if is_aee %>
 <% end %>
 
 <%= hidden_field_tag :action_name, action_name %>
 <%= hidden_field_tag :yearly_school_term_type_id, @yearly_term_type_id %>
 
-<%= simple_form_for @knowledge_area_teaching_plan, html: { class: 'smart-form', id: 'knowledge_area_teaching_plan' } do |f| %>
+<%= simple_form_for @knowledge_area_teaching_plan, html: {
+      class: 'smart-form',
+      id: 'knowledge_area_teaching_plan',
+      data: {
+        student_data_url: is_aee ? student_data_knowledge_area_teaching_plans_path(format: :json) : nil
+      }
+    } do |f| %>
   <%= f.error_notification %>
   <%= render 'base_errors', f: f %>
 
@@ -31,12 +38,17 @@
     <% end %>
 
     <fieldset>
-      <% school_type = GeneralConfiguration.current.group_children_education ? 'group_child_schools' : 'experience_fields' %>
-      <%= render 'teaching_plans/copy_objectives', f: teaching_plan_form, type: school_type, modal_id: 'confirm-copy-objectives-modal', confirm_btn: 'confirm-copy-objectives-btn'  %>
+      <% unless is_aee %>
+        <% school_type = GeneralConfiguration.current.group_children_education ? 'group_child_schools' : 'experience_fields' %>
+        <%= render 'teaching_plans/copy_objectives', f: teaching_plan_form, type: school_type, modal_id: 'confirm-copy-objectives-modal', confirm_btn: 'confirm-copy-objectives-btn'  %>
+      <% end %>
 
       <%= teaching_plan_form.input :year, as: :hidden, input_html: { value: current_school_calendar.year } %>
       <%= teaching_plan_form.input :unity_id, as: :hidden, input_html: { value: current_user.current_unity_id } %>
-        
+
+      <% if is_aee %>
+        <legend><%= t('aee.workflow.identification_legend') %></legend>
+      <% end %>
 
       <div id='copy_plan_info' class='alert alert-info' style='display: none;'>
         <i class='fa-fw fa fa-info'></i>
@@ -45,6 +57,14 @@
       </div>
 
       <div class="row">
+        <% if is_aee %>
+          <div class="col col-sm-4">
+            <%= teaching_plan_form.input :student_id, as: :select2, elements: @students || [],
+                  required: true,
+                  hint: t('teaching_plans.aee_paee.student_hint') %>
+          </div>
+        <% end %>
+
         <div class="col col-sm-4">
           <% if current_user.current_role_is_admin_or_employee? %>
             <%= teaching_plan_form.association :grade, as: :select2_grade, user: current_user,
@@ -73,6 +93,7 @@
       <div class="row">
         <div class="col col-sm-4">
           <%= teaching_plan_form.association :school_term_type, as: :select2, required: true,
+            label: aee_label(:school_term_type, TeachingPlan.human_attribute_name(:school_term_type)),
             elements: SchoolTermType.to_select2(
               current_user.current_school_year,
               current_user.current_unity_id,
@@ -96,14 +117,17 @@
         <% end %>
       </div>
 
-      <% if @students&.any? %>
+      <% if !is_aee && (@students&.any?) %>
         <div class="row">
           <div class="col col-sm-4">
-            <%= teaching_plan_form.input :student_id, as: :select2, elements: @students %>
+            <%= teaching_plan_form.input :student_id, as: :select2, elements: @students || [] %>
           </div>
         </div>
       <% end %>
-      
+
+      <%= render 'teaching_plans/aee_paee_fields', teaching_plan_form: teaching_plan_form %>
+
+      <% unless is_aee %>
       <a class="btn btn-primary" id="add-by-table-btn" style="margin-bottom: 10px;" href="#" data-toggle="modal" data-target="#addContentsByTableModal">
         <i class="fa fa-table"></i> Adicionar por tabela
       </a>
@@ -248,6 +272,7 @@
                 readonly: action_name.eql?('show') %>
         </div>
       </div>
+      <% end %>
 
       <div class="row textarea">
         <div class="col col-sm-12">
@@ -336,10 +361,13 @@
   <footer>
     <%= link_to t('views.form.back'), knowledge_area_teaching_plans_path, class: 'btn btn-default' %>
     <%= link_to t('views.form.history'), history_knowledge_area_teaching_plan_path(@knowledge_area_teaching_plan), class: 'btn btn-info' if @knowledge_area_teaching_plan.persisted? %>
+    <% if is_aee && @knowledge_area_teaching_plan.persisted? %>
+      <%= aee_next_step_button(:paee, @knowledge_area_teaching_plan.teaching_plan.student) %>
+    <% end %>
     <%= f.submit t('views.form.save'), class: 'btn btn-primary', data: { disable_with: 'Salvando...' } unless action_name.eql?('show') && current_user.teacher? %>
   </footer>
 
-  <% # modal%>
+  <% unless is_aee %>
   <div class="modal fade" id="addContentsByTableModal" tabindex="-1" role="dialog" aria-labelledby="addContentsByTableLabel">
 
   <div class="modal-dialog modal-xl" role="document" style="max-width: 95% !important; width: 95vw;">
@@ -388,5 +416,6 @@
     </div>
   </div>
 </div>
+  <% end %>
 
 <% end %>

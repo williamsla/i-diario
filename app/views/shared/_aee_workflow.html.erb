@@ -1,0 +1,12 @@
+<nav class="aee-workflow" aria-label="<%= t('aee.workflow.title') %>">
+  <% steps.each_with_index do |step, index| %>
+    <% css = ['aee-workflow-step'] %>
+    <% css << 'is-current' if step[:key] == current_step %>
+    <% css << 'is-done' if step[:done] %>
+    <%= link_to step[:path], class: css.join(' ') do %>
+      <span class="aee-workflow-index"><%= index + 1 %></span>
+      <span class="aee-workflow-title"><%= step[:title] %></span>
+      <span class="aee-workflow-hint"><%= step[:hint] %></span>
+    <% end %>
+  <% end %>
+</nav>

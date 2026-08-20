@@ -91,14 +91,17 @@
     <% if action_name != 'show' %>
       <a href="#" id="copy-from-objectives-teaching-plan-link">
         Copiar de <%= aee_label(:copy_from_teaching_plan, Translator.t('navigation.teaching_plans_menu').downcase) %>
-      </a>|
-      <a href="#" data-toggle="modal" data-target="<%= modal_id %>">
-        Copiar objetivos/habilidades por área
       </a>
-      <% if @allows_copy_experience_fields_in_lesson_plans %>
-        |<a href="#" data-toggle="modal" data-target="#experience-modal">
-          Copiar objetivos por campos de experiência
+      <% unless is_aee %>
+        |
+        <a href="#" data-toggle="modal" data-target="<%= modal_id %>">
+          Copiar objetivos/habilidades por área
         </a>
+        <% if @allows_copy_experience_fields_in_lesson_plans %>
+          |<a href="#" data-toggle="modal" data-target="#experience-modal">
+            Copiar objetivos por campos de experiência
+          </a>
+        <% end %>
       <% end %>
     <% end %>
 

@@ -168,7 +168,17 @@ class CopyDisciplineTeachingPlanService
     raise CopyDisciplineTeachingPlanError, error_message unless copy_teaching_plan.valid?
 
     copy_teaching_plan.save!
+    copy_aee_teaching_plan_detail(teaching_plan, copy_teaching_plan)
     copy_teaching_plan.discipline_teaching_plan
+  end
+
+  def copy_aee_teaching_plan_detail(original, copy)
+    detail = original.aee_teaching_plan_detail
+    return if detail.blank?
+
+    copy.create_aee_teaching_plan_detail!(
+      detail.attributes.except('id', 'teaching_plan_id', 'created_at', 'updated_at')
+    )
   end
 
   def check_required_params

@@ -1,0 +1,33 @@
+<tbody id="resources-tbody">
+  <% if @aee_individual_plans.empty? %>
+    <tr>
+      <td class="no_record_found" colspan="4"><%= t('views.index.no_record_found') %></td>
+    </tr>
+  <% else %>
+    <% @aee_individual_plans.each do |aee_individual_plan| %>
+      <tr>
+        <td><%= aee_individual_plan.student %></td>
+        <td><%= l(aee_individual_plan.start_on) %></td>
+        <td><%= aee_individual_plan.review_on.present? ? l(aee_individual_plan.review_on) : '-' %></td>
+        <td class="actions" style="white-space: nowrap;">
+          <%= link_to(
+                t('helpers.links.print_html'),
+                aee_individual_plan_path(aee_individual_plan),
+                class: 'btn btn-info apply_tooltip',
+                target: '_blank',
+                data: { original_title: t('views.index.tooltips.show_report') }
+              ) %>
+          <%= link_to t('views.index.edit'),
+                edit_aee_individual_plan_path(aee_individual_plan),
+                class: 'btn btn-success' %>
+          <%= aee_next_step_button(:pei, aee_individual_plan.student) %>
+          <%= link_to t('views.index.delete'),
+                aee_individual_plan_path(aee_individual_plan),
+                class: 'btn btn-danger',
+                method: 'delete',
+                data: { confirm: t('views.index.confirm_deletion') } %>
+        </td>
+      </tr>
+    <% end %>
+  <% end %>
+</tbody>

@@ -1,0 +1,76 @@
+pt-BR:
+  activerecord:
+    models:
+      aee_individual_plan:
+        one: "Plano educacional individualizado"
+        other: "Planos educacionais individualizados"
+      aee_teaching_plan_detail:
+        one: "Detalhe do PAEE"
+        other: "Detalhes do PAEE"
+
+    attributes:
+      aee_individual_plan:
+        unity: "Escola"
+        unity_id: "Escola"
+        classroom: "Turma"
+        classroom_id: "Turma"
+        student: "Nome do estudante"
+        student_id: "Nome do estudante"
+        teacher: "Professor(a)"
+        user: "Usuário"
+        school_calendar: "Calendário escolar"
+        year: "Ano letivo"
+        start_on: "Data de início do PEI"
+        review_on: "Data de revisão do PEI"
+        age: "Idade"
+        birth_date: "Data de nascimento"
+        birth_date_label: "Data de nascimento"
+        characteristics: "Descrição e características do estudante"
+        psychomotor_skills: "Psicomotricidade"
+        cognitive_skills: "Área cognitiva"
+        socioemotional_skills: "Sócio afetivo e emocional"
+        linguistic_skills: "Linguísticos"
+        identified_difficulties: "Dificuldades identificadas"
+        goals: "Objetivos a serem alcançados"
+        resources: "Recursos"
+        strategies: "Estratégias pedagógicas"
+        monitoring: "Avaliação e monitoramento"
+        short_term_goals: "Objetivos de curto prazo"
+        long_term_goals: "Objetivos de longo prazo"
+        final_considerations: "Considerações finais"
+        regular_teacher_name: "Professor(a) da sala regular"
+        specialized_teacher_name: "Professor(a) especializado(a)"
+        mediator_name: "Mediador(a)"
+        pedagogical_coordinator_name: "Coordenador(a) de gestão pedagógica"
+        school_management_name: "Gestão escolar"
+        responsible_name: "Responsável"
+        document_date: "Data do documento"
+        aee_case_study: "Estudo de caso"
+      aee_teaching_plan_detail:
+        attendance_period: "Período de atendimento"
+        attendance_frequency: "Frequência"
+        attendance_duration: "Tempo de atendimento"
+        attendance_composition: "Composição do atendimento"
+        student_characteristics: "Características do aluno"
+        general_objectives: "Objetivos gerais do AEE"
+        cognitive_objectives: "Área cognitiva"
+        psychomotor_objectives: "Área psicomotora"
+        socioemotional_objectives: "Área socioafetiva"
+        activities: "Atividades a serem desenvolvidas"
+        resources: "Recursos didáticos e tecnologias assistivas"
+        regular_teacher_name: "Professor(a) da sala regular"
+        specialized_teacher_name: "Professor(a) do AEE"
+        mediator_name: "Mediador(a)"
+        pedagogical_coordinator_name: "Coordenador(a) de gestão pedagógica"
+        school_management_name: "Gestão escolar"
+        responsible_name: "Responsável"
+        document_date: "Data do documento"
+
+    errors:
+      models:
+        aee_individual_plan:
+          attributes:
+            student_id:
+              taken: "já possui um PEI para esta turma no ano letivo"
+            review_on:
+              must_be_after_start_on: "deve ser igual ou posterior à data de início"

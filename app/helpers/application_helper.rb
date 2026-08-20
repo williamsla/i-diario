@@ -45,6 +45,7 @@ module ApplicationHelper
       user_role_cache || current_user.cache_key,
       role&.permissions_cache_key,
       Translation.cache_key,
+      navigation_cache_version,
       is_aee
     ]
 
@@ -61,19 +62,25 @@ module ApplicationHelper
   def shortcuts
     role = current_user.current_user_role&.role
     key = [
-      'HomeShortcutsV3',
+      'HomeShortcutsV4',
       Entity.current&.id,
       current_user.admin?,
       navigation_cache_version,
       role&.cache_key || current_user&.cache_key,
       role&.permissions_cache_key,
-      Translation.cache_key
+      Translation.cache_key,
+      is_aee
     ]
 
     cached = Rails.cache.read(key)
     return cached if cached.present?
 
-    html = Navigation.draw_shortcuts(current_user)
+    html = begin
+      Thread.current[:navigation_is_aee] = is_aee
+      Navigation.draw_shortcuts(current_user)
+    ensure
+      Thread.current[:navigation_is_aee] = nil
+    end
     # Nunca grava HTML vazio: evita esconder atalhos válidos por cache contaminado
     Rails.cache.write(key, html, expires_in: 1.day) if html.present?
     html

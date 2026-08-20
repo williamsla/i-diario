@@ -5,6 +5,7 @@
   <%= javascript_include_tag 'views/teaching_plans/shared' %>
   <%= javascript_include_tag 'views/discipline_teaching_plans/form' %>
   <%= javascript_include_tag 'views/layouts/copy-objectives' %>
+  <%= javascript_include_tag 'views/aee/paee_prefill' if is_aee %>
 <% end %>
 
 <%= hidden_field_tag :action_name, action_name %>
@@ -12,7 +13,10 @@
 
 <%= simple_form_for @discipline_teaching_plan, html: {
     class: 'smart-form',
-    id: 'discipline_teaching_plan'
+    id: 'discipline_teaching_plan',
+    data: {
+      student_data_url: is_aee ? student_data_discipline_teaching_plans_path(format: :json) : nil
+    }
   } do |f| %>
 
   <%= f.error_notification %>
@@ -22,9 +26,11 @@
     <%= teaching_plan_form.hidden_field :id %>
 
     <fieldset>
-      <%= render 'teaching_plans/diciplines_modal', f: teaching_plan_form %>
-      <% if @allows_copy_experience_fields_in_lesson_plans %>
-        <%= render 'teaching_plans/experience_fields_modal', f: teaching_plan_form %>
+      <% unless is_aee %>
+        <%= render 'teaching_plans/diciplines_modal', f: teaching_plan_form %>
+        <% if @allows_copy_experience_fields_in_lesson_plans %>
+          <%= render 'teaching_plans/experience_fields_modal', f: teaching_plan_form %>
+        <% end %>
       <% end %>
 
       <div id='copy_plan_info' class='alert alert-info' style='display: none;'>
@@ -70,6 +76,7 @@
       <div class="row">
         <div class="col col-sm-4">
           <%= teaching_plan_form.association :school_term_type, as: :select2, required: true,
+            label: aee_label(:school_term_type, TeachingPlan.human_attribute_name(:school_term_type)),
             elements: SchoolTermType.to_select2(
               current_user.current_school_year,
               current_user.current_unity_id,
@@ -86,19 +93,25 @@
                 readonly: action_name == 'show' %>
         </div>
 
-        <div class="col col-sm-4">
-          <%= f.input :thematic_unit, readonly: action_name.eql?('show') %>
-        </div>
+        <% unless is_aee %>
+          <div class="col col-sm-4">
+            <%= f.input :thematic_unit, readonly: action_name.eql?('show') %>
+          </div>
+        <% end %>
       </div>
 
-      <% if @students&.any? %>
+      <% if @students&.any? || is_aee %>
         <div class="row">
           <div class="col col-sm-4">
-            <%= teaching_plan_form.input :student_id, as: :select2, elements: @students %>
+            <%= teaching_plan_form.input :student_id, as: :select2, elements: @students || [],
+                  required: is_aee %>
           </div>
         </div>
       <% end %>
 
+      <%= render 'teaching_plans/aee_paee_fields', teaching_plan_form: teaching_plan_form %>
+
+      <% unless is_aee %>
       <div class="row textarea">
         <div class="col col-sm-12">
           <legend style="margin-bottom: 10px;">
@@ -165,7 +178,7 @@
               <%= f.object.errors[:'teaching_plan.objectives'].first %>
             </div>
           <% end %>
-          <% if !action_name.eql?('show') %>
+          <% if !action_name.eql?('show') && !is_aee %>
             <a href="#" data-toggle="modal" data-target="#disciplines-modal">
               Copiar objetivos/habilidades por área
             </a>
@@ -241,6 +254,7 @@
                 readonly: action_name.eql?('show') %>
         </div>
       </div>
+      <% end %>
 
       <div class="row textarea">
         <div class="col col-sm-12">

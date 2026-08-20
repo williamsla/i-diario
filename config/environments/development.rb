@@ -47,7 +47,7 @@ Rails.application.configure do
   # Bullet configuration
   config.after_initialize do
     Bullet.enable = true
-    Bullet.alert = true
+    Bullet.alert = false
     Bullet.console = true
     Bullet.rails_logger = true
     Bullet.add_footer = true    # banner amarelo na página, não precisa de popup

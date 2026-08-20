@@ -1,0 +1,20 @@
+pt-BR:
+  aee_case_studies:
+    index:
+      title: "Estudo de caso AEE"
+      new_html: "<i class='fa fa-plus'></i> Novo estudo de caso"
+      by_student: "Filtrar aluno"
+    form:
+      identification_legend: "Identificação do estudante"
+      stages_legend: "Etapas do estudo de caso"
+      signatures_legend: "Assinaturas"
+      legal_text: "Este estudo de caso foi elaborado com base na observação pedagógica e no contexto escolar do estudante, conforme os princípios da Política Nacional de Educação Especial Inclusiva (PNEEI), instituída pelo Decreto nº 12.686/2025 e alterada pelo Decreto nº 12.773/2025, tendo como objetivo subsidiar o planejamento dos apoios, do AEE e do Plano Educacional Individualizado, assegurando a participação, a permanência e o desenvolvimento da criança no ambiente escolar inclusivo."
+      identification_hint: "Selecione o aluno para preencher idade, etapa, identificação e modalidade."
+      individual_demands_hint: "Descreva as demandas do estudante e as barreiras observadas."
+      barriers_and_context_hint: "Analise o contexto escolar e as barreiras que interferem na participação."
+      potentialities_and_support_hint: "Registre potencialidades e os apoios que já funcionam."
+      accessibility_strategies_hint: "Defina estratégias e recursos para eliminar barreiras. Esse texto alimenta o PAEE."
+    new:
+      title: "Novo estudo de caso AEE"
+    edit:
+      title: "Editar estudo de caso AEE"

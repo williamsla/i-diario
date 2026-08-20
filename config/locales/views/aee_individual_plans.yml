@@ -1,0 +1,46 @@
+pt-BR:
+  aee_individual_plans:
+    index:
+      title: "PEI"
+      new_html: "<i class='fa fa-plus'></i> Novo PEI"
+      by_student: "Filtrar aluno"
+    form:
+      identification_legend: "Informações gerais"
+      characteristics_legend: "Descrição e características do estudante"
+      skills_legend: "1. Habilidades apresentadas"
+      difficulties_legend: "2. Dificuldades identificadas"
+      goals_legend: "3. Objetivos a serem alcançados"
+      resources_legend: "4. Recursos e metodologias a serem usados"
+      monitoring_legend: "5. Avaliação e monitoramento do estudante"
+      term_goals_legend: "Objetivos de curto e longo prazo"
+      final_considerations_legend: "Considerações finais"
+      signatures_legend: "Assinaturas"
+      legal_text: "Este Plano Educacional Individualizado – PEI é elaborado com base no Decreto nº 12.686/2025, alterado pelo Decreto nº 12.773/2025, que institui a Política Nacional de Educação Especial Inclusiva."
+      objective_title: "Objetivo do PEI"
+      objective_text: "Promover o desenvolvimento integral do estudante, considerando suas potencialidades e necessidades, favorecendo a ampliação das habilidades cognitivas, motoras, sociais e comunicativas, por meio de atividades lúdicas e significativas que estimulem a autonomia, a interação e a participação nas rotinas da Educação Infantil."
+      final_considerations_text: "Este PEI tem como objetivo garantir ao estudante oportunidades de desenvolvimento integral, respeitando seu tempo, suas características e suas formas de aprender. As propostas pedagógicas serão organizadas de maneira lúdica e significativa, favorecendo a participação, a interação e a construção de novas aprendizagens no cotidiano da Educação Infantil. O acompanhamento contínuo, as adaptações nas atividades e a parceria com a família são fundamentais para apoiar o desenvolvimento da criança e fortalecer seu processo de aprendizagem."
+      attendance_records_hint: "Os registros de atendimento do período do PEI aparecem abaixo apenas para consulta. Eles não substituem o PEI."
+      attendance_records_empty: "Nenhum registro de atendimento encontrado no período do PEI."
+      attendance_record_date: "Data"
+      attendance_record_area: "Área"
+      attendance_record_text: "Registro do atendimento"
+      characteristics_hint: "Descreva o estudante a partir do estudo de caso e do PAEE."
+      skills_hint: "Registre as habilidades atuais em cada área. O PAEE pode sugerir um ponto de partida."
+      difficulties_hint: "Copiado do estudo de caso. Ajuste com o que foi observado no atendimento."
+      goals_hint: "Objetivos do PAEE para este aluno. Priorize o que será trabalhado no período."
+      resources_hint: "Recursos e estratégias vêm do PAEE. Ajuste para o plano individual."
+      monitoring_hint: "Como o desenvolvimento será acompanhado. Os registros de atendimento aparecem abaixo."
+      next: "Registrar atendimento"
+    new:
+      title: "Novo PEI"
+    edit:
+      title: "Editar PEI"
+    errors:
+      require_aee_classroom: "O PEI está disponível apenas para turmas de AEE."
+    pdf:
+      title: "Plano educacional individualizado – PEI"
+      skills: "1. Habilidades apresentadas"
+      difficulties: "2. Dificuldades identificadas"
+      goals: "3. Objetivos a serem alcançados"
+      monitoring: "5. Avaliação e monitoramento do estudante"
+      attendance_records: "Registros de atendimento no período"

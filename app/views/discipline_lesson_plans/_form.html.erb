@@ -45,10 +45,11 @@
         </div>
       </div>
 
-      <% if @students&.any? %>
+      <% if @students&.any? || is_aee %>
         <div class="row">
           <div class="col col-sm-4">
-            <%= lesson_plan.input :student_id, as: :select2, elements: @students %>
+            <%= lesson_plan.input :student_id, as: :select2, elements: @students || [],
+                  required: is_aee %>
           </div>
         </div>
       <% end %>
