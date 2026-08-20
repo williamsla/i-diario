@@ -421,6 +421,11 @@ Rails.application.routes.draw do
         get :student_data
       end
     end
+    resources :aee_attendance_records, concerns: :history do
+      collection do
+        get :student_data
+      end
+    end
     resources :ieducar_api_exam_postings do
       member do
         get :done_percentage

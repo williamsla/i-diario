@@ -15,6 +15,20 @@ class AeePrefill
       }
     end
 
+    def attendance_from_pei(student:, classroom:, year:)
+      pei = find_pei(student: student, classroom: classroom, year: year)
+      return {} if pei.blank?
+
+      {
+        aee_individual_plan_id: pei.id,
+        session_objectives: pei.goals,
+        pei_goals: pei.goals,
+        pei_strategies: pei.strategies,
+        pei_resources: pei.resources,
+        duration: pei.linked_paee&.aee_teaching_plan_detail&.attendance_duration
+      }
+    end
+
     def content_record_from_pei(student:, classroom:, year:)
       pei = find_pei(student: student, classroom: classroom, year: year)
       return {} if pei.blank?

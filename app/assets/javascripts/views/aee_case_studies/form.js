@@ -24,9 +24,7 @@ $(function () {
         format: 'json'
       }),
       success: function (data) {
-        if (!$age.val()) {
-          $age.val(data.age || '');
-        }
+        $age.val(data.age || '');
 
         if (!$gradeStage.val()) {
           $gradeStage.val(data.grade_stage || '');

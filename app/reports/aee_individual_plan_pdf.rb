@@ -200,8 +200,8 @@ class AeeIndividualPlanPdf < BaseReport
     records.each do |record|
       rows << [
         make_cell(content: formatted_date(record.record_date)),
-        make_cell(content: record.to_s),
-        make_cell(content: present_text(record.daily_activities_record))
+        make_cell(content: record.session_focus.to_s.presence || '-'),
+        make_cell(content: present_text(record.activities_developed))
       ]
     end
 

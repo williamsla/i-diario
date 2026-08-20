@@ -26,6 +26,7 @@ class Classroom < ApplicationRecord
   has_many :student_enrollment_classrooms, through: :classrooms_grades
   has_many :aee_case_studies, dependent: :restrict_with_error
   has_many :aee_individual_plans, dependent: :restrict_with_error
+  has_many :aee_attendance_records, dependent: :restrict_with_error
 
   before_create :set_label_color
 

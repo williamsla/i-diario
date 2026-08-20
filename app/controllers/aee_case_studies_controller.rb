@@ -91,7 +91,6 @@ class AeeCaseStudiesController < ApplicationController
     params.require(:aee_case_study).permit(
       :student_id,
       :grade_stage,
-      :age,
       :identification,
       :modality,
       :individual_demands,

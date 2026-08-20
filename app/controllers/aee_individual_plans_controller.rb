@@ -105,7 +105,6 @@ class AeeIndividualPlansController < ApplicationController
       :aee_case_study_id,
       :start_on,
       :review_on,
-      :age,
       :characteristics,
       :psychomotor_skills,
       :cognitive_skills,

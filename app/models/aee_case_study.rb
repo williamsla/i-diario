@@ -22,6 +22,7 @@ class AeeCaseStudy < ApplicationRecord
   validates :student_id, uniqueness: { scope: [:classroom_id, :year] }
   validates_date :document_date
 
+  before_validation :apply_age!
   before_validation :apply_student_defaults!, on: :create
 
   scope :ordered, -> { order(document_date: :desc, created_at: :desc) }
@@ -40,10 +41,16 @@ class AeeCaseStudy < ApplicationRecord
     I18n.t('aee_case_studies.age_label', count: age)
   end
 
+  def apply_age!
+    return if student.blank?
+
+    self.age = self.class.age_label_for(student.birth_date)
+  end
+
   def apply_student_defaults!
     return if student.blank?
 
-    self.age = self.class.age_label_for(student.birth_date) if age.blank?
+    apply_age!
 
     identification_default = default_identification
     self.identification = identification_default if identification.blank? && identification_default.present?

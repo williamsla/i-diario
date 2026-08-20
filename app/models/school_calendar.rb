@@ -23,6 +23,7 @@ class SchoolCalendar < ApplicationRecord
   has_many :observation_diary_records, dependent: :restrict_with_exception
   has_many :aee_case_studies, dependent: :restrict_with_exception
   has_many :aee_individual_plans, dependent: :restrict_with_exception
+  has_many :aee_attendance_records, dependent: :restrict_with_exception
 
   accepts_nested_attributes_for :steps, reject_if: :all_blank, allow_destroy: true
   accepts_nested_attributes_for :classrooms, reject_if: :all_blank, allow_destroy: true

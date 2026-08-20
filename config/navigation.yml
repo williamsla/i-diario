@@ -139,6 +139,12 @@ navigation:
       visible: "only-when-aee"
       shortcut: true
   - menu:
+      type: "aee_attendance_records"
+      icon: "fa-pencil-square-o"
+      path: "aee_attendance_records_path"
+      visible: "only-when-aee"
+      shortcut: true
+  - menu:
       type: "lesson_plans_menu"
       icon: "fa-pencil"
       shortcut: true
@@ -156,6 +162,7 @@ navigation:
       type: "content_records_menu"
       icon: "fa-pencil-square-o"
       shortcut: true
+      visible: "hide-when-aee"
       submenus:
         - menu:
             type: "discipline_content_records"

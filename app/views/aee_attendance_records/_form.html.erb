@@ -1,0 +1,103 @@
+<% content_for :js do %>
+  <%= javascript_include_tag 'views/aee_attendance_records/form' %>
+<% end %>
+
+<%= simple_form_for @aee_attendance_record, html: { class: 'smart-form', id: 'aee_attendance_records_form' } do |f| %>
+  <%= f.error_notification %>
+  <%= f.hidden_field :aee_individual_plan_id %>
+  <%= aee_prefill_notice %>
+
+  <fieldset>
+    <legend><%= t('.identification_legend') %></legend>
+    <span class="aee-section-hint"><%= t('.identification_hint') %></span>
+
+    <div class="row">
+      <div class="col col-sm-6">
+        <%= f.association :student, as: :select2, elements: @students, required: true,
+                          readonly: f.object.persisted? %>
+      </div>
+      <div class="col col-sm-3">
+        <%= f.input :record_date, as: :date, required: true %>
+      </div>
+      <div class="col col-sm-3">
+        <%= f.input :duration, hint: t('.duration_hint') %>
+      </div>
+    </div>
+  </fieldset>
+
+  <% pei = f.object.linked_pei %>
+  <div class="alert alert-info fade in" id="aee-pei-context"
+       <% if pei.blank? %>style="display:none"<% end %>
+       data-empty-message="<%= t('aee.fields.pei_context_empty') %>"
+       data-goals-label="<%= t('aee.fields.pei_context_goals') %>"
+       data-strategies-label="<%= t('aee.fields.pei_context_strategies') %>"
+       data-resources-label="<%= t('aee.fields.pei_context_resources') %>">
+    <i class="fa-fw fa fa-info"></i>
+    <strong><%= t('aee.fields.pei_context_title') %></strong>
+    <div id="aee-pei-context-body">
+      <% if pei.present? %>
+        <% if pei.goals.present? %>
+          <p><strong><%= t('aee.fields.pei_context_goals') %>:</strong> <%= pei.goals %></p>
+        <% end %>
+        <% if pei.strategies.present? %>
+          <p><strong><%= t('aee.fields.pei_context_strategies') %>:</strong> <%= pei.strategies %></p>
+        <% end %>
+        <% if pei.resources.present? %>
+          <p><strong><%= t('aee.fields.pei_context_resources') %>:</strong> <%= pei.resources %></p>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+
+  <fieldset>
+    <legend><%= t('.session_legend') %></legend>
+
+    <div class="row">
+      <div class="col col-sm-12">
+        <%= f.input :session_focus, as: :text, hint: t('.session_focus_hint'),
+                    input_html: { rows: 2 } %>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-sm-12">
+        <%= f.input :session_objectives, as: :text, hint: t('.session_objectives_hint'),
+                    input_html: { rows: 4 } %>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-sm-12">
+        <%= f.input :activities_developed, as: :text, required: true,
+                    hint: t('.activities_developed_hint'),
+                    input_html: { rows: 6 } %>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-sm-12">
+        <%= f.input :student_response, as: :text, hint: t('.student_response_hint'),
+                    input_html: { rows: 4 } %>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-sm-12">
+        <%= f.input :next_steps, as: :text, hint: t('.next_steps_hint'),
+                    input_html: { rows: 3 } %>
+      </div>
+    </div>
+  </fieldset>
+
+  <footer>
+    <%= link_to t('views.form.back'), aee_attendance_records_path, class: 'btn btn-default' %>
+
+    <% if f.object.persisted? %>
+      <%= link_to t('helpers.links.print_html'), aee_attendance_record_path(f.object),
+                  class: 'btn btn-info', target: '_blank' %>
+      <%= link_to t('views.form.history'), history_aee_attendance_record_path(f.object), class: 'btn btn-info' %>
+    <% end %>
+
+    <%= f.submit t('views.form.save'), class: 'btn btn-primary', data: { disable_with: 'Salvando...' } %>
+  </footer>
+<% end %>

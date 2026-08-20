@@ -16,7 +16,7 @@
                           readonly: f.object.persisted? %>
       </div>
       <div class="col col-sm-4">
-        <%= f.input :age %>
+        <%= f.input :age, readonly: true %>
       </div>
     </div>
 
@@ -127,7 +127,14 @@
       </div>
     </div>
 
-    <p class="help-block"><%= t('.attendance_records_hint') %></p>
+    <p class="help-block">
+      <%= t('.attendance_records_hint') %>
+      <% if f.object.persisted? && f.object.student_id.present? %>
+        <%= link_to t('.new_attendance'),
+              new_aee_attendance_record_path(student_id: f.object.student_id),
+              class: 'btn btn-success btn-xs pull-right' %>
+      <% end %>
+    </p>
 
     <div class="table-responsive">
       <table class="table table-bordered table-striped table-condensed">
@@ -143,9 +150,11 @@
           <% if attendance_records.any? %>
             <% attendance_records.each do |record| %>
               <tr>
-                <td><%= l(record.record_date) %></td>
-                <td><%= record.to_s %></td>
-                <td><%= truncate(record.daily_activities_record.to_s, length: 220) %></td>
+                <td>
+                  <%= link_to l(record.record_date), edit_aee_attendance_record_path(record) %>
+                </td>
+                <td><%= record.session_focus.presence || '-' %></td>
+                <td><%= truncate(record.activities_developed.to_s, length: 220) %></td>
               </tr>
             <% end %>
           <% else %>

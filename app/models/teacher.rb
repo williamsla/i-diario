@@ -14,6 +14,7 @@ class Teacher < ApplicationRecord
   has_many :observation_diary_records
   has_many :aee_case_studies, dependent: :restrict_with_error
   has_many :aee_individual_plans, dependent: :restrict_with_error
+  has_many :aee_attendance_records, dependent: :restrict_with_error
   has_many :teacher_discipline_classrooms, dependent: :destroy
   has_many :teaching_plans
   has_many :transfer_notes

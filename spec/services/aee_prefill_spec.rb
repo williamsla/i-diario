@@ -26,6 +26,25 @@ RSpec.describe AeePrefill do
     end
   end
 
+  describe '.attendance_from_pei' do
+    it 'returns session objectives and duration from the PEI and PAEE' do
+      pei = create(:aee_individual_plan, goals: 'Metas do PEI')
+      teaching_plan = create(:teaching_plan, student: pei.student, year: pei.year)
+      teaching_plan.create_aee_teaching_plan_detail!(attendance_duration: '50 minutos')
+
+      result = described_class.attendance_from_pei(
+        student: pei.student,
+        classroom: pei.classroom,
+        year: pei.year
+      )
+
+      expect(result[:aee_individual_plan_id]).to eq(pei.id)
+      expect(result[:session_objectives]).to eq('Metas do PEI')
+      expect(result[:pei_goals]).to eq('Metas do PEI')
+      expect(result[:duration]).to eq('50 minutos')
+    end
+  end
+
   describe '.content_record_from_pei' do
     it 'returns goals and strategies from the PEI' do
       pei = create(:aee_individual_plan)

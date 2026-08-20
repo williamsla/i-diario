@@ -12,6 +12,7 @@ class AeeIndividualPlan < ApplicationRecord
   belongs_to :user
   belongs_to :school_calendar
   belongs_to :aee_case_study, optional: true
+  has_many :aee_attendance_records, dependent: :nullify
 
   validates :unity, :classroom, :student, :teacher, :user, :school_calendar, presence: true
   validates :year, :start_on, :document_date, presence: true
@@ -22,6 +23,7 @@ class AeeIndividualPlan < ApplicationRecord
   validates_date :review_on, allow_blank: true
   validate :review_on_after_start_on
 
+  before_validation :apply_age!
   before_validation :apply_defaults!, on: :create
 
   scope :ordered, -> { order(start_on: :desc, created_at: :desc) }
@@ -38,10 +40,14 @@ class AeeIndividualPlan < ApplicationRecord
     self.document_date = Time.zone.today if document_date.blank?
   end
 
-  def apply_student_defaults!
+  def apply_age!
     return if student.blank?
 
-    self.age = AeeCaseStudy.age_label_for(student.birth_date) if age.blank?
+    self.age = AeeCaseStudy.age_label_for(student.birth_date)
+  end
+
+  def apply_student_defaults!
+    apply_age!
   end
 
   def apply_from_case_study!
@@ -76,13 +82,12 @@ class AeeIndividualPlan < ApplicationRecord
   end
 
   def attendance_records
-    return ContentRecord.none if student_id.blank? || classroom_id.blank?
+    return AeeAttendanceRecord.none if student_id.blank? || classroom_id.blank?
 
     start_date = start_on.presence || Date.new(year, 1, 1)
     end_date = review_on.presence || Time.zone.today
 
-    ContentRecord
-      .includes(:classroom, :discipline_content_record, knowledge_area_content_record: :knowledge_areas)
+    AeeAttendanceRecord
       .where(classroom_id: classroom_id, student_id: student_id)
       .where(record_date: start_date..end_date)
       .order(:record_date)

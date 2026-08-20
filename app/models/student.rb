@@ -23,6 +23,7 @@ class Student < ApplicationRecord
   has_many :transfer_notes
   has_many :aee_case_studies, dependent: :restrict_with_error
   has_many :aee_individual_plans, dependent: :restrict_with_error
+  has_many :aee_attendance_records, dependent: :restrict_with_error
   has_many :deficiency_students, dependent: :destroy
   has_many :deficiencies, through: :deficiency_students
   has_many :student_unifications

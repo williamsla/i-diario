@@ -163,6 +163,9 @@ pt-BR:
     aee_individual_plans:
       <<: *male
 
+    aee_attendance_records:
+      <<: *male
+
     observation_diary_records:
       <<: *male
       destroy:

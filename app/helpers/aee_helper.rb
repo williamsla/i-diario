@@ -81,7 +81,7 @@ module AeeHelper
         title: I18n.t('aee.workflow.attendance'),
         hint: I18n.t('aee.workflow.attendance_hint'),
         path: aee_attendance_path_for(student),
-        done: false
+        done: aee_attendance_for(student)
       }
     ]
   end
@@ -162,9 +162,20 @@ module AeeHelper
     aee_individual_plans_path
   end
 
-  def aee_attendance_path_for(student)
-    return new_knowledge_area_content_record_path(student_id: student.id) if student.present?
+  def aee_attendance_for(student)
+    return false if student.blank? || current_user_classroom.blank?
 
-    knowledge_area_content_records_path
+    @aee_attendance_for ||= {}
+    @aee_attendance_for[student.id] ||= AeeAttendanceRecord.exists?(
+      student_id: student.id,
+      classroom_id: current_user_classroom.id,
+      year: current_user_school_year
+    )
+  end
+
+  def aee_attendance_path_for(student)
+    return new_aee_attendance_record_path(student_id: student.id) if student.present?
+
+    aee_attendance_records_path
   end
 end

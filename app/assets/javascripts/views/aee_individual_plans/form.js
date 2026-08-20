@@ -2,9 +2,11 @@ $(function () {
   'use strict';
 
   var $student = $('#aee_individual_plan_student_id');
-  var fields = {
+  var derivedFields = {
     age: $('#aee_individual_plan_age'),
-    birth_date_label: $('#aee_individual_plan_birth_date_label'),
+    birth_date_label: $('#aee_individual_plan_birth_date_label')
+  };
+  var fields = {
     characteristics: $('#aee_individual_plan_characteristics'),
     identified_difficulties: $('#aee_individual_plan_identified_difficulties'),
     goals: $('#aee_individual_plan_goals'),
@@ -35,6 +37,14 @@ $(function () {
       }),
       success: function (data) {
         var filled = false;
+
+        $.each(derivedFields, function (key, $field) {
+          if (!$field.length) {
+            return;
+          }
+
+          $field.val(data[key] || '');
+        });
 
         $.each(fields, function (key, $field) {
           if (!$field.length || $field.val() || !data[key]) {

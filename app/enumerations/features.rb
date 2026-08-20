@@ -60,7 +60,8 @@ class Features < EnumerateIt::Base
                    :teacher_absences,
                    :record_audit_trails,
                    :aee_case_studies,
-                   :aee_individual_plans
+                   :aee_individual_plans,
+                   :aee_attendance_records
 
   sort_by :translation
 end

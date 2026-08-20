@@ -32,6 +32,8 @@ pt-BR:
     aee_case_study: 'estudo-de-caso-aee'
     aee_individual_plans: 'planos-educacionais-individualizados'
     aee_individual_plan: 'pei'
+    aee_attendance_records: 'registros-de-atendimento-aee'
+    aee_attendance_record: 'registro-de-atendimento-aee'
     conceptual_exams: 'diario-de-avaliacoes-conceituais'
     descriptive_exams: 'avaliacoes-descritivas'
     disabled_entity: 'acesso-suspenso'
