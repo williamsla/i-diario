@@ -21,7 +21,8 @@ class AeeCaseStudy < ApplicationRecord
   validates_date :document_date
 
   before_validation :apply_age!
-  before_validation :apply_student_defaults!, on: :create
+  before_validation :apply_identification_default!, on: :create
+  before_validation :apply_regular_enrollment_fields!
 
   scope :ordered, -> { order(document_date: :desc, created_at: :desc) }
   scope :by_unity, ->(unity_id) { where(unity_id: unity_id) }
@@ -46,14 +47,24 @@ class AeeCaseStudy < ApplicationRecord
   end
 
   def apply_student_defaults!
-    return if student.blank?
-
     apply_age!
+    apply_identification_default!
+    apply_regular_enrollment_fields!
+  end
+
+  def apply_identification_default!
+    return if student.blank?
 
     identification_default = default_identification
     self.identification = identification_default if identification.blank? && identification_default.present?
-    self.grade_stage = classroom_grade_description if grade_stage.blank?
-    self.modality = classroom_course_description if modality.blank?
+  end
+
+  def apply_regular_enrollment_fields!
+    regular = regular_classrooms_grade
+    return if regular.blank?
+
+    self.grade_stage = regular.grade.description
+    self.modality = regular.grade.course&.description
   end
 
   def location_and_date
@@ -70,14 +81,20 @@ class AeeCaseStudy < ApplicationRecord
   def default_identification
     return if student.blank?
 
-    student.deficiencies.ordered.map(&:name).reject(&:blank?).join(', ')
+    student.deficiencies.ordered.map(&:name).reject(&:blank?).uniq.join(', ')
   end
 
-  def classroom_grade_description
-    classroom&.grades&.map(&:description)&.uniq&.join(', ')
-  end
+  def regular_classrooms_grade
+    return if student_id.blank? || year.blank?
 
-  def classroom_course_description
-    classroom&.courses&.compact&.map(&:description)&.uniq&.join(', ')
+    StudentEnrollmentClassroom
+      .joins(:student_enrollment, classrooms_grade: [:classroom, :grade])
+      .where(student_enrollments: { student_id: student_id, active: IeducarBooleanState::ACTIVE })
+      .where(classrooms: { year: year })
+      .where('grades.description NOT ILIKE :aee AND classrooms.description NOT ILIKE :aee', aee: '%aee%')
+      .order("CASE WHEN COALESCE(student_enrollment_classrooms.left_at, '') = '' THEN 0 ELSE 1 END")
+      .order('student_enrollment_classrooms.joined_at DESC')
+      .first
+      &.classrooms_grade
   end
 end

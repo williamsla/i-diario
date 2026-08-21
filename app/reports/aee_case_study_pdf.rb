@@ -137,21 +137,21 @@ class AeeCaseStudyPdf < BaseReport
   end
 
   def signatures
-    signature_lines.each do |label, value|
+    signature_lines.each do |label|
       start_new_page if cursor < 24
-      text "#{label}: #{value.presence || '_______________________________________'} ", size: 10
+      text "#{label}: _______________________________________ ", size: 10
       move_down 8
     end
   end
 
   def signature_lines
     [
-      [AeeCaseStudy.human_attribute_name(:regular_teacher_name), @aee_case_study.regular_teacher_name],
-      [AeeCaseStudy.human_attribute_name(:specialized_teacher_name), @aee_case_study.specialized_teacher_name],
-      [AeeCaseStudy.human_attribute_name(:mediator_name), @aee_case_study.mediator_name],
-      [AeeCaseStudy.human_attribute_name(:pedagogical_coordinator_name), @aee_case_study.pedagogical_coordinator_name],
-      [AeeCaseStudy.human_attribute_name(:school_management_name), @aee_case_study.school_management_name],
-      [AeeCaseStudy.human_attribute_name(:responsible_name), @aee_case_study.responsible_name]
+      AeeCaseStudy.human_attribute_name(:regular_teacher_name),
+      AeeCaseStudy.human_attribute_name(:specialized_teacher_name),
+      AeeCaseStudy.human_attribute_name(:mediator_name),
+      AeeCaseStudy.human_attribute_name(:pedagogical_coordinator_name),
+      AeeCaseStudy.human_attribute_name(:school_management_name),
+      AeeCaseStudy.human_attribute_name(:responsible_name)
     ]
   end
 

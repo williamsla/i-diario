@@ -35,7 +35,7 @@ class AeeCaseStudiesController < ApplicationController
     authorize @aee_case_study
 
     if @aee_case_study.save
-      respond_with @aee_case_study, location: edit_aee_case_study_path(@aee_case_study)
+      respond_with @aee_case_study, location: aee_case_studies_path
     else
       @aee_case_study = @aee_case_study.localized
       render :new
@@ -52,7 +52,7 @@ class AeeCaseStudiesController < ApplicationController
     authorize @aee_case_study
 
     if @aee_case_study.save
-      respond_with @aee_case_study, location: edit_aee_case_study_path(@aee_case_study)
+      respond_with @aee_case_study, location: aee_case_studies_path
     else
       @aee_case_study = @aee_case_study.localized
       render :edit
@@ -75,7 +75,11 @@ class AeeCaseStudiesController < ApplicationController
     student = students_for_classroom.find_by(id: params[:student_id])
     return render json: {} if student.blank?
 
-    record = AeeCaseStudy.new(student: student, classroom: current_user_classroom)
+    record = AeeCaseStudy.new(
+      student: student,
+      classroom: current_user_classroom,
+      year: current_user_school_year
+    )
     record.apply_student_defaults!
 
     render json: {
@@ -91,20 +95,12 @@ class AeeCaseStudiesController < ApplicationController
   def resource_params
     params.require(:aee_case_study).permit(
       :student_id,
-      :grade_stage,
       :identification,
-      :modality,
       :individual_demands,
       :barriers_and_context,
       :potentialities_and_support,
       :accessibility_strategies,
       :final_considerations,
-      :regular_teacher_name,
-      :specialized_teacher_name,
-      :mediator_name,
-      :pedagogical_coordinator_name,
-      :school_management_name,
-      :responsible_name,
       :document_date
     )
   end
@@ -125,7 +121,6 @@ class AeeCaseStudiesController < ApplicationController
     AeeCaseStudy.new.tap do |record|
       assign_context(record)
       record.document_date = Time.zone.today
-      record.specialized_teacher_name = current_teacher&.name
       assign_student_from_params(record)
     end
   end

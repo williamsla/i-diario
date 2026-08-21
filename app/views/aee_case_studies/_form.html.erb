@@ -2,12 +2,11 @@
   <%= javascript_include_tag 'views/aee_case_studies/form' %>
 <% end %>
 
-<%= simple_form_for @aee_case_study, html: { class: 'smart-form', id: 'aee_case_studies_form' } do |f| %>
+<%= simple_form_for @aee_case_study, html: { class: 'smart-form aee-case-study-form', id: 'aee_case_studies_form' } do |f| %>
   <%= f.error_notification %>
 
-  <fieldset>
+  <fieldset class="aee-fieldset">
     <legend><%= t('.identification_legend') %></legend>
-    <span class="aee-section-hint"><%= t('.identification_hint') %></span>
 
     <div class="row">
       <div class="col col-sm-8">
@@ -15,67 +14,66 @@
                           readonly: f.object.persisted? %>
       </div>
       <div class="col col-sm-4">
-        <%= f.input :age, readonly: true %>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="col col-sm-4">
-        <%= f.input :grade_stage %>
-      </div>
-      <div class="col col-sm-4">
-        <%= f.input :modality %>
-      </div>
-      <div class="col col-sm-4">
         <%= f.input :document_date, as: :date %>
       </div>
     </div>
 
+    <div class="aee-student-summary<%= ' is-empty' if f.object.student.blank? %>" id="aee-student-summary"
+         data-empty="<%= t('.summary_empty') %>"
+         <%= 'hidden'.html_safe if f.object.student.blank? %>>
+      <div class="aee-student-summary-item">
+        <span class="aee-student-summary-label"><%= AeeCaseStudy.human_attribute_name(:age) %></span>
+        <strong class="aee-student-summary-value" data-summary="age"><%= f.object.age.presence || t('.summary_empty') %></strong>
+      </div>
+      <div class="aee-student-summary-item">
+        <span class="aee-student-summary-label"><%= AeeCaseStudy.human_attribute_name(:grade_stage) %></span>
+        <strong class="aee-student-summary-value" data-summary="grade_stage"><%= f.object.grade_stage.presence || t('.summary_empty') %></strong>
+      </div>
+      <div class="aee-student-summary-item">
+        <span class="aee-student-summary-label"><%= AeeCaseStudy.human_attribute_name(:modality) %></span>
+        <strong class="aee-student-summary-value" data-summary="modality"><%= f.object.modality.presence || t('.summary_empty') %></strong>
+      </div>
+    </div>
+
     <div class="row">
       <div class="col col-sm-12">
-        <%= f.input :identification, as: :text, input_html: { rows: 3 } %>
+        <%= f.input :identification, as: :text,
+              hint: t('.identification_field_hint'),
+              input_html: { rows: 2 } %>
       </div>
     </div>
   </fieldset>
 
-  <fieldset>
+  <fieldset class="aee-fieldset">
     <legend><%= t('.stages_legend') %></legend>
 
     <div class="row">
-      <div class="col col-sm-12">
-        <%= f.input :individual_demands, as: :text,
-              hint: t('.individual_demands_hint'),
-              input_html: { rows: 4 } %>
+      <div class="col col-sm-6">
+        <%= render 'stage_field', f: f, attribute: :individual_demands, index: 'I',
+              title: t('.stage_i_title'), hint: t('.individual_demands_hint') %>
+      </div>
+      <div class="col col-sm-6">
+        <%= render 'stage_field', f: f, attribute: :barriers_and_context, index: 'II',
+              title: t('.stage_ii_title'), hint: t('.barriers_and_context_hint') %>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-sm-6">
+        <%= render 'stage_field', f: f, attribute: :potentialities_and_support, index: 'III',
+              title: t('.stage_iii_title'), hint: t('.potentialities_and_support_hint') %>
+      </div>
+      <div class="col col-sm-6">
+        <%= render 'stage_field', f: f, attribute: :accessibility_strategies, index: 'IV',
+              title: t('.stage_iv_title'), hint: t('.accessibility_strategies_hint') %>
       </div>
     </div>
 
     <div class="row">
       <div class="col col-sm-12">
-        <%= f.input :barriers_and_context, as: :text,
-              hint: t('.barriers_and_context_hint'),
-              input_html: { rows: 4 } %>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="col col-sm-12">
-        <%= f.input :potentialities_and_support, as: :text,
-              hint: t('.potentialities_and_support_hint'),
-              input_html: { rows: 4 } %>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="col col-sm-12">
-        <%= f.input :accessibility_strategies, as: :text,
-              hint: t('.accessibility_strategies_hint'),
-              input_html: { rows: 4 } %>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="col col-sm-12">
-        <%= f.input :final_considerations, as: :text, input_html: { rows: 4 } %>
+        <%= f.input :final_considerations, as: :text,
+              hint: t('.final_considerations_hint'),
+              input_html: { rows: 3 } %>
       </div>
     </div>
   </fieldset>

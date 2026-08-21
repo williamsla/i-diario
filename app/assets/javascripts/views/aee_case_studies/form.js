@@ -2,19 +2,39 @@ $(function () {
   'use strict';
 
   var $student = $('#aee_case_study_student_id');
-  var $age = $('#aee_case_study_age');
-  var $gradeStage = $('#aee_case_study_grade_stage');
   var $identification = $('#aee_case_study_identification');
-  var $modality = $('#aee_case_study_modality');
+  var $summary = $('#aee-student-summary');
+  var emptyLabel = $summary.data('empty') || '—';
 
   if (!$student.length) {
     return;
+  }
+
+  function summaryValue(value) {
+    return value || emptyLabel;
+  }
+
+  function fillSummary(data) {
+    $summary.find('[data-summary="age"]').text(summaryValue(data.age));
+    $summary.find('[data-summary="grade_stage"]').text(summaryValue(data.grade_stage));
+    $summary.find('[data-summary="modality"]').text(summaryValue(data.modality));
+  }
+
+  function showSummary() {
+    $summary.removeAttr('hidden').removeClass('is-empty');
+  }
+
+  function hideSummary() {
+    fillSummary({});
+    $summary.attr('hidden', 'hidden').addClass('is-empty');
   }
 
   $student.on('change', function () {
     var studentId = $student.select2('val');
 
     if (!studentId) {
+      hideSummary();
+      $identification.val('');
       return;
     }
 
@@ -24,19 +44,9 @@ $(function () {
         format: 'json'
       }),
       success: function (data) {
-        $age.val(data.age || '');
-
-        if (!$gradeStage.val()) {
-          $gradeStage.val(data.grade_stage || '');
-        }
-
-        if (!$identification.val()) {
-          $identification.val(data.identification || '');
-        }
-
-        if (!$modality.val()) {
-          $modality.val(data.modality || '');
-        }
+        fillSummary(data);
+        showSummary();
+        $identification.val(data.identification || '');
       }
     });
   });

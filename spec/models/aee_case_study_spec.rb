@@ -54,4 +54,45 @@ RSpec.describe AeeCaseStudy do
       expect(described_class.age_label_for(nil)).to be_nil
     end
   end
+
+  describe '#apply_student_defaults!' do
+    it 'fills grade and modality from the regular enrollment in the same year' do
+      year = Date.current.year
+      student = create(:student)
+      enrollment = create(:student_enrollment, student: student)
+
+      regular_course = create(:course, description: 'Ensino Fundamental')
+      regular_grade = create(:grade, course: regular_course, description: '3º Ano')
+      regular_classroom = create(:classroom, year: year, description: '3º Ano A')
+      regular_classrooms_grade = create(:classrooms_grade, classroom: regular_classroom, grade: regular_grade)
+      create(
+        :student_enrollment_classroom,
+        student_enrollment: enrollment,
+        classrooms_grade: regular_classrooms_grade
+      )
+
+      aee_course = create(:course, description: 'Atendimento Educacional Especializado')
+      aee_grade = create(:grade, course: aee_course, description: 'AEE')
+      aee_classroom = create(:classroom, year: year, description: 'Turma AEE')
+      aee_classrooms_grade = create(:classrooms_grade, classroom: aee_classroom, grade: aee_grade)
+      create(
+        :student_enrollment_classroom,
+        student_enrollment: enrollment,
+        classrooms_grade: aee_classrooms_grade
+      )
+
+      record = build(
+        :aee_case_study,
+        student: student,
+        classroom: aee_classroom,
+        year: year,
+        grade_stage: nil,
+        modality: nil
+      )
+      record.apply_student_defaults!
+
+      expect(record.grade_stage).to eq('3º Ano')
+      expect(record.modality).to eq('Ensino Fundamental')
+    end
+  end
 end
