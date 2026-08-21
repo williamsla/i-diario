@@ -23,6 +23,7 @@ module Navigation
       nodes.select do |node|
         visible = node["menu"]["visible"]
         next if (!visible.nil? && visible == false) || (visible == 'only-when-active' && node["menu"]["type"] != item)
+        next if visible == 'only-when-aee' && !aee_navigation_context?
         yield node_values(node["menu"], parent_menu)
       end
     end
@@ -32,7 +33,7 @@ module Navigation
         menu[:type]      = node["type"]
         menu[:icon]      = node["icon"]
         menu[:path]      = node["path"]
-        menu[:visible]   = node["visible"]
+        menu[:visible]   = node["visible"] == true || node["visible"] == 'only-when-active'
         menu[:css_class] = []
         menu[:subnodes]  = []
 
@@ -51,6 +52,10 @@ module Navigation
 
     def render
       navigation_render.render(menus)
+    end
+
+    def aee_navigation_context?
+      Thread.current[:navigation_is_aee]
     end
   end
 end

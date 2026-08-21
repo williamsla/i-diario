@@ -1,0 +1,29 @@
+.aee-section-hint {
+  display: block;
+  font-size: 12px;
+  font-weight: normal;
+  color: #777;
+  margin-top: 4px;
+}
+
+.aee-legal {
+  margin: 0 15px 15px;
+  padding: 8px 12px;
+  background: #f4f7fa;
+  border-left: 3px solid #3276b1;
+}
+
+.aee-legal summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #3276b1;
+}
+
+.aee-legal p {
+  margin: 8px 0 0;
+  color: #555;
+}
+
+.smart-form .aee-legal {
+  margin: 0 0 15px;
+}

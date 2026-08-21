@@ -1,0 +1,99 @@
+<% content_for :js do %>
+  <%= javascript_include_tag 'views/aee_case_studies/form' %>
+<% end %>
+
+<%= simple_form_for @aee_case_study, html: { class: 'smart-form', id: 'aee_case_studies_form' } do |f| %>
+  <%= f.error_notification %>
+
+  <fieldset>
+    <legend><%= t('.identification_legend') %></legend>
+    <span class="aee-section-hint"><%= t('.identification_hint') %></span>
+
+    <div class="row">
+      <div class="col col-sm-8">
+        <%= f.association :student, as: :select2, elements: @students, required: true,
+                          readonly: f.object.persisted? %>
+      </div>
+      <div class="col col-sm-4">
+        <%= f.input :age, readonly: true %>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-sm-4">
+        <%= f.input :grade_stage %>
+      </div>
+      <div class="col col-sm-4">
+        <%= f.input :modality %>
+      </div>
+      <div class="col col-sm-4">
+        <%= f.input :document_date, as: :date %>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-sm-12">
+        <%= f.input :identification, as: :text, input_html: { rows: 3 } %>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend><%= t('.stages_legend') %></legend>
+
+    <div class="row">
+      <div class="col col-sm-12">
+        <%= f.input :individual_demands, as: :text,
+              hint: t('.individual_demands_hint'),
+              input_html: { rows: 4 } %>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-sm-12">
+        <%= f.input :barriers_and_context, as: :text,
+              hint: t('.barriers_and_context_hint'),
+              input_html: { rows: 4 } %>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-sm-12">
+        <%= f.input :potentialities_and_support, as: :text,
+              hint: t('.potentialities_and_support_hint'),
+              input_html: { rows: 4 } %>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-sm-12">
+        <%= f.input :accessibility_strategies, as: :text,
+              hint: t('.accessibility_strategies_hint'),
+              input_html: { rows: 4 } %>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-sm-12">
+        <%= f.input :final_considerations, as: :text, input_html: { rows: 4 } %>
+      </div>
+    </div>
+  </fieldset>
+
+  <details class="aee-legal">
+    <summary><%= t('.legal_summary') %></summary>
+    <p><%= t('.legal_text') %></p>
+  </details>
+
+  <footer>
+    <%= link_to t('views.form.back'), aee_case_studies_path, class: 'btn btn-default' %>
+
+    <% if f.object.persisted? %>
+      <%= link_to t('helpers.links.print_html'), aee_case_study_path(f.object),
+                  class: 'btn btn-info', target: '_blank' %>
+      <%= link_to t('views.form.history'), history_aee_case_study_path(f.object), class: 'btn btn-info' %>
+    <% end %>
+
+    <%= f.submit t('views.form.save'), class: 'btn btn-primary', data: { disable_with: 'Salvando...' } %>
+  </footer>
+<% end %>

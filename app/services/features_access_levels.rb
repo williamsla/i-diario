@@ -51,7 +51,8 @@ class FeaturesAccessLevels
       :learning_objectives_and_skills,
       :avaliation_recovery_lowest_notes,
       :attendance_record_report_by_students,
-      :monthly_absence_by_student_report
+      :monthly_absence_by_student_report,
+      :aee_case_studies
     ]
   end
 

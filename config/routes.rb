@@ -402,6 +402,11 @@ Rails.application.routes.draw do
     end
     resources :teacher_absences, concerns: :history
     resources :observation_diary_records, concerns: :history
+    resources :aee_case_studies, concerns: :history do
+      collection do
+        get :student_data
+      end
+    end
     resources :ieducar_api_exam_postings do
       member do
         get :done_percentage
