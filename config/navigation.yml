@@ -114,6 +114,12 @@ navigation:
             type: "translations"
             path: "translations_path"
   - menu:
+      type: "aee_case_studies"
+      icon: "fa-folder-open-o"
+      path: "aee_case_studies_path"
+      visible: "only-when-aee"
+      shortcut: true
+  - menu:
       type: "teaching_plans_menu"
       icon: "fa-book"
       shortcut: true

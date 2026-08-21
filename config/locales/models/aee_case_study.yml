@@ -1,0 +1,56 @@
+pt-BR:
+  activerecord:
+    models:
+      aee_case_study:
+        one: "Estudo de caso AEE"
+        other: "Estudos de caso AEE"
+
+    attributes:
+      aee_case_study:
+        unity: "Escola"
+        unity_id: "Escola"
+        classroom: "Turma"
+        classroom_id: "Turma"
+        student: "Nome do estudante"
+        student_id: "Nome do estudante"
+        teacher: "Professor(a)"
+        user: "Usuário"
+        school_calendar: "Calendário escolar"
+        year: "Ano letivo"
+        grade_stage: "Etapa"
+        age: "Idade"
+        identification: "Identificação"
+        modality: "Modalidade"
+        individual_demands: "I. Identificação das demandas individuais e das barreiras"
+        barriers_and_context: "II. Análise das barreiras e contexto escolar"
+        potentialities_and_support: "III. Identificação das potencialidades e das demandas de apoio ao estudante"
+        accessibility_strategies: "IV. Definição de estratégias e recursos de acessibilidade para eliminação de barreiras"
+        final_considerations: "Considerações finais"
+        regular_teacher_name: "Professor(a) da sala regular"
+        specialized_teacher_name: "Professor(a) especializado(a)"
+        mediator_name: "Mediador(a)"
+        pedagogical_coordinator_name: "Coordenador(a) de gestão pedagógica"
+        school_management_name: "Gestão escolar"
+        responsible_name: "Responsável"
+        document_date: "Data do documento"
+
+    errors:
+      models:
+        aee_case_study:
+          attributes:
+            student_id:
+              taken: "já possui um estudo de caso para esta turma no ano letivo"
+
+  aee_case_studies:
+    age_label:
+      one: "%{count} ano"
+      other: "%{count} anos"
+    errors:
+      require_aee_classroom: "O estudo de caso AEE está disponível apenas para turmas de AEE."
+    pdf:
+      title: "Estudo de caso do estudante"
+      stages_intro: "1. O estudo de caso é composto pelas seguintes etapas:"
+      stage_i: "I. Identificação das demandas individuais e das barreiras"
+      stage_ii: "II. Análise das barreiras e contexto escolar"
+      stage_iii: "III. Identificação das potencialidades e das demandas de apoio ao estudante"
+      stage_iv: "IV. Definição de estratégias e recursos de acessibilidade para eliminação de barreiras"

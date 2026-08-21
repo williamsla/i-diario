@@ -1,0 +1,14 @@
+<div class="aee-stage">
+  <div class="aee-stage-head">
+    <span class="aee-stage-index" aria-hidden="true"><%= index %></span>
+    <div class="aee-stage-copy">
+      <span class="aee-stage-title">
+        <%= title %>
+        <abbr title="<%= t('simple_form.required.text') %>">*</abbr>
+      </span>
+      <span class="aee-stage-hint"><%= hint %></span>
+    </div>
+  </div>
+  <%= f.input attribute, as: :text, label: false, hint: false,
+        input_html: { rows: 5, class: 'aee-stage-input' } %>
+</div>
