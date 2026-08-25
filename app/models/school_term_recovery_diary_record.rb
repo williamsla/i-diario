@@ -125,8 +125,8 @@ class SchoolTermRecoveryDiaryRecord < ApplicationRecord
     @valid_for_destruction = begin
       recovery_diary_record.validation_type = :destroy
       recovery_diary_record.valid?
-      forbidden_error = I18n.t('errors.messages.not_allowed_to_post_in_date')
-      if recovery_diary_record.errors[:recorded_at].include?(forbidden_error)
+      forbidden_error = PostingDateChecker.find_error(recovery_diary_record.errors[:recorded_at])
+      if forbidden_error
         errors.add(:base, forbidden_error)
         false
       else

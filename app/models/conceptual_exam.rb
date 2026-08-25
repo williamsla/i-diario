@@ -168,7 +168,7 @@ class ConceptualExam < ActiveRecord::Base
     @valid_for_destruction = begin
       self.validation_type = :destroy
       valid?
-      !errors[:recorded_at].include?(I18n.t('errors.messages.not_allowed_to_post_in_date'))
+      !PostingDateChecker.not_allowed_error?(errors[:recorded_at])
     end
   end
 

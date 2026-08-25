@@ -148,7 +148,7 @@ class DailyFrequency < ApplicationRecord
     @valid_for_destruction if defined?(@valid_for_destruction)
     @valid_for_destruction = begin
       valid?
-      !errors[:frequency_date].include?(I18n.t('errors.messages.not_allowed_to_post_in_date'))
+      !PostingDateChecker.not_allowed_error?(errors[:frequency_date])
     end
   end
 

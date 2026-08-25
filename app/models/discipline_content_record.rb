@@ -98,8 +98,8 @@ class DisciplineContentRecord < ActiveRecord::Base
     @valid_for_destruction = begin
       content_record.validation_type = :destroy
       content_record.valid?
-      forbidden_error = I18n.t('errors.messages.not_allowed_to_post_in_date')
-      if content_record.errors[:record_date].include?(forbidden_error)
+      forbidden_error = PostingDateChecker.find_error(content_record.errors[:record_date])
+      if forbidden_error
         errors.add(:base, forbidden_error)
         false
       else
