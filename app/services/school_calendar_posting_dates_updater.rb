@@ -100,20 +100,18 @@ class SchoolCalendarPostingDatesUpdater
     attrs = group_attrs.respond_to?(:to_unsafe_h) ? group_attrs.to_unsafe_h : group_attrs
     attrs = attrs.with_indifferent_access
 
-    start_raw = attrs[:start_date_for_posting]
-    end_raw = attrs[:end_date_for_posting]
-    return if start_raw.blank? && end_raw.blank?
+    start_date, start_status = extract_date(attrs[:start_date_for_posting])
+    end_date, end_status = extract_date(attrs[:end_date_for_posting])
+    return if start_status == :blank && end_status == :blank
 
     label = self.class.group_label(attrs[:step_number], attrs[:step_type_description])
-    start_date = parse_date(start_raw)
-    end_date = parse_date(end_raw)
 
-    if start_raw.present? && start_date.nil?
+    if start_status == :invalid
       result.add_error(label, I18n.t('school_calendar_posting_dates.errors.invalid_start_date'))
       return
     end
 
-    if end_raw.present? && end_date.nil?
+    if end_status == :invalid
       result.add_error(label, I18n.t('school_calendar_posting_dates.errors.invalid_end_date'))
       return
     end
@@ -128,8 +126,7 @@ class SchoolCalendarPostingDatesUpdater
   def update_collection(relation, start_date, end_date, result)
     relation.find_each do |step|
       begin
-        step.start_date_for_posting = start_date if start_date.present?
-        step.end_date_for_posting = end_date if end_date.present?
+        assign_posting_dates(step, start_date, end_date)
         next unless step.changed?
 
         step.save!
@@ -138,6 +135,23 @@ class SchoolCalendarPostingDatesUpdater
         result.add_error(step_error_label(step), step.errors.full_messages)
       end
     end
+  end
+
+  def assign_posting_dates(step, start_date, end_date)
+    if start_date.present?
+      step.start_date_for_posting = start_date
+    elsif end_date.present?
+      ensure_start_date_for_posting(step)
+    end
+
+    step.end_date_for_posting = end_date if end_date.present?
+  end
+
+  def ensure_start_date_for_posting(step)
+    return if step.start_at.blank? || step.start_date_for_posting.blank?
+    return if step.start_date_for_posting >= step.start_at
+
+    step.start_date_for_posting = step.start_at
   end
 
   def school_steps
@@ -174,11 +188,28 @@ class SchoolCalendarPostingDatesUpdater
     self.class.normalize_step_type(attrs[:step_type_description])
   end
 
-  def parse_date(value)
-    return if value.blank?
-    return value if value.is_a?(Date)
+  def extract_date(value)
+    return [nil, :blank] if blank_date?(value)
+    return [value, :ok] if value.is_a?(Date)
+
+    date = parse_date(value.to_s.strip)
+    return [nil, :invalid] if date.nil?
+    return [nil, :blank] if date.year < 1900
+
+    [date, :ok]
+  end
+
+  def blank_date?(value)
+    return true if value.blank?
+    return false if value.is_a?(Date)
 
     string = value.to_s.strip
+    string.empty? ||
+      string.match?(%r{\A[_/\s]+\z}) ||
+      string.match?(%r{\A0{1,2}/0{1,2}/0{2,4}\z})
+  end
+
+  def parse_date(string)
     return Date.strptime(string, '%d/%m/%Y') if string.match?(%r{\A\d{1,2}/\d{1,2}/\d{4}\z})
     return Date.parse(string) if string.match?(/\A\d{4}-\d{2}-\d{2}\z/)
 

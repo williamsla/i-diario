@@ -120,9 +120,19 @@
       var confirmButton = <%= raw t('.confirm_button').to_json %>;
       var cancelButton = <%= raw t('.cancel_button').to_json %>;
 
+      function filledDate($input) {
+        var value = $.trim($input.val() || '');
+        if (!value || /^[_\s\/]+$/.test(value) || /^0{1,2}\/0{1,2}\/0{2,4}$/.test(value) || !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(value)) {
+          $input.val('');
+          return '';
+        }
+
+        return value;
+      }
+
       function rowChanges($row) {
-        var startDate = $.trim($row.find('input[name$="[start_date_for_posting]"]').val());
-        var endDate = $.trim($row.find('input[name$="[end_date_for_posting]"]').val());
+        var startDate = filledDate($row.find('input[name$="[start_date_for_posting]"]'));
+        var endDate = filledDate($row.find('input[name$="[end_date_for_posting]"]'));
         if (!startDate && !endDate) {
           return null;
         }
