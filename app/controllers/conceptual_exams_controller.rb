@@ -97,6 +97,11 @@ class ConceptualExamsController < ApplicationController
     @conceptual_exam.assign_attributes(resource_params) if params[:conceptual_exam].present?
     apply_step_defaults_for_new
 
+    if @conceptual_exam.step.present?
+      redirect_unless_can_launch_in_step!(@conceptual_exam.step, conceptual_exams_path)
+      return if performed?
+    end
+
     authorize @conceptual_exam
 
     fetch_collections
@@ -129,6 +134,9 @@ class ConceptualExamsController < ApplicationController
         step = steps_fetcher(@classroom).step_by_id(resource_params[:step_id])
         record_at = resource_params[:recorded_at].to_date
       end
+
+      redirect_unless_can_launch_in_step!(step, conceptual_exams_path)
+      return if performed?
       
       resource_params_changed = resource_params.merge!("step_id": step.id)
       resource_params_changed = resource_params_changed.merge!("step_number": step.step_number)
@@ -162,6 +170,9 @@ class ConceptualExamsController < ApplicationController
     @conceptual_exam.assign_attributes(resource_params)
     @conceptual_exam.teacher_id = current_teacher_id
     @conceptual_exam.current_user = current_user
+
+    redirect_unless_can_launch_in_step!(@conceptual_exam.step, conceptual_exams_path)
+    return if performed?
 
     authorize @conceptual_exam
 
@@ -272,6 +283,9 @@ class ConceptualExamsController < ApplicationController
     end
     @batch_form.recorded_at = @recorded_at
 
+    redirect_unless_can_launch_in_step!(@step, conceptual_exams_path)
+    return if performed?
+
     enrollment_start = @only_one_conceptual_avaliation ? @annual_period_start : @step.start_at
     enrollment_end = @only_one_conceptual_avaliation ? @annual_period_end : @step.end_at
     @student_enrollments = batch_student_enrollments(@classroom, enrollment_start, enrollment_end)
@@ -310,6 +324,9 @@ class ConceptualExamsController < ApplicationController
       @step = steps_fetcher(@classroom).steps.first || @step
       @batch_form.step_id = @step.id if @step
     end
+
+    redirect_unless_can_launch_in_step!(@step, conceptual_exams_path)
+    return if performed?
 
     base_record_at = batch_valid_recorded_at(@step, @batch_form.recorded_at.to_date, @classroom)
     base_record_at = batch_last_date_of_step(@step) if base_record_at.blank?

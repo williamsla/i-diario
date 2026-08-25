@@ -1,0 +1,181 @@
+<div class="widget-body no-padding">
+  <%= simple_form_for :school_calendar_posting_dates,
+                      url: school_calendar_posting_dates_path,
+                      method: :patch,
+                      html: { class: 'smart-form school-calendar-posting-dates-form', id: 'school-calendar-posting-dates-form' } do |f| %>
+    <fieldset>
+      <div class="alert alert-info fade in">
+        <i class="fa-fw fa fa-info"></i>
+        <%= t('.info', year: @year) %>
+      </div>
+
+      <% if @result && @result.errors.any? %>
+        <div class="alert alert-danger">
+          <strong><%= t('.errors_title') %></strong>
+          <ul>
+            <% @result.errors.each do |error| %>
+              <li>
+                <strong><%= error[:label] %>:</strong>
+                <%= error[:messages].join(', ') %>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+
+      <section>
+        <%= hidden_field_tag :apply_to_classroom_steps, '0' %>
+        <label class="checkbox">
+          <%= check_box_tag :apply_to_classroom_steps, '1', @apply_to_classroom_steps, id: 'apply_to_classroom_steps' %>
+          <i></i>
+          <%= t('.apply_to_classroom_steps') %>
+        </label>
+      </section>
+
+      <div class="table-responsive">
+        <table class="table table-striped table-bordered table-condensed records school-calendar-posting-dates-table">
+          <thead>
+            <tr>
+              <th class="posting-step-cell"><%= t('.step') %></th>
+              <th class="posting-date-cell"><%= t('.start_date_for_posting') %></th>
+              <th class="posting-date-cell"><%= t('.end_date_for_posting') %></th>
+              <th class="posting-reach-cell"><%= t('.reach') %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if @groups.empty? %>
+              <tr>
+                <td class="no_record_found" colspan="4"><%= t('views.index.no_record_found') %></td>
+              </tr>
+            <% else %>
+              <% @groups.each_with_index do |group, index| %>
+                <tr data-step-label="<%= group.label %>"
+                    data-school-count="<%= group.school_count %>"
+                    data-classroom-count="<%= group.classroom_step_count %>">
+                  <td class="posting-step-cell">
+                    <%= hidden_field_tag "groups[#{index}][step_number]", group.step_number %>
+                    <%= hidden_field_tag "groups[#{index}][step_type_description]", group.step_type_description %>
+                    <%= group.label %>
+                  </td>
+                  <td class="posting-date-cell">
+                    <span class="posting-current-date" title="<%= posting_dates_current_title(group.start_dates) %>">
+                      <%= t('.current_date', date: posting_dates_current_value(group.start_dates)) %>
+                    </span>
+                    <div class="icon-addon">
+                      <label class="fa fa-calendar" for="groups_<%= index %>_start_date_for_posting"></label>
+                      <%= text_field_tag "groups[#{index}][start_date_for_posting]",
+                                         nil,
+                                         id: "groups_#{index}_start_date_for_posting",
+                                         class: 'string input-small form-control datepicker',
+                                         size: 10,
+                                         data: { mask: '99/99/9999' },
+                                         placeholder: t('.leave_blank') %>
+                    </div>
+                  </td>
+                  <td class="posting-date-cell">
+                    <span class="posting-current-date" title="<%= posting_dates_current_title(group.end_dates) %>">
+                      <%= t('.current_date', date: posting_dates_current_value(group.end_dates)) %>
+                    </span>
+                    <div class="icon-addon">
+                      <label class="fa fa-calendar" for="groups_<%= index %>_end_date_for_posting"></label>
+                      <%= text_field_tag "groups[#{index}][end_date_for_posting]",
+                                         nil,
+                                         id: "groups_#{index}_end_date_for_posting",
+                                         class: 'string input-small form-control datepicker',
+                                         size: 10,
+                                         data: { mask: '99/99/9999' },
+                                         placeholder: t('.leave_blank') %>
+                    </div>
+                  </td>
+                  <td class="posting-reach-cell">
+                    <% posting_dates_reach_parts(group).each do |part| %>
+                      <span><%= part %></span>
+                    <% end %>
+                  </td>
+                </tr>
+              <% end %>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </fieldset>
+
+    <footer>
+      <%= link_to t('views.form.back'), school_calendars_path, class: 'btn btn-default' %>
+      <%= f.submit t('views.form.save'), class: 'btn btn-primary', disabled: @groups.empty? %>
+    </footer>
+  <% end %>
+</div>
+
+<% content_for :js do %>
+  <script type="text/javascript">
+    $(function () {
+      var $form = $('#school-calendar-posting-dates-form');
+      var emptyMessage = <%= raw t('.empty_changes').to_json %>;
+      var confirmTitle = <%= raw t('.confirm_title').to_json %>;
+      var startLabel = <%= raw t('.confirm_start').to_json %>;
+      var endLabel = <%= raw t('.confirm_end').to_json %>;
+      var schoolsLabel = <%= raw t('.confirm_schools').to_json %>;
+      var classroomsLabel = <%= raw t('.confirm_classrooms').to_json %>;
+      var confirmButton = <%= raw t('.confirm_button').to_json %>;
+      var cancelButton = <%= raw t('.cancel_button').to_json %>;
+
+      function rowChanges($row) {
+        var startDate = $.trim($row.find('input[name$="[start_date_for_posting]"]').val());
+        var endDate = $.trim($row.find('input[name$="[end_date_for_posting]"]').val());
+        if (!startDate && !endDate) {
+          return null;
+        }
+
+        var parts = ['<strong>' + $row.attr('data-step-label') + '</strong>'];
+        if (startDate) {
+          parts.push(startLabel + ' ' + startDate);
+        }
+        if (endDate) {
+          parts.push(endLabel + ' ' + endDate);
+        }
+        parts.push(schoolsLabel.replace('%{count}', $row.attr('data-school-count')));
+        if ($('#apply_to_classroom_steps').is(':checked') && parseInt($row.attr('data-classroom-count'), 10) > 0) {
+          parts.push(classroomsLabel.replace('%{count}', $row.attr('data-classroom-count')));
+        }
+        return parts.join(' — ');
+      }
+
+      $form.on('submit', function (event) {
+        if ($form.data('confirmed')) {
+          return true;
+        }
+
+        event.preventDefault();
+
+        var messages = [];
+        $form.find('tbody tr[data-step-label]').each(function () {
+          var change = rowChanges($(this));
+          if (change) {
+            messages.push(change);
+          }
+        });
+
+        if (!messages.length) {
+          bootbox.alert(emptyMessage);
+          return false;
+        }
+
+        bootbox.confirm({
+          title: confirmTitle,
+          message: '<ul><li>' + messages.join('</li><li>') + '</li></ul>',
+          buttons: {
+            confirm: { label: confirmButton, className: 'btn-primary' },
+            cancel: { label: cancelButton, className: 'btn-default' }
+          },
+          callback: function (result) {
+            if (result) {
+              $form.data('confirmed', true);
+              $form.get(0).submit();
+            }
+          }
+        });
+      });
+    });
+  </script>
+<% end %>

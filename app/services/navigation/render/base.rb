@@ -52,9 +52,10 @@ module Navigation
         end
       end
 
-  def policy_klass_for(feature)
-    return Educamais if feature.to_s == 'educamais'
-    return Tutorials if feature.to_s == 'tutorials'
+      def policy_klass_for(feature)
+        return Educamais if feature.to_s == 'educamais'
+        return Tutorials if feature.to_s == 'tutorials'
+        return SchoolCalendarPostingDates if feature.to_s == 'school_calendar_posting_dates'
 
         begin
           feature.singularize.camelcase.constantize

@@ -65,6 +65,9 @@ navigation:
         - menu:
             type: "school_calendar_event_batches"
             visible: "only-when-active"
+        - menu:
+            type: "school_calendar_posting_dates"
+            path: "edit_school_calendar_posting_dates_path"
   - menu:
       type: "educamais"
       icon: "fa-bar-chart"

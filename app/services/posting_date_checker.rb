@@ -5,12 +5,13 @@ class PostingDateChecker
   end
 
   def check
-    return true if thread_origin_type_is_api?
     return true unless User.current
-    return true if User.current.can_change?(Features::IEDUCAR_API_EXAM_POSTING_WITHOUT_RESTRICTIONS)
     return true if date_allows_entry_outside_steps?
     return false unless step
-    return current_between_step? && record_date_between_step?
+    return false if step_posting_not_started?
+    return true if thread_origin_type_is_api?
+    return true if User.current.can_change?(Features::IEDUCAR_API_EXAM_POSTING_WITHOUT_RESTRICTIONS)
+    current_between_step? && record_date_between_step?
   end
 
   private
@@ -38,5 +39,11 @@ class PostingDateChecker
 
   def thread_origin_type_is_api?
     OriginTypes::API_V2 == Thread.current[:origin_type]
+  end
+
+  def step_posting_not_started?
+    return false if step.start_date_for_posting.blank?
+
+    Time.zone.today < step.start_date_for_posting
   end
 end

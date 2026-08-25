@@ -247,6 +247,109 @@ $(function(){
     '</span>';
   }
 
+  function showFinalRecoveryColumn(stepData) {
+    return stepData.show_final_recovery === true;
+  }
+
+  function renderFinalRecoveryHeader(stepData) {
+    if (!showFinalRecoveryColumn(stepData)) {
+      return '';
+    }
+
+    return '<th style="width: 170px; text-align: center;">Recuperação Final</th>';
+  }
+
+  function renderFinalRecoveryCell(record, stepData) {
+    if (!showFinalRecoveryColumn(stepData)) {
+      return '';
+    }
+
+    var disciplineId = record.final_recovery_discipline_id;
+    if (!disciplineId) {
+      return '<td style="text-align: center;">' +
+        '<span title="A recuperação final é lançada por disciplina.">—</span>' +
+      '</td>';
+    }
+
+    return '<td style="text-align: center;" class="final-recovery-pending-cell" data-discipline-id="' + disciplineId + '">' +
+      '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default;" title="Consultando alunos em exame final...">' +
+        '<i class="fa fa-spinner fa-spin"></i>' +
+      '</span>' +
+    '</td>';
+  }
+
+  function renderFinalRecoveryCountBadge(count) {
+    if (count > 0) {
+      return '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; background-color: #ff9800; color: white;" title="Alunos em exame final sem nota de recuperação lançada.">' +
+        count + ' aluno(s)' +
+      '</span>';
+    }
+
+    return '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: green; font-size: 30px;" title="Todos os alunos em exame final têm nota de recuperação lançada.">' +
+      '<i class="fa fa-check-circle"></i>' +
+    '</span>';
+  }
+
+  function renderFinalRecoveryErrorBadge() {
+    return '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: #8a6d3b;" title="Não foi possível consultar os alunos em exame final. Tente novamente em instantes.">' +
+      '<i class="fa fa-exclamation-triangle"></i>' +
+    '</span>';
+  }
+
+  function fetchFinalRecoveryPending(stepData) {
+    if (!showFinalRecoveryColumn(stepData)) {
+      return;
+    }
+
+    var $cells = $('#step-data-container .final-recovery-pending-cell');
+    if ($cells.length === 0) {
+      return;
+    }
+
+    var disciplineIds = [];
+    $cells.each(function() {
+      var disciplineId = $(this).data('discipline-id');
+      if (disciplineId) {
+        disciplineIds.push(disciplineId);
+      }
+    });
+
+    $.ajax({
+      url: Routes.final_recovery_dashboard_teacher_pending_records_pt_br_path({
+        format: 'json',
+        step_id: stepData.step_id,
+        discipline_ids: disciplineIds.join(',')
+      }),
+      success: function(data) {
+        var counts = (data && data.counts) || {};
+        var errors = (data && data.errors) || {};
+
+        $cells.each(function() {
+          var $cell = $(this);
+          var disciplineId = String($cell.data('discipline-id'));
+
+          if (errors[disciplineId]) {
+            $cell.html(renderFinalRecoveryErrorBadge());
+            return;
+          }
+
+          var count = counts[disciplineId];
+          if (count === undefined || count === null) {
+            $cell.html(renderFinalRecoveryErrorBadge());
+            return;
+          }
+
+          $cell.html(renderFinalRecoveryCountBadge(parseInt(count, 10) || 0));
+        });
+      },
+      error: function() {
+        $cells.each(function() {
+          $(this).html(renderFinalRecoveryErrorBadge());
+        });
+      }
+    });
+  }
+
   function handleFetchStepDataSuccess(stepData) {
     var $stepContainer = $('#step-data-container');
     
@@ -272,6 +375,7 @@ $(function(){
                 '<th style="width: 200px; text-align: center;">Frequências Pendentes</th>' +
                 '<th style="width: 200px; text-align: center;">Conteúdos Pendentes</th>' +
                 avaliationsHeaderHtml +
+                renderFinalRecoveryHeader(stepData) +
               '</tr>' +
             '</thead>' +
             '<tbody>';
@@ -349,6 +453,7 @@ $(function(){
             '</div>' +
           '</td>' +
           avaliationsColumnsHtml +
+          renderFinalRecoveryCell(record, stepData) +
           '</tr>';
       } else {
         // Frequência não por disciplina: coluna de frequência só na primeira linha (rowspan)
@@ -368,6 +473,7 @@ $(function(){
               '</div>' +
             '</td>' +
             avaliationsColumnsHtml +
+            renderFinalRecoveryCell(record, stepData) +
             '</tr>';
         } else {
           stepHtml += '<tr>' +
@@ -379,6 +485,7 @@ $(function(){
               '</div>' +
             '</td>' +
             avaliationsColumnsHtml +
+            renderFinalRecoveryCell(record, stepData) +
             '</tr>';
         }
       }
@@ -392,7 +499,8 @@ $(function(){
       '</div>';
 
     $stepContainer.html(stepHtml);
-    
+    fetchFinalRecoveryPending(stepData);
+
     // Adicionar event listeners para os ícones de lupa
     $stepContainer.find('.toggle-dates').on('click', function(e) {
       e.preventDefault();

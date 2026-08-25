@@ -67,6 +67,7 @@ class ApplicationController < ActionController::Base
   helper_method :current_user_classroom
   helper_method :current_user_discipline
   helper_method :can_change_school_year?
+  helper_method :can_launch_in_step?
 
   def page
     params[:page] || 1
@@ -395,6 +396,22 @@ class ApplicationController < ActionController::Base
 
     flash[:alert] = t('errors.general.not_allowed_to_modify_prev_years')
     redirect_to root_path
+  end
+
+  def can_launch_in_step?(step)
+    return false if step.blank?
+
+    step.posting_started?
+  end
+
+  def redirect_unless_can_launch_in_step!(step, fallback_path)
+    return if step.blank? || can_launch_in_step?(step)
+
+    flash[:alert] = t(
+      'errors.messages.step_posting_not_started',
+      date: l(step.start_date_for_posting)
+    )
+    redirect_to fallback_path
   end
 
   def allowed_to_modify_after_steps_ended?

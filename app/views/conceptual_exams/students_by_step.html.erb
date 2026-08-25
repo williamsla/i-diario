@@ -86,7 +86,7 @@
                                 conceptual_exam_path(row.conceptual_exam),
                                 class: 'btn btn-info apply_tooltip',
                                 title: t('conceptual_exams.form.show') %>
-                    <% if current_user.can_change?(:conceptual_exams) %>
+                    <% if current_user.can_change?(:conceptual_exams) && can_launch_in_step?(@step) %>
                       <%= link_to t('helpers.links.edit_html'),
                                   edit_conceptual_exam_path(row.conceptual_exam),
                                   class: 'btn btn-success apply_tooltip',
@@ -98,7 +98,7 @@
                                   title: t('conceptual_exams.form.destroy'),
                                   data: { confirm: t('views.index.confirm_deletion') } %>
                     <% end %>
-                  <% elsif current_user.can_change?(:conceptual_exams) %>
+                  <% elsif current_user.can_change?(:conceptual_exams) && can_launch_in_step?(@step) %>
                     <%= link_to t('conceptual_exams.students_by_step.launch'),
                                 new_conceptual_exam_path(conceptual_exam: {
                                   unity_id: @classroom.unity_id,
@@ -107,6 +107,11 @@
                                   student_id: row.student.id
                                 }),
                                 class: 'btn btn-primary btn-sm' %>
+                  <% elsif current_user.can_change?(:conceptual_exams) %>
+                    <span class="btn btn-primary btn-sm disabled"
+                          title="<%= t('conceptual_exams.students_by_step.launch_blocked', date: l(@step.start_date_for_posting)) %>">
+                      <%= t('conceptual_exams.students_by_step.launch') %>
+                    </span>
                   <% end %>
                 </td>
               </tr>

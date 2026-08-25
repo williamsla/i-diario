@@ -112,4 +112,18 @@ RSpec.describe SchoolCalendarStep, type: :model do
       expect(subject.to_number).to eql(1)
     end
   end
+
+  describe "#posting_started?" do
+    subject { build(:school_calendar_step) }
+
+    it "is true when start_date_for_posting is today or in the past" do
+      subject.start_date_for_posting = Date.current
+      expect(subject.posting_started?).to be(true)
+    end
+
+    it "is false when start_date_for_posting is in the future" do
+      subject.start_date_for_posting = Date.current + 1
+      expect(subject.posting_started?).to be(false)
+    end
+  end
 end

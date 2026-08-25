@@ -11,11 +11,19 @@
                 <% end %>
               </td>
               <td></td>
-              <td class="actions" style="width: <%= @school_calendars.any? ? 230 : 130 %>px">
+              <td class="actions" style="width: <%= @school_calendars.any? ? 430 : 130 %>px">
                 <% if current_user.roles.any? { |role| role.administrator? } %>
-                  <%= link_to 'Eventos em lote',
-                              school_calendar_event_batches_path,
-                              class: "btn btn-info pull-right" %>
+                  <div class="pull-right">
+                    <% if policy(SchoolCalendarPostingDates).edit? %>
+                      <%= link_to t('.posting_dates'),
+                                  edit_school_calendar_posting_dates_path,
+                                  class: "btn btn-info",
+                                  style: "margin-right: 5px;" %>
+                    <% end %>
+                    <%= link_to 'Eventos em lote',
+                                school_calendar_event_batches_path,
+                                class: "btn btn-info" %>
+                  </div>
                 <% end %>
               </td>
             </tr>

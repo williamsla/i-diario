@@ -26,6 +26,7 @@ pt-BR:
       not_school_calendar_day: "deve ser um dia letivo"
       is_not_between_steps: "deve ser um dia dentro do calendário letivo"
       not_allowed_to_post_in_date: "Não é possível alterar registros fora das datas de lançamento da etapa"
+      step_posting_not_started: "Não é possível lançar nesta etapa porque a data inicial para lançamentos (%{date}) ainda não começou"
       not_school_term_day: "deve ser um dia letivo da etapa informada"
       not_belongs_to_teacher: "não pertence ao professor"
       not_selected_in_profile: "não está selecionado no perfil"

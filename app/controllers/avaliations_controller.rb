@@ -50,6 +50,9 @@ class AvaliationsController < ApplicationController
     if params[:step_id].present?
       step = StepsFetcher.new(current_user_classroom).step_by_id(params[:step_id])
       if step
+        redirect_unless_can_launch_in_step!(step, avaliations_path)
+        return if performed?
+
         today = Time.zone.today
         start_d = step.start_at.to_date
         end_d = step.end_at.to_date
@@ -75,6 +78,8 @@ class AvaliationsController < ApplicationController
       flash[:alert] = t('avaliations.by_step.invalid_step')
       redirect_to avaliations_path and return
     end
+    redirect_unless_can_launch_in_step!(@step, avaliations_path)
+    return if performed?
 
     @test_setting = TestSettingFetcher.current(
       current_user_classroom,
@@ -133,6 +138,8 @@ class AvaliationsController < ApplicationController
       flash[:alert] = t('avaliations.by_step.invalid_step')
       redirect_to avaliations_path and return
     end
+    redirect_unless_can_launch_in_step!(@step, avaliations_path)
+    return if performed?
 
     test_setting = TestSettingFetcher.current(
       current_user_classroom,

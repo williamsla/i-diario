@@ -30,6 +30,7 @@ class TransferNote < ApplicationRecord
   before_validation :set_transfer_date, on: [:create, :update]
 
   validates :unity_id, :discipline_id, :student_id, :teacher, presence: true
+  validates :recorded_at, posting_date: true, unless: :ignore_date_validates
 
   default_scope -> { kept }
 

@@ -106,6 +106,7 @@ Rails.application.routes.draw do
       resources :teacher_pending_records, only: [:index] do
         collection do
           get :dates
+          get :final_recovery
         end
       end
     end
@@ -183,6 +184,7 @@ Rails.application.routes.draw do
         post :reprocess
       end
     end
+    resource :school_calendar_posting_dates, only: [:edit, :update]
     resources :school_calendars, concerns: :history do
       collection do
         get :step

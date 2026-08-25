@@ -42,6 +42,7 @@ pt-BR:
       title: 'Lançamento por etapa'
       subtitle: 'Selecione a etapa para lançar as avaliações numéricas da turma.'
       fill_button: 'Preencher / Editar'
+      fill_button_blocked: 'Lançamentos a partir de %{date}'
       no_steps: 'Nenhuma etapa encontrada para esta turma.'
       classroom_label: 'Turma'
       invalid_step: 'Etapa inválida ou não encontrada para esta turma.'

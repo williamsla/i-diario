@@ -41,6 +41,7 @@ class Features < EnumerateIt::Base
                    :roles,
                    :school_calendar_events,
                    :school_calendar_event_batches,
+                   :school_calendar_posting_dates,
                    :school_calendars,
                    :school_term_recovery_diary_records,
                    :teacher_report_cards,

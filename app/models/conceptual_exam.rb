@@ -60,6 +60,7 @@ class ConceptualExam < ActiveRecord::Base
   }
 
   validates :student, :unity_id, presence: true
+  validates :recorded_at, posting_date: true, unless: :ignore_date_validates
   validate :student_must_have_conceptual_exam_score_type
   validate :at_least_one_conceptual_exam_value
   validate :uniqueness_of_student

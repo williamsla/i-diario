@@ -21,8 +21,15 @@
             </div>
             <div class="col-sm-4 col-md-3">
               <div class="pull-right">
-                <%= link_to new_batch_avaliations_path(step_id: step.id), class: 'btn btn-primary' do %>
-                  <i class="fa fa-edit"></i> <%= t('avaliations.by_step.fill_button') %>
+                <% if can_launch_in_step?(step) %>
+                  <%= link_to new_batch_avaliations_path(step_id: step.id), class: 'btn btn-primary' do %>
+                    <i class="fa fa-edit"></i> <%= t('avaliations.by_step.fill_button') %>
+                  <% end %>
+                <% else %>
+                  <span class="btn btn-primary disabled"
+                        title="<%= t('avaliations.by_step.fill_button_blocked', date: l(step.start_date_for_posting)) %>">
+                    <i class="fa fa-lock"></i> <%= t('avaliations.by_step.fill_button') %>
+                  </span>
                 <% end %>
                 <%= form_tag exam_record_report_path, method: :post, target: '_blank', style: 'display: inline; margin-left: 8px;' do %>
                   <%= hidden_field_tag 'exam_record_report_form[unity_id]', @classroom.unity_id %>

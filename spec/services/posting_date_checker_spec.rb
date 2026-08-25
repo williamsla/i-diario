@@ -39,6 +39,15 @@ RSpec.describe PostingDateChecker, type: :service do
     end
 
     it { expect(subject.check).to be(true) }
+
+    context 'step posting has not started' do
+      before do
+        step.update_attribute(:start_date_for_posting, Date.current + 1)
+        step.update_attribute(:end_date_for_posting, Date.current + 30)
+      end
+
+      it { expect(subject.check).to be(false) }
+    end
   end
 
   context 'current user isnt admin' do
@@ -59,6 +68,30 @@ RSpec.describe PostingDateChecker, type: :service do
       end
 
       it { expect(subject.check).to be(true) }
+    end
+
+    context 'step posting has not started' do
+      before do
+        step.update_attribute(:start_date_for_posting, Date.current + 1)
+        step.update_attribute(:end_date_for_posting, Date.current + 30)
+      end
+
+      it { expect(subject.check).to be(false) }
+
+      context 'even with permission to post without restrictions' do
+        before do
+          permission = User.current
+            .current_user_role
+            .role
+            .permissions
+            .find_or_initialize_by(feature: Features::IEDUCAR_API_EXAM_POSTING_WITHOUT_RESTRICTIONS)
+
+          permission.permission = Permissions::CHANGE
+          permission.save!
+        end
+
+        it { expect(subject.check).to be(false) }
+      end
     end
 
     context 'permission isnt setted to post without restricitons' do
