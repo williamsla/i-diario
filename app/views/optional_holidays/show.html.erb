@@ -1,0 +1,98 @@
+<div class="widget-body no-padding">
+  <table class="table table-bordered table-only-inner-bordered">
+    <tbody>
+      <tr>
+        <th style="width: 240px;"><%= OptionalHoliday.human_attribute_name :holiday_date %></th>
+        <td><%= l(@optional_holiday.holiday_date) %></td>
+      </tr>
+      <tr>
+        <th><%= OptionalHoliday.human_attribute_name :description %></th>
+        <td><%= @optional_holiday.description %></td>
+      </tr>
+      <tr>
+        <th><%= OptionalHoliday.human_attribute_name :periods %></th>
+        <td>
+          <%= @optional_holiday.effective_periods.map { |period| Periods.translate(Periods.key_for(period.to_s)) }.join(', ') %>
+        </td>
+      </tr>
+      <tr>
+        <th><%= OptionalHoliday.human_attribute_name :makeup_scope %></th>
+        <td><%= @optional_holiday.makeup_scope_humanize %></td>
+      </tr>
+      <% if @optional_holiday.makeup_scope_municipal? %>
+        <tr>
+          <th><%= OptionalHoliday.human_attribute_name :make_up_date %></th>
+          <td>
+            <% if @optional_holiday.pending_make_up? %>
+              <i class="fa fa-exclamation-triangle text-warning"></i>
+              <%= t('views.optional_holidays.index.make_up_date_pending') %>
+            <% else %>
+              <%= l(@optional_holiday.make_up_date) %>
+            <% end %>
+          </td>
+        </tr>
+        <% if @optional_holiday.equivalent_weekday.present? %>
+          <tr>
+            <th><%= OptionalHoliday.human_attribute_name :equivalent_weekday %></th>
+            <td><%= @optional_holiday.equivalent_weekday_humanize %></td>
+          </tr>
+        <% end %>
+      <% else %>
+        <tr>
+          <th><%= t('views.optional_holidays.show.school_make_up_date') %></th>
+          <td>
+            <% makeup_date = current_unity ? @optional_holiday.make_up_date_for(current_unity.id) : nil %>
+            <% if makeup_date.present? %>
+              <%= l(makeup_date) %>
+            <% else %>
+              <i class="fa fa-exclamation-triangle text-warning"></i>
+              <%= t('views.optional_holidays.index.make_up_date_pending') %>
+            <% end %>
+          </td>
+        </tr>
+        <% school_weekday = current_unity ? @optional_holiday.equivalent_weekday_for(current_unity.id) : nil %>
+        <% if school_weekday.present? %>
+          <tr>
+            <th><%= OptionalHoliday.human_attribute_name :equivalent_weekday %></th>
+            <td><%= Workdays.translate(Workdays.key_for(school_weekday.to_s)) %></td>
+          </tr>
+        <% end %>
+        <% if administrator? && @optional_holiday.optional_holiday_unity_makeups.any? %>
+          <tr>
+            <th><%= t('views.optional_holidays.show.unity_makeups') %></th>
+            <td>
+              <ul class="list-unstyled" style="margin-bottom: 0;">
+                <% @optional_holiday.optional_holiday_unity_makeups.includes(:unity).each do |makeup| %>
+                  <li><%= makeup.unity.name %>: <%= l(makeup.make_up_date) %></li>
+                <% end %>
+              </ul>
+            </td>
+          </tr>
+        <% end %>
+      <% end %>
+      <% if @optional_holiday.optional_holiday_attachments.any? %>
+        <tr>
+          <th><%= OptionalHoliday.human_attribute_name :attachment %></th>
+          <td>
+            <% @optional_holiday.optional_holiday_attachments.each do |attachment| %>
+              <% if attachment.attachment.present? %>
+                <%= link_to attachment.filename, attachment.attachment.url, target: '_blank' %><br>
+              <% end %>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+  <footer class="margin-top-10">
+    <%= link_to 'Voltar', optional_holidays_path, class: 'btn btn-default' %>
+    <% if administrator? || @optional_holiday.makeup_scope_by_school? %>
+      <%= link_to 'Editar', edit_optional_holiday_path(@optional_holiday), class: 'btn btn-primary' %>
+    <% end %>
+    <% if administrator? %>
+      <%= link_to 'Excluir', optional_holiday_path(@optional_holiday), method: :delete, class: 'btn btn-danger',
+        data: { confirm: t('views.optional_holidays.destroy_confirm') } %>
+      <%= link_to 'Histórico', history_optional_holiday_path(@optional_holiday), class: 'btn btn-info' %>
+    <% end %>
+  </footer>
+</div>

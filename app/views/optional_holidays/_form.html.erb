@@ -1,0 +1,143 @@
+<%= simple_form_for @optional_holiday, html: { class: 'smart-form' } do |f| %>
+  <%= f.error_notification %>
+
+  <fieldset>
+    <% if administrator? %>
+      <div class="row">
+        <div class="col col-sm-4">
+          <%= f.input :holiday_date, as: :date,
+            input_html: { value: (@optional_holiday.holiday_date.present? ? l(@optional_holiday.holiday_date) : nil) } %>
+        </div>
+        <div class="col col-sm-8">
+          <%= f.input :description %>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col col-sm-4">
+          <%= f.input :periods, as: :select2, multiple: true, elements: PeriodsDecorator.data_for_select2, required: true,
+            input_html: { value: @optional_holiday.effective_periods.join(','), data: { without_json_parser: true } } %>
+        </div>
+        <div class="col col-sm-4">
+          <%= f.input :makeup_scope, as: :select,
+            collection: OptionalHolidayMakeupScope.to_a,
+            label_method: :first,
+            value_method: :last,
+            input_html: { id: 'optional_holiday_makeup_scope' } %>
+        </div>
+      </div>
+
+      <div class="row" id="optional_holiday_municipal_makeup">
+        <div class="col col-sm-4">
+          <%= f.input :make_up_date, as: :date,
+            hint: t('activerecord.attributes.optional_holiday.make_up_date_hint'),
+            input_html: { id: 'optional_holiday_make_up_date', value: (@optional_holiday.make_up_date.present? ? l(@optional_holiday.make_up_date) : nil) } %>
+        </div>
+      </div>
+
+      <p class="help-block" id="optional_holiday_scope_hint">
+        <%= @optional_holiday.makeup_scope_by_school? ? t('views.optional_holidays.form.by_school_makeup_hint') : t('views.optional_holidays.form.municipal_makeup_hint') %>
+      </p>
+
+      <div class="row textarea">
+        <div class="col col-sm-12">
+          <legend><%= t('activerecord.attributes.optional_holiday.attachments_legend') %></legend>
+          <div class="alert alert-info fade in">
+            <i class="fa-fw fa fa-info"></i>
+            <%= t('activerecord.attributes.optional_holiday.attachments_hint') %>
+          </div>
+          <table class="table table-striped table-bordered table-condensed records">
+            <thead>
+              <tr>
+                <th><%= t('activerecord.attributes.optional_holiday.attachment') %></th>
+                <td width="73px"></td>
+              </tr>
+            </thead>
+            <tbody id="optional-holiday-attachments">
+              <%= f.simple_fields_for :optional_holiday_attachments do |attachment| %>
+                <%= render 'optional_holiday_attachment_fields', f: attachment %>
+              <% end %>
+            </tbody>
+            <tfoot class="links">
+              <tr>
+                <td colspan="2">
+                  <%= link_to_add_association t('activerecord.attributes.optional_holiday.add_attachment'), f, :optional_holiday_attachments,
+                    class: 'btn btn-success btn-sm',
+                    data: { association_insertion_method: 'append', association_insertion_node: '#optional-holiday-attachments' } %>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    <% else %>
+      <div class="alert alert-info fade in">
+        <i class="fa-fw fa fa-info"></i>
+        <%= t('views.optional_holidays.edit.school_makeup_hint') %>
+      </div>
+
+      <div class="row">
+        <div class="col col-sm-4">
+          <label><%= OptionalHoliday.human_attribute_name(:holiday_date) %></label>
+          <p><%= l(@optional_holiday.holiday_date) %></p>
+        </div>
+        <div class="col col-sm-8">
+          <label><%= OptionalHoliday.human_attribute_name(:description) %></label>
+          <p><%= @optional_holiday.description %></p>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col col-sm-4">
+          <%= f.input :make_up_date, as: :date,
+            hint: t('activerecord.attributes.optional_holiday.make_up_date_hint'),
+            input_html: { id: 'optional_holiday_make_up_date', value: (@optional_holiday.make_up_date.present? ? l(@optional_holiday.make_up_date) : nil) } %>
+        </div>
+      </div>
+    <% end %>
+  </fieldset>
+
+  <footer>
+    <%= link_to 'Voltar', optional_holidays_path, class: 'btn btn-default' %>
+    <%= f.submit 'Salvar', class: 'btn btn-primary' %>
+  </footer>
+<% end %>
+
+<% content_for :js do %>
+  <script>
+    (function() {
+      var MUNICIPAL = 'municipal';
+      var BY_SCHOOL = 'by_school';
+      var municipalHint = <%= t('views.optional_holidays.form.municipal_makeup_hint').to_json.html_safe %>;
+      var bySchoolHint = <%= t('views.optional_holidays.form.by_school_makeup_hint').to_json.html_safe %>;
+
+      function toggleMakeupScope() {
+        var scopeSelect = document.getElementById('optional_holiday_makeup_scope');
+        var municipalRow = document.getElementById('optional_holiday_municipal_makeup');
+        var hint = document.getElementById('optional_holiday_scope_hint');
+        if (!scopeSelect || !municipalRow) return;
+
+        var value = (scopeSelect.value || '').trim();
+        municipalRow.style.display = (value === MUNICIPAL) ? '' : 'none';
+        if (hint) {
+          hint.textContent = (value === BY_SCHOOL) ? bySchoolHint : municipalHint;
+        }
+      }
+
+      function init() {
+        toggleMakeupScope();
+
+        var scopeSelect = document.getElementById('optional_holiday_makeup_scope');
+        if (scopeSelect) {
+          scopeSelect.addEventListener('change', toggleMakeupScope);
+        }
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+<% end %>

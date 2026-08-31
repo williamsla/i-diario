@@ -12,8 +12,8 @@
               </td>
               <td></td>
               <td class="actions" style="width: <%= @school_calendars.any? ? 430 : 130 %>px">
-                <% if current_user.roles.any? { |role| role.administrator? } %>
-                  <div class="pull-right">
+                <div class="pull-right">
+                  <% if current_user.roles.any? { |role| role.administrator? } %>
                     <% if policy(SchoolCalendarPostingDates).edit? %>
                       <%= link_to t('.posting_dates'),
                                   edit_school_calendar_posting_dates_path,
@@ -23,8 +23,14 @@
                     <%= link_to 'Eventos em lote',
                                 school_calendar_event_batches_path,
                                 class: "btn btn-info" %>
-                  </div>
-                <% end %>
+                  <% end %>
+                  <% if policy(OptionalHoliday).index? %>
+                    <%= link_to t('navigation.optional_holidays_shortcut'),
+                                optional_holidays_path,
+                                class: "btn btn-info",
+                                style: "margin-left: 5px;" %>
+                  <% end %>
+                </div>
               </td>
             </tr>
           <tr>

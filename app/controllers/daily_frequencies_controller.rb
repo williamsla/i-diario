@@ -110,7 +110,12 @@ class DailyFrequenciesController < ApplicationController
 
     render_disciplines_for_frequency_json(
       disciplines: result[:disciplines].map { |d| { id: d.id, description: d.description } },
-      message: result[:message]
+      message: result[:message],
+      makeup: optional_holiday_make_up_on_date?(
+        classroom: classroom,
+        date: frequency_date,
+        period: params[:period].presence
+      )
     )
   end
 
@@ -169,6 +174,11 @@ class DailyFrequenciesController < ApplicationController
 
     @period = @admin_or_teacher ? params[:daily_frequency][:period] : set_options_by_classroom
 
+    if optional_holiday_blocks_daily_frequency?(@daily_frequency)
+      redirect_to new_daily_frequency_path, alert: I18n.t('daily_frequencies.create.blocked_by_optional_holiday')
+      return
+    end
+
     if @daily_frequency.valid?
       @frequency_type = current_frequency_type(@daily_frequency)
 
@@ -180,6 +190,11 @@ class DailyFrequenciesController < ApplicationController
 
       if teacher_absence_blocks_frequency?(@daily_frequency, @class_numbers)
         redirect_to new_daily_frequency_path, alert: I18n.t('daily_frequencies.create.blocked_by_teacher_absence')
+        return
+      end
+
+      if optional_holiday_blocks_daily_frequency?(@daily_frequency)
+        redirect_to new_daily_frequency_path, alert: I18n.t('daily_frequencies.create.blocked_by_optional_holiday')
         return
       end
 
@@ -205,6 +220,11 @@ class DailyFrequenciesController < ApplicationController
           return
         end
 
+        if optional_holiday_blocks_daily_frequency?(@daily_frequency)
+          redirect_to new_daily_frequency_path, alert: I18n.t('daily_frequencies.create.blocked_by_optional_holiday')
+          return
+        end
+
         redirect_to edit_multiple_daily_frequencies_path(
           daily_frequency: daily_frequency_params_for_redirect,
           class_numbers: @class_numbers
@@ -226,6 +246,7 @@ class DailyFrequenciesController < ApplicationController
       @daily_frequency,
       params[:class_numbers].to_s.split(',').map(&:strip)
     )
+    @optional_holiday_blocks_date = optional_holiday_blocks_daily_frequency?(@daily_frequency)
     # Turno escolhido no formulário (chega via params na edição múltipla). Quando o professor
     # leciona a mesma disciplina em mais de um turno no mesmo dia, é ele quem define o turno,
     # e o registro precisa manter esse turno (matutino/vespertino) — caso contrário os dois
@@ -359,6 +380,11 @@ class DailyFrequenciesController < ApplicationController
       frequency_for_check = DailyFrequency.new(daily_frequency_attributes)
       if teacher_absence_blocks_frequency?(frequency_for_check, class_numbers_from_params)
         redirect_to new_daily_frequency_path, alert: I18n.t('daily_frequencies.create.blocked_by_teacher_absence')
+        return
+      end
+
+      if optional_holiday_blocks_daily_frequency?(frequency_for_check)
+        redirect_to new_daily_frequency_path, alert: I18n.t('daily_frequencies.create.blocked_by_optional_holiday')
         return
       end
 
@@ -507,8 +533,8 @@ class DailyFrequenciesController < ApplicationController
 
   private
 
-  def render_disciplines_for_frequency_json(disciplines:, message: nil)
-    payload = { disciplines: disciplines }
+  def render_disciplines_for_frequency_json(disciplines:, message: nil, makeup: false)
+    payload = { disciplines: disciplines, makeup: makeup }
     payload[:message] = message if message.present?
     render plain: payload.to_json, content_type: 'application/json'
   end
@@ -1344,6 +1370,19 @@ class DailyFrequenciesController < ApplicationController
       discipline_id: daily_frequency.discipline_id.presence,
       class_numbers: class_numbers.presence,
       unity_id: daily_frequency.classroom&.unity_id,
+      period: daily_frequency.period
+    )
+  end
+
+  def optional_holiday_blocks_daily_frequency?(daily_frequency)
+    return false if daily_frequency.blank? || daily_frequency.frequency_date.blank?
+
+    classroom = daily_frequency.classroom || Classroom.find_by(id: daily_frequency.classroom_id)
+    return false if classroom.blank?
+
+    optional_holiday_blocks_frequency?(
+      classroom: classroom,
+      date: daily_frequency.frequency_date,
       period: daily_frequency.period
     )
   end

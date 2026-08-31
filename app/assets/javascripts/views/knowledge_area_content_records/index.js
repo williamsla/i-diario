@@ -22,7 +22,7 @@ $(function () {
     $knowledgeAreaContentRecord.val(knowledge_area_content_record_id);
     var classroom = $(this).data('classroom');
     var knowledge_area = $(this).data('knowledge-areas');
-    record_date = $row.find(".record_date").text();
+    record_date = $row.find(".record_date .record-date-value").text() || $row.find(".record_date").text();
 
     $("#copy-knowledge-area-content-record-modal table tbody td.classroom").text(classroom);
     $("#copy-knowledge-area-content-record-modal table tbody td.knowledge_area").text(knowledge_area);

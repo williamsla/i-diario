@@ -75,6 +75,10 @@ module Navigation
           Translator.t("navigation.#{menu_type}")
         end
       end
+
+      def shortcut_text(menu)
+        Translator.t("navigation.#{menu[:type]}_shortcut", default: menu_text(menu[:type]))
+      end
     end
   end
 end

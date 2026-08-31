@@ -1,0 +1,40 @@
+pt-BR:
+  activerecord:
+    models:
+      optional_holiday:
+        one: "Ponto facultativo"
+        other: "Pontos facultativos"
+
+    attributes:
+      optional_holiday:
+        year: "Ano"
+        holiday_date: "Data do ponto facultativo"
+        description: "Descrição / decreto"
+        periods: "Turnos"
+        makeup_scope: "Quem informa a reposição"
+        make_up_date: "Data da reposição"
+        make_up_date_hint: "Opcional. Deixe em branco se a data ainda não estiver definida. Se a reposição for em sábado, o quadro usado será o do dia da semana do ponto facultativo."
+        equivalent_weekday: "Dia da semana de referência"
+        attachments_legend: "Anexar decreto (PDF)"
+        attachments_hint: "Anexe o PDF do decreto municipal. Somente arquivos nos formatos jpeg, jpg, png, gif, pdf, odt, doc, docx, ods, xls, xlsx, odp, ppt, pptx, odg, xml, csv. Tamanho máximo por arquivo: 3MB"
+        attachment: "Anexo"
+        add_attachment: "Adicionar anexo"
+      optional_holiday_unity_makeup:
+        unity: "Escola"
+        make_up_date: "Data da reposição"
+        equivalent_weekday: "Dia da semana de referência"
+
+    errors:
+      models:
+        optional_holiday:
+          attributes:
+            make_up_date:
+              must_be_after_holiday_date: "deve ser posterior à data do ponto facultativo"
+            periods:
+              blank: "selecione ao menos um turno"
+            holiday_date:
+              taken: "já existe um ponto facultativo cadastrado nesta data para o ano letivo"
+        optional_holiday_unity_makeup:
+          attributes:
+            make_up_date:
+              must_be_after_holiday_date: "deve ser posterior à data do ponto facultativo"

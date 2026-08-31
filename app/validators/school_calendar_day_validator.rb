@@ -5,11 +5,12 @@ class SchoolCalendarDayValidator < ActiveModel::EachValidator
     classroom_id = record.try(:classroom).try(:id)
     grade_ids = record.try(:grade_ids) || record.try(:classroom).try(:grades)&.pluck(:id)
     discipline_id = record.try(:discipline).try(:id)
+    period = record.try(:period)
     school_day = true
     message = ''
 
     grade_ids&.each do |grade_id|
-      school_day = false unless record.school_calendar.day_allows_entry?(value, grade_id, classroom_id, discipline_id)
+      school_day = false unless record.school_calendar.day_allows_entry?(value, grade_id, classroom_id, discipline_id, period)
       step = record.school_calendar.steps.posting_date_after_and_before(value).first
       message = step ? I18n.t('errors.messages.not_school_calendar_day') : I18n.t('errors.messages.is_not_between_steps')
 

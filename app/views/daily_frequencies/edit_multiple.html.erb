@@ -9,6 +9,12 @@
       <%= t('daily_frequencies.create.blocked_by_teacher_absence') %>
     </div>
   <% end %>
+  <% if @optional_holiday_blocks_date %>
+    <div class="alert alert-warning alert-block">
+      <i class="fa-fw fa fa-warning"></i>
+      <%= t('daily_frequencies.create.blocked_by_optional_holiday') %>
+    </div>
+  <% end %>
   <table class="table table-bordered table-only-inner-bordered">
     <thead>
       <th><%= DailyFrequency.human_attribute_name :unity %></th>
@@ -20,7 +26,14 @@
       <td><%= @daily_frequencies.first.classroom.unity %></td>
       <td><%= @daily_frequencies.first.classroom %></td>
       <td><%= @daily_frequencies.first.discipline || 'Todas' %></td>
-      <td><%= l(@daily_frequencies.first.frequency_date) %></td>
+      <td>
+        <%= l(@daily_frequencies.first.frequency_date) %>
+        <%= optional_holiday_makeup_badge(
+              @daily_frequencies.first.classroom,
+              @daily_frequencies.first.frequency_date,
+              period: @period
+            ) %>
+      </td>
     </tbody>
   </table>
 

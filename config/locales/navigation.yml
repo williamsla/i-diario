@@ -14,6 +14,8 @@ pt-BR:
     test_settings: "Avaliações numéricas"
     school_calendars: "Calendário letivo"
     school_calendar_event_batches: "Eventos em lote"
+    optional_holidays: "Pontos facultativos"
+    optional_holidays_shortcut: "Ponto facultativo"
     school_calendar_posting_dates: "Datas de lançamento em lote"
     school_calendar_events: "Eventos"
     teaching_plans_menu: "Planos de ensino"

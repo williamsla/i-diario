@@ -172,7 +172,7 @@ class DailyFrequency < ApplicationRecord
 
     # Se há um evento que permite lançamentos, não precisa verificar step
     # (eventos "não letivo - permite lançamentos" podem estar fora dos períodos letivos)
-    if school_calendar.day_allows_entry?(frequency_date, nil, classroom_id, discipline_id)
+    if school_calendar.day_allows_entry?(frequency_date, nil, classroom_id, discipline_id, period)
       return
     end
 

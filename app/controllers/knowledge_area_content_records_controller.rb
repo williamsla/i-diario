@@ -33,7 +33,12 @@ class KnowledgeAreaContentRecordsController < ApplicationController
 
     render json: {
       knowledge_areas: result[:knowledge_areas].map { |ka| { id: ka.id, description: ka.description } },
-      message: result[:message]
+      message: result[:message],
+      makeup: optional_holiday_make_up_on_date?(
+        classroom: classroom,
+        date: record_date,
+        period: classroom.period
+      )
     }
   end
 

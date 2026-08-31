@@ -19,7 +19,7 @@ module Navigation
 
           text = content_tag(:i, '', class: icon_classes)
           label_class = menu[:shortcut_highlight] ? 'shortcut-label shortcut-label--highlight' : ''
-          text + content_tag(:span, menu_text(menu[:type]), class: label_class)
+          text + content_tag(:span, shortcut_text(menu), class: label_class)
         end
       end
     end
