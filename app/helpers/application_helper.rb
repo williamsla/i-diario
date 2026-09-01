@@ -59,45 +59,12 @@ module ApplicationHelper
   end
 
   def shortcuts
-    role = current_user.current_user_role&.role
-    key = [
-      'HomeShortcutsV5',
-      Entity.current&.id,
-      current_user.admin?,
-      navigation_cache_version,
-      role&.cache_key || current_user&.cache_key,
-      role&.permissions_cache_key,
-      Translation.cache_key,
-      is_aee,
-      current_user.current_school_year,
-      optional_holidays_shortcut_cache_token
-    ]
-
-    cached = Rails.cache.read(key)
-    return cached if cached.present?
-
-    html = begin
+    begin
       Thread.current[:navigation_is_aee] = is_aee
       Navigation.draw_shortcuts(current_user)
     ensure
       Thread.current[:navigation_is_aee] = nil
     end
-    # Nunca grava HTML vazio: evita esconder atalhos válidos por cache contaminado
-    Rails.cache.write(key, html, expires_in: 1.day) if html.present?
-    html
-  end
-
-  def navigation_cache_version
-    @navigation_cache_version ||= Digest::MD5.file(
-      Rails.root.join('config', 'navigation.yml')
-    ).hexdigest
-  end
-
-  def optional_holidays_shortcut_cache_token
-    year = current_user.current_school_year
-    return 'none' if year.blank?
-
-    OptionalHoliday.by_year(year).exists? ? "oh-#{year}-1" : "oh-#{year}-0"
   end
 
   def title

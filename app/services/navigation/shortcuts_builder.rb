@@ -9,7 +9,7 @@ module Navigation
     def initialize(user, render = ShortcutRender)
       @user = user
       @navigation_render = render.new(user)
-      @navigation = defined?(MENU) ? MENU : Navigation::Base::MENU
+      @navigation = Navigation::Base::MENU
     end
 
     def build
