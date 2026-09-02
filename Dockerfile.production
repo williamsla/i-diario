@@ -50,7 +50,13 @@ RUN bundle install --without development test --jobs 4 --retry 3
 
 COPY package.json yarn.lock ./
 
-RUN yarn install --frozen-lockfile --network-timeout 100000
+# npm i -g yarn no Buster deixa yarn.js sem +x → "Permission denied" (exit 126).
+RUN set -eux \
+  && yarn_bin="$(command -v yarn)" \
+  && chmod +x "$yarn_bin" \
+  && chmod +x "$(readlink -f "$yarn_bin")" \
+  && if ! node -v >/dev/null 2>&1; then ln -sf "$(command -v nodejs)" /usr/local/bin/node; fi \
+  && yarn install --frozen-lockfile --network-timeout 100000
 
 # Rails boota o app inteiro no assets:precompile (controllers, models, etc.).
 # Gemfile/yarn.lock em camadas anteriores continuam em cache quando só o código Ruby muda.

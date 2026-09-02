@@ -47,7 +47,7 @@
               <th class="batch-student-col"><%= Student.human_attribute_name(:name) %></th>
               <% @disciplines.each do |discipline| %>
                 <th class="discipline-cell" title="<%= discipline.description %>">
-                  <%= truncate(discipline.description, length: 18, omission: '…') %>
+                  <%= discipline.description %>
                 </th>
               <% end %>
             </tr>

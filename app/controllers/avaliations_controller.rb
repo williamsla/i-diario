@@ -557,8 +557,8 @@ class AvaliationsController < ApplicationController
     if action_name == 'destroy'
       reasons = []
 
-      if resource.errors[:test_date].include?(t('errors.messages.not_allowed_to_post_in_date'))
-        reasons << t('errors.messages.not_allowed_to_post_in_date')
+      if (forbidden_error = PostingDateChecker.find_error(resource.errors[:test_date]))
+        reasons << forbidden_error
       end
 
       reasons << t('avaliation.grades_avoid_destroy') unless resource.grades_allow_destroy

@@ -1,4 +1,6 @@
 class PostingDateChecker
+  ERROR_MARKER = 'fora das datas de lançamento da etapa'.freeze
+
   def initialize(classroom, record_date)
     @classroom = classroom
     @record_date = record_date
@@ -14,7 +16,27 @@ class PostingDateChecker
     current_between_step? && record_date_between_step?
   end
 
+  def not_allowed_message
+    I18n.t(
+      'errors.messages.not_allowed_to_post_in_date',
+      start_date: format_date(step.try(:start_date_for_posting)),
+      end_date: format_date(step.try(:end_date_for_posting))
+    )
+  end
+
+  def self.not_allowed_error?(messages)
+    Array(messages).flatten.any? { |message| message.to_s.include?(ERROR_MARKER) }
+  end
+
+  def self.find_error(messages)
+    Array(messages).flatten.find { |message| message.to_s.include?(ERROR_MARKER) }
+  end
+
   private
+
+  def format_date(date)
+    date.present? ? I18n.l(date) : '—'
+  end
 
   def record_date_between_step?
     (step.start_date_for_posting..step.end_date_for_posting) === @record_date

@@ -272,7 +272,7 @@ class Avaliation < ApplicationRecord
     @valid_for_destruction = begin
       self.validation_type = :destroy
       valid?
-      !errors[:test_date].include?(I18n.t('errors.messages.not_allowed_to_post_in_date'))
+      !PostingDateChecker.not_allowed_error?(errors[:test_date])
     end
   end
 

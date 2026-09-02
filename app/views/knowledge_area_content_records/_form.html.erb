@@ -71,6 +71,10 @@
         <% else %>
           <div class="col col-sm-4">
             <%= content_record.input :record_date, as: :date %>
+            <%= optional_holiday_makeup_badge_placeholder(
+                  @knowledge_area_content_record.content_record.classroom || current_user_classroom,
+                  @knowledge_area_content_record.content_record.record_date
+                ) %>
             <% if params[:modal] != 'true' %>
               <p class="help-block text-warning record-date-hint <%= @record_date_message.blank? ? 'hidden' : '' %>" id="record-date-hint">
                 <%= @record_date_message %>

@@ -949,10 +949,10 @@ function openTagCloudModal(event) {
   if (event) event.preventDefault();
 
   var gradeId = $('#tag_cloud_grade_id').val();
-  var disciplineId = $('#tag_cloud_discipline_id').val();
+  var subjectId = $('#tag_cloud_discipline_id').val();
 
-  if (!gradeId || gradeId === 'empty' || !disciplineId || disciplineId === 'empty') {
-    alert('Selecione uma série e uma disciplina para analisar.');
+  if (!gradeId || gradeId === 'empty' || !subjectId || subjectId === 'empty') {
+    alert('Selecione uma série e uma disciplina ou área de conhecimento para analisar.');
     return false;
   }
 
@@ -970,7 +970,7 @@ function openTagCloudModal(event) {
 
   var params = new URLSearchParams({
     grade_id: gradeId,
-    discipline_id: disciplineId
+    subject_id: subjectId
   });
 
   if (unityId && unityId !== 'empty') {
@@ -1094,34 +1094,64 @@ function onTagCloudGradeChange(event) {
       return response.json();
     })
     .then(function(data) {
-      setTagCloudSelectOptions('#tag_cloud_discipline_id', data.disciplines || []);
+      setTagCloudSubjectLabel(data.subject_label);
+      setTagCloudSelectOptions('#tag_cloud_discipline_id', data.subjects || data.disciplines || []);
       setTagCloudSelectOptions('#tag_cloud_unity_id', data.unities || []);
     })
     .catch(function(err) {
       console.error('Erro ao carregar filtros da tag cloud:', err);
-      alert('Ocorreu um erro ao carregar disciplinas e escolas da série selecionada.');
+      alert('Ocorreu um erro ao carregar os filtros da série selecionada.');
     });
 }
 
 function resetTagCloudDependentFilters() {
+  setTagCloudSubjectLabel('Disciplina');
   setTagCloudSelectOptions('#tag_cloud_discipline_id', []);
   setTagCloudSelectOptions('#tag_cloud_unity_id', []);
 }
 
+function setTagCloudSubjectLabel(label) {
+  var $label = $('#tag-cloud-subject-group').find('label.control-label');
+  if (!$label.length) {
+    $label = $('#tag_cloud_discipline_id').closest('.control-group').find('label');
+  }
+  if (!$label.length) return;
+
+  var $abbr = $label.find('abbr').first().clone();
+  $label.empty();
+  if ($abbr.length) {
+    $label.append($abbr).append(' ');
+  }
+  $label.append(document.createTextNode(label || 'Disciplina'));
+}
+
 function setTagCloudSelectOptions(selector, items) {
   var $field = $(selector);
-  var options = [{ id: 'empty', name: '<option></option>', text: '' }].concat(
-    (items || []).map(function(item) {
-      return {
-        id: item.id,
-        name: item.name || item.text,
-        text: item.text || item.name
-      };
-    })
-  );
+  var empty = { id: 'empty', name: '<option></option>', text: '' };
+  var list = items || [];
+  var hasGroups = list.some(function(item) {
+    return item && item.children && item.children.length;
+  });
+  var options = [empty].concat(hasGroups ? list : list.map(function(item) {
+    return {
+      id: item.id,
+      name: item.name || item.text,
+      text: item.text || item.name
+    };
+  }));
 
-  $field.prop('disabled', items.length === 0);
+  $field.prop('disabled', list.length === 0);
   $field.select2('val', '');
-  $field.select2({ data: options, width: '100%' });
+  $field.select2({
+    data: options,
+    width: '100%',
+    allowClear: true,
+    formatResult: function(el) {
+      return "<div class='select2-user-result'>" + (el.name || el.text || '') + "</div>";
+    },
+    formatSelection: function(el) {
+      return "<div class='select2-user-result'>" + (el.text || el.name || '') + "</div>";
+    }
+  });
 }
 

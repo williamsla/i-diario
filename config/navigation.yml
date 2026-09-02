@@ -58,6 +58,7 @@ navigation:
       type: "school_calendars"
       icon: "fa-calendar"
       path: "school_calendars_path"
+      shortcut: true
       submenus:
         - menu:
             type: "school_calendar_events"
@@ -65,6 +66,11 @@ navigation:
         - menu:
             type: "school_calendar_event_batches"
             visible: "only-when-active"
+        - menu:
+            type: "optional_holidays"
+            path: "optional_holidays_path"
+            shortcut: "only-when-optional-holidays"
+            shortcut_highlight: true
         - menu:
             type: "school_calendar_posting_dates"
             path: "edit_school_calendar_posting_dates_path"

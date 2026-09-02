@@ -46,16 +46,16 @@ class SchoolCalendar < ApplicationRecord
     "#{year}"
   end
 
-  def school_day_checker(date, grade_id = nil, classroom_id = nil, discipline_id = nil)
-    SchoolDayChecker.new(self, date, grade_id, classroom_id, discipline_id)
+  def school_day_checker(date, grade_id = nil, classroom_id = nil, discipline_id = nil, period = nil)
+    SchoolDayChecker.new(self, date, grade_id, classroom_id, discipline_id, period)
   end
 
-  def school_day?(date, grade_id = nil, classroom_id = nil, discipline_id = nil)
-    school_day_checker(date, grade_id, classroom_id, discipline_id).school_day?
+  def school_day?(date, grade_id = nil, classroom_id = nil, discipline_id = nil, period = nil)
+    school_day_checker(date, grade_id, classroom_id, discipline_id, period).school_day?
   end
 
-  def day_allows_entry?(date, grade_id = nil, classroom_id = nil, discipline_id = nil)
-    school_day_checker(date, grade_id, classroom_id, discipline_id).day_allows_entry?
+  def day_allows_entry?(date, grade_id = nil, classroom_id = nil, discipline_id = nil, period = nil)
+    school_day_checker(date, grade_id, classroom_id, discipline_id, period).day_allows_entry?
   end
 
   def step(date)

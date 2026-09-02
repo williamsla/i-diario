@@ -94,6 +94,60 @@ RSpec.describe SchoolCalendarPostingDatesUpdater, type: :service do
       expect(semester_calendar_one.steps.find_by!(step_number: 2).end_date_for_posting).not_to eq(new_end_date)
     end
 
+    it 'treats incomplete masked start dates as blank' do
+      first_step_one = semester_calendar_one.steps.find_by!(step_number: 1)
+      original_start = first_step_one.start_date_for_posting
+
+      result = subject.apply(
+        groups: [
+          {
+            step_number: 1,
+            step_type_description: 'Semestre',
+            start_date_for_posting: '__/__/____',
+            end_date_for_posting: I18n.l(new_end_date)
+          }
+        ]
+      )
+
+      expect(result.errors).to be_empty
+      expect(first_step_one.reload.start_date_for_posting).to eq(original_start)
+      expect(first_step_one.end_date_for_posting).to eq(new_end_date)
+    end
+
+    it 'updates only the end date when classroom start posting date is before start_at' do
+      classroom = create(:classroom, unity: unity_one, year: year)
+      school_calendar_classroom = create(
+        :school_calendar_classroom,
+        :school_calendar_classroom_with_semester_steps,
+        classroom: classroom,
+        school_calendar: semester_calendar_one,
+        step_type_description: 'Semestre'
+      )
+      classroom_step = school_calendar_classroom.classroom_steps.find_by!(step_number: 1)
+      classroom_step.update_columns(
+        start_at: Date.new(year, 3, 1),
+        start_date_for_posting: Date.new(year, 2, 1),
+        end_date_for_posting: Date.new(year, 6, 30)
+      )
+
+      result = subject.apply(
+        groups: [
+          {
+            step_number: 1,
+            step_type_description: 'Semestre',
+            start_date_for_posting: '',
+            end_date_for_posting: I18n.l(new_end_date)
+          }
+        ],
+        apply_to_classroom_steps: true
+      )
+
+      classroom_step.reload
+      expect(result.errors).to be_empty
+      expect(classroom_step.start_date_for_posting).to eq(Date.new(year, 3, 1))
+      expect(classroom_step.end_date_for_posting).to eq(new_end_date)
+    end
+
     it 'does not change calendars of another step type' do
       trimester_calendar = create(
         :school_calendar,

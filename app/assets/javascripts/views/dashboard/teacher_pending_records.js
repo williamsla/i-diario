@@ -4,6 +4,20 @@ $(function(){
   var flashMessages = new FlashMessages();
   var $container = $('#teacher-pending-records-container');
   var steps = [];
+  var makeupLabel = 'reposição';
+
+  function formatPendingDates(dates) {
+    return _.map(dates, function (date) {
+      var suffix = ' (' + makeupLabel + ')';
+      if (date && date.indexOf(suffix) !== -1) {
+        return '<span class="pending-date pending-date--makeup">' +
+          date.replace(suffix, '') +
+          ' <span class="optional-holiday-makeup-label">(' + makeupLabel + ')</span>' +
+          '</span>';
+      }
+      return date;
+    }).join(', ');
+  }
 
   function fetchSteps() {
     $.ajax({
@@ -527,14 +541,12 @@ $(function(){
         }
         var record = stepData.pending_records[recordIndex];
         var isFrequency = targetId.indexOf('freq-') !== -1;
-        var label = isFrequency ? 'Datas pendentes de frequência' : 'Datas pendentes de conteúdo';
 
         // Datas já vieram na resposta inicial: exibir na hora (sem nova requisição)
         var datesFromRecord = isFrequency ? record.pending_frequency_dates : record.pending_content_dates;
         if (datesFromRecord !== undefined && Array.isArray(datesFromRecord)) {
           $target.html(
-            '<strong>' + label + ':</strong><br>' +
-            (datesFromRecord.length > 0 ? datesFromRecord.join(', ') : 'Nenhuma')
+            datesFromRecord.length > 0 ? formatPendingDates(datesFromRecord) : 'Nenhuma'
           ).slideDown();
           return;
         }
@@ -554,8 +566,7 @@ $(function(){
           success: function(data) {
             var dates = isFrequency ? data.pending_frequency_dates : data.pending_content_dates;
             $target.html(
-              '<strong>' + label + ':</strong><br>' +
-              (dates.length > 0 ? dates.join(', ') : 'Nenhuma')
+              dates.length > 0 ? formatPendingDates(dates) : 'Nenhuma'
             );
           },
           error: function() {

@@ -1,0 +1,47 @@
+<div class="widget-body no-padding">
+  <%= simple_form_for :filter, { url: optional_holidays_path, method: :get, html: { class: 'filterable_search_form' } } do |f| %>
+    <div class="table-responsive">
+      <table class="table table-bordered table-only-inner-bordered table-striped table-condensed table-hover" id="resources">
+        <thead>
+          <tr>
+            <td></td>
+            <td></td>
+            <td>
+              <%= f.input :by_description, label: false, placeholder: t('views.optional_holidays.index.by_description') %>
+            </td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td class="actions" style="width: 220px;">
+              <% if administrator? %>
+                <%= link_to t('views.optional_holidays.index.new_html'), new_optional_holiday_path, class: 'btn btn-primary pull-right' %>
+              <% end %>
+            </td>
+          </tr>
+          <tr>
+            <th style="width: 36px;"></th>
+            <th><%= OptionalHoliday.human_attribute_name :holiday_date %></th>
+            <th><%= OptionalHoliday.human_attribute_name :description %></th>
+            <th><%= OptionalHoliday.human_attribute_name :periods %></th>
+            <th><%= OptionalHoliday.human_attribute_name :makeup_scope %></th>
+            <th><%= OptionalHoliday.human_attribute_name :make_up_date %></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <%= render 'resources' %>
+        </tbody>
+        <tfoot id="paginator" class="remote">
+          <td colspan="7">
+            <div id="page_entries_info" class="pull-left hidden-xs">
+              <%= page_entries_info @optional_holidays %>
+            </div>
+            <div class="pull-right">
+              <%= paginate @optional_holidays %>
+            </div>
+          </td>
+        </tfoot>
+      </table>
+    </div>
+  <% end %>
+</div>

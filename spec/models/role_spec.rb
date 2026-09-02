@@ -49,4 +49,5 @@ RSpec.describe Role, :type => :model do
       expect(Role.find(role.id).permissions_cache_key).not_to eq(original_key)
     end
   end
+
 end

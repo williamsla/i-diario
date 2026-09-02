@@ -184,6 +184,7 @@ Rails.application.routes.draw do
         post :reprocess
       end
     end
+    resources :optional_holidays, concerns: :history
     resource :school_calendar_posting_dates, only: [:edit, :update]
     resources :school_calendars, concerns: :history do
       collection do

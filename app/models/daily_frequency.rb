@@ -148,7 +148,7 @@ class DailyFrequency < ApplicationRecord
     @valid_for_destruction if defined?(@valid_for_destruction)
     @valid_for_destruction = begin
       valid?
-      !errors[:frequency_date].include?(I18n.t('errors.messages.not_allowed_to_post_in_date'))
+      !PostingDateChecker.not_allowed_error?(errors[:frequency_date])
     end
   end
 
@@ -172,7 +172,7 @@ class DailyFrequency < ApplicationRecord
 
     # Se há um evento que permite lançamentos, não precisa verificar step
     # (eventos "não letivo - permite lançamentos" podem estar fora dos períodos letivos)
-    if school_calendar.day_allows_entry?(frequency_date, nil, classroom_id, discipline_id)
+    if school_calendar.day_allows_entry?(frequency_date, nil, classroom_id, discipline_id, period)
       return
     end
 

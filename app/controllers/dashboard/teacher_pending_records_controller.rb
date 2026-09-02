@@ -79,8 +79,9 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
             record[:students_without_note_from_classroom_total] = result[:students_without_note_from_classroom_total] == true
           end
           if result[:pending_frequency_dates].present? || result[:pending_content_dates].present?
-            record[:pending_frequency_dates] = result[:pending_frequency_dates]&.map { |d| d.strftime('%d/%m/%Y') } || []
-            record[:pending_content_dates] = result[:pending_content_dates]&.map { |d| d.strftime('%d/%m/%Y') } || []
+            makeup_dates = result[:optional_holiday_makeup_dates]
+            record[:pending_frequency_dates] = format_pending_dates_with_makeup(result[:pending_frequency_dates], makeup_dates)
+            record[:pending_content_dates] = format_pending_dates_with_makeup(result[:pending_content_dates], makeup_dates)
           end
           record
         end.reject do |record|
@@ -177,8 +178,8 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
     return render json: { error: 'Disciplina/Área de conhecimento não encontrada' }, status: :not_found unless result
 
     render json: {
-      pending_frequency_dates: result[:pending_frequency_dates].map { |d| d.strftime('%d/%m/%Y') },
-      pending_content_dates: result[:pending_content_dates].map { |d| d.strftime('%d/%m/%Y') }
+      pending_frequency_dates: format_pending_dates_with_makeup(result[:pending_frequency_dates], result[:optional_holiday_makeup_dates]),
+      pending_content_dates: format_pending_dates_with_makeup(result[:pending_content_dates], result[:optional_holiday_makeup_dates])
     }
   end
 
@@ -187,6 +188,10 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
   def last_step?(steps, step)
     last_step = steps.max_by(&:end_at)
     last_step.present? && last_step.id == step.id
+  end
+
+  def format_pending_dates_with_makeup(dates, makeup_dates)
+    Array(dates).map { |date| OptionalHoliday.format_pending_date(date, makeup_dates) }
   end
 end
 

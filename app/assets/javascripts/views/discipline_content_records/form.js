@@ -221,6 +221,19 @@ $(function () {
     syncSubmitButtonState();
   };
 
+  var toggleOptionalHolidayMakeupBadge = function (isMakeup) {
+    var $badge = $('#optional-holiday-makeup-badge');
+    if (!$badge.length) {
+      return;
+    }
+
+    if (isMakeup) {
+      $badge.show();
+    } else {
+      $badge.hide();
+    }
+  };
+
   var applyDisciplinesToSelect = function (payload, options) {
     options = options || {};
     var disciplines = payload.disciplines || [];
@@ -261,6 +274,7 @@ $(function () {
     }
 
     toggleRecordDateAlert(payload.message);
+    toggleOptionalHolidayMakeupBadge(payload.makeup);
     countLessons();
 
     if (options.reloadContents) {
@@ -277,6 +291,7 @@ $(function () {
 
     if (_.isEmpty(classroom_id) || _.isEmpty(date) || _.isEmpty(date.match(dateRegex))) {
       toggleRecordDateAlert(null);
+      toggleOptionalHolidayMakeupBadge(false);
       return;
     }
 
@@ -442,6 +457,9 @@ $(function () {
       }),
       success: function (data) {
         if (data && data.blocked) {
+          if (data.message) {
+            $('#teacher_absence_blocks_content_message').text(data.message);
+          }
           $('#teacher_absence_blocks_content_alert').show();
         } else {
           $('#teacher_absence_blocks_content_alert').hide();

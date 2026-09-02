@@ -25,10 +25,20 @@ class DisciplineContentRecordsController < ApplicationController
                 cr.classroom = classroom
                 dcr = DisciplineContentRecord.new(discipline_id: discipline_id, class_number: class_number)
                 dcr.content_record = cr
-                teacher_absence_blocks_content_record?(dcr, class_number.present? ? [class_number] : nil)
+                teacher_absence_blocks_content_record?(dcr, class_number.present? ? [class_number] : nil) ||
+                  optional_holiday_blocks_content_record?(dcr)
               end
 
-    render json: { blocked: blocked }
+    message = if blocked && classroom_id.present? && record_date.present?
+                classroom = Classroom.find_by(id: classroom_id)
+                if classroom.present? && optional_holiday_blocks_frequency?(classroom: classroom, date: record_date, period: classroom.period)
+                  I18n.t('discipline_content_records.create.blocked_by_optional_holiday')
+                else
+                  I18n.t('discipline_content_records.create.blocked_by_teacher_absence')
+                end
+              end
+
+    render json: { blocked: blocked, message: message }
   end
 
   def disciplines_for_record_date
@@ -55,7 +65,12 @@ class DisciplineContentRecordsController < ApplicationController
 
     render json: {
       disciplines: result[:disciplines].map { |d| { id: d.id, description: d.description } },
-      message: result[:message]
+      message: result[:message],
+      makeup: optional_holiday_make_up_on_date?(
+        classroom: classroom,
+        date: record_date,
+        period: classroom.period
+      )
     }
   end
 
@@ -161,7 +176,8 @@ class DisciplineContentRecordsController < ApplicationController
  
     @class_numbers = []
 
-    @teacher_absence_blocks_date = teacher_absence_blocks_content_record?(@discipline_content_record)
+    @teacher_absence_blocks_date = teacher_absence_blocks_content_record?(@discipline_content_record) ||
+                                   optional_holiday_blocks_content_record?(@discipline_content_record)
 
     if params[:modal] != 'true'
       availability = build_disciplines_for_content_record_result(
@@ -202,6 +218,12 @@ class DisciplineContentRecordsController < ApplicationController
     if teacher_absence_blocks_content_record?(@discipline_content_record)
       set_options_by_user
       flash.now[:alert] = I18n.t('discipline_content_records.create.blocked_by_teacher_absence')
+      return render :new
+    end
+
+    if optional_holiday_blocks_content_record?(@discipline_content_record)
+      set_options_by_user
+      flash.now[:alert] = I18n.t('discipline_content_records.create.blocked_by_optional_holiday')
       return render :new
     end
 
@@ -295,7 +317,8 @@ class DisciplineContentRecordsController < ApplicationController
       @class_number_qtd = qtd || 0
     end
 
-    @teacher_absence_blocks_date = teacher_absence_blocks_content_record?(@discipline_content_record)
+    @teacher_absence_blocks_date = teacher_absence_blocks_content_record?(@discipline_content_record) ||
+                                   optional_holiday_blocks_content_record?(@discipline_content_record)
  
     authorize @discipline_content_record
   end
@@ -321,6 +344,12 @@ class DisciplineContentRecordsController < ApplicationController
     if teacher_absence_blocks_content_record?(@discipline_content_record)
       set_options_by_user
       flash.now[:alert] = I18n.t('discipline_content_records.update.blocked_by_teacher_absence')
+      return render :edit
+    end
+
+    if optional_holiday_blocks_content_record?(@discipline_content_record)
+      set_options_by_user
+      flash.now[:alert] = I18n.t('discipline_content_records.update.blocked_by_optional_holiday')
       return render :edit
     end
 
@@ -377,6 +406,12 @@ class DisciplineContentRecordsController < ApplicationController
       return render :new
     end
 
+    if optional_holiday_blocks_content_record?(@discipline_content_record)
+      set_options_by_user
+      flash.now[:alert] = I18n.t('discipline_content_records.create.blocked_by_optional_holiday')
+      return render :new
+    end
+
     @class_numbers.each do |class_number|
       @discipline_content_record.class_number = class_number
 
@@ -429,6 +464,22 @@ class DisciplineContentRecordsController < ApplicationController
       class_numbers: class_numbers,
       unity_id: cr.classroom&.unity_id,
       period: nil
+    )
+  end
+
+  def optional_holiday_blocks_content_record?(discipline_content_record)
+    return false if discipline_content_record.blank?
+
+    cr = discipline_content_record.content_record
+    return false if cr.blank? || cr.record_date.blank? || cr.classroom_id.blank?
+
+    classroom = cr.classroom || Classroom.find_by(id: cr.classroom_id)
+    return false if classroom.blank?
+
+    optional_holiday_blocks_frequency?(
+      classroom: classroom,
+      date: cr.record_date,
+      period: classroom.period
     )
   end
 

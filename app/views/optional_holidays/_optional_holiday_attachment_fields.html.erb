@@ -1,0 +1,12 @@
+<tr class="nested-fields">
+  <td>
+    <%= f.input :attachment, label: false, as: :file %>
+    <% if f.object.attachment.present? %>
+      <small><%= link_to f.object.filename, f.object.attachment.url, target: '_blank' %></small>
+    <% end %>
+  </td>
+  <td class="actions">
+    <%= f.hidden_field :id %>
+    <%= link_to_remove_association t('helpers.remove'), f, class: 'btn btn-danger btn-sm' %>
+  </td>
+</tr>

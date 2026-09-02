@@ -148,6 +148,15 @@ pt-BR:
       destroy:
         alert: 'Não é possível apagar registros fora das datas de lançamento da etapa'
 
+    optional_holidays:
+      create:
+        notice: 'Ponto facultativo cadastrado com sucesso. A data será considerada não letiva nos turnos informados e a reposição aparecerá como pendência quando definida.'
+      update:
+        notice: 'Ponto facultativo alterado com sucesso.'
+      destroy:
+        notice: 'Ponto facultativo excluído com sucesso.'
+      <<: *male
+
     teacher_absences:
       create:
         notice: 'Falta do professor registrada com sucesso. A aula será considerada não realizada e a data de reposição aparecerá como pendência quando informada.'

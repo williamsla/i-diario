@@ -129,4 +129,30 @@ RSpec.describe User, type: :model do
       }.to change { subject.current_user_role_id }.from(nil).to(user_role.id)
     end
   end
+
+  describe '#can_show?' do
+    it 'shows Educa+ and Acompanhamento pedagógico only when the role permission is enabled' do
+      user = create(:user, admin: false)
+      role = create(:role, :administrator)
+      create(:role_permission, role: role, feature: Features::PEDAGOGICAL_TRACKINGS, permission: Permissions::CHANGE)
+      create(:role_permission, role: role, feature: Features::EDUCAMAIS, permission: Permissions::DENIED)
+      user_role = create(:user_role, user: user, role: role)
+      user.update!(current_user_role: user_role)
+      user.reload
+
+      expect(user.can_show?(:pedagogical_trackings)).to eq(true)
+      expect(user.can_show?(:educamais)).to eq(false)
+    end
+
+    it 'hides Acompanhamento pedagógico when the role permission is denied' do
+      user = create(:user, admin: false)
+      role = create(:role, :administrator)
+      create(:role_permission, role: role, feature: Features::PEDAGOGICAL_TRACKINGS, permission: Permissions::DENIED)
+      user_role = create(:user_role, user: user, role: role)
+      user.update!(current_user_role: user_role)
+      user.reload
+
+      expect(user.can_show?(:pedagogical_trackings)).to eq(false)
+    end
+  end
 end

@@ -20,6 +20,41 @@ module Navigation
       delegate :raw, :content_tag, :link_to, :to => :helpers
 
       def can_show?(feature)
+        feature = feature.to_s
+        return false if feature.blank?
+
+        @can_show_memo ||= {}
+        return @can_show_memo[feature] if @can_show_memo.key?(feature)
+
+        @can_show_memo[feature] = compute_can_show(feature)
+      end
+
+      def policy(feature)
+        klass = policy_klass_for(feature)
+
+        begin
+          result = Pundit::PolicyFinder.new(klass).policy!.new(current_user, klass)
+          Rails.logger.info 'LOG: Navigation::Render::Base#policy - Policy found'
+          result
+        rescue
+          result = ApplicationPolicy.new(current_user, klass)
+          Rails.logger.info 'LOG: Navigation::Render::Base#policy - Policy fallback'
+          result
+        end
+      end
+
+      def compute_can_show(feature)
+        return false unless current_user
+
+        case feature
+        when 'educamais', 'pedagogical_trackings'
+          !!current_user.can_show?(feature)
+        else
+          cached_policy_can_show?(feature)
+        end
+      end
+
+      def cached_policy_can_show?(feature)
         # rubocop:todo Entender como melhorar esta questão das entidades nos testes
         entity_id = Rails.env.test? ? '1' : Entity.current.id
         role = current_user.current_user_role&.role
@@ -38,22 +73,9 @@ module Navigation
         end
       end
 
-      def policy(feature)
-        klass = policy_klass_for(feature)
-
-        begin
-          result = Pundit::PolicyFinder.new(klass).policy!.new(current_user, klass)
-          Rails.logger.info 'LOG: Navigation::Render::Base#policy - Policy found'
-          result
-        rescue
-          result = ApplicationPolicy.new(current_user, klass)
-          Rails.logger.info 'LOG: Navigation::Render::Base#policy - Policy fallback'
-          result
-        end
-      end
-
       def policy_klass_for(feature)
         return Educamais if feature.to_s == 'educamais'
+        return PedagogicalTrackings if feature.to_s == 'pedagogical_trackings'
         return Tutorials if feature.to_s == 'tutorials'
         return SchoolCalendarPostingDates if feature.to_s == 'school_calendar_posting_dates'
 
@@ -74,6 +96,10 @@ module Navigation
         else
           Translator.t("navigation.#{menu_type}")
         end
+      end
+
+      def shortcut_text(menu)
+        Translator.t("navigation.#{menu[:type]}_shortcut", default: menu_text(menu[:type]))
       end
     end
   end

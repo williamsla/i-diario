@@ -208,6 +208,7 @@ class User < ApplicationRecord
   end
 
   def can_show?(feature)
+    feature = feature.to_s
     if feature == "general_configurations"
       return admin?
     end
@@ -218,6 +219,7 @@ class User < ApplicationRecord
   end
 
   def can_change?(feature)
+    feature = feature.to_s
     if feature == "general_configurations"
       return admin?
     end

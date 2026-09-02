@@ -483,6 +483,7 @@ class PendingRecordsCalculator
         # Obter dias que estão em quadros excluídos
         # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
         school_days_discarded = all_school_days.select { |date| discarded_weekday_numbers.include?(get_equivalent_weekday_number(date)) }
+        optional_holiday_makeup_dates = Set.new
 
         # Obter frequências registradas (usar dados já carregados em batch)
         if @count_only
@@ -562,6 +563,12 @@ class PendingRecordsCalculator
           apply_teacher_absences!(
             pending_frequency_dates, pending_content_dates,
             classroom, discipline, teacher, start_date, end_date, today,
+            frequency_dates_set: frequency_dates_set,
+            content_dates_set: content_dates_set
+          )
+          optional_holiday_makeup_dates = apply_optional_holidays!(
+            pending_frequency_dates, pending_content_dates,
+            classroom, discipline_tdcs.first.period, start_date, end_date, today,
             frequency_dates_set: frequency_dates_set,
             content_dates_set: content_dates_set
           )
@@ -658,6 +665,12 @@ class PendingRecordsCalculator
             frequency_dates_set: frequencies,
             content_dates_set: content_records
           )
+          optional_holiday_makeup_dates = apply_optional_holidays!(
+            pending_frequency_dates, pending_content_dates,
+            classroom, discipline_tdcs.first.period, start_date, end_date, today,
+            frequency_dates_set: frequencies,
+            content_dates_set: content_records
+          )
 
           pending_frequency_count = pending_frequency_dates.count
           pending_content_count = pending_content_dates.count
@@ -691,6 +704,7 @@ class PendingRecordsCalculator
         if !@count_only || @include_dates
           result[:pending_frequency_dates] = pending_frequency_dates.sort
           result[:pending_content_dates] = pending_content_dates.sort
+          result[:optional_holiday_makeup_dates] = optional_holiday_makeup_dates.to_a
         end
         
         results << result
@@ -740,6 +754,39 @@ class PendingRecordsCalculator
     end
     pending_frequency_dates.sort!
     pending_content_dates.sort!
+  end
+
+  def apply_optional_holidays!(pending_frequency_dates, pending_content_dates,
+                               classroom, period, start_date, end_date, today,
+                               frequency_dates_set: nil, content_dates_set: nil)
+    holiday_dates = OptionalHoliday.holiday_dates_for(
+      classroom: classroom,
+      start_date: start_date,
+      end_date: end_date,
+      period: period,
+      unity_id: classroom.unity_id
+    )
+    make_up_dates = OptionalHoliday.make_up_dates_for(
+      classroom: classroom,
+      start_date: start_date,
+      end_date: end_date,
+      period: period,
+      unity_id: classroom.unity_id
+    )
+    make_up_to_add = make_up_dates.select { |date| date <= today }
+
+    pending_frequency_dates.reject! { |date| holiday_dates.include?(date) }
+    pending_content_dates.reject! { |date| holiday_dates.include?(date) }
+
+    freq_set = frequency_dates_set || []
+    content_set = content_dates_set || []
+    make_up_to_add.each do |date|
+      pending_frequency_dates << date unless pending_frequency_dates.include?(date) || freq_set.include?(date)
+      pending_content_dates << date unless pending_content_dates.include?(date) || content_set.include?(date)
+    end
+    pending_frequency_dates.sort!
+    pending_content_dates.sort!
+    make_up_dates
   end
 
   def teacher_discipline_classrooms
@@ -1656,6 +1703,7 @@ class PendingRecordsCalculator
       # Obter dias que estão em quadros excluídos
       # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
       school_days_discarded = all_school_days.select { |date| discarded_weekday_numbers.include?(get_equivalent_weekday_number(date)) }
+      optional_holiday_makeup_dates = Set.new
 
       # Obter frequências registradas
       if @count_only
@@ -1728,6 +1776,12 @@ class PendingRecordsCalculator
         # Filtrar sábados pendentes baseado em eventos cadastrados
         pending_frequency_dates = filter_saturdays_by_events(pending_frequency_dates, classroom, school_calendar)
         pending_content_dates = filter_saturdays_by_events(pending_content_dates, classroom, school_calendar)
+        optional_holiday_makeup_dates = apply_optional_holidays!(
+          pending_frequency_dates, pending_content_dates,
+          classroom, classroom.period, start_date, end_date, today,
+          frequency_dates_set: frequency_dates_set,
+          content_dates_set: content_dates_set
+        )
         
         pending_frequency_count = pending_frequency_dates.count
         pending_content_count = pending_content_dates.count
@@ -1818,6 +1872,12 @@ class PendingRecordsCalculator
         # Filtrar sábados pendentes baseado em eventos cadastrados
         pending_frequency_dates = filter_saturdays_by_events(pending_frequency_dates, classroom, school_calendar)
         pending_content_dates = filter_saturdays_by_events(pending_content_dates, classroom, school_calendar)
+        optional_holiday_makeup_dates = apply_optional_holidays!(
+          pending_frequency_dates, pending_content_dates,
+          classroom, classroom.period, start_date, end_date, today,
+          frequency_dates_set: frequencies,
+          content_dates_set: content_records
+        )
         
         pending_frequency_count = pending_frequency_dates.count
         pending_content_count = pending_content_dates.count
@@ -1856,6 +1916,7 @@ class PendingRecordsCalculator
         else
           result[:pending_content_dates] = pending_content_dates.sort
         end
+        result[:optional_holiday_makeup_dates] = optional_holiday_makeup_dates.to_a
       end
       
       results << result

@@ -84,8 +84,9 @@ class KnowledgeAreaLessonPlan < ActiveRecord::Base
     @valid_for_destruction if defined?(@valid_for_destruction)
     @valid_for_destruction = begin
       lesson_plan.valid?
-      forbidden_error = I18n.t('errors.messages.not_allowed_to_post_in_date')
-      if lesson_plan.errors[:start_at].include?(forbidden_error) || lesson_plan.errors[:end_at].include?(forbidden_error)
+      forbidden_error = PostingDateChecker.find_error(lesson_plan.errors[:start_at]) ||
+                        PostingDateChecker.find_error(lesson_plan.errors[:end_at])
+      if forbidden_error
         errors.add(:base, forbidden_error)
         false
       else

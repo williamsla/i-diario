@@ -1,0 +1,5 @@
+pt-BR:
+  enumerations:
+    optional_holiday_makeup_scope:
+      municipal: "SEMED (todas as escolas)"
+      by_school: "Cada escola informa a sua"

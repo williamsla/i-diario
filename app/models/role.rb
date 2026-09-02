@@ -39,11 +39,11 @@ class Role < ActiveRecord::Base
   end
 
   def can_show?(feature)
-    permissions.can_show?(feature)
+    permissions.can_show?(feature.to_s)
   end
 
   def can_change?(feature)
-    permissions.can_change?(feature)
+    permissions.can_change?(feature.to_s)
   end
 
   # Fingerprint das permissões para invalidar cache de menu/atalhos ao alterar acesso

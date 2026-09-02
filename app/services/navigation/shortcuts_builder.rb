@@ -1,12 +1,15 @@
 module Navigation
   class ShortcutsBuilder
+    OPTIONAL_HOLIDAYS_SHORTCUT = 'only-when-optional-holidays'.freeze
+
     def self.build(*args)
       new(*args).build
     end
 
     def initialize(user, render = ShortcutRender)
+      @user = user
       @navigation_render = render.new(user)
-      @navigation = defined?(MENU) ? MENU : Navigation::Base::MENU
+      @navigation = Navigation::Base.menu
     end
 
     def build
@@ -18,13 +21,13 @@ module Navigation
 
     protected
 
-    attr_reader :navigation, :navigation_render
+    attr_reader :navigation, :navigation_render, :user
 
     def amount_nodes(nodes)
       nodes.map { |node|
         visible = node['menu']['visible']
         next if visible == 'only-when-aee' && !aee_navigation_context?
-        next unless node['menu']['shortcut']
+        next unless shortcut_enabled?(node['menu']['shortcut'])
 
         node_values(node['menu'])
       }
@@ -33,13 +36,27 @@ module Navigation
     def node_values(node)
       if node['submenus']
         node['submenus'].map { |submenu|
-          next unless submenu['menu']['shortcut']
+          next unless shortcut_enabled?(submenu['menu']['shortcut'])
 
           submenu['menu'].merge(node.slice('icon'))
         }.compact
       else
         node.slice('type', 'icon', 'path', 'shortcut_highlight')
       end
+    end
+
+    def shortcut_enabled?(value)
+      return true if value == true || value.to_s == 'true'
+      return optional_holidays_exist_for_current_year? if value.to_s == OPTIONAL_HOLIDAYS_SHORTCUT
+
+      false
+    end
+
+    def optional_holidays_exist_for_current_year?
+      year = user.try(:current_school_year)
+      return false if year.blank?
+
+      OptionalHoliday.by_year(year).exists?
     end
 
     def aee_navigation_context?

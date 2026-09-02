@@ -160,4 +160,13 @@ RSpec.describe PostingDateChecker, type: :service do
       end
     end
   end
+
+  describe '#not_allowed_message' do
+    it 'includes the posting period of the step' do
+      message = subject.not_allowed_message
+
+      expect(message).to include(I18n.l(step.start_date_for_posting))
+      expect(message).to include(I18n.l(step.end_date_for_posting))
+    end
+  end
 end

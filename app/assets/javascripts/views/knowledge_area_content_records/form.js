@@ -225,6 +225,19 @@ $(function () {
     syncSubmitButtonState();
   };
 
+  var toggleOptionalHolidayMakeupBadge = function (isMakeup) {
+    var $badge = $('#optional-holiday-makeup-badge');
+    if (!$badge.length) {
+      return;
+    }
+
+    if (isMakeup) {
+      $badge.show();
+    } else {
+      $badge.hide();
+    }
+  };
+
   var applyKnowledgeAreasToSelect = function (payload) {
     var knowledgeAreas = payload.knowledge_areas || [];
     var selectedKnowledgeAreas = _.map(knowledgeAreas, function (knowledgeArea) {
@@ -238,6 +251,7 @@ $(function () {
 
     if (!$knowledgeArea.length) {
       toggleRecordDateAlert(payload.message);
+      toggleOptionalHolidayMakeupBadge(payload.makeup);
       return;
     }
 
@@ -275,6 +289,7 @@ $(function () {
 
     $knowledgeArea.trigger('change');
     toggleRecordDateAlert(payload.message);
+    toggleOptionalHolidayMakeupBadge(payload.makeup);
 
     if (!payload.message) {
       setTimeout(function () {
@@ -317,6 +332,7 @@ $(function () {
 
     if (_.isEmpty(classroom_id) || _.isEmpty(date) || _.isEmpty(date.match(dateRegex))) {
       toggleRecordDateAlert(null);
+      toggleOptionalHolidayMakeupBadge(false);
       return;
     }
 
