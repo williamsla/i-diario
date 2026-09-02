@@ -267,4 +267,107 @@ RSpec.describe PedagogicalTrackingsController, type: :controller do
       expect(response.body).not_to include('Contagem com material concreto')
     end
   end
+
+  describe 'GET #frequency_report_modal' do
+    let(:student) { create(:student, name: 'Aluno Faltoso') }
+    let(:school_calendar) { SchoolCalendar.find_by!(unity_id: unity.id, year: year) }
+    let(:classrooms_grade) { ClassroomsGrade.find_by!(classroom: classroom, grade: grade) }
+
+    def recent_weekdays(count)
+      dates = []
+      date = Date.current
+
+      while dates.size < count
+        dates << date unless date.saturday? || date.sunday?
+        date -= 1.day
+      end
+
+      dates
+    end
+
+    def enroll_student!
+      student_enrollment = create(:student_enrollment, student: student)
+      create(
+        :student_enrollment_classroom,
+        classrooms_grade: classrooms_grade,
+        student_enrollment: student_enrollment
+      )
+    end
+
+    def create_frequency(date:, present:, justification_id: nil)
+      daily_frequency = create(
+        :daily_frequency,
+        classroom: classroom,
+        unity: unity,
+        school_calendar: school_calendar,
+        discipline: discipline,
+        frequency_date: date,
+        class_number: 1,
+        period: Periods::MATUTINAL
+      )
+
+      create(
+        :daily_frequency_student,
+        daily_frequency: daily_frequency,
+        student: student,
+        present: present,
+        active: true,
+        type_of_teaching: TypesOfTeaching::PRESENTIAL,
+        absence_justification_student_id: justification_id
+      )
+    end
+
+    def report_students
+      assigns(:classrooms_data).flat_map { |classroom_data| classroom_data[:students] }
+    end
+
+    def request_frequency_report(main_filter:)
+      get :frequency_report_modal, params: {
+        locale: 'pt-BR',
+        unity_id: unity.id,
+        classroom_id: classroom.id,
+        main_filter: main_filter,
+        risk_classifications: [
+          'Adequado',
+          'Atenção',
+          'Abaixo do Mínimo',
+          'Crítico',
+          'Dados insuficientes'
+        ]
+      }
+    end
+
+    it 'does not count justified absences as absences' do
+      enroll_student!
+      justification_id = create(:absence_justifications_student, student: student).id
+      dates = recent_weekdays(11)
+      dates.take(3).each { |date| create_frequency(date: date, present: false) }
+      dates.slice(3, 4).each { |date| create_frequency(date: date, present: false, justification_id: justification_id) }
+      dates.drop(7).each { |date| create_frequency(date: date, present: true) }
+
+      request_frequency_report(main_filter: 'absences_only')
+
+      expect(response).to be_successful
+      student_row = report_students.find { |row| row[:student_id] == student.id }
+
+      expect(student_row).to be_present
+      expect(student_row[:absences_15_days]).to eq(3)
+      expect(student_row[:absences_year]).to eq(3)
+      expect(student_row[:frequency_percentage]).to eq(57.1)
+      expect(student_row[:top_absence_disciplines].sum { |item| item[:count] }).to eq(3)
+    end
+
+    it 'does not list a student who only has justified absences' do
+      enroll_student!
+      justification_id = create(:absence_justifications_student, student: student).id
+      dates = recent_weekdays(8)
+      dates.take(4).each { |date| create_frequency(date: date, present: false, justification_id: justification_id) }
+      dates.drop(4).each { |date| create_frequency(date: date, present: true) }
+
+      request_frequency_report(main_filter: 'absences_only')
+
+      expect(response).to be_successful
+      expect(report_students.map { |row| row[:student_id] }).not_to include(student.id)
+    end
+  end
 end

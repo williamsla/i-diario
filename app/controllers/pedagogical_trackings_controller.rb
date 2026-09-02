@@ -456,24 +456,15 @@ class PedagogicalTrackingsController < ApplicationController
         # OTIMIZAÇÃO: Usar consultas SQL agregadas para calcular faltas diretamente no banco
         # IMPORTANTE: Contar apenas uma falta por dia (mesmo que o aluno tenha faltado em múltiplas disciplinas)
         # Usar COUNT(DISTINCT frequency_date) para contar dias únicos de falta
-        
-        # Buscar faltas dos últimos 15 dias agrupadas por aluno (contando dias únicos)
-        absences_15_days_by_student = DailyFrequencyStudent
-          .joins(:daily_frequency)
-          .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: start_date_15_days..end_date })
-          .where(active: true)
-          .where("COALESCE(daily_frequency_students.present, 'f') = 'f'")
-          .group(:student_id)
-          .count("DISTINCT daily_frequencies.frequency_date")
+        # Faltas justificadas não entram na contagem nem no percentual de frequência.
 
-        # Buscar faltas do ano inteiro agrupadas por aluno (contando dias únicos)
-        absences_year_by_student = DailyFrequencyStudent
-          .joins(:daily_frequency)
-          .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: year_start_date..end_date })
-          .where(active: true)
-          .where("COALESCE(daily_frequency_students.present, 'f') = 'f'")
+        absences_15_days_by_student = unjustified_absence_records(classroom, start_date_15_days..end_date)
           .group(:student_id)
-          .count("DISTINCT daily_frequencies.frequency_date")
+          .count('DISTINCT daily_frequencies.frequency_date')
+
+        absences_year_by_student = unjustified_absence_records(classroom, year_start_date..end_date)
+          .group(:student_id)
+          .count('DISTINCT daily_frequencies.frequency_date')
 
         # Buscar presenças do ano inteiro agrupadas por aluno (contando dias únicos)
         presences_year_by_student = DailyFrequencyStudent
@@ -484,12 +475,7 @@ class PedagogicalTrackingsController < ApplicationController
           .group(:student_id)
           .count("DISTINCT daily_frequencies.frequency_date")
 
-        # Buscar faltas do ano por aluno e disciplina (dias únicos por disciplina)
-        absences_by_student_discipline = DailyFrequencyStudent
-          .joins(:daily_frequency)
-          .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: year_start_date..end_date })
-          .where(active: true)
-          .where("COALESCE(daily_frequency_students.present, 'f') = 'f'")
+        absences_by_student_discipline = unjustified_absence_records(classroom, year_start_date..end_date)
           .group('daily_frequency_students.student_id', 'daily_frequencies.discipline_id')
           .count('DISTINCT daily_frequencies.frequency_date')
 
@@ -879,6 +865,15 @@ class PedagogicalTrackingsController < ApplicationController
   end
 
   private
+
+  def unjustified_absence_records(classroom, date_range)
+    DailyFrequencyStudent
+      .joins(:daily_frequency)
+      .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: date_range })
+      .where(active: true)
+      .where("COALESCE(daily_frequency_students.present, 'f') = 'f'")
+      .by_not_justified
+  end
 
   def parse_observation_date(value)
     return Time.zone.today if value.blank?
