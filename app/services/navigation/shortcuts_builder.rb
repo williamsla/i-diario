@@ -9,7 +9,7 @@ module Navigation
     def initialize(user, render = ShortcutRender)
       @user = user
       @navigation_render = render.new(user)
-      @navigation = Navigation::Base::MENU
+      @navigation = Navigation::Base.menu
     end
 
     def build
@@ -46,7 +46,7 @@ module Navigation
     end
 
     def shortcut_enabled?(value)
-      return true if value == true
+      return true if value == true || value.to_s == 'true'
       return optional_holidays_exist_for_current_year? if value.to_s == OPTIONAL_HOLIDAYS_SHORTCUT
 
       false

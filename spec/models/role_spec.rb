@@ -49,4 +49,26 @@ RSpec.describe Role, :type => :model do
       expect(Role.find(role.id).permissions_cache_key).not_to eq(original_key)
     end
   end
+
+  describe "#default_permission_for" do
+    it "grants Educa+ and Acompanhamento pedagógico to administrator roles" do
+      role = build(:role, :administrator)
+
+      expect(role.default_permission_for('pedagogical_trackings')).to eq(Permissions::CHANGE)
+      expect(role.default_permission_for('educamais')).to eq(Permissions::CHANGE)
+    end
+
+    it "grants Educa+ and Acompanhamento pedagógico to employee roles" do
+      role = build(:role, access_level: AccessLevel::EMPLOYEE)
+
+      expect(role.default_permission_for('pedagogical_trackings')).to eq(Permissions::CHANGE)
+      expect(role.default_permission_for('educamais')).to eq(Permissions::CHANGE)
+    end
+
+    it "denies Acompanhamento pedagógico to teacher roles by default" do
+      role = build(:role, :teacher)
+
+      expect(role.default_permission_for('pedagogical_trackings')).to eq(Permissions::DENIED)
+    end
+  end
 end

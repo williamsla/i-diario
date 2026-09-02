@@ -1,7 +1,7 @@
 module Navigation
   class ShortcutRender < Navigation::Render::Base
     def render(menus)
-      menus = menus.select { |menu| can_show? menu['type'] }
+      menus = menus.select { |menu| can_show?(menu['type'] || menu[:type]) }
 
       raw menus.map { |menu| render_menu(menu.with_indifferent_access) }.join(' ')
     end

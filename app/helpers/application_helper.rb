@@ -35,26 +35,11 @@ module ApplicationHelper
   end
 
   def menus
-    role = current_user.current_user_role&.role
-    user_role_cache = role&.cache_key.to_s + role&.id.to_s
-    key = [
-      'Menus',
-      Entity.current&.id,
-      current_user.admin?,
-      controller_name,
-      user_role_cache || current_user.cache_key,
-      role&.permissions_cache_key,
-      Translation.cache_key,
-      is_aee
-    ]
-
-    Rails.cache.fetch(key, expires_in: 1.day) do
-      begin
-        Thread.current[:navigation_is_aee] = is_aee
-        Navigation.draw_menus(controller_name, current_user)
-      ensure
-        Thread.current[:navigation_is_aee] = nil
-      end
+    begin
+      Thread.current[:navigation_is_aee] = is_aee
+      Navigation.draw_menus(controller_name, current_user)
+    ensure
+      Thread.current[:navigation_is_aee] = nil
     end
   end
 

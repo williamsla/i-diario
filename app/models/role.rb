@@ -32,18 +32,26 @@ class Role < ActiveRecord::Base
       unless permissions.where(feature: feature).exists?
         permissions.new(
           feature: feature,
-          permission: Permissions::DENIED
+          permission: default_permission_for(feature)
         )
       end
     end
   end
 
+  def default_permission_for(feature)
+    if (administrator? || employee?) && User::ADMINISTRATOR_HOME_FEATURES.include?(feature.to_s)
+      Permissions::CHANGE
+    else
+      Permissions::DENIED
+    end
+  end
+
   def can_show?(feature)
-    permissions.can_show?(feature)
+    permissions.can_show?(feature.to_s)
   end
 
   def can_change?(feature)
-    permissions.can_change?(feature)
+    permissions.can_change?(feature.to_s)
   end
 
   # Fingerprint das permissões para invalidar cache de menu/atalhos ao alterar acesso

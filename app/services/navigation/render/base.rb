@@ -47,10 +47,8 @@ module Navigation
         return false unless current_user
 
         case feature
-        when 'educamais'
-          EducaMais::Config.enabled? && !!current_user.can_show?(:educamais)
-        when 'pedagogical_trackings'
-          !!current_user.can_show?(:pedagogical_trackings)
+        when 'educamais', 'pedagogical_trackings'
+          !!current_user.can_show?(feature)
         else
           cached_policy_can_show?(feature)
         end

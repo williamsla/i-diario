@@ -16,6 +16,8 @@ class User < ApplicationRecord
 
   attr_accessor :credentials, :has_to_validate_receive_news_fields
 
+  ADMINISTRATOR_HOME_FEATURES = %w[pedagogical_trackings educamais].freeze
+
   def password=(new_password)
     super(new_password.present? ? new_password.downcase : new_password)
   end
@@ -208,23 +210,31 @@ class User < ApplicationRecord
   end
 
   def can_show?(feature)
+    feature = feature.to_s
     if feature == "general_configurations"
       return admin?
     end
     return true if admin?
+    return true if administrator_home_feature?(feature)
     return unless current_user_role
 
     current_user_role.role.can_show?(feature)
   end
 
   def can_change?(feature)
+    feature = feature.to_s
     if feature == "general_configurations"
       return admin?
     end
     return true if admin?
+    return true if administrator_home_feature?(feature)
     return unless current_user_role
 
     current_user_role.role.can_change?(feature)
+  end
+
+  def administrator_home_feature?(feature)
+    administrator? && ADMINISTRATOR_HOME_FEATURES.include?(feature.to_s)
   end
 
   def update_tracked_fields!(request)

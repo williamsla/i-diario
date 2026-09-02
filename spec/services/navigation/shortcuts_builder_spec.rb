@@ -36,4 +36,14 @@ RSpec.describe Navigation::ShortcutsBuilder do
 
     expect(types).to include('educamais', 'pedagogical_trackings')
   end
+
+  it 'marks Educa+ and Acompanhamento pedagógico as highlighted shortcuts' do
+    allow(OptionalHoliday).to receive(:by_year).with(Date.current.year).and_return(double(exists?: false))
+
+    highlighted = described_class.build(user, FakeShortcutRender).select { |shortcut|
+      shortcut['shortcut_highlight']
+    }.map { |shortcut| shortcut['type'] }
+
+    expect(highlighted).to include('educamais', 'pedagogical_trackings')
+  end
 end
