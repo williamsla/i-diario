@@ -51,15 +51,4 @@ describe Navigation::ShortcutRender, type: :service do
     expect(html).not_to include('Educa+')
     expect(html).not_to include('Acompanhamento pedagógico')
   end
-
-  it 'renders Acompanhamento pedagógico for Administrator profile' do
-    user = User.new(admin: false)
-    allow(user).to receive(:administrator?).and_return(true)
-    allow(EducaMais::Config).to receive(:enabled?).and_return(true)
-
-    html = described_class.new(user).render(menus)
-
-    expect(html).to include('Acompanhamento pedagógico')
-    expect(html).to include('Educa+')
-  end
 end

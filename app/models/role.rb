@@ -32,17 +32,9 @@ class Role < ActiveRecord::Base
       unless permissions.where(feature: feature).exists?
         permissions.new(
           feature: feature,
-          permission: default_permission_for(feature)
+          permission: Permissions::DENIED
         )
       end
-    end
-  end
-
-  def default_permission_for(feature)
-    if (administrator? || employee?) && User::ADMINISTRATOR_HOME_FEATURES.include?(feature.to_s)
-      Permissions::CHANGE
-    else
-      Permissions::DENIED
     end
   end
 
