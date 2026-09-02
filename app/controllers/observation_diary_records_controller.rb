@@ -7,21 +7,9 @@ class ObservationDiaryRecordsController < ApplicationController
   before_action :require_allow_to_modify_prev_years, only: [:create, :update, :destroy]
 
   def index
-    current_discipline = fetch_current_discipline
-    unity_ids = unities.map(&:id)
-    unity_ids = [current_unity.id] if unity_ids.blank? && current_unity.present?
-
-    relation = ObservationDiaryRecord
-      .includes(:discipline, classroom: :unity)
-      .by_unity(unity_ids)
-      .ordered
-
-    if current_user.teacher?
-      relation = relation.by_discipline([current_discipline&.id, nil])
-    end
-
+    relation = observation_diary_records_by_profile
     @observation_diary_records = apply_scopes(relation)
-    @students = fetch_students_with_observation_diary_records
+    @students = fetch_students_with_observation_diary_records(relation)
   end
 
   def show
@@ -126,22 +114,18 @@ class ObservationDiaryRecordsController < ApplicationController
   end
 
   def unities
-    @unities ||= begin
-      if current_user.teacher?
-        Unity.by_teacher(current_teacher.id).ordered
-      elsif current_user.has_administrator_access_level?
-        Unity.ordered
-      else
-        Unity.by_user_id(current_user.id).ordered
-      end
-    end
+    @unities ||= Unity.where(id: current_unity&.id).ordered
   end
   helper_method :unities
 
   def classrooms
-    @classrooms ||= Classroom.by_unity(unities.map(&:id))
-                             .by_year(current_user_school_year)
-                             .ordered
+    @classrooms ||= if current_user.current_role_is_admin_or_employee?
+                      Classroom.by_unity(current_unity)
+                               .by_year(current_user_school_year)
+                               .ordered
+                    else
+                      Classroom.where(id: current_user_classroom&.id).ordered
+                    end
   end
   helper_method :classrooms
 
@@ -199,6 +183,20 @@ class ObservationDiaryRecordsController < ApplicationController
     end
   end
 
+  def observation_diary_records_by_profile
+    relation = ObservationDiaryRecord
+      .includes(:discipline, classroom: :unity)
+      .by_classroom(classrooms.map(&:id))
+      .ordered
+
+    if current_user.teacher?
+      current_discipline = fetch_current_discipline
+      relation = relation.by_discipline([current_discipline&.id, nil])
+    end
+
+    relation
+  end
+
   def fetch_current_discipline
     frequency_type_definer = FrequencyTypeDefiner.new(
       current_user_classroom,
@@ -210,9 +208,11 @@ class ObservationDiaryRecordsController < ApplicationController
     current_user_discipline
   end
 
-  def fetch_students_with_observation_diary_records
+  def fetch_students_with_observation_diary_records(relation)
+    record_ids = relation.except(:includes, :order).select(:id)
+
     Student.joins(observation_diary_record_note_students: :observation_diary_record_note)
-           .where(observation_diary_record_notes: { observation_diary_record_id: @observation_diary_records })
+           .where(observation_diary_record_notes: { observation_diary_record_id: record_ids })
            .distinct
            .ordered
   end
