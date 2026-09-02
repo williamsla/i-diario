@@ -51,4 +51,16 @@ describe Navigation::ShortcutRender, type: :service do
     expect(html).not_to include('Educa+')
     expect(html).not_to include('Acompanhamento pedagógico')
   end
+
+  it 'renders the Educa+ shortcut with the name defined in the terms dictionary' do
+    allow(subject).to receive(:can_show?) { |feature|
+      %w[educamais pedagogical_trackings daily_frequencies].include?(feature.to_s)
+    }
+    allow(TermsDictionary).to receive(:educamais_display_name).and_return('Indicadores')
+
+    html = subject.render(menus)
+
+    expect(html).to include('Indicadores')
+    expect(html).not_to include('Educa+')
+  end
 end

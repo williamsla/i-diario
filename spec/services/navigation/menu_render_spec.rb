@@ -122,4 +122,34 @@ describe Navigation::MenuRender, type: :service do
       expect(subject.render(menus)).to eq "<ul><li class=\"\"><a href=\"/\"><i class=\"fa fa-lg fa-fw fa-home\"></i> <span class=\"menu-item-parent\">Início</span></a></li> <li class=\"open\"><a href=\"#\"><i class=\"fa fa-lg fa-fw fa-cog\"></i> <span class=\"menu-item-parent\">Configurações</span></a> <ul><li class=\"current\"><a href=\"/permissoes\"><span class=\"menu-item-parent\">Permissões</span></a></li> <li class=\"\"><a href=\"/unidades\"><span class=\"menu-item-parent\">Unidades</span></a></li></ul></li></ul>"
     end
   end
+
+  context "when Educa+ is informed" do
+    let(:menus) do
+      [
+        {
+          type: 'educamais',
+          icon: 'fa-bar-chart',
+          path: 'educamais_launch_path',
+          css_class: [],
+          subnodes: [],
+          visible: true
+        }
+      ]
+    end
+
+    it "returns the default Educa+ label" do
+      allow(TermsDictionary).to receive(:educamais_display_name).and_return('Educa+')
+
+      expect(subject.render(menus)).to include('Educa+')
+    end
+
+    it "returns the name defined in the terms dictionary" do
+      allow(TermsDictionary).to receive(:educamais_display_name).and_return('Indicadores')
+
+      html = subject.render(menus)
+
+      expect(html).to include('Indicadores')
+      expect(html).not_to include('Educa+')
+    end
+  end
 end

@@ -87,7 +87,9 @@ module Navigation
       end
 
       def menu_text(menu_type)
-        if menu_type == 'school_term_recovery_diary_records'
+        if menu_type.to_s == 'educamais'
+          TermsDictionary.educamais_display_name
+        elsif menu_type == 'school_term_recovery_diary_records'
           if GeneralConfiguration.semestral_recovery?
             'Recuperação Semestral'
           else
@@ -99,7 +101,11 @@ module Navigation
       end
 
       def shortcut_text(menu)
-        Translator.t("navigation.#{menu[:type]}_shortcut", default: menu_text(menu[:type]))
+        if menu[:type].to_s == 'educamais'
+          TermsDictionary.educamais_display_name
+        else
+          Translator.t("navigation.#{menu[:type]}_shortcut", default: menu_text(menu[:type]))
+        end
       end
     end
   end

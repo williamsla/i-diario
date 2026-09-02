@@ -8,6 +8,7 @@ pt-BR:
     attributes:
       terms_dictionary:
         presence_identifier_character: "Caractere identificador de presença"
+        educamais_label: "Nome do Educa+"
 
     errors:
       models:

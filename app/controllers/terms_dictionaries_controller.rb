@@ -31,7 +31,7 @@ class TermsDictionariesController < ApplicationController
   private
 
   def resource_params
-    params.require(:terms_dictionary).permit(:presence_identifier_character)
+    params.require(:terms_dictionary).permit(:presence_identifier_character, :educamais_label)
   end
 
   def clear_cache_current_terms_dictionary
