@@ -7,11 +7,11 @@ RSpec.describe PlanAuthorFetcher do
   describe '#author' do
     subject { described_class.new(teaching_plan, current_teacher).author }
 
-    context 'when the plan has teacher_id nil but was not created by administrator' do
+    context 'when the plan has teacher_id nil (unificado)' do
       let(:teaching_plan) { create(:teaching_plan, teacher: nil) }
 
-      it 'returns others' do
-        expect(subject).to eq(I18n.t('enumerations.plans_authors.others'))
+      it 'returns my_plans' do
+        expect(subject).to eq(I18n.t('enumerations.plans_authors.my_plans'))
       end
     end
 

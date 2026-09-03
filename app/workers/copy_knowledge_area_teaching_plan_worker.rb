@@ -19,7 +19,7 @@ class CopyKnowledgeAreaTeachingPlanWorker
           year,
           unities_ids,
           grades_ids,
-          created_by_administrator: user.has_administrator_access_level?
+          created_by_administrator: user.administrator?
         )
       end
 

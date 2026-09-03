@@ -16,13 +16,13 @@ RSpec.describe TeachingPlan, type: :model do
   end
 
   describe '#unificado? / #semed?' do
-    it 'returns false when teacher_id is nil but creator is not administrator' do
+    it 'returns true when persisted teacher_id is nil' do
       teaching_plan = create(:teaching_plan, teacher: nil)
       teaching_plan.reload
 
       expect(teaching_plan[:teacher_id]).to be_nil
-      expect(teaching_plan.unificado?).to eq(false)
-      expect(teaching_plan.semed?).to eq(false)
+      expect(teaching_plan.unificado?).to eq(true)
+      expect(teaching_plan.semed?).to eq(true)
     end
 
     it 'returns false when teacher_id is present and creator is a teacher' do
@@ -39,7 +39,29 @@ RSpec.describe TeachingPlan, type: :model do
       expect(teaching_plan.unificado?).to eq(false)
     end
 
-    it 'returns true when creator is administrator even with teacher_id present' do
+    it 'returns false when creator also has administrator role but current profile is teacher' do
+      teacher = create(:teacher)
+      teacher_user = create(:user, :with_user_role_teacher)
+      create(:user_role, :administrator, user: teacher_user)
+      teacher_user.reload
+      teacher_role = teacher_user.user_roles.detect { |user_role|
+        user_role.role.access_level == AccessLevel::TEACHER
+      }
+      teacher_user.update!(current_user_role: teacher_role)
+
+      teaching_plan = nil
+      Audited.audit_class.as_user(teacher_user) do
+        teaching_plan = create(:teaching_plan, teacher: teacher)
+      end
+
+      teaching_plan.reload
+      expect(teacher_user.has_administrator_access_level?).to eq(true)
+      expect(teacher_user.administrator?).to eq(false)
+      expect(teaching_plan[:teacher_id]).to eq(teacher.id)
+      expect(teaching_plan.unificado?).to eq(false)
+    end
+
+    it 'returns true when creator current profile is administrator even with teacher_id present' do
       admin = create(:user, :with_user_role_administrator)
       teacher = create(:teacher)
       teaching_plan = nil
@@ -54,7 +76,7 @@ RSpec.describe TeachingPlan, type: :model do
       expect(teaching_plan.unificado?).to eq(true)
     end
 
-    it 'returns false when creation audit has no user' do
+    it 'returns false when creation audit has no user and teacher_id is present' do
       teacher = create(:teacher)
       teaching_plan = create(:teaching_plan, teacher: teacher)
       teaching_plan.audits.where(action: 'create').update_all(user_id: nil, user_type: nil)

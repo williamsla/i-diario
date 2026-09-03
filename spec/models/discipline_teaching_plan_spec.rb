@@ -74,11 +74,11 @@ RSpec.describe DisciplineTeachingPlan, type: :model do
       create_plan_for(third_teacher, as_user: admin, thematic_unit: copied_thematic_unit)
     end
 
-    it 'includes own plans and admin unificados for MY_PLANS' do
+    it 'includes own plans and unificados for MY_PLANS' do
       result = described_class.by_author(PlansAuthors::MY_PLANS, current_teacher)
 
-      expect(result).to include(my_plan, admin_created_plan)
-      expect(result).not_to include(other_plan, nil_teacher_plan)
+      expect(result).to include(my_plan, admin_created_plan, nil_teacher_plan)
+      expect(result).not_to include(other_plan)
     end
 
     it 'dedupes admin-created unificado plans with the same key for MY_PLANS' do
@@ -94,8 +94,27 @@ RSpec.describe DisciplineTeachingPlan, type: :model do
 
       expect(result).to include(other_plan)
       expect(result).not_to include(
-        my_plan, admin_created_plan, admin_copied_plan_a, admin_copied_plan_b
+        my_plan, nil_teacher_plan, admin_created_plan, admin_copied_plan_a, admin_copied_plan_b
       )
+    end
+
+    it 'does not treat teacher plans as unificado when the creator also has administrator role' do
+      dual_role_user = create(:user, :with_user_role_teacher)
+      create(:user_role, :administrator, user: dual_role_user)
+      dual_role_user.reload
+      teacher_role = dual_role_user.user_roles.detect { |user_role|
+        user_role.role.access_level == AccessLevel::TEACHER
+      }
+      dual_role_user.update!(current_user_role: teacher_role)
+
+      teacher_plan = create_plan_for(current_teacher, as_user: dual_role_user)
+
+      result = described_class.by_author(PlansAuthors::MY_PLANS, current_teacher)
+
+      expect(dual_role_user.has_administrator_access_level?).to eq(true)
+      expect(dual_role_user.administrator?).to eq(false)
+      expect(teacher_plan.teaching_plan.unificado?).to eq(false)
+      expect(result).to include(teacher_plan)
     end
 
     it 'includes all plans for ALL without deduping' do

@@ -43,7 +43,10 @@ class TeachingPlan < ApplicationRecord
   scope :by_year, ->(year) { where(year: year) }
   scope :semed, -> { where(teacher_id: nil) }
   scope :unificado, lambda {
-    where("#{table_name}.id IN (#{administrator_created_ids_sql})")
+    where(
+      "#{table_name}.teacher_id IS NULL OR " \
+      "#{table_name}.id IN (#{administrator_created_ids_sql})"
+    )
   }
 
   attr_accessor :grade_ids, :contents_created_at_position, :objectives_created_at_position
@@ -51,7 +54,7 @@ class TeachingPlan < ApplicationRecord
   def self.administrator_created_ids_sql
     Audited::Audit
       .joins("INNER JOIN users ON users.id = audits.user_id AND audits.user_type = 'User'")
-      .joins('INNER JOIN user_roles ON user_roles.user_id = users.id')
+      .joins('INNER JOIN user_roles ON user_roles.id = users.current_user_role_id')
       .joins('INNER JOIN roles ON roles.id = user_roles.role_id')
       .where(auditable_type: name, action: 'create')
       .where(roles: { access_level: AccessLevel::ADMINISTRATOR })
@@ -64,11 +67,11 @@ class TeachingPlan < ApplicationRecord
   end
 
   def unificado?
-    created_by_administrator?
+    self[:teacher_id].nil? || created_by_administrator?
   end
 
   def created_by_administrator?
-    creation_user&.has_administrator_access_level?
+    creation_user&.administrator?
   end
 
   def creation_user

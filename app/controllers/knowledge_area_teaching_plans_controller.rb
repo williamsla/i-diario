@@ -359,7 +359,7 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
       KnowledgeAreaTeachingPlan.includes(:knowledge_areas, teaching_plan:
                                   [:unity, :grade, :teaching_plan_attachments, :teacher,
                                    :school_term_type, :school_term_type_step,
-                                   { audits: { user: :roles } }])
+                                   { audits: { user: [:roles, { current_user_role: :role }] } }])
                                 .by_unity(current_unity)
                                 .by_year(current_school_year)
                                 .by_grade(current_grade.map(&:grade_id))

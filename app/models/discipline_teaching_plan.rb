@@ -92,7 +92,7 @@ class DisciplineTeachingPlan < ApplicationRecord
   validates :discipline, presence: true
 
   def self.unificado_sql_condition
-    "teaching_plans.id IN (#{TeachingPlan.administrator_created_ids_sql})"
+    "teaching_plans.teacher_id IS NULL OR teaching_plans.id IN (#{TeachingPlan.administrator_created_ids_sql})"
   end
 
   def self.deduped_unificado_ids_sql

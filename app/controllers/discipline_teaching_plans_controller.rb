@@ -373,7 +373,7 @@ class DisciplineTeachingPlansController < ApplicationController
       DisciplineTeachingPlan.includes(:discipline, teaching_plan:
                              [:unity, :grade, :teaching_plan_attachments, :teacher,
                               :school_term_type, :school_term_type_step,
-                              { audits: { user: :roles } }])
+                              { audits: { user: [:roles, { current_user_role: :role }] } }])
                             .by_discipline(@disciplines.map(&:id))
                             .by_unity(current_unity)
                             .by_year(current_school_year)
