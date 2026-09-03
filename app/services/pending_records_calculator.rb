@@ -1179,7 +1179,16 @@ class PendingRecordsCalculator
     archived_since = effective_archived_since(classroom_id)
     query = query.where('lessons_boards.discarded_at >= ?', archived_since) if archived_since
 
-    @lessons_board_archive_dates[classroom_id] = query.maximum(:discarded_at)&.to_date
+    @lessons_board_archive_dates[classroom_id] = discarded_at_as_local_date(query.maximum(:discarded_at))
+  end
+
+  # discarded_at é gravado com end_of_day (23:59 em Brasília = madrugada do dia seguinte em UTC).
+  # maximum() devolve o timestamp em UTC; to_date sem fuso adianta um dia e mistura
+  # o weekday do quadro arquivado na vigência do quadro atual.
+  def discarded_at_as_local_date(discarded_at)
+    return if discarded_at.blank?
+
+    discarded_at.in_time_zone.to_date
   end
 
   def effective_archived_since(classroom_id)

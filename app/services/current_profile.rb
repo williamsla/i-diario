@@ -94,7 +94,10 @@ class CurrentProfile
   end
 
   def teachers_as_json
-    teachers.map { |teacher_record| teacher_json_with_left_status(teacher_record) }
+    teachers
+      .map { |teacher_record| teacher_json_with_left_status(teacher_record) }
+      .partition { |teacher| !teacher[:inactive] }
+      .flatten
   end
 
   def teachers
@@ -192,12 +195,11 @@ class CurrentProfile
       teacher_id: teacher_record.id,
       classroom_id: classroom&.id
     )
+    inactive = left_at.present? && left_at <= Date.current
 
-    if left_at.present? && left_at <= Date.current
-      name = "#{name} (saiu em #{I18n.l(left_at.to_date)})"
-    end
+    name = "#{name} (saiu em #{I18n.l(left_at.to_date)})" if inactive
 
-    { id: teacher_record.id, name: name }
+    { id: teacher_record.id, name: name, inactive: inactive }
   end
 
   def initial_value(options, model)
