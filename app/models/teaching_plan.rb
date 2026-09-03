@@ -45,7 +45,7 @@ class TeachingPlan < ApplicationRecord
   scope :unificado, lambda {
     where(
       "#{table_name}.teacher_id IS NULL OR " \
-      "#{table_name}.id IN (#{administrator_created_ids_sql})"
+      "#{table_name}.id IN (#{unificado_created_ids_sql})"
     )
   }
 
@@ -62,16 +62,33 @@ class TeachingPlan < ApplicationRecord
       .to_sql
   end
 
+  # Alguns unificados "institucionais" chegam com o audit de criação sem user_id/user_type
+  # (Autor em branco no histórico). Pelo regra de negócio, tratamos esses como unificados também.
+  def self.created_without_user_ids_sql
+    Audited::Audit
+      .where(auditable_type: name, action: 'create', user_id: nil, user_type: nil)
+      .select('audits.auditable_id')
+      .to_sql
+  end
+
+  def self.unificado_created_ids_sql
+    "(#{administrator_created_ids_sql}) UNION (#{created_without_user_ids_sql})"
+  end
+
   def semed?
     unificado?
   end
 
   def unificado?
-    self[:teacher_id].nil? || created_by_administrator?
+    self[:teacher_id].nil? || created_by_administrator? || created_without_user?
   end
 
   def created_by_administrator?
     creation_user&.administrator?
+  end
+
+  def created_without_user?
+    creation_audit.present? && creation_audit.user_id.blank? && creation_audit.user_type.blank?
   end
 
   def creation_user

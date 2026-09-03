@@ -81,6 +81,11 @@ class SchoolCalendarClassroomsSynchronizer < BaseSynchronizer
   end
 
   def update_or_create_steps(school_calendar_classroom_record_steps, school_calendar_classroom_id)
+    return if school_calendar_classroom_record_steps.blank?
+
+    last_step_end_at = school_calendar_classroom_record_steps.max_by(&:etapa).data_fim.to_date
+    end_date_for_posting_on_create = last_step_end_at + 30
+
     school_calendar_classroom_record_steps.each do |school_calendar_classroom_step_record|
       SchoolCalendarClassroomStep.find_or_initialize_by(
         school_calendar_classroom_id: school_calendar_classroom_id,
@@ -95,8 +100,10 @@ class SchoolCalendarClassroomsSynchronizer < BaseSynchronizer
 
         if new_record
           school_calendar_classroom_step.start_date_for_posting = start_at
-          school_calendar_classroom_step.end_date_for_posting = end_at + 15
         end
+
+        # Regra fixa da sincronização: todas as etapas compartilham a mesma data final de lançamento.
+        school_calendar_classroom_step.end_date_for_posting = end_date_for_posting_on_create
 
         if school_calendar_classroom_step.start_date_for_posting < start_at
           school_calendar_classroom_step.start_date_for_posting = start_at
@@ -106,7 +113,7 @@ class SchoolCalendarClassroomsSynchronizer < BaseSynchronizer
         end_date_for_posting = school_calendar_classroom_step.end_date_for_posting
 
         if end_date_for_posting < end_at || end_date_for_posting <= start_date_for_posting
-          school_calendar_classroom_step.end_date_for_posting = end_at + 15
+          school_calendar_classroom_step.end_date_for_posting = end_date_for_posting_on_create
         end
 
         school_calendar_classroom_step.save! if school_calendar_classroom_step.changed?

@@ -60,8 +60,8 @@ RSpec.describe PlanAuthorFetcher do
         plan.reload
       end
 
-      it 'returns others' do
-        expect(subject).to eq(I18n.t('enumerations.plans_authors.others'))
+      it 'returns my_plans' do
+        expect(subject).to eq(I18n.t('enumerations.plans_authors.my_plans'))
       end
     end
   end

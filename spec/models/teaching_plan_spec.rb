@@ -76,14 +76,14 @@ RSpec.describe TeachingPlan, type: :model do
       expect(teaching_plan.unificado?).to eq(true)
     end
 
-    it 'returns false when creation audit has no user and teacher_id is present' do
+    it 'returns true when creation audit has no user and teacher_id is present' do
       teacher = create(:teacher)
       teaching_plan = create(:teaching_plan, teacher: teacher)
       teaching_plan.audits.where(action: 'create').update_all(user_id: nil, user_type: nil)
       teaching_plan.reload
 
       expect(teaching_plan[:teacher_id]).to eq(teacher.id)
-      expect(teaching_plan.unificado?).to eq(false)
+      expect(teaching_plan.unificado?).to eq(true)
     end
   end
 
