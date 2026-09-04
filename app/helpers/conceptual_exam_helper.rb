@@ -52,6 +52,10 @@ module ConceptualExamHelper
     @conceptual_exam.conceptual_exam_values.any? { |value| value.exempted_discipline.to_s == 'true' }
   end
 
+  def skip_conceptual_exam_value_field?(value)
+    value.marked_for_destruction? || value.marked_as_invisible?
+  end
+
   def ordered_conceptual_exam_values
     @conceptual_exam.conceptual_exam_values
                     .sort_by { |conceptual_exam_value|

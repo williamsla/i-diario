@@ -59,6 +59,7 @@
           <% end %>
 
           <%= f.simple_fields_for :conceptual_exam_values, conceptual_exam_values do |conceptual_exam_value_form| %>
+            <% next if skip_conceptual_exam_value_field?(conceptual_exam_value_form.object) %>
             <%= render 'conceptual_exam_value_fields', f: conceptual_exam_value_form %>
           <% end %>
         <% end %>

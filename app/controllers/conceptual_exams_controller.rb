@@ -201,6 +201,7 @@ class ConceptualExamsController < ApplicationController
 
     if @conceptual_exam.valid?
       ConceptualExamValue.by_conceptual_exam_id(@conceptual_exam.id)
+                         .where(discipline_id: disciplines_with_assignment)
                          .destroy_all
 
       @conceptual_exam.destroy unless ConceptualExamValue.by_conceptual_exam_id(@conceptual_exam.id).any?
@@ -450,13 +451,12 @@ class ConceptualExamsController < ApplicationController
     set_options_by_user
     fetch_collections
     add_missing_disciplines
-    mark_not_assigned_disciplines_for_destruction
     mark_not_existing_disciplines_as_invisible
     mark_exempted_disciplines
   end
 
   def resource_params
-    params.require(:conceptual_exam).permit(
+    permitted = params.require(:conceptual_exam).permit(
       :unity_id,
       :classroom_id,
       :recorded_at,
@@ -470,6 +470,48 @@ class ConceptualExamsController < ApplicationController
         :_destroy
       ]
     )
+
+    filter_nested_values_to_teacher_disciplines(permitted)
+  end
+
+  def filter_nested_values_to_teacher_disciplines(permitted)
+    attributes = permitted[:conceptual_exam_values_attributes]
+    return permitted if attributes.blank?
+
+    allowed = teacher_discipline_ids_for_classroom(
+      permitted[:classroom_id].presence || @conceptual_exam&.classroom_id
+    )
+
+    keep = lambda do |attrs|
+      attrs = attrs.respond_to?(:to_unsafe_h) ? attrs.to_unsafe_h : attrs.to_h
+      attrs = attrs.with_indifferent_access
+      discipline_id = attrs[:discipline_id].presence
+      if discipline_id.blank? && attrs[:id].present?
+        discipline_id = ConceptualExamValue.where(id: attrs[:id]).limit(1).pluck(:discipline_id).first
+      end
+      allowed.include?(discipline_id.to_i)
+    end
+
+    permitted[:conceptual_exam_values_attributes] =
+      if attributes.respond_to?(:each_pair) && !attributes.is_a?(Array)
+        attributes.each_with_object({}) do |(key, attrs), memo|
+          memo[key] = attrs if keep.call(attrs)
+        end
+      else
+        Array(attributes).select { |attrs| keep.call(attrs) }
+      end
+
+    permitted
+  end
+
+  def teacher_discipline_ids_for_classroom(classroom_id)
+    return [] if classroom_id.blank? || current_teacher_id.blank?
+
+    TeacherDisciplineClassroom.by_classroom(classroom_id)
+                              .by_teacher_id(current_teacher_id)
+                              .by_year(current_school_calendar.year)
+                              .pluck(:discipline_id)
+                              .uniq
   end
 
   def find_step_id
@@ -532,12 +574,6 @@ class ConceptualExamsController < ApplicationController
     missing_disciplines
   end
 
-  def mark_not_assigned_disciplines_for_destruction
-    @conceptual_exam.conceptual_exam_values.where.not(discipline_id: disciplines_with_assignment).each do |conceptual_exam_value|
-      conceptual_exam_value.mark_for_destruction
-    end
-  end
-
   def mark_not_existing_disciplines_as_invisible
     teacher_discipline_ids = disciplines_with_assignment
 
@@ -584,11 +620,7 @@ class ConceptualExamsController < ApplicationController
   end
 
   def disciplines_with_assignment
-    TeacherDisciplineClassroom.by_classroom(@conceptual_exam.classroom_id)
-                              .by_teacher_id(current_teacher_id)
-                              .by_year(current_school_calendar.year)
-                              .pluck(:discipline_id)
-                              .uniq
+    teacher_discipline_ids_for_classroom(@conceptual_exam.classroom_id)
   end
 
   def fetch_collections
@@ -645,13 +677,11 @@ class ConceptualExamsController < ApplicationController
     classroom ||= @conceptual_exam.classroom
     @period = current_teacher_period(classroom) != Periods::FULL.to_i ? current_teacher_period(classroom) : nil
 
-    StudentEnrollmentsList.new(
+    ConceptualExamStudentEnrollments.new(
       classroom: classroom,
       discipline: discipline,
       start_at: start_at,
       end_at: end_at,
-      score_type: StudentEnrollmentScoreTypeFilters::CONCEPT,
-      search_type: :by_date_range,
       period: @period
     ).student_enrollments
   end
@@ -906,14 +936,11 @@ class ConceptualExamsController < ApplicationController
       end_at = step.end_at
     end
 
-    StudentEnrollmentsList.new(
+    ConceptualExamStudentEnrollments.new(
       classroom: classroom,
       discipline: current_user_discipline,
       start_at: start_at,
-      end_at: end_at,
-      score_type: StudentEnrollmentScoreTypeFilters::CONCEPT,
-      search_type: :by_date_range,
-      period: nil
+      end_at: end_at
     ).student_enrollments
   end
 

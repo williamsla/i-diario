@@ -67,14 +67,11 @@ class ConceptualExamStepOverviewFetcher
   def enrolled_student_ids(step)
     start_at, end_at = enrollment_period(step)
 
-    StudentEnrollmentsList.new(
+    ConceptualExamStudentEnrollments.new(
       classroom: classroom,
       discipline: discipline,
       start_at: start_at,
-      end_at: end_at,
-      score_type: StudentEnrollmentScoreTypeFilters::CONCEPT,
-      search_type: :by_date_range,
-      period: nil
+      end_at: end_at
     ).student_enrollments.map(&:student_id).uniq
   end
 
