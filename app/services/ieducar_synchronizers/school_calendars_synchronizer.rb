@@ -91,7 +91,7 @@ class SchoolCalendarsSynchronizer < BaseSynchronizer
   def update_or_create_steps(school_calendar_steps, school_calendar_id)
     return if school_calendar_steps.blank?
 
-    last_step_end_at = school_calendar_steps.max_by(&:etapa).data_fim.to_date
+    last_step_end_at = school_calendar_steps.map { |step| step.data_fim.to_date }.max
     end_date_for_posting_on_create = last_step_end_at + 30
 
     school_calendar_steps.each do |school_calendar_steps_record|
