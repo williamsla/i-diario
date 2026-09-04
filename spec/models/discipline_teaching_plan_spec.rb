@@ -125,6 +125,39 @@ RSpec.describe DisciplineTeachingPlan, type: :model do
       )
     end
 
+    it 'includes plans marked as unificado even when they belong to another teacher' do
+      flagged_plan = create_plan_for(other_teacher, as_user: teacher_user, unificado: true)
+
+      result = described_class.by_author(PlansAuthors::MY_PLANS, current_teacher)
+
+      expect(flagged_plan.teaching_plan[:unificado]).to eq(true)
+      expect(result).to include(flagged_plan)
+    end
+
+    it 'includes marked unificado plans from another unity' do
+      other_unity = create(:unity)
+      flagged_plan = create_plan_for(
+        other_teacher,
+        as_user: teacher_user,
+        unificado: true,
+        unity: other_unity
+      )
+
+      result = described_class.by_unity_or_unificado(unity)
+
+      expect(result).to include(flagged_plan, my_plan)
+    end
+
+    it 'does not include unmarked plans from another unity' do
+      other_unity = create(:unity)
+      other_unity_plan = create_plan_for(other_teacher, as_user: teacher_user, unity: other_unity)
+
+      result = described_class.by_unity_or_unificado(unity)
+
+      expect(result).to include(my_plan)
+      expect(result).not_to include(other_unity_plan)
+    end
+
     it 'prefers teacher_id nil when deduping unificados' do
       nil_teacher_admin_copy = create_plan_for(
         nil,

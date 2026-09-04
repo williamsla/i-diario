@@ -24,6 +24,7 @@ pt-BR:
         grade_ids: "Séries:"
         opinion: "Parecer"
         validated: "Plano de ensino validado"
+        unificado: "Plano unificado"
 
     errors:
       models:

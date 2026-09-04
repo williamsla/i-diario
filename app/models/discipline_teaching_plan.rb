@@ -22,6 +22,13 @@ class DisciplineTeachingPlan < ApplicationRecord
 
   scope :by_year, ->(year) { joins(:teaching_plan).where(teaching_plans: { year: year }) }
   scope :by_unity, ->(unity) { joins(:teaching_plan).where(teaching_plans: { unity_id: unity }) }
+  scope :by_unity_or_unificado, lambda { |unity|
+    unity_id = unity.respond_to?(:id) ? unity.id : unity
+    joins(:teaching_plan).where(
+      'teaching_plans.unity_id = :unity_id OR teaching_plans.unificado = TRUE',
+      unity_id: unity_id
+    )
+  }
   scope :by_grade, ->(grade) { joins(:teaching_plan).where(teaching_plans: { grade_id: grade }) }
   scope :by_school_term_type_id, lambda { |school_term_type_id|
     joins(:teaching_plan).where(teaching_plans: { school_term_type_id: school_term_type_id })
@@ -92,7 +99,8 @@ class DisciplineTeachingPlan < ApplicationRecord
   validates :discipline, presence: true
 
   def self.unificado_sql_condition
-    "teaching_plans.teacher_id IS NULL OR teaching_plans.id IN (#{TeachingPlan.unificado_created_ids_sql})"
+    "teaching_plans.unificado = TRUE OR teaching_plans.teacher_id IS NULL OR " \
+    "teaching_plans.id IN (#{TeachingPlan.unificado_created_ids_sql})"
   end
 
   def self.deduped_unificado_ids_sql

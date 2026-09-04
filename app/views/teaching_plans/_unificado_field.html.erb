@@ -1,0 +1,9 @@
+<% if current_user.administrator? %>
+  <div class="row">
+    <div class="col col-sm-4">
+      <%= teaching_plan_form.input :unificado, as: :boolean,
+            hint: t('teaching_plans.form.unificado_hint'),
+            readonly: action_name.eql?('show') %>
+    </div>
+  </div>
+<% end %>

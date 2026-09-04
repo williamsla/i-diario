@@ -4,7 +4,7 @@
       <table id="resources" class="table table-bordered table-only-inner-bordered table-striped table-condensed table-hover">
         <thead>
           <tr>
-            <td></td>
+            <td style="width: 100px;"></td>
             <td>
               <%= f.input :by_grade, as: :select2, elements: @grades,
                     label: false, placeholder: t('.by_grade') %>
@@ -13,7 +13,7 @@
               <%= f.input :by_knowledge_area, as: :select2, elements: @knowledge_areas,
                     label: false, placeholder: t('.by_knowledge_area') %>
             </td>
-            <td>
+            <td style="width: 130px;">
               <%= f.input :by_school_term_type_step_id, as: :select2,
                     elements: SchoolTermTypeStep.to_select2(
                       current_user.current_school_year,
@@ -21,9 +21,10 @@
                     ).to_json,
                     label: false, placeholder: t('.by_school_term_type_step') %>
             </td>
-            <td>
+            <td style="width: 120px;">
               <%= f.input :by_author, as: :select2_plans, label: false %>
             </td>
+            <td style="width: 90px;"></td>
             <td>
               <%= link_to t('.new_html'), new_knowledge_area_teaching_plan_path,
                     class: 'btn btn-primary pull-right', style: 'width: 100%;' %>
@@ -31,12 +32,13 @@
           </tr>
 
           <tr>
-            <th><%= 'Plano para' %></th>
+            <th style="width: 100px;"><%= 'Plano para' %></th>
             <th><%= TeachingPlan.human_attribute_name :grade %></th>
             <th><%= is_aee ? '' : KnowledgeAreaTeachingPlan.human_attribute_name(:knowledge_areas) %></th>
             <th><%= is_aee ? '' : KnowledgeAreaTeachingPlan.human_attribute_name(:experience_fields) %></th>
-            <th><%= TeachingPlan.human_attribute_name :school_term_type_step %></th>
-            <th><%= KnowledgeAreaTeachingPlan.human_attribute_name :author %></th>
+            <th style="width: 130px;"><%= TeachingPlan.human_attribute_name :school_term_type_step %></th>
+            <th style="width: 120px;"><%= KnowledgeAreaTeachingPlan.human_attribute_name :author %></th>
+            <th style="width: 90px;"><%= TeachingPlan.human_attribute_name :unificado %></th>
             <th style="width: 230px"></th>
           </tr>
         </thead>

@@ -287,6 +287,7 @@ class DisciplineTeachingPlansController < ApplicationController
         :student_id,
         :opinion,
         :validated,
+        *(current_user.administrator? ? [:unificado] : []),
         teaching_plan_attachments_attributes: [
           :id,
           :attachment,
@@ -375,7 +376,7 @@ class DisciplineTeachingPlansController < ApplicationController
                               :school_term_type, :school_term_type_step,
                               { audits: { user: [:roles, { current_user_role: :role }] } }])
                             .by_discipline(@disciplines.map(&:id))
-                            .by_unity(current_unity)
+                            .by_unity_or_unificado(current_unity)
                             .by_year(current_school_year)
                             .by_grade(current_grade.map(&:grade_id))
                             .order_by_grades

@@ -149,6 +149,7 @@ class CopyDisciplineTeachingPlanService
     thematic_unit
   )
     copy_teaching_plan = teaching_plan.dup
+    copy_teaching_plan.unificado = false
     copy_teaching_plan.unity_id = unity_id
     copy_teaching_plan.grade_id = grade_id
     copy_teaching_plan.year = year

@@ -85,6 +85,22 @@ RSpec.describe TeachingPlan, type: :model do
       expect(teaching_plan[:teacher_id]).to eq(teacher.id)
       expect(teaching_plan.unificado?).to eq(true)
     end
+
+    it 'returns true when the unificado flag is marked even with a teacher' do
+      teacher = create(:teacher)
+      teacher_user = create(:user, :with_user_role_teacher)
+      teaching_plan = nil
+
+      Audited.audit_class.as_user(teacher_user) do
+        teaching_plan = create(:teaching_plan, :unificado, teacher: teacher)
+      end
+
+      teaching_plan.reload
+      expect(teaching_plan[:teacher_id]).to eq(teacher.id)
+      expect(teaching_plan[:unificado]).to eq(true)
+      expect(teaching_plan.unificado?).to eq(true)
+      expect(teaching_plan.inferred_unificado?).to eq(false)
+    end
   end
 
   describe 'validations' do

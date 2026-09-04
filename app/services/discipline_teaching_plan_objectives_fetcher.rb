@@ -10,7 +10,7 @@ class DisciplineTeachingPlanObjectivesFetcher < TeachingPlanObjectivesFetcher
   protected
 
   def base_query
-    DisciplineTeachingPlan.by_unity(@classroom.unity_id)
+    DisciplineTeachingPlan.by_unity_or_unificado(@classroom.unity_id)
                           .by_grade(@classroom.classrooms_grades.map(&:grade_id))
                           .by_discipline(@discipline)
                           .by_year(school_calendar_year)

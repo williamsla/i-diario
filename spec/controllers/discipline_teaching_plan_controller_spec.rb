@@ -204,6 +204,43 @@ RSpec.describe DisciplineTeachingPlansController, type: :controller do
         end
       end
     end
+
+    context 'when a marked unificado plan belongs to another unity' do
+      let(:other_unity) { create(:unity) }
+      let(:other_unity_unificado_teaching_plan) {
+        create(
+          :teaching_plan,
+          :unificado,
+          teacher: nil,
+          unity: other_unity,
+          year: classroom.year,
+          grade: classroom.classrooms_grades.first.grade,
+          school_term_type: school_term_type,
+          school_term_type_step: school_term_type_step
+        )
+      }
+      let(:other_unity_unificado_discipline_teaching_plan) {
+        create(
+          :discipline_teaching_plan,
+          teaching_plan: other_unity_unificado_teaching_plan,
+          discipline: discipline
+        )
+      }
+
+      before do
+        current_teacher_discipline_teaching_plan
+        other_unity_unificado_discipline_teaching_plan
+
+        get :index, params: { locale: 'pt-BR', filter: { by_author: PlansAuthors::MY_PLANS } }
+      end
+
+      it 'lists the marked unificado plan without copying it' do
+        expect(assigns(:discipline_teaching_plans)).to include(
+          current_teacher_discipline_teaching_plan,
+          other_unity_unificado_discipline_teaching_plan
+        )
+      end
+    end
   end
 
   describe 'POST discipline_teaching_plans#create' do
@@ -221,6 +258,22 @@ RSpec.describe DisciplineTeachingPlansController, type: :controller do
       it 'creates and redirects to discipline_teaching_plans#index' do
         expect { post :create, params: params.merge(params)  }.to change(DisciplineTeachingPlan, :count).by(1)
         expect(response).to redirect_to(discipline_teaching_plans_path)
+      end
+
+      it 'ignores the unificado flag when the current user is not an administrator' do
+        params[:discipline_teaching_plan][:teaching_plan_attributes][:unificado] = true
+
+        expect { post :create, params: params }.to change(DisciplineTeachingPlan, :count).by(1)
+        expect(TeachingPlan.order(:id).last[:unificado]).to eq(false)
+      end
+
+      it 'persists the unificado flag when the current user is an administrator' do
+        allow(user).to receive(:administrator?).and_return(true)
+        allow(controller).to receive(:current_user).and_return(user)
+        params[:discipline_teaching_plan][:teaching_plan_attributes][:unificado] = true
+
+        expect { post :create, params: params }.to change(DisciplineTeachingPlan, :count).by(1)
+        expect(TeachingPlan.order(:id).last[:unificado]).to eq(true)
       end
     end
   end

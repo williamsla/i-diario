@@ -5,7 +5,7 @@ json.unities @unities do |unity|
   school_calendar = CurrentSchoolCalendarFetcher.new(unity, nil).fetch
 
   if school_calendar.present?
-    teaching_plans = TeachingPlan.by_unity_id(unity.id)
+    teaching_plans = TeachingPlan.by_unity_id_or_unificado(unity.id)
                                  .by_teacher_id(params[:teacher_id])
                                  .by_year(school_calendar.year)
                                  .includes(:unity)

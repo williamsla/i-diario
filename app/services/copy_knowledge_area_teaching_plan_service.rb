@@ -142,6 +142,7 @@ class CopyKnowledgeAreaTeachingPlanService
 
   def create_copy(teaching_plan, knowledge_area_ids, experience_fields, teacher, grade_id, unity_id)
     copy = teaching_plan.dup
+    copy.unificado = false
     copy.unity_id = unity_id
     copy.grade_id = grade_id
     copy.year = year

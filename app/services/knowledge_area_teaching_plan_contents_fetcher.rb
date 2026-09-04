@@ -12,7 +12,7 @@ class KnowledgeAreaTeachingPlanContentsFetcher < TeachingPlanContentsFetcher
 
   def base_query
     KnowledgeAreaTeachingPlan.includes(teaching_plan: :contents)
-                             .by_unity(@classroom.unity_id)
+                             .by_unity_or_unificado(@classroom.unity_id)
                              .by_grade(@classroom.classrooms_grades.map(&:grade_id))
                              .by_knowledge_area(@knowledge_area_ids)
                              .by_student_id(@student_id)

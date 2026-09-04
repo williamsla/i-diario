@@ -36,7 +36,8 @@
 
       <%= teaching_plan_form.input :year, as: :hidden, input_html: { value: current_school_calendar.year } %>
       <%= teaching_plan_form.input :unity_id, as: :hidden, input_html: { value: current_user.current_unity_id } %>
-        
+
+      <%= render 'teaching_plans/unificado_field', teaching_plan_form: teaching_plan_form %>
 
       <div id='copy_plan_info' class='alert alert-info' style='display: none;'>
         <i class='fa-fw fa fa-info'></i>

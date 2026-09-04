@@ -39,11 +39,18 @@ class TeachingPlan < ApplicationRecord
   validate :at_least_one_content_assigned
 
   scope :by_unity_id, ->(unity_id) { where(unity_id: unity_id) }
+  scope :by_unity_id_or_unificado, lambda { |unity_id|
+    where(
+      "#{table_name}.unity_id = :unity_id OR #{table_name}.unificado = TRUE",
+      unity_id: unity_id
+    )
+  }
   scope :by_teacher_id, ->(teacher_id) { where(teacher_id: teacher_id) }
   scope :by_year, ->(year) { where(year: year) }
   scope :semed, -> { where(teacher_id: nil) }
   scope :unificado, lambda {
     where(
+      "#{table_name}.unificado = TRUE OR " \
       "#{table_name}.teacher_id IS NULL OR " \
       "#{table_name}.id IN (#{unificado_created_ids_sql})"
     )
@@ -80,6 +87,10 @@ class TeachingPlan < ApplicationRecord
   end
 
   def unificado?
+    self[:unificado] || inferred_unificado?
+  end
+
+  def inferred_unificado?
     self[:teacher_id].nil? || created_by_administrator? || created_without_user?
   end
 
