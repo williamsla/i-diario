@@ -113,5 +113,99 @@ RSpec.describe OptionalHolidaysController, type: :controller do
       expect(holiday.make_up_date).to eq(saturday)
       expect(holiday.equivalent_weekday).to eq(Workdays::FRIDAY)
     end
+
+    context 'when the user is a school employee' do
+      let(:employee) do
+        create(:user, :with_user_role_employee, admin: false, current_unity_id: unity.id, current_school_year: school_calendar.year)
+      end
+      let(:holiday) do
+        create(
+          :optional_holiday,
+          year: school_calendar.year,
+          user: user,
+          makeup_scope: OptionalHolidayMakeupScope::BY_SCHOOL
+        )
+      end
+
+      before do
+        sign_in(employee)
+        allow(controller).to receive(:current_user).and_return(employee)
+      end
+
+      it 'saves only the school makeup date' do
+        allow_any_instance_of(OptionalHolidayCalendarSynchronizer).to receive(:sync)
+        original_description = holiday.description
+
+        patch :update, params: {
+          locale: 'pt-BR',
+          id: holiday.id,
+          optional_holiday: {
+            description: 'Tentativa de alterar o decreto',
+            make_up_date: I18n.l(holiday.holiday_date + 3.days)
+          }
+        }
+
+        holiday.reload
+        expect(holiday.description).to eq(original_description)
+        expect(holiday.make_up_date_for(unity.id)).to eq(holiday.holiday_date + 3.days)
+        expect(response).to redirect_to(optional_holidays_path)
+      end
+
+      it 'does not change a makeup date that was already informed' do
+        informed_date = holiday.holiday_date + 2.days
+        create(
+          :optional_holiday_unity_makeup,
+          optional_holiday: holiday,
+          unity: unity,
+          make_up_date: informed_date
+        )
+
+        patch :update, params: {
+          locale: 'pt-BR',
+          id: holiday.id,
+          optional_holiday: {
+            make_up_date: I18n.l(holiday.holiday_date + 5.days)
+          }
+        }
+
+        expect(holiday.reload.make_up_date_for(unity.id)).to eq(informed_date)
+        expect(response).to render_template(:edit)
+      end
+
+      it 'does not save a school makeup when the scope is municipal' do
+        municipal = create(
+          :optional_holiday,
+          year: school_calendar.year,
+          user: user,
+          holiday_date: holiday.holiday_date + 1.day,
+          makeup_scope: OptionalHolidayMakeupScope::MUNICIPAL
+        )
+
+        patch :update, params: {
+          locale: 'pt-BR',
+          id: municipal.id,
+          optional_holiday: {
+            make_up_date: I18n.l(municipal.holiday_date + 3.days)
+          }
+        }
+
+        expect(OptionalHolidayUnityMakeup.where(optional_holiday: municipal, unity: unity)).to be_empty
+        expect(municipal.reload.make_up_date).to be_blank
+        expect(response).to render_template(:edit)
+      end
+
+      it 'does not accept a blank makeup date' do
+        patch :update, params: {
+          locale: 'pt-BR',
+          id: holiday.id,
+          optional_holiday: {
+            make_up_date: ''
+          }
+        }
+
+        expect(OptionalHolidayUnityMakeup.where(optional_holiday: holiday, unity: unity)).to be_empty
+        expect(response).to render_template(:edit)
+      end
+    end
   end
 end

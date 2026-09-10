@@ -12,5 +12,9 @@ FactoryGirl.define do
     trait :teacher do
       access_level AccessLevel::TEACHER
     end
+
+    trait :employee do
+      access_level AccessLevel::EMPLOYEE
+    end
   end
 end

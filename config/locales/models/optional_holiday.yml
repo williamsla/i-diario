@@ -29,12 +29,16 @@ pt-BR:
         optional_holiday:
           attributes:
             make_up_date:
+              already_informed: "já foi informada para esta escola e não pode ser alterada"
               must_be_after_holiday_date: "deve ser posterior à data do ponto facultativo"
             periods:
               blank: "selecione ao menos um turno"
             holiday_date:
               taken: "já existe um ponto facultativo cadastrado nesta data para o ano letivo"
+            makeup_scope:
+              school_cannot_inform: "a escola só informa a reposição quando o cadastro está como \"Cada escola informa a sua\""
         optional_holiday_unity_makeup:
           attributes:
             make_up_date:
+              already_informed: "já foi informada para esta escola e não pode ser alterada"
               must_be_after_holiday_date: "deve ser posterior à data do ponto facultativo"

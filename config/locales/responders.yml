@@ -153,6 +153,7 @@ pt-BR:
         notice: 'Ponto facultativo cadastrado com sucesso. A data será considerada não letiva nos turnos informados e a reposição aparecerá como pendência quando definida.'
       update:
         notice: 'Ponto facultativo alterado com sucesso.'
+        school_makeup_notice: 'Data de reposição informada com sucesso.'
       destroy:
         notice: 'Ponto facultativo excluído com sucesso.'
       <<: *male

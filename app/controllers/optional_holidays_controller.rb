@@ -62,7 +62,7 @@ class OptionalHolidaysController < ApplicationController
     if saved
       @optional_holiday.reload
       OptionalHolidayCalendarSynchronizer.new(@optional_holiday).sync
-      flash[:notice] = I18n.t('flash.optional_holidays.update.notice')
+      flash[:notice] = update_notice
       respond_with @optional_holiday, location: optional_holidays_path
     else
       load_unity_makeup
@@ -137,16 +137,49 @@ class OptionalHolidaysController < ApplicationController
   end
 
   def save_unity_makeup
+    unless @optional_holiday.makeup_scope_by_school?
+      @optional_holiday.errors.add(:makeup_scope, :school_cannot_inform)
+      return false
+    end
+
     makeup = @optional_holiday.unity_makeup_for(current_unity.id)
+
+    if makeup.persisted?
+      add_makeup_error(makeup, :make_up_date, :already_informed)
+      return false
+    end
+
     makeup.user = current_user
     makeup.assign_attributes(unity_makeup_params)
 
     if makeup.make_up_date.blank?
-      makeup.destroy if makeup.persisted?
-      return true
+      add_makeup_error(makeup, :make_up_date, :blank)
+      return false
     end
 
-    makeup.save
+    return true if makeup.save
+
+    copy_makeup_errors(makeup)
+    false
+  end
+
+  def add_makeup_error(makeup, attribute, error)
+    makeup.errors.add(attribute, error)
+    @optional_holiday.errors.add(attribute, makeup.errors[attribute].last)
+  end
+
+  def copy_makeup_errors(makeup)
+    makeup.errors.each do |attribute, message|
+      @optional_holiday.errors.add(attribute, message)
+    end
+  end
+
+  def update_notice
+    if administrator?
+      I18n.t('flash.optional_holidays.update.notice')
+    else
+      I18n.t('flash.optional_holidays.update.school_makeup_notice')
+    end
   end
 
   def administrator?

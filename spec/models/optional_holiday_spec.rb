@@ -197,6 +197,42 @@ RSpec.describe OptionalHoliday, type: :model do
       expect(dates).to include(make_up_date)
     end
   end
+
+  describe '#school_can_inform_makeup?' do
+    let(:unity) { create(:unity) }
+
+    it 'is true when the scope is by school and the unity has no makeup date' do
+      holiday = create(
+        :optional_holiday,
+        makeup_scope: OptionalHolidayMakeupScope::BY_SCHOOL
+      )
+
+      expect(holiday.school_can_inform_makeup?(unity.id)).to eq(true)
+    end
+
+    it 'is false when the school already informed the makeup date' do
+      holiday = create(
+        :optional_holiday,
+        makeup_scope: OptionalHolidayMakeupScope::BY_SCHOOL
+      )
+      create(
+        :optional_holiday_unity_makeup,
+        optional_holiday: holiday,
+        unity: unity
+      )
+
+      expect(holiday.school_can_inform_makeup?(unity.id)).to eq(false)
+    end
+
+    it 'is false when the makeup is municipal' do
+      holiday = create(
+        :optional_holiday,
+        makeup_scope: OptionalHolidayMakeupScope::MUNICIPAL
+      )
+
+      expect(holiday.school_can_inform_makeup?(unity.id)).to eq(false)
+    end
+  end
 end
 
 RSpec.describe OptionalHolidayUnityMakeup, type: :model do
@@ -214,5 +250,23 @@ RSpec.describe OptionalHolidayUnityMakeup, type: :model do
 
     expect(makeup).to be_valid
     expect(makeup.equivalent_weekday).to eq(Workdays::FRIDAY)
+  end
+
+  it 'does not allow changing a makeup date after it was informed' do
+    holiday = create(
+      :optional_holiday,
+      holiday_date: Date.new(2026, 8, 28),
+      makeup_scope: OptionalHolidayMakeupScope::BY_SCHOOL
+    )
+    makeup = create(
+      :optional_holiday_unity_makeup,
+      optional_holiday: holiday,
+      make_up_date: Date.new(2026, 8, 31)
+    )
+
+    makeup.make_up_date = Date.new(2026, 9, 1)
+
+    expect(makeup).not_to be_valid
+    expect(makeup.errors[:make_up_date]).to be_present
   end
 end

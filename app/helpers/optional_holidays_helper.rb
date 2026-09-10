@@ -1,6 +1,18 @@
 # frozen_string_literal: true
 
 module OptionalHolidaysHelper
+  def optional_holiday_update_action_label
+    administrator? ? t('views.optional_holidays.edit.action') : t('views.optional_holidays.edit.school_makeup_action')
+  end
+
+  def optional_holiday_pending_makeup?(optional_holiday)
+    if administrator?
+      current_unity ? optional_holiday.pending_make_up_for?(current_unity.id) : optional_holiday.pending_make_up?
+    else
+      current_unity.present? && optional_holiday.school_can_inform_makeup?(current_unity.id)
+    end
+  end
+
   def optional_holiday_makeup?(classroom, date, period: nil)
     return false if classroom.blank? || date.blank?
 

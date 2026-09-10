@@ -13,8 +13,12 @@ pt-BR:
         title: "Cadastrar ponto facultativo"
       edit:
         title: "Editar ponto facultativo"
-        school_makeup_title: "Informar data de reposição"
-        school_makeup_hint: "A SEMED cadastrou este ponto facultativo e deixou a data de reposição a cargo de cada escola."
+        action: "Editar"
+        school_makeup_title: "Informar data de reposição da escola"
+        school_makeup_action: "Informar data de reposição da escola"
+        school_makeup_submit: "Informar data de reposição da escola"
+        school_makeup_hint: "A SEMED cadastrou este ponto facultativo. A escola não altera o cadastro: apenas informa a data de reposição da própria unidade, e somente se ela ainda não tiver sido informada."
+        school_make_up_date_hint: "Obrigatória. Informe apenas uma vez; depois a data não poderá ser alterada. Se a reposição for em sábado, o quadro usado será o do dia da semana do ponto facultativo."
       show:
         title: "Ponto facultativo"
         school_make_up_date: "Data de reposição desta escola"

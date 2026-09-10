@@ -1,6 +1,6 @@
 <% @optional_holidays.each do |optional_holiday| %>
   <% makeup_date = current_unity ? optional_holiday.make_up_date_for(current_unity.id) : optional_holiday.make_up_date %>
-  <% pending = current_unity ? optional_holiday.pending_make_up_for?(current_unity.id) : optional_holiday.pending_make_up? %>
+  <% pending = optional_holiday_pending_makeup?(optional_holiday) %>
   <tr>
     <td class="text-center">
       <% if pending %>
@@ -18,8 +18,8 @@
     <td><%= makeup_date.present? ? l(makeup_date) : '-' %></td>
     <td class="actions">
       <%= link_to 'Visualizar', optional_holiday_path(optional_holiday), class: 'btn btn-info btn-sm' %>
-      <% if administrator? || optional_holiday.makeup_scope_by_school? %>
-        <%= link_to 'Editar', edit_optional_holiday_path(optional_holiday), class: 'btn btn-primary btn-sm' %>
+      <% if policy(optional_holiday).update? %>
+        <%= link_to optional_holiday_update_action_label, edit_optional_holiday_path(optional_holiday), class: 'btn btn-primary btn-sm' %>
       <% end %>
       <% if administrator? %>
         <%= link_to 'Excluir', optional_holiday_path(optional_holiday), method: :delete, class: 'btn btn-danger btn-sm',

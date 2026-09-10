@@ -15,6 +15,7 @@ class OptionalHolidayUnityMakeup < ApplicationRecord
   validates :unity_id, uniqueness: { scope: :optional_holiday_id }
   validates :equivalent_weekday, inclusion: { in: Workdays.list, allow_blank: true }
   validate :make_up_date_after_holiday_date
+  validate :make_up_date_cannot_be_changed, on: :update
   before_validation :assign_equivalent_weekday_from_holiday
 
   scope :by_unity, ->(unity_id) { where(unity_id: unity_id) }
@@ -26,6 +27,12 @@ class OptionalHolidayUnityMakeup < ApplicationRecord
     return if make_up_date > optional_holiday.holiday_date
 
     errors.add(:make_up_date, :must_be_after_holiday_date)
+  end
+
+  def make_up_date_cannot_be_changed
+    return unless make_up_date_changed?
+
+    errors.add(:make_up_date, :already_informed)
   end
 
   def assign_equivalent_weekday_from_holiday

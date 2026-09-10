@@ -28,6 +28,15 @@ FactoryGirl.define do
       end
     end
 
+    trait :with_user_role_employee do
+      after(:create) do |user|
+        user_role = create(:user_role, :employee)
+        user.user_roles << user_role
+        user.current_user_role = user_role
+        user.save!
+      end
+    end
+
     factory :user_with_user_role do
       after(:create) do |user|
         user_role = create(:user_role)

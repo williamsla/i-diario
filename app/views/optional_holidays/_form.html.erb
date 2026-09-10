@@ -71,6 +71,7 @@
         </div>
       </div>
     <% else %>
+      <legend><%= t('views.optional_holidays.edit.school_makeup_title') %></legend>
       <div class="alert alert-info fade in">
         <i class="fa-fw fa fa-info"></i>
         <%= t('views.optional_holidays.edit.school_makeup_hint') %>
@@ -89,8 +90,8 @@
 
       <div class="row">
         <div class="col col-sm-4">
-          <%= f.input :make_up_date, as: :date,
-            hint: t('activerecord.attributes.optional_holiday.make_up_date_hint'),
+          <%= f.input :make_up_date, as: :date, required: true,
+            hint: t('views.optional_holidays.edit.school_make_up_date_hint'),
             input_html: { id: 'optional_holiday_make_up_date', value: (@optional_holiday.make_up_date.present? ? l(@optional_holiday.make_up_date) : nil) } %>
         </div>
       </div>
@@ -99,7 +100,7 @@
 
   <footer>
     <%= link_to 'Voltar', optional_holidays_path, class: 'btn btn-default' %>
-    <%= f.submit 'Salvar', class: 'btn btn-primary' %>
+    <%= f.submit administrator? ? 'Salvar' : t('views.optional_holidays.edit.school_makeup_submit'), class: 'btn btn-primary' %>
   </footer>
 <% end %>
 
