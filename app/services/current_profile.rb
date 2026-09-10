@@ -10,7 +10,7 @@ class CurrentProfile
   attr_accessor :user, :user_role, :unity, :school_year, :classroom, :teacher, :discipline
 
   def initialize(user, options = {})
-    options = options.with_indifferent_access
+    options = indifferent_options(options)
 
     self.user = user
     self.school_year = options[:by_school_year] || options[:school_year] || user.current_school_year
@@ -188,6 +188,16 @@ class CurrentProfile
   end
 
   private
+
+  def indifferent_options(options)
+    hash = if options.respond_to?(:to_unsafe_h)
+             options.to_unsafe_h
+           else
+             options.to_h
+           end
+
+    hash.with_indifferent_access
+  end
 
   def teacher_json_with_left_status(teacher_record)
     name = teacher_record.name.to_s

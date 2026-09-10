@@ -505,6 +505,7 @@ Rails.application.routes.draw do
 
     get '/reports/discipline_lesson_plan', to: 'discipline_lesson_plan_report#form', as: 'discipline_lesson_plan_report'
     post '/reports/discipline_lesson_plan', to: 'discipline_lesson_plan_report#lesson_plan_report', as: 'discipline_lesson_plan_report'
+    get '/reports/discipline_lesson_plan/fetch_students', to: 'discipline_lesson_plan_report#fetch_students', as: 'fetch_students_discipline_lesson_plan_report'
     post '/reports/discipline_content_record', to: 'discipline_lesson_plan_report#content_record_report', as: 'discipline_content_record_report'
 
     get '/reports/descriptive', to: 'descriptive_report#form', as: 'descriptive_report'
@@ -516,6 +517,7 @@ Rails.application.routes.draw do
     get '/reports/knowledge_area_lesson_plan', to: 'knowledge_area_lesson_plan_report#form', as: 'knowledge_area_lesson_plan_report'
     post '/reports/knowledge_area_lesson_plan', to: 'knowledge_area_lesson_plan_report#lesson_plan_report', as: 'knowledge_area_lesson_plan_report'
     get '/reports/knowledge_area_lesson_plan/fetch_knowledge_areas', to: 'knowledge_area_lesson_plan_report#fetch_knowledge_areas', as: 'fetch_knowledge_areas_knowledge_area_lesson_plan_report'
+    get '/reports/knowledge_area_lesson_plan/fetch_students', to: 'knowledge_area_lesson_plan_report#fetch_students', as: 'fetch_students_knowledge_area_lesson_plan_report'
     post '/reports/knowledge_area_content_record', to: 'knowledge_area_lesson_plan_report#content_record_report', as: 'knowledge_area_content_record_report'
 
     get '/reports/conceptual_exam', to: 'conceptual_exam_report#form', as: 'conceptual_exam_report'

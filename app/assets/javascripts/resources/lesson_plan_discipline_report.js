@@ -8,6 +8,8 @@ $(function () {
     $unity = $('#discipline_lesson_plan_report_form_unity_id'),
     $classroom = $('#discipline_lesson_plan_report_form_classroom_id'),
     $discipline = $('#discipline_lesson_plan_report_form_discipline_id'),
+    $student = $('#discipline_lesson_plan_report_form_student_id'),
+    $studentField = $('#individual-student-field'),
     flashMessages = new FlashMessages();
 
   $unity.on('change', function () {
@@ -125,6 +127,9 @@ $(function () {
       $discipline.prop('readonly', false);
       checkExamRule(params);
       fetchDisciplines(classroom_id);
+      fetchStudents(classroom_id);
+    } else {
+      clearStudents();
     }
   });
 
@@ -132,9 +137,56 @@ $(function () {
     checkExamRule({ classroom_id: $classroom.val() });
   }
 
+  function fetchStudents(classroom_id) {
+    if (!$student.length || _.isEmpty(classroom_id)) {
+      clearStudents();
+      return;
+    }
+
+    $.ajax({
+      url: Routes.fetch_students_discipline_lesson_plan_report_pt_br_path({
+        classroom_id: classroom_id,
+        format: 'json'
+      }),
+      success: handleFetchStudentsSuccess,
+      error: handleFetchStudentsError
+    });
+  }
+
+  function handleFetchStudentsSuccess(students) {
+    if (!students || students.length === 0) {
+      clearStudents();
+      return;
+    }
+
+    var studentOptions = _.map(students, function (student) {
+      return { id: student.id, name: student.name || student.text, text: student.text || student.name };
+    });
+
+    studentOptions.unshift({ id: 'empty', name: '<option></option>', text: '' });
+    $student.select2({ data: studentOptions });
+    $student.val('').trigger('change');
+    $studentField.removeClass('hidden');
+  }
+
+  function handleFetchStudentsError() {
+    clearStudents();
+    flashMessages.error('Ocorreu um erro ao buscar os alunos com conteúdo individual da turma selecionada.');
+  }
+
+  function clearStudents() {
+    if (!$student.length) {
+      return;
+    }
+
+    $student.val('').select2({ data: [] });
+    $studentField.addClass('hidden');
+  }
+
   function clearFields() {
     $classroom.val('').select2({ data: [] });
     $discipline.val('').select2({ data: [] });
+    clearStudents();
   }
 
   function blockFields() {

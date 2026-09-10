@@ -8,7 +8,8 @@ class DisciplineLessonPlanReportForm
                 :date_end,
                 :teacher_id,
                 :report_type,
-                :author
+                :author,
+                :student_id
 
   validates :date_start, presence: true, date: true, timeliness: {
     on_or_before: :date_end,
@@ -30,42 +31,54 @@ class DisciplineLessonPlanReportForm
   validate :must_have_records
 
   def discipline_lesson_plan
-    DisciplineLessonPlan.by_unity_id(unity_id)
-                        .by_author(author, teacher_id)
-                        .by_classroom_id(classroom_id)
-                        .by_discipline_id(discipline_id)
-                        .by_date_range(date_start.to_date, date_end.to_date)
-                        .preload(
-                          :discipline,
-                          lesson_plan: [
-                            :student,
-                            { classroom: :unity },
-                            { contents_lesson_plans: :content },
-                            { objectives_lesson_plans: :objective }
-                          ]
-                        )
-                        .order_by_lesson_plan_date
+    relation = DisciplineLessonPlan.by_unity_id(unity_id)
+                                   .by_author(author, teacher_id)
+                                   .by_classroom_id(classroom_id)
+                                   .by_discipline_id(discipline_id)
+                                   .by_date_range(date_start.to_date, date_end.to_date)
+                                   .preload(
+                                     :discipline,
+                                     lesson_plan: [
+                                       :student,
+                                       { classroom: :unity },
+                                       { contents_lesson_plans: :content },
+                                       { objectives_lesson_plans: :objective }
+                                     ]
+                                   )
+                                   .order_by_lesson_plan_date
+
+    relation = relation.by_student_id(student_id) if individual_student_selected?
+
+    relation
   end
 
   def discipline_content_record
-    DisciplineContentRecord.by_unity_id(unity_id)
-                           .by_author(author, teacher_id)
-                           .by_classroom_id(classroom_id)
-                           .by_discipline_id(discipline_id)
-                           .by_date_range(date_start.to_date, date_end.to_date)
-                           .preload(
-                             :discipline,
-                             content_record: [
-                               :student,
-                               { classroom: :unity },
-                               { content_records_contents: :content },
-                               { objectives_content_records: :objective }
-                             ]
-                           )
-                           .order_by_content_record_date
+    relation = DisciplineContentRecord.by_unity_id(unity_id)
+                                      .by_author(author, teacher_id)
+                                      .by_classroom_id(classroom_id)
+                                      .by_discipline_id(discipline_id)
+                                      .by_date_range(date_start.to_date, date_end.to_date)
+                                      .preload(
+                                        :discipline,
+                                        content_record: [
+                                          :student,
+                                          { classroom: :unity },
+                                          { content_records_contents: :content },
+                                          { objectives_content_records: :objective }
+                                        ]
+                                      )
+                                      .order_by_content_record_date
+
+    relation = relation.by_student_id(student_id) if individual_student_selected?
+
+    relation
   end
 
   private
+
+  def individual_student_selected?
+    student_id.to_i.positive?
+  end
 
   def must_have_records
     return if errors.present?

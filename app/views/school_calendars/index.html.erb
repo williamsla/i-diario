@@ -1,38 +1,48 @@
+<%
+  show_posting_dates = current_user.roles.any? { |role| role.administrator? } && policy(SchoolCalendarPostingDates).edit?
+  show_event_batches = current_user.roles.any? { |role| role.administrator? }
+  show_optional_holidays = policy(OptionalHoliday).index?
+  show_calendar_tools = show_posting_dates || show_event_batches || show_optional_holidays
+%>
+
 <div class="widget-body no-padding">
+  <% if show_calendar_tools %>
+    <div class="widget-body-toolbar school-calendars-toolbar">
+      <span class="school-calendars-toolbar__label"><%= t('.tools') %></span>
+      <div class="school-calendars-toolbar__actions">
+        <% if show_posting_dates %>
+          <%= link_to t('.posting_dates'),
+                      edit_school_calendar_posting_dates_path,
+                      class: 'btn btn-info' %>
+        <% end %>
+        <% if show_event_batches %>
+          <%= link_to t('.event_batches'),
+                      school_calendar_event_batches_path,
+                      class: 'btn btn-info' %>
+        <% end %>
+        <% if show_optional_holidays %>
+          <%= link_to t('navigation.optional_holidays_shortcut'),
+                      optional_holidays_path,
+                      class: 'btn btn-info' %>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+
   <%= simple_form_for :search, { url: school_calendars_path, method: :get, html: { class: 'filterable_search_form' } } do |f| %>
     <div class="table-responsive">
       <table class="table table-bordered table-only-inner-bordered table-striped table-condensed table-hover" id="resources">
         <thead>
           <tr>
-              <td width="10%"><%= f.input :by_year, label: false, placeholder: t('.by_year') %></td>
-              <td>
-                <% if show_all_unities? %>
-                  <%= f.input :by_unity_id, as: :select2, elements: @unities, label: false, placeholder: t('.by_unity_id') %>
-                <% end %>
-              </td>
-              <td></td>
-              <td class="actions" style="width: <%= @school_calendars.any? ? 430 : 130 %>px">
-                <div class="pull-right">
-                  <% if current_user.roles.any? { |role| role.administrator? } %>
-                    <% if policy(SchoolCalendarPostingDates).edit? %>
-                      <%= link_to t('.posting_dates'),
-                                  edit_school_calendar_posting_dates_path,
-                                  class: "btn btn-info",
-                                  style: "margin-right: 5px;" %>
-                    <% end %>
-                    <%= link_to 'Eventos em lote',
-                                school_calendar_event_batches_path,
-                                class: "btn btn-info" %>
-                  <% end %>
-                  <% if policy(OptionalHoliday).index? %>
-                    <%= link_to t('navigation.optional_holidays_shortcut'),
-                                optional_holidays_path,
-                                class: "btn btn-info",
-                                style: "margin-left: 5px;" %>
-                  <% end %>
-                </div>
-              </td>
-            </tr>
+            <td width="10%"><%= f.input :by_year, label: false, placeholder: t('.by_year') %></td>
+            <td>
+              <% if show_all_unities? %>
+                <%= f.input :by_unity_id, as: :select2, elements: @unities, label: false, placeholder: t('.by_unity_id') %>
+              <% end %>
+            </td>
+            <td></td>
+            <td class="actions" style="width: 280px;"></td>
+          </tr>
           <tr>
             <th><%= SchoolCalendar.human_attribute_name :year %></th>
             <th><%= SchoolCalendar.human_attribute_name :unity %></th>

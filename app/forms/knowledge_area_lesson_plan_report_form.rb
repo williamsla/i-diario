@@ -8,7 +8,8 @@ class KnowledgeAreaLessonPlanReportForm
                 :date_start,
                 :date_end,
                 :report_type,
-                :author
+                :author,
+                :student_id
 
   validates :date_start, presence: true, date: true, timeliness: {
     on_or_before: :date_end,
@@ -40,6 +41,7 @@ class KnowledgeAreaLessonPlanReportForm
                                       .order_by_lesson_plan_date
 
     relation = relation.by_knowledge_area_id(knowledge_area_id) if knowledge_area_id.present?
+    relation = relation.by_student_id(student_id) if individual_student_selected?
 
     relation
   end
@@ -60,11 +62,16 @@ class KnowledgeAreaLessonPlanReportForm
                                          .order_by_content_record_date
 
     relation = relation.by_knowledge_area_id(knowledge_area_id) if knowledge_area_id.present?
+    relation = relation.by_student_id(student_id) if individual_student_selected?
 
     relation
   end
 
   private
+
+  def individual_student_selected?
+    student_id.to_i.positive?
+  end
 
   def must_have_knowledge_area_lesson_plan
     return if errors.present?

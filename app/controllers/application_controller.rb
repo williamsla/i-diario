@@ -277,6 +277,21 @@ class ApplicationController < ActionController::Base
   end
   helper_method :content_record_by_student_enabled?
 
+  def students_for_individual_contents(classroom_id)
+    classroom = Classroom.find_by(id: classroom_id)
+    return Student.none if classroom.blank?
+
+    student_enrollments = StudentEnrollmentsList.new(
+      classroom: classroom,
+      discipline: current_user_discipline,
+      search_type: :by_year
+    ).student_enrollments
+
+    students = Student.where(id: student_enrollments.map(&:student_id))
+    students = students.where(uses_differentiated_exam_rule: true) unless classroom.aee?
+    students.ordered
+  end
+
   def show_aee_area_label?
     is_aee && GeneralConfiguration.current.show_aee_area_label_in_knowledge_area_content_record
   end

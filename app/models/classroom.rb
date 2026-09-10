@@ -94,6 +94,10 @@ class Classroom < ApplicationRecord
                      .exists?
   end
 
+  def aee?
+    grades.any? { |grade| grade.description.to_s.match?(/aee/i) }
+  end
+
   def multi_grade?
     grades.count > 1
   end

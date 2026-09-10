@@ -66,6 +66,14 @@ class DisciplineLessonPlanReportController < ApplicationController
     end
   end
 
+  def fetch_students
+    return render json: [] if params[:classroom_id].blank?
+
+    students = students_for_individual_contents(params[:classroom_id])
+
+    render json: students.map { |student| { id: student.id, name: student.to_s, text: student.to_s } }
+  end
+
   private
 
   def resource_params
@@ -75,7 +83,8 @@ class DisciplineLessonPlanReportController < ApplicationController
       :discipline_id,
       :date_start,
       :date_end,
-      :author
+      :author,
+      :student_id
     )
   end
 
@@ -96,6 +105,7 @@ class DisciplineLessonPlanReportController < ApplicationController
   def set_options_by_user
     @admin_or_teacher ||= current_user.current_role_is_admin_or_employee?
     @unities ||= @admin_or_teacher ? Unity.ordered : [current_user_unity]
+    @students = students_for_individual_contents(@discipline_lesson_plan_report_form.classroom_id)
 
     return fetch_linked_by_teacher unless @admin_or_teacher
 

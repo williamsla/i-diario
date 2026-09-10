@@ -8,6 +8,7 @@ pt-BR:
         knowledge_area_id: "Áreas de conhecimento"
         unity_id: "Escola"
         author: "Autor"
+        student_id: "Aluno"
 
     errors:
       models:
