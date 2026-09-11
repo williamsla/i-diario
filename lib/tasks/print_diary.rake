@@ -23,7 +23,7 @@ task print_diary: :environment do
   end
 
   def classroom_has_opinion_type(classroom)
-    classroom.first_exam_rule.opinion_type != OpinionTypes::DONT_USE
+    classroom.has_opinion_type?
   end
 
   def current_entity_configuration
@@ -66,7 +66,7 @@ task print_diary: :environment do
   end
 
   def classroom_has_opinion_type(classroom)
-    classroom.first_exam_rule.opinion_type != OpinionTypes::DONT_USE
+    classroom.has_opinion_type?
   end
 
   def build_by_school_steps(exam_average_report_form, school, teacher, classroom, discipline, year)

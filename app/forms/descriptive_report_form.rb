@@ -48,16 +48,19 @@ class DescriptiveReportForm
   end
 
   def opinion_type_by_discipline?
-    opinion_type = classroom.first_exam_rule.opinion_type.to_s
-    [OpinionTypes::BY_STEP_AND_DISCIPLINE.to_s, OpinionTypes::BY_YEAR_AND_DISCIPLINE.to_s].include?(opinion_type)
+    descriptive_opinion_types.any? do |opinion_type|
+      [OpinionTypes::BY_STEP_AND_DISCIPLINE.to_s, OpinionTypes::BY_YEAR_AND_DISCIPLINE.to_s].include?(opinion_type.to_s)
+    end
   end
 
   def is_annual
-    classroom.first_exam_rule.opinion_type.to_s == OpinionTypes::BY_YEAR.to_s
+    types = descriptive_opinion_types
+    types.any? && types.all? { |opinion_type| opinion_type.to_s == OpinionTypes::BY_YEAR.to_s }
   end
 
-  
   private
-  
-  
+
+  def descriptive_opinion_types
+    @descriptive_opinion_types ||= classroom.descriptive_opinion_types
+  end
 end

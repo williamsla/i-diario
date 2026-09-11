@@ -111,6 +111,27 @@ class Classroom < ApplicationRecord
     exam || first_exam_rule
   end
 
+  # Em turma multisseriada a primeira série pode não usar parecer enquanto outra usa.
+  def has_opinion_type?
+    classrooms_grades.any? do |classrooms_grade|
+      exam_rule = classrooms_grade.exam_rule
+      next false if exam_rule.blank?
+
+      exam_rule.allow_descriptive_exam? || exam_rule.differentiated_exam_rule&.allow_descriptive_exam?
+    end
+  end
+
+  def descriptive_opinion_types
+    classrooms_grades.flat_map do |classrooms_grade|
+      exam_rule = classrooms_grade.exam_rule
+      next [] if exam_rule.blank?
+
+      [exam_rule, exam_rule.differentiated_exam_rule].compact
+        .select(&:allow_descriptive_exam?)
+        .map(&:opinion_type)
+    end
+  end
+
   def first_grade
     classrooms_grades.first.grade
   end

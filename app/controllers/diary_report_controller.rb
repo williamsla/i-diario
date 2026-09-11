@@ -38,7 +38,7 @@ class DiaryReportController < ApplicationController
     end
 
     def classroom_has_opinion_type(classroom)
-      classroom.first_exam_rule.opinion_type != OpinionTypes::DONT_USE
+      classroom.has_opinion_type?
     end
   
     def print_report
@@ -52,7 +52,7 @@ class DiaryReportController < ApplicationController
 
       @diary_report_form = DiaryReportForm.new(resource_params)
 
-      current_user_classroom.classrooms_grades.includes(:exam_rule, grade: :course).load
+      current_user_classroom.classrooms_grades.includes(exam_rule: :differentiated_exam_rule, grade: :course).load
 
       pdfTarget = HexaPDF::Document.new
       
