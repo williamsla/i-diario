@@ -159,6 +159,8 @@ table.table-condensed.table-bordered > tbody > tr > td.knowledge-area-table-data
 .conceptual-exam-batch-scroll {
   overflow-x: auto;
   max-width: 100%;
+  width: 100%;
+  min-width: 0;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -343,4 +345,55 @@ table.table-condensed.table-bordered > tbody > tr > td.knowledge-area-table-data
   margin: 8px 0 0;
   font-size: 12px;
   color: #666;
+}
+
+/*
+  No celular a coluna sticky de nomes (280–320px) cobre a viewport.
+  Sem uma fatia visível das disciplinas, o scroll horizontal não revela os conceitos.
+*/
+@media screen and (max-width: 767px) {
+  .conceptual-exam-batch-scroll {
+    overflow-y: visible;
+  }
+
+  /* Bootstrap .table-responsive força nowrap e infla a primeira coluna. */
+  .table-responsive > #conceptual_exam_batch_table > thead > tr > th,
+  .table-responsive > #conceptual_exam_batch_table > tbody > tr > td {
+    white-space: normal;
+  }
+
+  #conceptual_exam_batch_table .batch-student-col {
+    min-width: 112px;
+    max-width: 148px;
+    width: 36vw;
+    padding: 6px 6px !important;
+    overflow: hidden;
+  }
+
+  #conceptual_exam_batch_table .batch-student-name {
+    font-size: 12px;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+  }
+
+  #conceptual_exam_batch_table .batch-replicate-btn {
+    padding: 2px 4px;
+  }
+
+  #conceptual_exam_batch_table .discipline-cell,
+  #conceptual_exam_batch_table .concept-cell {
+    width: 96px;
+    min-width: 96px;
+    max-width: 96px;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  #conceptual_exam_batch_table .batch-student-col {
+    min-width: 104px;
+    max-width: 132px;
+    width: 32vw;
+  }
 }
