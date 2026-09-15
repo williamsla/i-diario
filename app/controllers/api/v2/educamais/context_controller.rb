@@ -24,7 +24,7 @@ module Api
             unity: unity_json(unity),
             school_year: current_school_year,
             classroom: profile.classroom_as_json,
-            unities: profile.unities_as_json
+            unities: unities_json(profile)
           }
         end
 
@@ -36,6 +36,12 @@ module Api
             name: unity.name,
             api_code: unity.api_code
           }
+        end
+
+        def unities_json(profile)
+          profile.unities_as_json
+        rescue StandardError
+          [{ id: current_unity.id, name: current_unity.name }]
         end
 
         def render_unity_required

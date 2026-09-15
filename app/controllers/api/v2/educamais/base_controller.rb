@@ -101,19 +101,29 @@ module Api
           Unity.where(id: allowed_unity_ids(profile)).ordered
         end
 
-        def administrator_access?(profile = CurrentProfile.new(current_user))
+        def administrator_access?(profile = nil)
+          profile ||= CurrentProfile.new(current_user)
           profile.user_role&.role_administrator? ||
             current_user.admin? ||
             current_user.administrator?
+        rescue StandardError
+          current_user.admin?
         end
 
-        def allowed_unity_ids(profile = CurrentProfile.new(current_user))
-          [
-            *unity_ids_from(profile.unities),
-            jwt_claims[:unity_id],
-            current_user.current_unity_id,
-            current_user.current_user_role.try(:unity_id)
-          ].map { |id| id.to_i }.select(&:positive?).uniq
+        def jwt_unity_id
+          jwt_claims[:unity_id].to_i
+        end
+
+        def allowed_unity_ids(profile = nil)
+          ids = [jwt_unity_id, current_user.current_unity_id.to_i]
+          begin
+            ids << current_user.current_user_role.try(:unity_id).to_i
+            profile ||= CurrentProfile.new(current_user)
+            ids.concat(unity_ids_from(profile.unities))
+          rescue StandardError => e
+            Rails.logger.warn("[educamais] allowed_unity_ids: #{e.class}: #{e.message}")
+          end
+          ids.select(&:positive?).uniq
         end
 
         def unity_ids_from(records)
@@ -127,8 +137,10 @@ module Api
         end
 
         def ensure_unity_access!(unity_id)
+          uid = unity_id.to_i
+          return if uid.positive? && jwt_unity_id.positive? && uid == jwt_unity_id
           return if administrator_access?
-          return if allowed_unity_ids.include?(unity_id.to_i)
+          return if uid.positive? && allowed_unity_ids.include?(uid)
 
           raise Pundit::NotAuthorizedError
         end
