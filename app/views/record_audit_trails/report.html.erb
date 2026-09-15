@@ -30,19 +30,6 @@
     </div>
   <% end %>
 
-  <% if @phrase.present? %>
-    <div class="alert alert-warning" style="margin-bottom: 15px;">
-      <strong><%= t('record_audit_trails.report.phrase_title') %></strong>
-      <textarea id="audit-phrase" class="form-control" rows="4" readonly style="margin-top: 8px;"><%= @phrase %></textarea>
-      <button type="button" id="copy-audit-phrase" class="btn btn-default btn-sm" style="margin-top: 8px;">
-        <%= t('record_audit_trails.report.copy_phrase') %>
-      </button>
-      <span id="copy-audit-phrase-feedback" class="text-success" style="display: none; margin-left: 8px;">
-        <%= t('record_audit_trails.report.phrase_copied') %>
-      </span>
-    </div>
-  <% end %>
-
   <% if @diagnostic_stats.present? %>
     <div class="row" style="margin-bottom: 15px;">
       <div class="col-sm-2">
@@ -119,46 +106,6 @@
     </div>
   <% end %>
 
-  <% if @neighbors.present? %>
-    <h4><%= t('record_audit_trails.report.neighbors_title') %></h4>
-    <p class="text-muted"><%= t('record_audit_trails.report.neighbors_help') %></p>
-    <div class="table-responsive">
-      <table class="table table-bordered table-striped table-condensed table-hover">
-        <thead>
-          <tr>
-            <th><%= t('record_audit_trails.report.columns.pedagogical_date') %></th>
-            <th><%= t('record_audit_trails.report.columns.record_type') %></th>
-            <th><%= t('record_audit_trails.report.columns.record') %></th>
-            <th><%= t('record_audit_trails.report.columns.mismatch') %></th>
-            <th><%= t('record_audit_trails.report.columns.status') %></th>
-            <th><%= t('record_audit_trails.report.columns.verdict') %></th>
-          </tr>
-        </thead>
-        <tbody>
-          <% @neighbors.each do |result| %>
-            <tr>
-              <td><%= record_audit_trail_format_pedagogical_date(result) %></td>
-              <td><%= result[:record_type_label] %></td>
-              <td>
-                <%= result[:label] %>
-                <% if result[:detail].present? %>
-                  <br><small class="text-muted"><%= result[:detail] %></small>
-                <% end %>
-              </td>
-              <td><%= record_audit_trail_mismatch_reasons(result) %></td>
-              <td>
-                <span class="<%= record_audit_trail_status_badge_class(result) %>">
-                  <%= record_audit_trail_status_label(result) %>
-                </span>
-              </td>
-              <td><%= result[:verdict] %></td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
-    </div>
-  <% end %>
-
   <h4><%= t('record_audit_trails.report.results_title') %></h4>
   <div class="table-responsive">
     <table class="table table-bordered table-striped table-condensed table-hover">
@@ -215,6 +162,46 @@
     </table>
   </div>
 
+  <% if @neighbors.present? %>
+    <h4><%= t('record_audit_trails.report.neighbors_title') %></h4>
+    <p class="text-muted"><%= t('record_audit_trails.report.neighbors_help') %></p>
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped table-condensed table-hover">
+        <thead>
+          <tr>
+            <th><%= t('record_audit_trails.report.columns.pedagogical_date') %></th>
+            <th><%= t('record_audit_trails.report.columns.record_type') %></th>
+            <th><%= t('record_audit_trails.report.columns.record') %></th>
+            <th><%= t('record_audit_trails.report.columns.mismatch') %></th>
+            <th><%= t('record_audit_trails.report.columns.status') %></th>
+            <th><%= t('record_audit_trails.report.columns.verdict') %></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @neighbors.each do |result| %>
+            <tr>
+              <td><%= record_audit_trail_format_pedagogical_date(result) %></td>
+              <td><%= result[:record_type_label] %></td>
+              <td>
+                <%= result[:label] %>
+                <% if result[:detail].present? %>
+                  <br><small class="text-muted"><%= result[:detail] %></small>
+                <% end %>
+              </td>
+              <td><%= record_audit_trail_registered_classroom(result) %></td>
+              <td>
+                <span class="<%= record_audit_trail_status_badge_class(result) %>">
+                  <%= record_audit_trail_status_label(result) %>
+                </span>
+              </td>
+              <td><%= result[:verdict] %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+
   <div class="widget-footer">
     <div class="pull-left">
       <%= link_to t('record_audit_trails.report.back'), record_audit_trails_path, class: 'btn btn-default' %>
@@ -237,26 +224,3 @@
     </div>
   </div>
 </div>
-
-<% content_for :js do %>
-  <script>
-    $(document).ready(function() {
-      $('#copy-audit-phrase').on('click', function() {
-        var text = $('#audit-phrase').val();
-        var $feedback = $('#copy-audit-phrase-feedback');
-
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(function() {
-            $feedback.show().delay(2000).fadeOut();
-          });
-          return;
-        }
-
-        var textarea = document.getElementById('audit-phrase');
-        textarea.select();
-        document.execCommand('copy');
-        $feedback.show().delay(2000).fadeOut();
-      });
-    });
-  </script>
-<% end %>

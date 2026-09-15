@@ -17,7 +17,6 @@ class RecordAuditTrailReport < BaseReportOld
     @results = Array(diagnostic[:results])
     @neighbors = Array(diagnostic[:neighbors])
     @calendar = Array(diagnostic[:calendar])
-    @phrase = diagnostic[:phrase]
     @allocation = diagnostic[:allocation]
     @summary_stats = compute_summary_stats
 
@@ -36,12 +35,11 @@ class RecordAuditTrailReport < BaseReportOld
     page_content do
       filters_section
       allocation_section
-      phrase_section
       executive_summary
       legend_section
       calendar_section
+      results_section
       neighbors_section
-      results_sections
     end
   end
 
@@ -51,12 +49,12 @@ class RecordAuditTrailReport < BaseReportOld
 
   private
 
-  attr_reader :results, :summary_stats, :neighbors, :calendar, :phrase, :allocation
+  attr_reader :results, :summary_stats, :neighbors, :calendar, :allocation
 
   def normalize_diagnostic(diagnostic)
     return diagnostic if diagnostic.is_a?(Hash)
 
-    { results: diagnostic, neighbors: [], calendar: [], phrase: nil, allocation: nil }
+    { results: diagnostic, neighbors: [], calendar: [], allocation: nil }
   end
 
   def allocation_section
@@ -88,15 +86,6 @@ class RecordAuditTrailReport < BaseReportOld
         classroom: allocation[:classroom_name]
       )
     end
-  end
-
-  def phrase_section
-    return if phrase.blank?
-
-    text t(:phrase_title), size: 10, style: :bold
-    move_down 4
-    text phrase, size: 9, leading: 1.4
-    move_down GAP
   end
 
   def calendar_section
@@ -147,7 +136,17 @@ class RecordAuditTrailReport < BaseReportOld
   def neighbors_section
     return if neighbors.blank?
 
-    render_results_group(t(:neighbors_title), neighbors, NEIGHBOR_BG, include_mismatch: true)
+    start_new_page if cursor < 80
+    text t(:neighbors_title), size: 11, style: :bold
+    move_down 4
+
+    table_data = [neighbors_table_headers]
+    neighbors.each do |result|
+      table_data << neighbors_table_row(result)
+    end
+
+    render_records_table(table_data)
+    move_down GAP
   end
 
   def filters_section
@@ -248,100 +247,112 @@ class RecordAuditTrailReport < BaseReportOld
     move_down GAP
   end
 
-  def results_sections
+  def results_section
+    start_new_page if cursor < 80
+    text t(:results_title), size: 11, style: :bold
+    move_down 4
+
     if results.blank?
-      text t(:empty), size: 10, style: :italic unless neighbors.present? || calendar.present?
+      text t(:empty), size: 10, style: :italic
+      move_down GAP
       return
     end
 
-    removed_results = results.select { |result| result_status(result) == 'removed' }
-    incomplete_results = results.select { |result| result_status(result) == 'incomplete' }
-    active_results = results.select { |result| result_status(result) == 'active' }
+    table_data = [results_table_headers]
+    results.each do |result|
+      table_data << results_table_row(result)
+    end
 
-    render_results_group(t(:removed_section_title), removed_results, REMOVED_BG) if removed_results.present?
-    render_results_group(t(:incomplete_section_title), incomplete_results, INCOMPLETE_BG) if incomplete_results.present?
-    render_results_group(t(:active_section_title), active_results, ACTIVE_BG) if active_results.present?
+    render_records_table(table_data)
+    move_down GAP
   end
 
-  def render_results_group(section_title, group_results, status_bg, include_mismatch: false)
-    start_new_page if cursor < 80
-
-    text section_title, size: 11, style: :bold
-    move_down 4
-
-    grouped_by_type(group_results).each do |record_type_label, type_results|
-      start_new_page if cursor < 60
-
-      text record_type_label, size: 10, style: :bold
-      move_down 4
-
-      table_data = [results_table_headers]
-
-      type_results.each do |result|
-        table_data << results_table_row(result, status_bg, include_mismatch: include_mismatch)
-      end
-
-      table(table_data, width: bounds.width, header: true) do
-        cells.border_width = 0.25
-        cells.size = 8
-        row(0).font_style = :bold
-        row(0).align = :center
-        cells.valign = :top
-        row(0).border_top_width = 0.25
-        row(-1).border_bottom_width = 0.25
-        column(0).border_left_width = 0.25
-        column(-1).border_right_width = 0.25
-      end
-
-      move_down GAP
+  def render_records_table(table_data)
+    table(table_data, width: bounds.width, header: true) do
+      cells.border_width = 0.25
+      cells.size = 8
+      row(0).font_style = :bold
+      row(0).align = :center
+      cells.valign = :top
+      row(0).border_top_width = 0.25
+      row(-1).border_bottom_width = 0.25
+      column(0).border_left_width = 0.25
+      column(-1).border_right_width = 0.25
     end
   end
 
   def results_table_headers
     [
-      make_cell(content: t('columns.occurred_on'), font_style: :bold, align: :center, width: 50),
-      make_cell(content: t('columns.event_at'), font_style: :bold, align: :center, width: 70),
+      make_cell(content: t('columns.occurred_on'), font_style: :bold, align: :center, width: 52),
+      make_cell(content: t('columns.event_at'), font_style: :bold, align: :center, width: 68),
+      make_cell(content: t('columns.record_type'), font_style: :bold, align: :center, width: 62),
       make_cell(content: t('columns.record'), font_style: :bold, align: :center),
-      make_cell(content: t('columns.status'), font_style: :bold, align: :center, width: 55),
-      make_cell(content: t('columns.verdict'), font_style: :bold, align: :center, width: 110),
-      make_cell(content: t('columns.history'), font_style: :bold, align: :center, width: 100)
+      make_cell(content: t('columns.status'), font_style: :bold, align: :center, width: 52),
+      make_cell(content: t('columns.audit_trail'), font_style: :bold, align: :center),
+      make_cell(content: t('columns.verdict'), font_style: :bold, align: :center, width: 90)
     ]
   end
 
-  def results_table_row(result, status_bg, include_mismatch: false)
-    pedagogical = if result[:occurred_on].present?
-                    I18n.l(result[:occurred_on].to_date)
-                  else
-                    '—'
-                  end
-
-    event_at = if result[:event_at].present?
-                 I18n.l(result[:event_at], format: :compressed)
-               elsif result[:primary_at].present?
-                 I18n.l(result[:primary_at], format: :compressed)
-               else
-                 '—'
-               end
-
-    record_text = result[:label].to_s
-    record_text += "\n#{result[:detail]}" if result[:detail].present?
-    if include_mismatch && result[:mismatch_reasons].present?
-      reasons = Array(result[:mismatch_reasons]).map do |reason|
-        I18n.t("services.record_audit_trail_phrase.reasons.#{reason}")
-      end.join(', ')
-      record_text += "\n#{t(:neighbor_mismatch)}: #{reasons}"
-    end
-
-    status_label, bg_color = status_presentation(result, status_bg)
+  def results_table_row(result)
+    status_label, bg_color = status_presentation(result)
 
     [
-      make_cell(content: pedagogical, size: 8, width: 50),
-      make_cell(content: event_at, size: 8, width: 70),
-      make_cell(content: record_text, size: 8),
-      make_cell(content: status_label, size: 8, align: :center, width: 55, background_color: bg_color),
-      make_cell(content: result[:verdict].to_s, size: 8, width: 110),
-      make_cell(content: format_history(result), size: 7, width: 100)
+      make_cell(content: pedagogical_date_text(result), size: 8, width: 52),
+      make_cell(content: event_at_text(result), size: 8, width: 68),
+      make_cell(content: result[:record_type_label].to_s, size: 8, width: 62),
+      make_cell(content: record_text(result), size: 8),
+      make_cell(content: status_label, size: 8, align: :center, width: 52, background_color: bg_color),
+      make_cell(content: result[:summary].to_s, size: 7),
+      make_cell(content: result[:verdict].to_s, size: 8, width: 90)
     ]
+  end
+
+  def neighbors_table_headers
+    [
+      make_cell(content: t('columns.occurred_on'), font_style: :bold, align: :center, width: 55),
+      make_cell(content: t('columns.record_type'), font_style: :bold, align: :center, width: 70),
+      make_cell(content: t('columns.record'), font_style: :bold, align: :center),
+      make_cell(content: t('columns.mismatch'), font_style: :bold, align: :center),
+      make_cell(content: t('columns.status'), font_style: :bold, align: :center, width: 52),
+      make_cell(content: t('columns.verdict'), font_style: :bold, align: :center, width: 100)
+    ]
+  end
+
+  def neighbors_table_row(result)
+    status_label, bg_color = status_presentation(result, neighbor: true)
+
+    [
+      make_cell(content: pedagogical_date_text(result), size: 8, width: 55),
+      make_cell(content: result[:record_type_label].to_s, size: 8, width: 70),
+      make_cell(content: record_text(result), size: 8),
+      make_cell(content: result[:classroom_name].presence || '—', size: 8),
+      make_cell(content: status_label, size: 8, align: :center, width: 52, background_color: bg_color),
+      make_cell(content: result[:verdict].to_s, size: 8, width: 100)
+    ]
+  end
+
+  def pedagogical_date_text(result)
+    if result[:occurred_on].present?
+      I18n.l(result[:occurred_on].to_date)
+    else
+      '—'
+    end
+  end
+
+  def event_at_text(result)
+    if result[:event_at].present?
+      I18n.l(result[:event_at], format: :compressed)
+    elsif result[:primary_at].present?
+      I18n.l(result[:primary_at], format: :compressed)
+    else
+      '—'
+    end
+  end
+
+  def record_text(result)
+    text = result[:label].to_s
+    text += "\n#{result[:detail]}" if result[:detail].present?
+    text
   end
 
   def result_status(result)
@@ -350,7 +361,7 @@ class RecordAuditTrailReport < BaseReportOld
     result[:record_exists] ? 'active' : 'removed'
   end
 
-  def status_presentation(result, fallback_bg)
+  def status_presentation(result, neighbor: false)
     status = result_status(result)
 
     case status
@@ -359,29 +370,8 @@ class RecordAuditTrailReport < BaseReportOld
     when 'removed'
       [t(:status_removed), REMOVED_BG]
     else
-      [t(:status_active), fallback_bg == NEIGHBOR_BG ? NEIGHBOR_BG : ACTIVE_BG]
+      [t(:status_active), neighbor ? NEIGHBOR_BG : ACTIVE_BG]
     end
-  end
-
-  def format_history(result)
-    events = Array(result[:events])
-    return result[:summary].to_s if events.blank?
-
-    events.map do |event|
-      line = I18n.t(
-        'services.record_audit_trail_summary.event_line',
-        action: event[:action_label],
-        datetime: I18n.l(event[:at], format: :compressed),
-        user: event[:user_name]
-      )
-      event[:detail].present? ? "#{line} (#{event[:detail]})" : line
-    end.join("\n")
-  end
-
-  def grouped_by_type(group_results)
-    group_results
-      .group_by { |result| result[:record_type_label] }
-      .sort_by { |label, _| label }
   end
 
   def compute_summary_stats

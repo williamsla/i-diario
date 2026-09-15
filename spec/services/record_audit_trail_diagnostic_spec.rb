@@ -77,7 +77,6 @@ RSpec.describe RecordAuditTrailDiagnostic, type: :service do
     expect(result[:results]).to be_empty
     expect(result[:neighbors].size).to eq(1)
     expect(result[:neighbors].first[:mismatch_reasons]).to include('other_discipline')
-    expect(result[:phrase]).to include('outra disciplina')
   end
 
   it 'aponta lançamento na turma errada como vizinho' do
@@ -96,7 +95,7 @@ RSpec.describe RecordAuditTrailDiagnostic, type: :service do
 
     expect(result[:results]).to be_empty
     expect(result[:neighbors].first[:mismatch_reasons]).to include('other_classroom')
-    expect(result[:phrase]).to include('outra turma')
+    expect(result[:neighbors].first[:classroom_name]).to eq(other_classroom.to_s)
   end
 
   it 'monta calendário com pendência de frequência' do
@@ -116,7 +115,6 @@ RSpec.describe RecordAuditTrailDiagnostic, type: :service do
     expect(result[:calendar].size).to eq(1)
     expect(result[:calendar].first[:frequency][:status]).to eq('missing')
     expect(result[:calendar].first[:content][:status]).to eq('missing')
-    expect(result[:phrase]).to include('Não há frequência lançada')
   end
 
   it 'avisa quando o vínculo da professora com a turma foi encerrado' do
@@ -125,7 +123,5 @@ RSpec.describe RecordAuditTrailDiagnostic, type: :service do
     result = diagnostic
 
     expect(result[:allocation][:status]).to eq('unlinked')
-    expect(result[:phrase]).to include('vínculo')
-    expect(result[:phrase]).to include('encerrado')
   end
 end

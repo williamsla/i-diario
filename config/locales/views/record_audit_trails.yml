@@ -2,7 +2,7 @@ pt-BR:
   record_audit_trails:
     form:
       submit: "Consultar"
-      help: "Consulta o histórico de criação, alteração e exclusão dos lançamentos no período. O resultado aparece na tela, com uma frase pronta para o chamado. Professores com vínculo encerrado continuam na lista. Use turma e professor para ver o calendário esperado, parecer e lançamentos em disciplina, turma ou data próximas."
+      help: "Consulta o histórico de criação, alteração e exclusão dos lançamentos no período. O resultado aparece na tela. Professores com vínculo encerrado continuam na lista. Use turma e professor para ver o calendário esperado, parecer e registros em disciplina, turma ou data próximas."
     report:
       help: "Data letiva é o dia da aula ou do conteúdo. Data do evento é quando alguém criou, alterou ou excluiu o registro. Se o vínculo da professora com a turma foi encerrado, o diário dela esconde os lançamentos; esta consulta mostra o que ainda está no sistema."
       allocation_unlinked_title: "Vínculo encerrado"
@@ -11,14 +11,11 @@ pt-BR:
       export_pdf: "Exportar PDF"
       empty: "Nenhum lançamento ou evento de auditoria encontrado para os filtros informados."
       view_history: "Histórico completo"
-      phrase_title: "Frase para o chamado"
-      copy_phrase: "Copiar frase"
-      phrase_copied: "Copiada."
       calendar_title: "Calendário do período"
       calendar_help: "Compara o que deveria ter sido lançado (calendário/quadro) com o que existe ou foi excluído no recorte."
-      neighbors_title: "Lançamentos próximos"
+      neighbors_title: "Outros registros"
       neighbors_help: "Registros do mesmo professor em outra disciplina, outra turma ou até 3 dias fora do período filtrado."
-      results_title: "Lançamentos no recorte"
+      results_title: "Registros encontrados"
       status:
         active: "Ativo"
         incomplete: "Incompleto"

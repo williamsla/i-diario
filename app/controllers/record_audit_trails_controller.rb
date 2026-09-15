@@ -42,7 +42,6 @@ class RecordAuditTrailsController < ApplicationController
       @results = diagnostic[:results]
       @neighbors = diagnostic[:neighbors]
       @calendar = diagnostic[:calendar]
-      @phrase = diagnostic[:phrase]
       @diagnostic_stats = diagnostic[:stats]
       @allocation = diagnostic[:allocation]
 

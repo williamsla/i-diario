@@ -28,7 +28,7 @@ class ExamAverageReportForm
         StudentEnrollmentsList.new(
             classroom: classroom_id,
             discipline: discipline_id,
-            start_at: classroom_steps.last.try(:start_at),
+            start_at: classroom_steps.first.try(:start_at),
             end_at: classroom_steps.last.try(:end_at),
             score_type: StudentEnrollmentScoreTypeFilters::NUMERIC,
             search_type: :by_date_range,

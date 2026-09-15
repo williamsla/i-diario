@@ -244,7 +244,7 @@ module AvaliationBatchGrades
                      student_enrollments.max_by(&:id)
         student = enrollment.student
         active = student_active_in_step_by_student_id?(student.id)
-        can_unlock = !active && student_attended_step_by_student_id?(student.id)
+        can_unlock = student_can_unlock_notes_by_student_id?(student.id)
         notes = cols.map { |col| note_for(student.id, col) }
         notes_unlocked = can_unlock && notes.any?(&:present?)
         row = {

@@ -110,10 +110,8 @@ module AvaliationBatchGrades
 
     def intentional_note_for_inactive?(student_id)
       return false unless @unlocked_student_ids.include?(student_id)
-      return false unless student_attended_step_by_student_id?(student_id)
-      return false if student_active_in_step_by_student_id?(student_id)
 
-      true
+      student_can_unlock_notes_by_student_id?(student_id)
     end
 
     def normalize_column_labels(raw)
@@ -424,7 +422,7 @@ module AvaliationBatchGrades
           dns.active = true
           dns.note = note
         elsif intentional_note_for_inactive?(sid) && note.present?
-          # Professor liberou explicitamente e informou nota para quem saiu na etapa.
+          # Professor liberou explicitamente a nota (chegou ou saiu fora do período da etapa).
           dns.active = true
           dns.note = note
         else
