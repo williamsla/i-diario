@@ -89,9 +89,24 @@ module Api
           render plain: payload.to_json, content_type: 'application/json'
         end
 
+        # CurrentProfile#unities devolve Relation para administrador e Array
+        # ([unity]) para coordenador/professor. Esta API precisa de Relation
+        # (.ordered / .where) — senão estoura NoMethodError (500).
         def scoped_unities
           profile = CurrentProfile.new(current_user)
-          profile.unities
+          return Unity.ordered if profile.user_role&.role_administrator?
+
+          Unity.where(id: unity_ids_from(profile.unities)).ordered
+        end
+
+        def unity_ids_from(records)
+          Array(records).filter_map do |record|
+            if record.respond_to?(:id)
+              record.id
+            elsif record.is_a?(Hash)
+              record[:id] || record['id']
+            end
+          end
         end
 
         def ensure_unity_access!(unity_id)
