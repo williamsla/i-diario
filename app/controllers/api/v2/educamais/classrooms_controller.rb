@@ -16,6 +16,7 @@ module Api
             classrooms = classrooms.by_grade(params[:grade_id])
           end
 
+          # Professor: só turmas com vínculo. Coordenador/admin: todas da escola.
           if current_user.teacher?
             teacher_id = current_user.teacher_id
             classrooms = classrooms.by_teacher_id(teacher_id) if teacher_id.present?

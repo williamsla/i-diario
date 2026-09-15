@@ -92,11 +92,28 @@ module Api
         # CurrentProfile#unities devolve Relation para administrador e Array
         # ([unity]) para coordenador/professor. Esta API precisa de Relation
         # (.ordered / .where) — senão estoura NoMethodError (500).
+        # Coordenador: incluir unity_id do JWT — current_unity no User pode estar
+        # em branco na API, enquanto context() já cai no JWT e funciona.
         def scoped_unities
           profile = CurrentProfile.new(current_user)
-          return Unity.ordered if profile.user_role&.role_administrator?
+          return Unity.ordered if administrator_access?(profile)
 
-          Unity.where(id: unity_ids_from(profile.unities)).ordered
+          Unity.where(id: allowed_unity_ids(profile)).ordered
+        end
+
+        def administrator_access?(profile = CurrentProfile.new(current_user))
+          profile.user_role&.role_administrator? ||
+            current_user.admin? ||
+            current_user.administrator?
+        end
+
+        def allowed_unity_ids(profile = CurrentProfile.new(current_user))
+          [
+            *unity_ids_from(profile.unities),
+            jwt_claims[:unity_id],
+            current_user.current_unity_id,
+            current_user.current_user_role.try(:unity_id)
+          ].map { |id| id.to_i }.select(&:positive?).uniq
         end
 
         def unity_ids_from(records)
@@ -110,7 +127,8 @@ module Api
         end
 
         def ensure_unity_access!(unity_id)
-          return if scoped_unities.where(id: unity_id).exists?
+          return if administrator_access?
+          return if allowed_unity_ids.include?(unity_id.to_i)
 
           raise Pundit::NotAuthorizedError
         end
