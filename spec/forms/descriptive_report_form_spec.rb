@@ -55,4 +55,37 @@ RSpec.describe DescriptiveReportForm do
       end
     end
   end
+
+  describe '#fetch_students' do
+    let(:form) do
+      described_class.new(
+        classroom_id: classroom.id,
+        start_at: Date.new(classroom.year, 1, 1),
+        end_at: Date.new(classroom.year, 12, 31)
+      )
+    end
+    let(:grade_without_opinion) do
+      create(:classrooms_grade, classroom: classroom, exam_rule: create(:exam_rule, opinion_type: OpinionTypes::DONT_USE))
+    end
+    let(:grade_with_opinion) do
+      create(:classrooms_grade, classroom: classroom, exam_rule: create(:exam_rule, opinion_type: OpinionTypes::BY_STEP))
+    end
+    let!(:student_without_opinion) do
+      enrollment = create(:student_enrollment)
+      create(:student_enrollment_classroom, classrooms_grade: grade_without_opinion, student_enrollment: enrollment)
+      enrollment.student
+    end
+    let!(:student_with_opinion) do
+      enrollment = create(:student_enrollment)
+      create(:student_enrollment_classroom, classrooms_grade: grade_with_opinion, student_enrollment: enrollment)
+      enrollment.student
+    end
+
+    it 'does not include students from grades without parecer in a multi-grade classroom' do
+      students = form.fetch_students
+
+      expect(students).to include(student_with_opinion)
+      expect(students).not_to include(student_without_opinion)
+    end
+  end
 end

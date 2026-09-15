@@ -414,20 +414,24 @@ task print_diary: :environment do
                     )
 
                     if @descriptive_form.valid?
-                      descriptive_report = DescriptiveReport.build(
-                        current_entity_configuration, 
-                        school, 
-                        calendar.year, 
-                        @descriptive_form.fetch_exam_steps, 
-                        @descriptive_form.fetch_exam_values, 
-                        @descriptive_form.fetch_students, 
-                        active_enrollment_classrooms,
-                        classroom,
-                        @descriptive_form.is_annual,
-                        true
-                      )
-                
-                      add_pdf_to_merge(pdfTarget, report_name('parecer'), descriptive_report.render)
+                      students = @descriptive_form.fetch_students
+
+                      if students.any?
+                        descriptive_report = DescriptiveReport.build(
+                          current_entity_configuration, 
+                          school, 
+                          calendar.year, 
+                          @descriptive_form.fetch_exam_steps, 
+                          @descriptive_form.fetch_exam_values, 
+                          students, 
+                          active_enrollment_classrooms,
+                          classroom,
+                          @descriptive_form.is_annual,
+                          true
+                        )
+                  
+                        add_pdf_to_merge(pdfTarget, report_name('parecer'), descriptive_report.render)
+                      end
                     end
                   end
 

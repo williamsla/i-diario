@@ -306,20 +306,24 @@ class DiaryReportController < ApplicationController
         )
 
         if @descriptive_form.valid?
-          descriptive_report = DescriptiveReport.build(
-            current_entity_configuration, 
-            current_user_unity, 
-            current_user_school_year, 
-            @descriptive_form.fetch_exam_steps, 
-            @descriptive_form.fetch_exam_values, 
-            @descriptive_form.fetch_students,
-            active_enrollment_classrooms,
-            current_user_classroom,
-            @descriptive_form.is_annual,
-            true
-          )
-    
-          add_pdf_to_merge(pdfTarget, report_name('parecer'), descriptive_report.render)
+          students = @descriptive_form.fetch_students
+
+          if students.any?
+            descriptive_report = DescriptiveReport.build(
+              current_entity_configuration, 
+              current_user_unity, 
+              current_user_school_year, 
+              @descriptive_form.fetch_exam_steps, 
+              @descriptive_form.fetch_exam_values, 
+              students,
+              active_enrollment_classrooms,
+              current_user_classroom,
+              @descriptive_form.is_annual,
+              true
+            )
+      
+            add_pdf_to_merge(pdfTarget, report_name('parecer'), descriptive_report.render)
+          end
         end
         finish = Time.now
         diff = finish - ini

@@ -21,19 +21,23 @@ class DescriptiveReportController < ApplicationController
       @descriptive_report_form = DescriptiveReportForm.new(resource_params)
       
       if @descriptive_report_form.valid?
-        descriptive_report = DescriptiveReport.build(
-          current_entity_configuration, 
-          current_user_unity, 
-          current_user_school_year, 
-          @descriptive_report_form.fetch_exam_steps,
-          @descriptive_report_form.fetch_exam_values, 
-          @descriptive_report_form.fetch_students, 
-          StudentEnrollmentClassroom.by_classroom(current_user_classroom.id).active,
-          current_user_classroom,
-          @descriptive_report_form.is_annual
-        )
-        
-        send_pdf('parecer', descriptive_report.render)
+        students = @descriptive_report_form.fetch_students
+
+        if students.any?
+          descriptive_report = DescriptiveReport.build(
+            current_entity_configuration, 
+            current_user_unity, 
+            current_user_school_year, 
+            @descriptive_report_form.fetch_exam_steps,
+            @descriptive_report_form.fetch_exam_values, 
+            students, 
+            StudentEnrollmentClassroom.by_classroom(current_user_classroom.id).active,
+            current_user_classroom,
+            @descriptive_report_form.is_annual
+          )
+          
+          send_pdf('parecer', descriptive_report.render)
+        end
       end
     end    
   

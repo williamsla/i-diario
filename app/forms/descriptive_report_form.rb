@@ -20,7 +20,9 @@ class DescriptiveReportForm
       search_type: :by_date_range,
     ).student_enrollments
 
-    student_ids = student_enrollments.collect(&:student_id)
+    student_ids = student_enrollments.select { |enrollment| descriptive_exam_permitted?(enrollment.student) }
+                                     .map(&:student_id)
+
     @students = Student.where(id: student_ids).ordered
   end
 
@@ -62,5 +64,26 @@ class DescriptiveReportForm
 
   def descriptive_opinion_types
     @descriptive_opinion_types ||= classroom.descriptive_opinion_types
+  end
+
+  def descriptive_exam_permitted?(student)
+    classrooms_grade = classrooms_grades_by_student_id[student.id]
+    return false if classrooms_grade.blank?
+
+    exam_rule = classrooms_grade.exam_rule
+    exam_rule = exam_rule.differentiated_exam_rule || exam_rule if student.uses_differentiated_exam_rule
+    return false if exam_rule.blank?
+
+    exam_rule.allow_descriptive_exam?
+  end
+
+  def classrooms_grades_by_student_id
+    @classrooms_grades_by_student_id ||= classroom.classrooms_grades
+                                                  .includes(:student_enrollments, exam_rule: :differentiated_exam_rule)
+                                                  .each_with_object({}) do |classrooms_grade, memo|
+      classrooms_grade.student_enrollments.each do |enrollment|
+        memo[enrollment.student_id] ||= classrooms_grade
+      end
+    end
   end
 end
