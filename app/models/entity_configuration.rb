@@ -13,10 +13,20 @@ class EntityConfiguration < ApplicationRecord
 
   validates :cnpj, mask: { with: "99.999.999/9999-99", message: :incorrect_format }, allow_blank: true
   validates :phone, format: { with: /\A\([0-9]{2}\)\ [0-9]{8,9}\z/i }, allow_blank: true
+  validates :ibge_code,
+            format: { with: /\A\d{7}\z/, message: :incorrect_format },
+            allow_blank: true
+
+  before_validation :normalize_ibge_code
 
   mount_uploader :logo, EntityLogoUploader
 
   after_update :create_logo_audit
+
+  def normalize_ibge_code
+    digits = ibge_code.to_s.gsub(/\D/, '')
+    self.ibge_code = digits.presence
+  end
 
   def self.current
     self.first.presence || new

@@ -25,6 +25,7 @@ class EducamaisLaunchController < ApplicationController
     {
       sub: current_user.id,
       entity_id: Entity.current.id,
+      ibge_code: EntityConfiguration.current.ibge_code.presence,
       unity_id: unity&.id,
       classroom_id: current_user.current_classroom_id,
       school_year: current_user.current_school_year || Date.current.year,

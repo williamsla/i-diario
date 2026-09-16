@@ -17,13 +17,19 @@
           <%= f.input :organ_name %>
         </div>
         <div class="col col-sm-6">
-          <%= f.input :phone, as: :tel %>
+          <%= f.input :ibge_code,
+                      hint: '7 dígitos, sem pontuação. Ex.: 2304400 (Fortaleza). Liga o Educa+ aos resultados municipais do SAEB.' %>
         </div>
       </div>
       <div class="row">
         <div class="col col-sm-6">
+          <%= f.input :phone, as: :tel %>
+        </div>
+        <div class="col col-sm-6">
           <%= f.input :website %>
         </div>
+      </div>
+      <div class="row">
         <div class="col col-sm-6">
           <%= f.input :email, as: :email %>
         </div>

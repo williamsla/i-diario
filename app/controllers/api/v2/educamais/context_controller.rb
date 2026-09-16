@@ -19,7 +19,8 @@ module Api
             },
             entity: {
               id: Entity.current.id,
-              name: Entity.current.name
+              name: Entity.current.name,
+              ibge_code: EntityConfiguration.current.ibge_code
             },
             unity: unity_json(unity),
             school_year: current_school_year,

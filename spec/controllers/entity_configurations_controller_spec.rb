@@ -71,5 +71,11 @@ RSpec.describe EntityConfigurationsController, type: :controller do
       expect(response).to redirect_to /#{edit_entity_configurations_path}/
       expect(EntityConfiguration.current).to have_attributes(entity_name: 'new name')
     end
+
+    it 'saves the municipality IBGE code' do
+      params[:entity_configuration][:ibge_code] = '2304400'
+      put :update, params: params
+      expect(EntityConfiguration.current).to have_attributes(ibge_code: '2304400')
+    end
   end
 end
