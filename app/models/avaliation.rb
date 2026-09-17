@@ -305,12 +305,26 @@ class Avaliation < ApplicationRecord
   end
 
   def discipline_in_grade?
-    return if SchoolCalendarDisciplineGrade.exists?(
+    return if classroom_id.blank? || discipline_id.blank? || grade_ids.blank?
+    return if discipline_in_teacher_allocation? || discipline_in_school_calendar_grades?
+
+    errors.add(:grades, :discipline_not_in_grades)
+  end
+
+  def discipline_in_teacher_allocation?
+    TeacherDisciplineClassroom.where(
+      classroom_id: classroom_id,
+      discipline_id: discipline_id
+    ).where('grade_id IS NULL OR grade_id IN (?)', grade_ids).exists?
+  end
+
+  def discipline_in_school_calendar_grades?
+    return false if school_calendar_id.blank?
+
+    SchoolCalendarDisciplineGrade.exists?(
       school_calendar_id: school_calendar_id,
       discipline_id: discipline_id,
       grade_id: grade_ids
     )
-
-    errors.add(:grades, :discipline_not_in_grades)
   end
 end
