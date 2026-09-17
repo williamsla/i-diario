@@ -379,6 +379,61 @@ RSpec.describe DailyFrequenciesController, type: :controller do
       expect(discipline_ids).to include(discipline.id)
       expect(payload['message']).to be_nil
     end
+
+    it 'na reposição do ponto facultativo, retorna só disciplinas com aula no dia do ponto facultativo' do
+      tuesday_discipline = create(:discipline)
+      tuesday_tdc = create(
+        :teacher_discipline_classroom,
+        teacher: current_teacher,
+        classroom: classroom,
+        discipline: tuesday_discipline,
+        grade: grade,
+        year: classroom.year,
+        active: true
+      )
+      classrooms_grade = classroom.classrooms_grades.first
+      lessons_board = create(:lessons_board, classrooms_grade: classrooms_grade)
+      monday_lesson = create(:lessons_board_lesson, lessons_board: lessons_board, lesson_number: 1)
+      tuesday_lesson = create(:lessons_board_lesson, lessons_board: lessons_board, lesson_number: 2)
+      monday_tdc = classroom.teacher_discipline_classrooms.find_by(
+        teacher_id: current_teacher.id,
+        discipline_id: discipline.id
+      )
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: monday_lesson,
+        teacher_discipline_classroom: monday_tdc,
+        weekday: :monday
+      )
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: tuesday_lesson,
+        teacher_discipline_classroom: tuesday_tdc,
+        weekday: :tuesday
+      )
+      create(
+        :optional_holiday,
+        year: classroom.year,
+        holiday_date: Date.parse('2017-02-20'),
+        make_up_date: Date.parse('2017-03-04'),
+        periods: %w[1 2 3 4 5],
+        makeup_scope: OptionalHolidayMakeupScope::MUNICIPAL
+      )
+      allow(classroom.classrooms_grades.first.exam_rule).to receive(:frequency_type).and_return(FrequencyTypes::BY_DISCIPLINE)
+
+      get :disciplines_for_frequency_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        frequency_date: '2017-03-04'
+      }
+
+      payload = JSON.parse(response.body)
+      discipline_ids = payload['disciplines'].map { |item| item['id'] }
+
+      expect(discipline_ids).to include(discipline.id)
+      expect(discipline_ids).not_to include(tuesday_discipline.id)
+      expect(payload['message']).to be_nil
+    end
   end
 
   describe 'GET #schedule_for_frequency_date' do

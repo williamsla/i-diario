@@ -198,6 +198,33 @@ RSpec.describe OptionalHoliday, type: :model do
     end
   end
 
+  describe '.make_up_entries_for' do
+    let(:unity) { create(:unity) }
+    let(:classroom) { create(:classroom, unity: unity, period: Periods::VESPERTINE, year: Date.current.year) }
+    let(:holiday_date) { Date.current }
+    let(:make_up_date) { Date.current + 2.days }
+
+    it 'returns the holiday date paired with the makeup date' do
+      create(
+        :optional_holiday,
+        year: classroom.year,
+        holiday_date: holiday_date,
+        make_up_date: make_up_date,
+        periods: %w[2],
+        makeup_scope: OptionalHolidayMakeupScope::MUNICIPAL
+      )
+
+      entries = described_class.make_up_entries_for(
+        classroom: classroom,
+        start_date: holiday_date,
+        end_date: make_up_date,
+        period: Periods::VESPERTINE
+      )
+
+      expect(entries).to include(holiday_date: holiday_date, make_up_date: make_up_date)
+    end
+  end
+
   describe '#school_can_inform_makeup?' do
     let(:unity) { create(:unity) }
 

@@ -179,9 +179,7 @@ module LessonsBoardAvailability
       return disciplines
     end
 
-    return disciplines if optional_holiday_make_up_on_date?(classroom: classroom, date: date)
-
-    []
+    return optional_holiday_disciplines_for_make_up_date(disciplines, classroom, date)
   end
 
   def knowledge_areas_for_make_up_date(knowledge_areas, classroom, date)
@@ -197,9 +195,39 @@ module LessonsBoardAvailability
       return knowledge_areas
     end
 
-    return knowledge_areas if optional_holiday_make_up_on_date?(classroom: classroom, date: date)
+    return optional_holiday_knowledge_areas_for_make_up_date(knowledge_areas, classroom, date)
+  end
 
-    []
+  def optional_holiday_discipline_ids_for_make_up_date(classroom, date)
+    holidays = OptionalHoliday.make_up_holidays_on_date(
+      classroom: classroom,
+      date: date,
+      unity_id: classroom.unity_id
+    )
+    return [] if holidays.blank?
+
+    holidays.flat_map do |holiday|
+      schedule_discipline_ids_for_classroom_weekday(
+        classroom_id: classroom.id,
+        date: holiday.holiday_date
+      )
+    end.uniq
+  end
+
+  def optional_holiday_disciplines_for_make_up_date(disciplines, classroom, date)
+    holiday_discipline_ids = optional_holiday_discipline_ids_for_make_up_date(classroom, date)
+    return [] if holiday_discipline_ids.blank?
+
+    disciplines.select { |discipline| holiday_discipline_ids.include?(discipline.id) }
+  end
+
+  def optional_holiday_knowledge_areas_for_make_up_date(knowledge_areas, classroom, date)
+    holiday_discipline_ids = optional_holiday_discipline_ids_for_make_up_date(classroom, date)
+    return [] if holiday_discipline_ids.blank?
+
+    knowledge_areas.select do |knowledge_area|
+      knowledge_area.disciplines.any? { |discipline| holiday_discipline_ids.include?(discipline.id) }
+    end
   end
 
   def schedule_unavailable_message(classroom:, date:, schedule_ids:)

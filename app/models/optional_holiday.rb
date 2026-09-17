@@ -135,15 +135,25 @@ class OptionalHoliday < ApplicationRecord
   end
 
   def self.make_up_dates_for(classroom:, start_date:, end_date:, period: nil, unity_id: nil)
+    make_up_entries_for(
+      classroom: classroom,
+      start_date: start_date,
+      end_date: end_date,
+      period: period,
+      unity_id: unity_id
+    ).map { |entry| entry[:make_up_date] }.to_set
+  end
+
+  def self.make_up_entries_for(classroom:, start_date:, end_date:, period: nil, unity_id: nil)
     classroom = classroom.is_a?(Classroom) ? classroom : Classroom.find_by(id: classroom)
-    return Set.new if classroom.blank?
+    return [] if classroom.blank?
 
     period_to_match = period.presence || classroom.period
     unity_id ||= classroom.unity_id
     start_at = start_date.to_date
     end_at = end_date.to_date
 
-    by_year(classroom.year.to_i).includes(:optional_holiday_unity_makeups).each_with_object(Set.new) do |holiday, dates|
+    by_year(classroom.year.to_i).includes(:optional_holiday_unity_makeups).each_with_object([]) do |holiday, entries|
       next unless holiday.applies_to_period?(period_to_match)
       next unless holiday_applies_to_unity?(holiday, unity_id)
 
@@ -151,7 +161,9 @@ class OptionalHoliday < ApplicationRecord
       next if makeup_date.blank?
 
       makeup_date = makeup_date.to_date
-      dates << makeup_date if makeup_date.between?(start_at, end_at)
+      next unless makeup_date.between?(start_at, end_at)
+
+      entries << { holiday_date: holiday.holiday_date.to_date, make_up_date: makeup_date }
     end
   end
 
