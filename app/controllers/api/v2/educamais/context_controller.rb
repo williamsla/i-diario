@@ -16,7 +16,7 @@ module Api
               name: current_user.name,
               is_admin: current_user.admin? || current_user.administrator?,
               can_semed_view: current_user.admin? || current_user.administrator?
-            },
+            }.merge(EducaMais::UserClaims.role_payload(current_user)),
             entity: {
               id: Entity.current.id,
               name: Entity.current.name,

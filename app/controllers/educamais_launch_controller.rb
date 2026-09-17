@@ -34,7 +34,7 @@ class EducamaisLaunchController < ApplicationController
       can_semed_view: semed_view_allowed?,
       idiario_api_url: EducaMais::Config.idiario_api_url(request: request),
       exp: 2.hours.from_now.to_i
-    }
+    }.merge(EducaMais::UserClaims.role_payload(current_user))
   end
 
   def semed_view_allowed?

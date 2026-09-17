@@ -52,6 +52,7 @@ Rails.application.routes.draw do
           resources :grades, only: [:index]
           resources :classrooms, only: [:index]
           resources :students, only: [:index]
+          resources :roles, only: [:index]
           resources :bncc_skills, only: [:index], path: 'bncc-skills'
         end
       end
