@@ -116,4 +116,48 @@ RSpec.describe DescriptiveExamSemesterCalendar do
       end
     end
   end
+
+  context 'with a two-step educação infantil classroom calendar' do
+    let(:infantil_course) { create(:course, description: 'Educação Infantil') }
+    let(:infantil_grade) { create(:grade, course: infantil_course, description: 'Pré-escola') }
+    let(:classroom_infantil) { create(:classroom, unity: unity, year: year) }
+
+    before do
+      create(:classrooms_grade, classroom: classroom_infantil, grade: infantil_grade)
+      create(
+        :school_calendar_classroom,
+        :school_calendar_classroom_with_semester_steps,
+        classroom: classroom_infantil,
+        school_calendar: school_calendar
+      )
+      GeneralConfiguration.current.update(descriptive_exams_semester_calendar_steps: true)
+    end
+
+    after do
+      GeneralConfiguration.current.update(descriptive_exams_semester_calendar_steps: false)
+    end
+
+    describe '.enabled?' do
+      it 'does not group steps into a single parecer' do
+        expect(described_class.enabled?(classroom_infantil)).to eq(false)
+      end
+    end
+
+    describe '.step_select_options' do
+      it 'returns one option per calendar step' do
+        options = described_class.step_select_options(classroom_infantil)
+        steps = classroom_infantil.calendar.classroom_steps.order(:step_number).to_a
+
+        expect(options.size).to eq(2)
+        expect(options.map { |o| o[:id] }).to eq(steps.map(&:id))
+      end
+    end
+
+    describe '.semester_pair_containing' do
+      it 'does not pair the two steps' do
+        expect(described_class.semester_pair_containing(classroom_infantil, 1)).to be_nil
+        expect(described_class.semester_pair_containing(classroom_infantil, 2)).to be_nil
+      end
+    end
+  end
 end
