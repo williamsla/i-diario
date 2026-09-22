@@ -258,32 +258,78 @@ $('form.percent_filterable_search_form input, form.percent_filterable_search_for
   }
 );
 
+let resumeModalRequest = 0;
+
+function resumeTrackingUrl(path, unityId, classroomId, ownRecords) {
+  return path +
+    '?unity_id=' + encodeURIComponent(unityId) +
+    '&classroom_id=' + encodeURIComponent(classroomId || 0) +
+    '&own_records=' + (ownRecords ? '1' : '0');
+}
+
+function loadResumeModal(unityId, classroomId, ownRecords) {
+  const modal = document.getElementById("resumeModal");
+  if (!modal) return;
+
+  resumeModalRequest += 1;
+  const requestId = resumeModalRequest;
+  const previousSearch = (document.getElementById("resumeSearchInput") || {}).value || "";
+
+  const downloadBtn = document.getElementById("downloadXlsxBtn");
+  if (downloadBtn) {
+    downloadBtn.onclick = function() {
+      window.location.href = resumeTrackingUrl(
+        '/pedagogical_trackings/resume_xlsx',
+        unityId,
+        classroomId,
+        ownRecords
+      );
+    };
+  }
+
+  document.getElementById("resumeModalBody").innerHTML =
+    "<p class='pedagogical-modal__loading'>Carregando resumo...</p>";
+
+  fetch(resumeTrackingUrl('/pedagogical_trackings/resume_modal', unityId, classroomId, ownRecords))
+    .then(response => response.text())
+    .then(html => {
+      if (requestId !== resumeModalRequest) return;
+
+      document.getElementById("resumeModalBody").innerHTML = html;
+      initResumeReportFilters();
+
+      if (previousSearch) {
+        const searchInput = document.getElementById("resumeSearchInput");
+        if (searchInput) {
+          searchInput.value = previousSearch;
+          searchInput.dispatchEvent(new Event('input'));
+        }
+      }
+    })
+    .catch(err => {
+      if (requestId !== resumeModalRequest) return;
+
+      console.error("Erro ao carregar modal:", err);
+      document.getElementById("resumeModalBody").innerHTML =
+        "<p style='color:red;'>Erro ao carregar o resumo.</p>";
+    });
+}
+
 function openResumeModal(unityId, classroomId) {
   const modal = document.getElementById("resumeModal");
   if (!modal) return;
 
   modal.style.display = "flex";
 
-  const downloadBtn = document.getElementById("downloadXlsxBtn");
-  downloadBtn.onclick = function() {
-    const url = '/pedagogical_trackings/resume_xlsx?unity_id=' + unityId + '&classroom_id=' + (classroomId || 0);
-    window.location.href = url;
+  const ownRecordsInput = document.getElementById("resumeOwnRecords");
+  if (ownRecordsInput) {
+    ownRecordsInput.checked = true;
+    ownRecordsInput.onchange = function() {
+      loadResumeModal(unityId, classroomId, this.checked);
+    };
   }
 
-  document.getElementById("resumeModalBody").innerHTML =
-    "<p class='pedagogical-modal__loading'>Carregando resumo...</p>";
-
-  fetch('/pedagogical_trackings/resume_modal?unity_id=' + unityId + '&classroom_id=' + (classroomId || 0))
-    .then(response => response.text())
-    .then(html => {
-      document.getElementById("resumeModalBody").innerHTML = html;
-      initResumeReportFilters();
-    })
-    .catch(err => {
-      console.error("Erro ao carregar modal:", err);
-      document.getElementById("resumeModalBody").innerHTML =
-        "<p style='color:red;'>Erro ao carregar o resumo.</p>";
-    });
+  loadResumeModal(unityId, classroomId, true);
 }
 
 function initResumeReportFilters() {

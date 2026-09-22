@@ -78,6 +78,8 @@ pt-BR:
       step_short: '%{step}ª'
       filter_search: 'Buscar'
       filter_search_placeholder: 'Professor ou disciplina'
+      filter_own_records: 'Somente registros do próprio professor'
+      filter_own_records_hint: 'Mostra apenas os lançamentos feitos pelo professor em cada disciplina ou área de conhecimento.'
       legend_done: 'Lançado'
       legend_missing: 'Não iniciado'
       legend_alert: 'Alunos sem parecer'

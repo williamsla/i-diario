@@ -104,12 +104,27 @@ class PedagogicalTrackingsController < ApplicationController
       subquery_sem_parecer = "SELECT ''"
     end
 
+    own_records = resume_own_records?
+    frequency_teacher_sql = own_records ? 'and df.owner_teacher_id = t.id' : ''
+    lesson_plan_teacher_sql = own_records ? 'and lp.teacher_id = t.id' : ''
+    content_teacher_sql = own_records ? 'and cr.teacher_id = t.id' : ''
+
     if has_lesson_plan
       subquery_lesson_plan = "select count(lp.id) as qtd
 					from public.lesson_plans lp
-					left join public.discipline_lesson_plans dlp on dlp.lesson_plan_id = lp.id 	
-					left join public.knowledge_area_lesson_plans kalp on kalp.lesson_plan_id = lp.id 	
-					where lp.classroom_id = c.id and (case when dlp.id is not null then dlp.discipline_id = d.id else true end)"
+					left join public.discipline_lesson_plans dlp on dlp.lesson_plan_id = lp.id
+					left join public.knowledge_area_lesson_plans kalp on kalp.lesson_plan_id = lp.id
+					where lp.classroom_id = c.id
+          #{lesson_plan_teacher_sql}
+          and (
+            dlp.discipline_id = d.id
+            or exists (
+              select 1
+              from public.knowledge_area_lesson_plan_knowledge_areas kalpka
+              where kalpka.knowledge_area_lesson_plan_id = kalp.id
+                and kalpka.knowledge_area_id = d.knowledge_area_id
+            )
+          )"
     else
       subquery_lesson_plan = "SELECT ''"
     end
@@ -125,28 +140,28 @@ class PedagogicalTrackingsController < ApplicationController
 			(
           select count(df.id) 
           from public.daily_frequencies df, step_by_classroom(c.id, df.frequency_date) as step
-          where df.classroom_id = c.id and df.owner_teacher_id = t.id 
+          where df.classroom_id = c.id #{frequency_teacher_sql}
           and (case when df.discipline_id is not null then df.discipline_id = d.id else true end)
           and step.step_number = 1
 			) as FREQUENCIA_1,
        (
           select count(df.id) 
           from public.daily_frequencies df, step_by_classroom(c.id, df.frequency_date) as step
-          where df.classroom_id = c.id and df.owner_teacher_id = t.id 
+          where df.classroom_id = c.id #{frequency_teacher_sql}
           and (case when df.discipline_id is not null then df.discipline_id = d.id else true end)
           and step.step_number = 2
 			) as FREQUENCIA_2,
        (
           select count(df.id) 
           from public.daily_frequencies df, step_by_classroom(c.id, df.frequency_date) as step
-          where df.classroom_id = c.id and df.owner_teacher_id = t.id 
+          where df.classroom_id = c.id #{frequency_teacher_sql}
           and (case when df.discipline_id is not null then df.discipline_id = d.id else true end)
           and step.step_number = 3
 			) as FREQUENCIA_3,
        (
           select count(df.id) 
           from public.daily_frequencies df, step_by_classroom(c.id, df.frequency_date) as step
-          where df.classroom_id = c.id and df.owner_teacher_id = t.id 
+          where df.classroom_id = c.id #{frequency_teacher_sql}
           and (case when df.discipline_id is not null then df.discipline_id = d.id else true end)
           and step.step_number = 4
 			) as FREQUENCIA_4,
@@ -158,7 +173,17 @@ class PedagogicalTrackingsController < ApplicationController
 					from public.content_records cr
 					left join public.discipline_content_records dcr on dcr.content_record_id = cr.id
 					left join public.knowledge_area_content_records kacr on kacr.content_record_id = cr.id
-					where cr.classroom_id = c.id and (case when dcr.id is not null then dcr.discipline_id = d.id else true end)
+					where cr.classroom_id = c.id
+          #{content_teacher_sql}
+          and (
+            dcr.discipline_id = d.id
+            or exists (
+              select 1
+              from public.knowledge_area_content_records_areas kacra
+              where kacra.knowledge_area_content_record_id = kacr.id
+                and kacra.knowledge_area_id = d.knowledge_area_id
+            )
+          )
 			) AS AULAS_DADAS,
       (
           select count(ava.id)
@@ -202,7 +227,7 @@ class PedagogicalTrackingsController < ApplicationController
 		and c.year = #{current_user_school_year}
 		and unity.id = #{unity_id}
     and (CASE WHEN #{classroom_id} > 0 THEN c.id = #{classroom_id} ELSE TRUE END)
-		GROUP by c.id, c.description,t.id, PROFESSOR, d.id, d.description
+		GROUP by c.id, c.description,t.id, PROFESSOR, d.id, d.description, d.knowledge_area_id
 		ORDER by c.description asc, PROFESSOR asc, DISCIPLINA asc")
 
     # Create a new Excel workbook
@@ -865,6 +890,10 @@ class PedagogicalTrackingsController < ApplicationController
   end
 
   private
+
+  def resume_own_records?
+    params[:own_records].blank? || !%w[0 false].include?(params[:own_records].to_s)
+  end
 
   def unjustified_absence_records(classroom, date_range)
     DailyFrequencyStudent
