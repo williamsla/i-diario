@@ -106,7 +106,8 @@ module AvaliationBatchGrades
       test_setting.tests.order(:id).map.with_index do |tst, idx|
         # Notas são por etapa do calendário (intervalo de test_date). Não reutilizar avaliação de
         # outra sub-etapa senão o lote repetiria as mesmas notas em step_ids diferentes.
-        av = avaliations_in_step.find_by(test_setting_test_id: tst.id)
+        # Entre duplicatas do mesmo instrumento, a cópia com nota lançada é a que a tela exibe.
+        av = canonical_instrument_avaliation(tst.id)
         {
           index: idx,
           label: tst.description,
@@ -265,14 +266,63 @@ module AvaliationBatchGrades
       end
     end
 
+    def canonical_instrument_avaliation(test_setting_test_id)
+      pool = instrument_avaliations_in_step(test_setting_test_id)
+      return if pool.blank?
+
+      with_notes = pool.select { |avaliation| notes_by_avaliation.key?(avaliation.id) }
+      (with_notes.presence || pool).min_by(&:id)
+    end
+
+    def instrument_avaliations_in_step(test_setting_test_id)
+      @instrument_avaliations_in_step ||= {}
+      @instrument_avaliations_in_step[test_setting_test_id] ||= avaliations_in_step
+        .where(test_setting_test_id: test_setting_test_id)
+        .order(:id)
+        .to_a
+    end
+
+    # avaliation_id => { student_id => note } só para notas preenchidas na etapa.
+    def notes_by_avaliation
+      @notes_by_avaliation ||= begin
+        ids = avaliations_in_step.pluck(:id)
+        if ids.blank?
+          {}
+        else
+          DailyNoteStudent
+            .joins(:daily_note)
+            .where(daily_notes: { avaliation_id: ids })
+            .where.not(note: nil)
+            .pluck('daily_notes.avaliation_id', :student_id, :note)
+            .each_with_object({}) do |(avaliation_id, student_id, note), acc|
+              acc[avaliation_id] ||= {}
+              acc[avaliation_id][student_id] = note
+            end
+        end
+      end
+    end
+
     def note_for(student_id, col)
+      if col[:test_setting_test_id].present?
+        return note_for_instrument(student_id, col)
+      end
+
       return nil if col[:avaliation_id].blank?
 
-      dn = DailyNote.find_by(avaliation_id: col[:avaliation_id])
-      return nil if dn.blank?
+      notes_by_avaliation.dig(col[:avaliation_id], student_id)
+    end
 
-      dns = dn.students.find_by(student_id: student_id)
-      dns&.note
+    # Duplicata do mesmo instrumento pode guardar a nota enquanto a cópia escolhida está vazia.
+    def note_for_instrument(student_id, col)
+      preferred = notes_by_avaliation.dig(col[:avaliation_id], student_id) if col[:avaliation_id].present?
+      return preferred unless preferred.nil?
+
+      instrument_avaliations_in_step(col[:test_setting_test_id]).each do |avaliation|
+        note = notes_by_avaliation.dig(avaliation.id, student_id)
+        return note unless note.nil?
+      end
+
+      nil
     end
 
     def preview_average(student_id, cols)

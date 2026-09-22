@@ -286,8 +286,9 @@ module AvaliationBatchGrades
 
     # Escolhe uma avaliação por instrumento quando há duplicatas na etapa (causa comum do erro de unicidade).
     def pick_canonical_instrument_avaliation(col, tst)
-      scoped_avaliation_for_step(find_scoped_avaliation(col[:avaliation_id])) ||
-        pick_best_from_instrument_pool(instrument_pool_for_step(tst.id), col[:avaliation_id])
+      pool = instrument_pool_for_step(tst.id)
+      pick_best_from_instrument_pool(pool, col[:avaliation_id]) ||
+        scoped_avaliation_for_step(find_scoped_avaliation(col[:avaliation_id]))
     end
 
     def scoped_avaliation_for_step(avaliation)
@@ -310,13 +311,15 @@ module AvaliationBatchGrades
     def pick_best_from_instrument_pool(pool, preferred_id)
       return if pool.blank?
 
+      with_notes = pool.select { |a| avaliation_has_notes?(a) }
+      candidates = with_notes.presence || pool
+
       if preferred_id.present?
-        found = pool.find { |a| a.id == preferred_id.to_i }
+        found = candidates.find { |a| a.id == preferred_id.to_i }
         return found if found
       end
 
-      with_notes = pool.select { |a| avaliation_has_notes?(a) }
-      (with_notes.presence || pool).min_by(&:id)
+      candidates.min_by(&:id)
     end
 
     def consolidate_duplicate_instrument_avaliations!(test_setting_test_id, keep:)
@@ -338,8 +341,11 @@ module AvaliationBatchGrades
       source_dn = DailyNote.find_by(avaliation_id: source.id)
       return if source_dn.blank?
 
-      keep_dn = DailyNoteCreator.new(avaliation_id: keep.id).find_or_create
-      return unless keep_dn.persisted?
+      # find_or_create devolve true/false; o diário fica em creator.daily_note.
+      creator = DailyNoteCreator.new(avaliation_id: keep.id)
+      creator.find_or_create
+      keep_dn = creator.daily_note
+      raise ActiveRecord::RecordInvalid, keep_dn unless keep_dn&.persisted?
 
       source_dn.students.where.not(note: nil).find_each do |dns|
         keep_dns = find_or_initialize_daily_note_student(keep_dn, dns.student_id)
