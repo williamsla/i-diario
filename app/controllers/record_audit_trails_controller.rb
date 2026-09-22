@@ -71,8 +71,10 @@ class RecordAuditTrailsController < ApplicationController
 
     school_year = current_school_year || Date.current.year
     teachers = RecordAuditTrailTeacherLinks.teachers_for_select(params[:classroom_id], school_year)
+    classroom = Classroom.includes(grades: :course).find_by(id: params[:classroom_id])
 
     render json: {
+      filter_label: RecordAuditTrailForm.filter_label_for(classroom),
       teachers: teachers.map { |teacher| { id: teacher.id, name: teacher.name } }
     }
   end
@@ -80,10 +82,14 @@ class RecordAuditTrailsController < ApplicationController
   def classroom_disciplines
     authorize RecordAuditTrail
 
+    classroom = Classroom.includes(grades: :course).find_by(id: params[:classroom_id])
     disciplines = disciplines_for_form(params[:classroom_id], params[:teacher_id])
 
     render json: {
-      disciplines: disciplines.map { |discipline| { id: discipline.id, description: discipline.to_s } }
+      filter_label: RecordAuditTrailForm.filter_label_for(classroom),
+      disciplines: RecordAuditTrailForm.discipline_options(disciplines, classroom).map do |discipline|
+        { id: discipline.id, description: discipline.name }
+      end
     }
   end
 
@@ -99,7 +105,16 @@ class RecordAuditTrailsController < ApplicationController
       year: school_year
     )
 
-    Discipline.where(id: discipline_ids).ordered
+    Discipline.where(id: discipline_ids).includes(:knowledge_area).ordered
+  end
+
+  def assign_discipline_options(disciplines, classroom_id)
+    classroom = Classroom.includes(grades: :course).find_by(id: classroom_id)
+    @disciplines = RecordAuditTrailForm.discipline_options(
+      disciplines,
+      classroom,
+      @record_audit_trail_form&.discipline_id
+    )
   end
 
   def steps_fetcher
@@ -156,13 +171,16 @@ class RecordAuditTrailsController < ApplicationController
         current_school_year || Date.current.year
       )
 
-      @disciplines = disciplines_for_form(
-        @record_audit_trail_form.classroom_id,
-        @record_audit_trail_form.teacher_id
+      assign_discipline_options(
+        disciplines_for_form(
+          @record_audit_trail_form.classroom_id,
+          @record_audit_trail_form.teacher_id
+        ),
+        @record_audit_trail_form.classroom_id
       )
     else
       @teachers = []
-      @disciplines = []
+      assign_discipline_options([], nil)
     end
   end
 
@@ -177,9 +195,15 @@ class RecordAuditTrailsController < ApplicationController
     @classrooms = @fetch_linked_by_teacher[:classrooms]
 
     classroom_id = @record_audit_trail_form.classroom_id || current_user_classroom&.id
-    @disciplines = @fetch_linked_by_teacher[:disciplines]
-                  .by_classroom_id(classroom_id)
-                  .not_descriptor if classroom_id.present?
+    disciplines = if classroom_id.present?
+                    @fetch_linked_by_teacher[:disciplines]
+                      .by_classroom_id(classroom_id)
+                      .not_descriptor
+                      .includes(:knowledge_area)
+                  else
+                    []
+                  end
+    assign_discipline_options(disciplines, classroom_id)
 
     @teachers = [current_teacher] if current_teacher
   end

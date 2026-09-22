@@ -98,6 +98,13 @@ class Classroom < ApplicationRecord
     grades.any? { |grade| grade.description.to_s.match?(/aee/i) }
   end
 
+  def early_childhood_or_aee?
+    grades.includes(:course).any? do |grade|
+      early_childhood_or_aee_course?(grade.course&.description) ||
+        early_childhood_or_aee_grade?(grade.description)
+    end
+  end
+
   def multi_grade?
     grades.count > 1
   end
@@ -149,6 +156,21 @@ class Classroom < ApplicationRecord
   end
 
   private
+
+  EARLY_CHILDHOOD_OR_AEE_COURSE_PATTERN = /infantil|aee|atendimento educacional especializado/
+  EARLY_CHILDHOOD_OR_AEE_GRADE_PATTERN = /creche|pre|pre i|pre ii|pre[- ]escola(r)?|maternal|bercario|jardim|infantil|aee/
+
+  def early_childhood_or_aee_course?(description)
+    normalized_stage_text(description).match?(EARLY_CHILDHOOD_OR_AEE_COURSE_PATTERN)
+  end
+
+  def early_childhood_or_aee_grade?(description)
+    normalized_stage_text(description).match?(EARLY_CHILDHOOD_OR_AEE_GRADE_PATTERN)
+  end
+
+  def normalized_stage_text(description)
+    I18n.transliterate(description.to_s.downcase)
+  end
 
   def set_label_color
     self.label_color = LABEL_COLORS.sample

@@ -24,6 +24,11 @@
       <div class="row">
         <div class="col col-sm-4">
           <%= f.input :discipline_id, as: :select2, elements: @disciplines, user: current_user,
+                label: @record_audit_trail_form.discipline_filter_label,
+                label_html: {
+                  id: 'record-audit-trail-discipline-label',
+                  data: { default_label: t('record_audit_trails.form.discipline') }
+                },
                 input_html: { value: @record_audit_trail_form.discipline_id } %>
         </div>
         <div class="col col-sm-4">
@@ -71,10 +76,17 @@
       var $classroom = $('#record_audit_trail_form_classroom_id');
       var $teacher = $('#record_audit_trail_form_teacher_id');
       var $discipline = $('#record_audit_trail_form_discipline_id');
+      var $disciplineLabel = $('#record-audit-trail-discipline-label');
+      var defaultDisciplineLabel = $disciplineLabel.attr('data-default-label');
+
+      function setDisciplineFilterLabel(label) {
+        $disciplineLabel.text(label || defaultDisciplineLabel);
+      }
 
       function loadTeachers(classroomId, onComplete) {
         if (!classroomId || classroomId === 'empty') {
           $teacher.select2({ data: [], allowClear: true });
+          setDisciplineFilterLabel(defaultDisciplineLabel);
           if (onComplete) onComplete(classroomId, null);
           return;
         }
@@ -86,6 +98,7 @@
           data: { classroom_id: classroomId },
           dataType: 'json',
           success: function(data) {
+            setDisciplineFilterLabel(data.filter_label);
             var teachers = (data.teachers || []).map(function(teacher) {
               return { id: teacher.id, name: teacher.name, text: teacher.name };
             });
@@ -113,6 +126,7 @@
           data: { classroom_id: classroomId, teacher_id: teacherId },
           dataType: 'json',
           success: function(data) {
+            setDisciplineFilterLabel(data.filter_label);
             var disciplines = (data.disciplines || []).map(function(discipline) {
               return { id: discipline.id, name: discipline.description, text: discipline.description };
             });

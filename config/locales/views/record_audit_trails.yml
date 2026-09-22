@@ -1,6 +1,8 @@
 pt-BR:
   record_audit_trails:
     form:
+      discipline: "Disciplina"
+      knowledge_area: "Área de conhecimento"
       submit: "Consultar"
       help: "Consulta o histórico de criação, alteração e exclusão dos lançamentos no período. O resultado aparece na tela. Professores com vínculo encerrado continuam na lista. Use turma e professor para ver o calendário esperado, parecer e registros em disciplina, turma ou data próximas."
     report:

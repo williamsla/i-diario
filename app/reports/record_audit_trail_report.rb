@@ -157,7 +157,7 @@ class RecordAuditTrailReport < BaseReportOld
       filter_row(t(:unity), unity_label),
       filter_row(t(:teacher), teacher_label),
       filter_row(t(:classroom), classroom_label),
-      filter_row(t(:discipline), discipline_label),
+      filter_row(@form.discipline_filter_label, discipline_label),
       filter_row(t(:period), period_label),
       filter_row(t(:record_types), record_types_label)
     ]
@@ -445,7 +445,7 @@ class RecordAuditTrailReport < BaseReportOld
   end
 
   def discipline_label
-    Discipline.find_by(id: @form.discipline_id)&.to_s || t(:all)
+    @form.discipline_filter_value
   end
 
   def period_label

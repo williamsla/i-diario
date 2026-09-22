@@ -45,6 +45,40 @@ RSpec.describe Classroom, type: :model do
     end
   end
 
+  describe '#early_childhood_or_aee?' do
+    let(:classroom) { create(:classroom) }
+
+    def link_grade(course_description, grade_description)
+      course = create(:course, description: course_description)
+      grade = create(:grade, course: course, description: grade_description)
+      create(:classrooms_grade, classroom: classroom, grade: grade)
+    end
+
+    it 'reconhece educação infantil pelo curso' do
+      link_grade('Educação Infantil', 'Maternal')
+
+      expect(classroom.early_childhood_or_aee?).to eq(true)
+    end
+
+    it 'reconhece AEE pela série' do
+      link_grade('Atendimento Educacional Especializado', 'AEE')
+
+      expect(classroom.early_childhood_or_aee?).to eq(true)
+    end
+
+    it 'reconhece AEE pelo curso mesmo sem a sigla na série' do
+      link_grade('Atendimento Educacional Especializado', 'Etapa única')
+
+      expect(classroom.early_childhood_or_aee?).to eq(true)
+    end
+
+    it 'não reconhece turma do ensino fundamental' do
+      link_grade('Ensino Fundamental', '3º ano')
+
+      expect(classroom.early_childhood_or_aee?).to eq(false)
+    end
+  end
+
   describe '#descriptive_opinion_types' do
     let(:classroom) { create(:classroom) }
 
