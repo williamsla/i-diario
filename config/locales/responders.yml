@@ -154,6 +154,7 @@ pt-BR:
       update:
         notice: 'Ponto facultativo alterado com sucesso.'
         school_makeup_notice: 'Data de reposição informada com sucesso.'
+        school_makeup_update_notice: 'Data de reposição atualizada com sucesso.'
       destroy:
         notice: 'Ponto facultativo excluído com sucesso.'
       <<: *male

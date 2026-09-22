@@ -143,11 +143,7 @@ class OptionalHolidaysController < ApplicationController
     end
 
     makeup = @optional_holiday.unity_makeup_for(current_unity.id)
-
-    if makeup.persisted?
-      add_makeup_error(makeup, :make_up_date, :already_informed)
-      return false
-    end
+    @updating_existing_makeup = makeup.persisted?
 
     makeup.user = current_user
     makeup.assign_attributes(unity_makeup_params)
@@ -177,6 +173,8 @@ class OptionalHolidaysController < ApplicationController
   def update_notice
     if administrator?
       I18n.t('flash.optional_holidays.update.notice')
+    elsif @updating_existing_makeup
+      I18n.t('flash.optional_holidays.update.school_makeup_update_notice')
     else
       I18n.t('flash.optional_holidays.update.school_makeup_notice')
     end

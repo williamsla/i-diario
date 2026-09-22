@@ -89,6 +89,10 @@ class OptionalHoliday < ApplicationRecord
     makeup_scope_by_school? && pending_make_up_for?(unity_id)
   end
 
+  def school_can_manage_makeup?(unity_id)
+    makeup_scope_by_school? && unity_id.present?
+  end
+
   def unity_makeup_for(unity_id)
     optional_holiday_unity_makeups.detect { |makeup| makeup.unity_id == unity_id.to_i } ||
       optional_holiday_unity_makeups.build(unity_id: unity_id)

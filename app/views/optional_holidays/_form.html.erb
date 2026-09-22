@@ -71,10 +71,10 @@
         </div>
       </div>
     <% else %>
-      <legend><%= t('views.optional_holidays.edit.school_makeup_title') %></legend>
+      <legend><%= optional_holiday_school_makeup_title(@optional_holiday) %></legend>
       <div class="alert alert-info fade in">
         <i class="fa-fw fa fa-info"></i>
-        <%= t('views.optional_holidays.edit.school_makeup_hint') %>
+        <%= optional_holiday_school_makeup_hint(@optional_holiday) %>
       </div>
 
       <div class="row">
@@ -100,7 +100,7 @@
 
   <footer>
     <%= link_to 'Voltar', optional_holidays_path, class: 'btn btn-default' %>
-    <%= f.submit administrator? ? 'Salvar' : t('views.optional_holidays.edit.school_makeup_submit'), class: 'btn btn-primary' %>
+    <%= f.submit administrator? ? 'Salvar' : optional_holiday_school_makeup_submit(@optional_holiday), class: 'btn btn-primary' %>
   </footer>
 <% end %>
 

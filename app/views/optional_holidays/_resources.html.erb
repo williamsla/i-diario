@@ -19,7 +19,7 @@
     <td class="actions">
       <%= link_to 'Visualizar', optional_holiday_path(optional_holiday), class: 'btn btn-info btn-sm' %>
       <% if policy(optional_holiday).update? %>
-        <%= link_to optional_holiday_update_action_label, edit_optional_holiday_path(optional_holiday), class: 'btn btn-primary btn-sm' %>
+        <%= link_to optional_holiday_update_action_label(optional_holiday), edit_optional_holiday_path(optional_holiday), class: 'btn btn-primary btn-sm' %>
       <% end %>
       <% if administrator? %>
         <%= link_to 'Excluir', optional_holiday_path(optional_holiday), method: :delete, class: 'btn btn-danger btn-sm',

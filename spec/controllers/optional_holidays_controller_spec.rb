@@ -35,6 +35,57 @@ RSpec.describe OptionalHolidaysController, type: :controller do
       expect(assigns(:optional_holidays)).to include(matching)
       expect(assigns(:optional_holidays)).not_to include(other)
     end
+
+    context 'when the user is a school employee' do
+      let(:employee) do
+        create(:user, :with_user_role_employee, admin: false, current_unity_id: unity.id, current_school_year: school_calendar.year)
+      end
+
+      before do
+        role = employee.current_user_role.role
+        role.permissions.find_or_initialize_by(feature: 'optional_holidays').tap do |permission|
+          permission.permission = Permissions::CHANGE
+          permission.save_without_auditing
+        end
+        employee.reload
+        employee.current_user_role = employee.user_roles.first
+        sign_in(employee)
+        allow(controller).to receive(:current_user).and_return(employee)
+      end
+
+      it 'shows the update makeup button when the school already informed the date' do
+        holiday = create(
+          :optional_holiday,
+          year: school_calendar.year,
+          user: user,
+          makeup_scope: OptionalHolidayMakeupScope::BY_SCHOOL
+        )
+        create(
+          :optional_holiday_unity_makeup,
+          optional_holiday: holiday,
+          unity: unity,
+          make_up_date: holiday.holiday_date + 2.days
+        )
+
+        get :index, params: { locale: 'pt-BR' }
+
+        expect(response.body).to include('Atualizar data de reposição')
+        expect(response.body).not_to include('Informar data de reposição da escola')
+      end
+
+      it 'shows the inform makeup button when the date is still pending' do
+        create(
+          :optional_holiday,
+          year: school_calendar.year,
+          user: user,
+          makeup_scope: OptionalHolidayMakeupScope::BY_SCHOOL
+        )
+
+        get :index, params: { locale: 'pt-BR' }
+
+        expect(response.body).to include('Informar data de reposição da escola')
+      end
+    end
   end
 
   describe 'POST #create' do
@@ -151,7 +202,7 @@ RSpec.describe OptionalHolidaysController, type: :controller do
         expect(response).to redirect_to(optional_holidays_path)
       end
 
-      it 'does not change a makeup date that was already informed' do
+      it 'updates a makeup date that was already informed' do
         informed_date = holiday.holiday_date + 2.days
         create(
           :optional_holiday_unity_makeup,
@@ -159,6 +210,7 @@ RSpec.describe OptionalHolidaysController, type: :controller do
           unity: unity,
           make_up_date: informed_date
         )
+        allow_any_instance_of(OptionalHolidayCalendarSynchronizer).to receive(:sync)
 
         patch :update, params: {
           locale: 'pt-BR',
@@ -168,8 +220,9 @@ RSpec.describe OptionalHolidaysController, type: :controller do
           }
         }
 
-        expect(holiday.reload.make_up_date_for(unity.id)).to eq(informed_date)
-        expect(response).to render_template(:edit)
+        expect(holiday.reload.make_up_date_for(unity.id)).to eq(holiday.holiday_date + 5.days)
+        expect(response).to redirect_to(optional_holidays_path)
+        expect(flash[:notice]).to eq(I18n.t('flash.optional_holidays.update.school_makeup_update_notice'))
       end
 
       it 'does not save a school makeup when the scope is municipal' do

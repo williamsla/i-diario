@@ -87,7 +87,7 @@
   <footer class="margin-top-10">
     <%= link_to 'Voltar', optional_holidays_path, class: 'btn btn-default' %>
     <% if policy(@optional_holiday).update? %>
-      <%= link_to optional_holiday_update_action_label, edit_optional_holiday_path(@optional_holiday), class: 'btn btn-primary' %>
+      <%= link_to optional_holiday_update_action_label(@optional_holiday), edit_optional_holiday_path(@optional_holiday), class: 'btn btn-primary' %>
     <% end %>
     <% if administrator? %>
       <%= link_to 'Excluir', optional_holiday_path(@optional_holiday), method: :delete, class: 'btn btn-danger',

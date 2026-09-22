@@ -52,7 +52,7 @@ RSpec.describe OptionalHolidayPolicy do
       expect(subject.destroy?).to eq(false)
     end
 
-    it 'does not allow changing the holiday after the school makeup date was informed' do
+    it 'allows updating the school makeup date after it was informed' do
       create(
         :optional_holiday_unity_makeup,
         optional_holiday: holiday,
@@ -60,7 +60,7 @@ RSpec.describe OptionalHolidayPolicy do
       )
       holiday.reload
 
-      expect(subject.update?).to eq(false)
+      expect(subject.update?).to eq(true)
     end
 
     it 'does not allow updating a municipal optional holiday' do

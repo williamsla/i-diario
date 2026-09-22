@@ -13,12 +13,12 @@ class OptionalHolidayPolicy < ApplicationPolicy
     return false unless user.can_change?(feature_name)
     return true if administrator?
     return false unless employee?
-    return false unless record.respond_to?(:school_can_inform_makeup?)
+    return false unless record.respond_to?(:school_can_manage_makeup?)
 
     unity_id = user.current_unity_id.presence || user.current_unity&.id
     return false if unity_id.blank?
 
-    record.school_can_inform_makeup?(unity_id)
+    record.school_can_manage_makeup?(unity_id)
   end
 
   def edit?

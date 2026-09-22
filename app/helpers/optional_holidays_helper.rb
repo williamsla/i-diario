@@ -1,8 +1,46 @@
 # frozen_string_literal: true
 
 module OptionalHolidaysHelper
-  def optional_holiday_update_action_label
-    administrator? ? t('views.optional_holidays.edit.action') : t('views.optional_holidays.edit.school_makeup_action')
+  def optional_holiday_update_action_label(optional_holiday)
+    return t('views.optional_holidays.edit.action') if administrator?
+
+    key = if optional_holiday_school_makeup_informed?(optional_holiday)
+            'views.optional_holidays.edit.school_makeup_update_action'
+          else
+            'views.optional_holidays.edit.school_makeup_action'
+          end
+
+    t(key)
+  end
+
+  def optional_holiday_school_makeup_title(optional_holiday)
+    key = if optional_holiday_school_makeup_informed?(optional_holiday)
+            'views.optional_holidays.edit.school_makeup_update_title'
+          else
+            'views.optional_holidays.edit.school_makeup_title'
+          end
+
+    t(key)
+  end
+
+  def optional_holiday_school_makeup_submit(optional_holiday)
+    key = if optional_holiday_school_makeup_informed?(optional_holiday)
+            'views.optional_holidays.edit.school_makeup_update_submit'
+          else
+            'views.optional_holidays.edit.school_makeup_submit'
+          end
+
+    t(key)
+  end
+
+  def optional_holiday_school_makeup_hint(optional_holiday)
+    key = if optional_holiday_school_makeup_informed?(optional_holiday)
+            'views.optional_holidays.edit.school_makeup_update_hint'
+          else
+            'views.optional_holidays.edit.school_makeup_hint'
+          end
+
+    t(key)
   end
 
   def optional_holiday_pending_makeup?(optional_holiday)
@@ -35,6 +73,15 @@ module OptionalHolidaysHelper
   end
 
   private
+
+  def optional_holiday_school_makeup_informed?(optional_holiday)
+    return false if current_unity.blank?
+
+    unity_id = current_unity.id.to_i
+    optional_holiday.optional_holiday_unity_makeups.any? do |makeup|
+      makeup.persisted? && makeup.unity_id == unity_id
+    end
+  end
 
   def optional_holiday_makeup_dates_for(classroom, period: nil)
     @optional_holiday_makeup_dates_for ||= {}
