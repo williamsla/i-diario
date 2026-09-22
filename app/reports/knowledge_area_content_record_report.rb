@@ -305,20 +305,20 @@ class KnowledgeAreaContentRecordReport < BaseReport
     knowledge_area_and_content = [
       knowledge_area_descriptions.to_s.gsub("\n", ' ').squeeze(' '),
       content_cell_content(content_record).to_s.gsub("\n", ' ').squeeze(' ')
-    ].join("\n")
+    ].reject(&:blank?).join("\n")
 
-    texto_praticas_pedagogicas_e_habilidades = [
-      content_record.daily_activities_record.to_s.gsub("\n", ' ').squeeze(' '),
-      objective_cell_content(content_record)
-    ].join("\n")
-
-    colspan_value = @show_daily_activities_in_knowledge_area_content_record_report ? 2 : 1
-
-    [
+    row = [
       make_cell(content: content_record.record_date.strftime('%d/%m'), size: 8, align: :left),
       make_cell(content: knowledge_area_and_content, size: 8, align: :left),
-      make_cell(content: texto_praticas_pedagogicas_e_habilidades, size: 7, align: :left, colspan: colspan_value)
+      make_cell(content: objective_cell_content(content_record), size: 7, align: :left)
     ]
+
+    if @show_daily_activities_in_knowledge_area_content_record_report
+      activities = content_record.daily_activities_record.to_s.gsub("\n", ' ').squeeze(' ').strip
+      row << make_cell(content: activities, size: 7, align: :left)
+    end
+
+    row
   end
 
   def body

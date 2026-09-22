@@ -88,8 +88,9 @@ class BaseReport
   end
 
   def render_chunked_table(table_data, **options)
-    headers = table_data.first
-    rows = table_data.drop(1)
+    source_rows = table_data.map { |row| Array(row).map { |cell| cell_draw_spec(cell) } }
+    headers = source_rows.first
+    rows = source_rows.drop(1)
     return if headers.blank?
 
     table_options = {
@@ -128,15 +129,20 @@ class BaseReport
       end
       count = 1 if count.zero?
 
-      draw_report_table([headers] + rows[index, count], table_options, &apply_borders)
+      table = fit_report_table(materialize_rows([headers] + rows[index, count]), table_options, &apply_borders)
+      if table.height > (cursor - 12) && @cursor_page && cursor < (@cursor_page - 30)
+        start_new_content_page
+      end
+      table.draw
       index += count
     end
   end
 
   def estimate_table_row_heights(headers, rows, table_options, apply_borders)
-    header_height = fit_report_table([headers], table_options, &apply_borders).height
+    header_height = fit_report_table(materialize_rows([headers]), table_options, &apply_borders).height
     row_heights = rows.map do |row|
-      fit_report_table([headers, row], table_options, &apply_borders).height - header_height
+      measured = fit_report_table(materialize_rows([headers, row]), table_options, &apply_borders).height - header_height
+      [measured, 16].max
     end
 
     [header_height, row_heights]
@@ -152,8 +158,39 @@ class BaseReport
     [header_height, row_heights]
   end
 
-  def draw_report_table(data, table_options, &block)
-    fit_report_table(data, table_options, &block).draw
+  def materialize_rows(rows)
+    rows.map { |row| row.map { |spec| materialize_cell(spec) } }
+  end
+
+  def materialize_cell(spec)
+    options = spec.dup
+    options[:borders] = spec[:borders].dup if spec[:borders]
+    options[:padding] = spec[:padding].dup if spec[:padding]
+    make_cell(options)
+  end
+
+  def cell_draw_spec(cell)
+    return { content: cell.to_s } unless defined?(Prawn::Table::Cell) && cell.is_a?(Prawn::Table::Cell)
+
+    assigned_width = cell.instance_variable_get(:@width)
+    assigned_height = cell.instance_variable_get(:@height)
+
+    spec = { content: cell.content.to_s }
+    spec[:size] = cell.size if cell.respond_to?(:size) && cell.size
+    spec[:font_style] = cell.font_style if cell.respond_to?(:font_style) && cell.font_style
+    spec[:align] = cell.align if cell.respond_to?(:align) && cell.align
+    spec[:valign] = cell.valign if cell.respond_to?(:valign) && cell.valign
+    spec[:borders] = Array(cell.borders).dup if cell.respond_to?(:borders) && cell.borders
+    spec[:padding] = Array(cell.padding).dup if cell.respond_to?(:padding) && cell.padding
+    spec[:background_color] = cell.background_color if cell.respond_to?(:background_color) && cell.background_color
+    spec[:text_color] = cell.text_color if cell.respond_to?(:text_color) && cell.text_color
+    spec[:colspan] = cell.colspan if cell.respond_to?(:colspan) && cell.colspan.to_i > 1
+    spec[:rowspan] = cell.rowspan if cell.respond_to?(:rowspan) && cell.rowspan.to_i > 1
+    spec[:inline_format] = true if cell.respond_to?(:inline_format?) && cell.inline_format?
+    spec[:leading] = cell.leading if cell.respond_to?(:leading) && cell.leading
+    spec[:width] = assigned_width if assigned_width
+    spec[:height] = assigned_height if assigned_height
+    spec
   end
 
   def fit_report_table(data, table_options, &block)
