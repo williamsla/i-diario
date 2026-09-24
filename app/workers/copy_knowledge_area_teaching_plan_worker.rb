@@ -11,24 +11,42 @@ class CopyKnowledgeAreaTeachingPlanWorker
   )
     Entity.find(entity_id).using_connection do
       user = User.find(user_id)
-      model = KnowledgeAreaTeachingPlan.find(knowledge_area_teaching_plan_id)
 
-      Audited.audit_class.as_user(user) do
-        CopyKnowledgeAreaTeachingPlanService.call(
-          knowledge_area_teaching_plan_id,
-          year,
-          unities_ids,
-          grades_ids,
-          created_by_administrator: user.administrator?
+      begin
+        created = Audited.audit_class.as_user(user) do
+          CopyKnowledgeAreaTeachingPlanService.call(
+            knowledge_area_teaching_plan_id,
+            year,
+            unities_ids,
+            grades_ids,
+            created_by_administrator: user.administrator?
+          )
+        end
+      rescue CopyKnowledgeAreaTeachingPlanService::CopyKnowledgeAreaTeachingPlanError => error
+        SystemNotificationCreator.create!(
+          generic: true,
+          title: I18n.t('copy_knowledge_area_teaching_plan_worker.empty_title'),
+          description: error.message,
+          users: [user]
         )
+        return
       end
 
-      SystemNotificationCreator.create!(
-        source: model,
-        title: I18n.t('copy_knowledge_area_teaching_plan_worker.title'),
-        description: I18n.t('copy_knowledge_area_teaching_plan_worker.description'),
-        users: [user]
-      )
+      if created.blank?
+        SystemNotificationCreator.create!(
+          generic: true,
+          title: I18n.t('copy_knowledge_area_teaching_plan_worker.empty_title'),
+          description: I18n.t('copy_knowledge_area_teaching_plan_worker.empty_description'),
+          users: [user]
+        )
+      else
+        SystemNotificationCreator.create!(
+          source: created.first,
+          title: I18n.t('copy_knowledge_area_teaching_plan_worker.title'),
+          description: I18n.t('copy_knowledge_area_teaching_plan_worker.description'),
+          users: [user]
+        )
+      end
     end
   end
 end

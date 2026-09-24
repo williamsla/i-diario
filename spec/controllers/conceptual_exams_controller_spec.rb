@@ -111,6 +111,24 @@ RSpec.describe ConceptualExamsController, type: :controller do
       expect(assigns(:disciplines).map(&:id)).to contain_exactly(teacher_discipline.id)
     end
 
+    it 'lists the teacher conceptual disciplines without school calendar discipline grades' do
+      SchoolCalendarDisciplineGrade.where(grade: grade).delete_all
+
+      get :form_batch, params: params
+
+      expect(response).to render_template(:form_batch)
+      expect(assigns(:disciplines).map(&:id)).to contain_exactly(teacher_discipline.id)
+    end
+
+    it 'lists a conceptual grade component when the classroom exam rule is numeric' do
+      exam_rule.update!(score_type: ScoreTypes::NUMERIC)
+
+      get :form_batch, params: params
+
+      expect(response).to render_template(:form_batch)
+      expect(assigns(:disciplines).map(&:id)).to contain_exactly(teacher_discipline.id)
+    end
+
     it 'lists only the current teacher disciplines when editing an existing exam' do
       exam = ConceptualExam.new(
         classroom: classroom,

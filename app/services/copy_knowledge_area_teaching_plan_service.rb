@@ -82,14 +82,14 @@ class CopyKnowledgeAreaTeachingPlanService
 
   def unificado_copy_exists?(teaching_plan, knowledge_area_ids, unity_id, grade_id)
     KnowledgeAreaTeachingPlan
-      .by_unity(unity_id)
-      .by_grade(grade_id)
-      .by_year(year)
-      .by_secretary
-      .by_knowledge_area(knowledge_area_ids)
       .joins(:teaching_plan)
+      .by_knowledge_area(knowledge_area_ids)
       .where(
         teaching_plans: {
+          unity_id: unity_id,
+          grade_id: grade_id,
+          year: year,
+          teacher_id: nil,
           school_term_type_id: teaching_plan.school_term_type_id,
           school_term_type_step_id: teaching_plan.school_term_type_step_id
         }
@@ -142,7 +142,7 @@ class CopyKnowledgeAreaTeachingPlanService
 
   def create_copy(teaching_plan, knowledge_area_ids, experience_fields, teacher, grade_id, unity_id)
     copy = teaching_plan.dup
-    copy.unificado = false
+    copy.unificado = created_by_administrator
     copy.unity_id = unity_id
     copy.grade_id = grade_id
     copy.year = year

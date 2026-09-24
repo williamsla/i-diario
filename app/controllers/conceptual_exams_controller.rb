@@ -957,11 +957,24 @@ class ConceptualExamsController < ApplicationController
 
     step_number = step.respond_to?(:to_number) ? step.to_number : step.step_number
     exempted_discipline_ids = ExemptedDisciplinesInStep.discipline_ids(classroom.id, step_number)
-    discipline_scope = Discipline.by_score_type(ScoreTypes::CONCEPT).not_grouper
+    # O tipo de nota do componente da série vem em teacher_discipline_classrooms.score_type.
+    # Discipline.by_score_type olha a regra da turma e deixa de fora componente conceitual
+    # quando a regra de avaliação é numérica.
+    concept_from_component = TeacherDisciplineClassroom
+      .by_classroom(classroom.id)
+      .by_teacher_id(current_teacher_id)
+      .by_year(year)
+      .by_score_type(ScoreTypes::CONCEPT)
+      .pluck(:discipline_id)
+    concept_from_exam_rule = Discipline.by_score_type(ScoreTypes::CONCEPT)
+      .where(id: teacher_discipline_ids)
+      .pluck(:id)
+    concept_discipline_ids = (concept_from_component | concept_from_exam_rule).uniq
+
+    discipline_scope = Discipline.not_grouper.where(id: concept_discipline_ids)
     discipline_scope = discipline_scope.descriptor unless conceptual_exam_batch_layout?
 
     discipline_scope
-      .where(id: teacher_discipline_ids)
       .where.not(id: exempted_discipline_ids)
       .pluck(:id)
   end
@@ -973,15 +986,25 @@ class ConceptualExamsController < ApplicationController
     # Não inclui disciplinas persistidas de outros professores no mesmo exame.
     discipline_ids_global = batch_discipline_ids_global(classroom, school_calendar, step)
 
+    # A série do componente já vem no vínculo do professor. O calendário escolar
+    # (school_calendar_discipline_grades) pode não ter o componente conceitual
+    # e, no cruzamento, apagava todas as colunas.
+    links_by_grade = TeacherDisciplineClassroom
+      .by_classroom(classroom.id)
+      .by_teacher_id(current_teacher_id)
+      .by_year(school_calendar.year)
+      .where(discipline_id: discipline_ids_global)
+      .pluck(:grade_id, :discipline_id)
+      .each_with_object(Hash.new { |hash, key| hash[key] = [] }) do |(grade_id, discipline_id), hash|
+        hash[grade_id] << discipline_id
+      end
+
     result = {}
     students.each do |student|
       cg = ClassroomsGrade.by_student_id(student.id).by_classroom_id(classroom.id).first
       next if cg.blank?
 
-      grade_discipline_ids = SchoolCalendarDisciplineGrade
-        .where(school_calendar_id: school_calendar.id, grade_id: cg.grade_id)
-        .pluck(:discipline_id)
-      result[student.id] = discipline_ids_global & grade_discipline_ids
+      result[student.id] = links_by_grade[cg.grade_id].uniq
     end
     result
   end

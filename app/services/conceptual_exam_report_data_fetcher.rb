@@ -52,12 +52,22 @@ class ConceptualExamReportDataFetcher
     step_number = step.respond_to?(:to_number) ? step.to_number : step.step_number
     exempted_discipline_ids = ExemptedDisciplinesInStep.discipline_ids(classroom.id, step_number)
 
-    discipline_scope = Discipline.by_score_type(ScoreTypes::CONCEPT).not_grouper
-    discipline_scope = discipline_scope.descriptor unless conceptual_exam_batch_layout?
-
     discipline_ids_global = if teacher_discipline_ids.present?
-      discipline_scope
+      concept_from_component = TeacherDisciplineClassroom
+        .by_classroom(classroom.id)
+        .by_teacher_id(teacher_id)
+        .by_year(school_calendar.year)
+        .by_score_type(ScoreTypes::CONCEPT)
+        .pluck(:discipline_id)
+      concept_from_exam_rule = Discipline.by_score_type(ScoreTypes::CONCEPT)
         .where(id: teacher_discipline_ids)
+        .pluck(:id)
+      concept_discipline_ids = (concept_from_component | concept_from_exam_rule).uniq
+
+      discipline_scope = Discipline.not_grouper.where(id: concept_discipline_ids)
+      discipline_scope = discipline_scope.descriptor unless conceptual_exam_batch_layout?
+
+      discipline_scope
         .where.not(id: exempted_discipline_ids)
         .pluck(:id)
     else
@@ -66,6 +76,9 @@ class ConceptualExamReportDataFetcher
         .where(school_calendar_id: school_calendar.id, grade_id: grade_ids)
         .pluck(:discipline_id)
         .uniq
+
+      discipline_scope = Discipline.by_score_type(ScoreTypes::CONCEPT).not_grouper
+      discipline_scope = discipline_scope.descriptor unless conceptual_exam_batch_layout?
 
       discipline_scope
         .where(id: grade_discipline_ids)
@@ -84,8 +97,11 @@ class ConceptualExamReportDataFetcher
       end
 
     grade_ids = grade_ids_by_student.values.uniq
-    disciplines_by_grade = SchoolCalendarDisciplineGrade
-      .where(school_calendar_id: school_calendar.id, grade_id: grade_ids)
+    disciplines_by_grade = TeacherDisciplineClassroom
+      .by_classroom(classroom.id)
+      .by_teacher_id(teacher_id)
+      .by_year(school_calendar.year)
+      .where(grade_id: grade_ids, discipline_id: discipline_ids_global)
       .pluck(:grade_id, :discipline_id)
       .each_with_object(Hash.new { |h, k| h[k] = [] }) do |(grade_id, discipline_id), hash|
         hash[grade_id] << discipline_id

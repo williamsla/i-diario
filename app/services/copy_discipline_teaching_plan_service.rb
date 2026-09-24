@@ -86,14 +86,14 @@ class CopyDisciplineTeachingPlanService
 
   def unificado_copy_exists?(teaching_plan, discipline_id, unity_id, grade_id)
     DisciplineTeachingPlan
-      .by_discipline(discipline_id)
-      .by_unity(unity_id)
-      .by_grade(grade_id)
-      .by_year(year)
-      .by_secretary
       .joins(:teaching_plan)
+      .where(discipline_id: discipline_id)
       .where(
         teaching_plans: {
+          unity_id: unity_id,
+          grade_id: grade_id,
+          year: year,
+          teacher_id: nil,
           school_term_type_id: teaching_plan.school_term_type_id,
           school_term_type_step_id: teaching_plan.school_term_type_step_id
         }
@@ -149,7 +149,7 @@ class CopyDisciplineTeachingPlanService
     thematic_unit
   )
     copy_teaching_plan = teaching_plan.dup
-    copy_teaching_plan.unificado = false
+    copy_teaching_plan.unificado = created_by_administrator
     copy_teaching_plan.unity_id = unity_id
     copy_teaching_plan.grade_id = grade_id
     copy_teaching_plan.year = year
