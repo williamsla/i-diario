@@ -193,18 +193,25 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
       return render :copy
     end
 
-    CopyKnowledgeAreaTeachingPlanWorker.perform_in(
-      1.second,
-      current_entity.id,
-      current_user.id,
-      form[:id],
-      form[:year],
-      form[:unities_ids].split(','),
-      form[:grades_ids].split(',')
-    )
+    created = Audited.audit_class.as_user(current_user) do
+      CopyKnowledgeAreaTeachingPlanService.call(
+        form[:id],
+        form[:year],
+        form[:unities_ids].split(','),
+        form[:grades_ids].split(','),
+        created_by_administrator: current_user.administrator?
+      )
+    end
 
-    flash[:success] = t('knowledge_area_teaching_plans.do_copy.copying')
+    if created.blank?
+      flash[:error] = t('knowledge_area_teaching_plans.do_copy.empty')
+    else
+      flash[:success] = t('knowledge_area_teaching_plans.do_copy.copied')
+    end
 
+    redirect_to :knowledge_area_teaching_plans
+  rescue CopyKnowledgeAreaTeachingPlanService::CopyKnowledgeAreaTeachingPlanError => error
+    flash[:error] = error.message
     redirect_to :knowledge_area_teaching_plans
   end
 
