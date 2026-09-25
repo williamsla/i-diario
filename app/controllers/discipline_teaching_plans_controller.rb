@@ -192,18 +192,17 @@ class DisciplineTeachingPlansController < ApplicationController
       return render :copy
     end
 
-    created = Audited.audit_class.as_user(current_user) do
-      CopyDisciplineTeachingPlanService.call(
-        form[:id],
-        form[:year],
-        form[:unities_ids].split(','),
-        form[:grades_ids].split(','),
-        created_by_administrator: current_user.administrator?
-      )
-    end
+    service = CopyDisciplineTeachingPlanService.new(
+      form[:id],
+      form[:year],
+      form[:unities_ids].split(','),
+      form[:grades_ids].split(','),
+      created_by_administrator: current_user.administrator?
+    )
+    created = Audited.audit_class.as_user(current_user) { service.call }
 
     if created.blank?
-      flash[:error] = t('discipline_teaching_plans.do_copy.empty')
+      flash[:error] = t("discipline_teaching_plans.do_copy.#{service.empty_reason}")
     else
       flash[:success] = t('discipline_teaching_plans.do_copy.copied')
     end

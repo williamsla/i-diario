@@ -1,6 +1,6 @@
 class CopyDisciplineTeachingPlanService
   class CopyDisciplineTeachingPlanError < StandardError; end
-  attr_reader :discipline_teaching_plan_id, :year, :unities_ids, :grades_ids, :created_by_administrator
+  attr_reader :discipline_teaching_plan_id, :year, :unities_ids, :grades_ids, :created_by_administrator, :empty_reasons
 
   def self.call(*params)
     new(*params).call
@@ -18,6 +18,7 @@ class CopyDisciplineTeachingPlanService
     @unities_ids = unities_ids
     @grades_ids = grades_ids
     @created_by_administrator = created_by_administrator
+    @empty_reasons = []
 
     check_required_params
   end
@@ -65,16 +66,23 @@ class CopyDisciplineTeachingPlanService
 
     unities_ids.each do |unity_id|
       grades_ids.each do |grade_id|
-        classroom_ids = Classroom.by_unity(unity_id).by_grade(grade_id).pluck(:id)
+        destination_grade_id, classroom_ids = destination_grade_and_classrooms(unity_id, grade_id)
 
-        next if classroom_ids.blank?
-        next if unificado_copy_exists?(teaching_plan, discipline_id, unity_id, grade_id)
+        if classroom_ids.blank?
+          empty_reasons << :no_classroom
+          next
+        end
+
+        if unificado_copy_exists?(teaching_plan, discipline_id, unity_id, destination_grade_id, thematic_unit)
+          empty_reasons << :already_exists
+          next
+        end
 
         new_discipline_teaching_plans << create_copies_discipline_teaching_plans(
           teaching_plan,
           discipline_id,
           nil,
-          grade_id,
+          destination_grade_id,
           unity_id,
           thematic_unit
         )
@@ -84,7 +92,15 @@ class CopyDisciplineTeachingPlanService
     new_discipline_teaching_plans
   end
 
-  def unificado_copy_exists?(teaching_plan, discipline_id, unity_id, grade_id)
+  def empty_reason
+    reasons = empty_reasons.uniq
+    return :already_exists if reasons == [:already_exists]
+    return :no_classroom if reasons == [:no_classroom]
+
+    :empty
+  end
+
+  def unificado_copy_exists?(teaching_plan, discipline_id, unity_id, grade_id, thematic_unit)
     DisciplineTeachingPlan
       .joins(:teaching_plan)
       .where(discipline_id: discipline_id)
@@ -98,7 +114,35 @@ class CopyDisciplineTeachingPlanService
           school_term_type_step_id: teaching_plan.school_term_type_step_id
         }
       )
+      .where(
+        "COALESCE(discipline_teaching_plans.thematic_unit, '') = ?",
+        thematic_unit.to_s
+      )
       .exists?
+  end
+
+  def destination_grade_and_classrooms(unity_id, grade_id)
+    exact_ids = Classroom.by_unity(unity_id).by_grade(grade_id).distinct.pluck('classrooms.id')
+    return [grade_id, exact_ids] if exact_ids.present?
+
+    grade = Grade.find_by(id: grade_id)
+    return [grade_id, []] unless grade
+
+    classroom_ids = Classroom.by_unity(unity_id)
+      .joins(classrooms_grades: :grade)
+      .where(grades: { description: grade.description, course_id: grade.course_id })
+      .distinct
+      .pluck('classrooms.id')
+    return [grade_id, []] if classroom_ids.blank?
+
+    linked_grade_id = ClassroomsGrade.where(classroom_id: classroom_ids)
+      .joins(:grade)
+      .where(grades: { description: grade.description, course_id: grade.course_id })
+      .limit(1)
+      .pluck(:grade_id)
+      .first
+
+    [linked_grade_id || grade_id, classroom_ids]
   end
 
   def fetch_teacher_discipline_classrooms(teaching_plan, discipline_id, thematic_unit)

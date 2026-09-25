@@ -64,7 +64,7 @@ class CopyKnowledgeAreaTeachingPlanService
     unities_ids.each do |unity_id|
       grades_ids.each do |grade_id|
         next if Classroom.by_unity(unity_id).by_grade(grade_id).none?
-        next if unificado_copy_exists?(teaching_plan, knowledge_area_ids, unity_id, grade_id)
+        next if unificado_copy_exists?(teaching_plan, knowledge_area_ids, unity_id, grade_id, experience_fields)
 
         new_plans << create_copy(
           teaching_plan,
@@ -80,7 +80,7 @@ class CopyKnowledgeAreaTeachingPlanService
     new_plans
   end
 
-  def unificado_copy_exists?(teaching_plan, knowledge_area_ids, unity_id, grade_id)
+  def unificado_copy_exists?(teaching_plan, knowledge_area_ids, unity_id, grade_id, experience_fields)
     KnowledgeAreaTeachingPlan
       .joins(:teaching_plan)
       .by_knowledge_area(knowledge_area_ids)
@@ -93,6 +93,10 @@ class CopyKnowledgeAreaTeachingPlanService
           school_term_type_id: teaching_plan.school_term_type_id,
           school_term_type_step_id: teaching_plan.school_term_type_step_id
         }
+      )
+      .where(
+        "COALESCE(knowledge_area_teaching_plans.experience_fields, '') = ?",
+        experience_fields.to_s
       )
       .exists?
   end

@@ -5,4 +5,6 @@ pt-BR:
     do_copy:
       copying: "Os planos de ensino estão sendo copiados, aguarde alguns minutos."
       copied: "O plano de ensino foi copiado para as escolas e séries selecionadas."
-      empty: "Nenhuma cópia foi criada. A escola precisa ter turma na série escolhida e ainda não pode ter plano unificado dessa disciplina, etapa e ano."
+      empty: "Nenhuma cópia foi criada."
+      no_classroom: "Nenhuma cópia foi criada. Não há turma vinculada à série escolhida nesta escola."
+      already_exists: "Nenhuma cópia foi criada. Já existe plano unificado dessa disciplina, unidade temática, etapa e ano para a série escolhida."
