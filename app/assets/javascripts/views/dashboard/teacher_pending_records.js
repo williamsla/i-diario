@@ -5,6 +5,7 @@ $(function(){
   var $container = $('#teacher-pending-records-container');
   var steps = [];
   var makeupLabel = 'reposição';
+  var hasLessonsBoard = true;
 
   function formatPendingDates(dates) {
     return _.map(dates, function (date) {
@@ -34,17 +35,8 @@ $(function(){
 
   function handleFetchStepsSuccess(data) {
     steps = data.steps || [];
-    var hasLessonsBoard = data.has_lessons_board !== false; // Default true se não vier no JSON
-    
-    // Verificar se a turma tem quadro de aulas
-    if(!hasLessonsBoard) {
-      $container.html('<div class="alert alert-warning" style="margin-top: 20px;">' +
-        '<i class="fa fa-exclamation-triangle"></i> ' +
-        'Solicite à coordenação que cadastre o quadro de aulas da turma. Após isso você conseguirá visualizar as datas pendentes de frequência e conteúdo.' +
-        '</div>');
-      return;
-    }
-    
+    hasLessonsBoard = data.has_lessons_board !== false;
+
     if(steps.length === 0){
       $container.html('<div class="alert alert-info">Nenhuma etapa encontrada.</div>');
       return;
@@ -241,11 +233,24 @@ $(function(){
     });
   }
 
+  function notInLessonsBoardMessage() {
+    return 'Esta disciplina não está no quadro de aulas. Solicite à coordenação da escola para adicioná-la.';
+  }
+
   function notInLessonsBoardHtml() {
-    return '<span class="not-in-lessons-board-label" style="display: inline-block; color: #8a6d3b; max-width: 180px; line-height: 1.4;" title="Solicite à coordenação que adicione essa disciplina no quadro de aulas da turma.">' +
-      '<i class="fa fa-exclamation-triangle" style="margin-right: 5px;"></i>' +
-      'Não consta no quadro de aulas' +
-    '</span>';
+    var message = _.escape(notInLessonsBoardMessage());
+
+    return '<button type="button" class="btn not-in-lessons-board-label" title="' + message + '" aria-label="' + message + '">' +
+      '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>' +
+    '</button>';
+  }
+
+  function bindNotInLessonsBoardTooltips($scope) {
+    $scope.find('.not-in-lessons-board-label').tooltip({
+      trigger: 'hover focus',
+      placement: 'top',
+      container: 'body'
+    });
   }
 
   function renderPendingDatesButton(count, type, recordId, recordIndex, iconClass) {
@@ -399,7 +404,7 @@ $(function(){
     _.each(stepData.pending_records, function(record) {
       var recordId = 'record-' + stepData.step_id + '-' + recordIndex;
       var mergedFreqId = 'freq-merged-' + stepData.step_id;
-      var notInLessonsBoard = record.in_lessons_board === false;
+      var notInLessonsBoard = !hasLessonsBoard || record.in_lessons_board === false;
 
       // Frequências: laranja quando há pendências; verde quando está ok (0 datas)
       var frequencyButton;
@@ -410,7 +415,9 @@ $(function(){
       } else {
         // Frequência única para todas as disciplinas: só na primeira linha
         if (recordIndex === 0) {
-          frequencyButton = firstRecord.pending_frequency_count > 0 ?
+          frequencyButton = !hasLessonsBoard ?
+            notInLessonsBoardHtml() :
+            firstRecord.pending_frequency_count > 0 ?
             '<button type="button" class="btn toggle-dates toggle-dates-merged-freq" style="background-color: #ff9800 !important; border-color: #ff9800 !important; color: white !important; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#' + mergedFreqId + '" data-record-index="0">' +
               '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
               firstRecord.pending_frequency_count + ' datas' +
@@ -512,7 +519,13 @@ $(function(){
         '</div>' +
       '</div>';
 
+    $stepContainer.find('.not-in-lessons-board-label').each(function() {
+      if ($(this).data('bs.tooltip')) {
+        $(this).tooltip('destroy');
+      }
+    });
     $stepContainer.html(stepHtml);
+    bindNotInLessonsBoardTooltips($stepContainer);
     fetchFinalRecoveryPending(stepData);
 
     // Adicionar event listeners para os ícones de lupa

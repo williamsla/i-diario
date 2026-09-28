@@ -247,3 +247,22 @@
 .pending-records-table > tbody > tr:last-child > td {
   border-bottom: none !important;
 }
+
+.not-in-lessons-board-label {
+  border: none;
+  border-radius: 20px;
+  padding: 6px 15px;
+  background: transparent;
+  box-shadow: none;
+  color: #8a6d3b;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.not-in-lessons-board-label:hover,
+.not-in-lessons-board-label:focus {
+  color: #8a6d3b;
+  background: transparent;
+  outline: none;
+}
