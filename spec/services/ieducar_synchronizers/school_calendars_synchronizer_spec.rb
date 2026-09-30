@@ -9,7 +9,6 @@ RSpec.describe SchoolCalendarsSynchronizer, type: :service do
   let(:entity_id) { create(:entity).id }
   let(:school_calendar) { create(:school_calendar, unity: unity, year: year) }
 
-  let(:step_end_date_for_posting) { last_step_end_at + 30 }
   let(:last_step_end_at) { Date.new(year, 12, 20) }
 
   let(:steps_from_api) do
@@ -37,30 +36,33 @@ RSpec.describe SchoolCalendarsSynchronizer, type: :service do
     synchronizer.instance_variable_set(:@changed_steps, false)
   end
 
-  it 'define end_date_for_posting de todas as etapas como a ultima etapa + 30 dias (quando cria)' do
+  it 'iguala a data inicial de lançamento à data inicial da etapa e soma 30 dias só na data final' do
     synchronizer.send(:update_or_create_steps, steps_from_api, school_calendar.id)
 
     steps = SchoolCalendarStep.where(school_calendar_id: school_calendar.id).order(:step_number)
 
     expect(steps.size).to eq(4)
-    expect(steps.map(&:end_date_for_posting).uniq).to eq([step_end_date_for_posting])
+    expect(steps.map { |step| [step.start_date_for_posting, step.end_date_for_posting] }).to eq(
+      steps_from_api.map { |step| [step.data_inicio, step.data_fim + 30] }
+    )
   end
 
-  it 'ajusta end_date_for_posting existente para ultima etapa + 30 dias quando estiver invalida' do
+  it 'corrige data inicial de lançamento que estava 15 dias à frente da etapa' do
     SchoolCalendarStep.create!(
       school_calendar: school_calendar,
       step_number: 1,
       start_at: Date.new(year, 2, 1),
       end_at: Date.new(year, 4, 30),
-      start_date_for_posting: Date.new(year, 2, 1),
-      end_date_for_posting: Date.new(year, 4, 1) # menor que end_at, deve ser corrigida
+      start_date_for_posting: Date.new(year, 2, 16),
+      end_date_for_posting: Date.new(year, 4, 1)
     )
 
     synchronizer.send(:update_or_create_steps, steps_from_api, school_calendar.id)
 
-    expect(
-      SchoolCalendarStep.find_by!(school_calendar_id: school_calendar.id, step_number: 1).end_date_for_posting
-    ).to eq(step_end_date_for_posting)
+    step = SchoolCalendarStep.find_by!(school_calendar_id: school_calendar.id, step_number: 1)
+
+    expect(step.start_date_for_posting).to eq(Date.new(year, 2, 1))
+    expect(step.end_date_for_posting).to eq(Date.new(year, 4, 30) + 30)
   end
 end
 

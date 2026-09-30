@@ -9,7 +9,6 @@ RSpec.describe SchoolCalendarClassroomsSynchronizer, type: :service do
   let(:classroom) { create(:classroom, unity: unity, year: year) }
   let!(:school_calendar) { create(:school_calendar, unity: unity, year: year) }
   let(:last_step_end_at) { Date.new(year, 12, 20) }
-  let(:expected_end_date_for_posting) { last_step_end_at + 30 }
 
   let(:api_response) do
     {
@@ -53,28 +52,39 @@ RSpec.describe SchoolCalendarClassroomsSynchronizer, type: :service do
   end
 
   describe '#synchronize!' do
-    it 'sets end_date_for_posting of all new classroom steps to last step end date plus 30 days' do
+    it 'sets posting start equal to the step start and adds 30 days only to the posting end' do
       synchronizer.synchronize!
 
       steps = classroom_steps
 
       expect(steps.count).to eq(4)
-      expect(steps.map(&:end_date_for_posting).uniq).to eq([expected_end_date_for_posting])
+      expect(steps.map { |step| [step.start_date_for_posting, step.end_date_for_posting] }).to eq(
+        [
+          [Date.new(year, 2, 1), Date.new(year, 4, 30) + 30],
+          [Date.new(year, 5, 1), Date.new(year, 7, 31) + 30],
+          [Date.new(year, 8, 1), Date.new(year, 10, 15) + 30],
+          [Date.new(year, 10, 16), last_step_end_at + 30]
+        ]
+      )
     end
 
-    it 'overwrites end_date_for_posting of existing classroom steps to ultima etapa + 30 dias' do
+    it 'resets an existing posting start that was 15 days after the step start' do
       synchronizer.synchronize!
 
-      custom_end_date = expected_end_date_for_posting + 15
       first_step = classroom_steps.find_by!(step_number: 1)
-      first_step.update!(end_date_for_posting: custom_end_date)
+      first_step.update!(
+        start_date_for_posting: Date.new(year, 2, 16),
+        end_date_for_posting: Date.new(year, 6, 1)
+      )
 
       synchronizer.synchronize!
 
-      expect(first_step.reload.end_date_for_posting).to eq(expected_end_date_for_posting)
+      first_step.reload
+      expect(first_step.start_date_for_posting).to eq(Date.new(year, 2, 1))
+      expect(first_step.end_date_for_posting).to eq(Date.new(year, 4, 30) + 30)
     end
 
-    it 'uses the latest data_fim even when a higher etapa number ends earlier' do
+    it 'uses each step end date plus 30 days when a higher etapa number ends earlier' do
       api_response['escolas'][0]['etapas_de_turmas'][0]['etapas'] = [
         { 'etapa' => 1, 'data_inicio' => "#{year}-02-01", 'data_fim' => "#{year}-04-30" },
         { 'etapa' => 2, 'data_inicio' => "#{year}-05-01", 'data_fim' => "#{year}-07-24" },
@@ -85,8 +95,9 @@ RSpec.describe SchoolCalendarClassroomsSynchronizer, type: :service do
       expect { synchronizer.synchronize! }.not_to raise_error
 
       steps = classroom_steps
-      expect(steps.map(&:end_date_for_posting).uniq).to eq([expected_end_date_for_posting])
       expect(steps.find_by!(step_number: 3).start_date_for_posting).to eq(Date.new(year, 10, 8))
+      expect(steps.find_by!(step_number: 3).end_date_for_posting).to eq(last_step_end_at + 30)
+      expect(steps.find_by!(step_number: 4).end_date_for_posting).to eq(Date.new(year, 7, 24) + 30)
     end
 
     it 'keeps classroom-specific steps instead of overwriting them with school calendar steps' do

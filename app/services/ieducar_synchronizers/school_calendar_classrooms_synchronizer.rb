@@ -92,9 +92,6 @@ class SchoolCalendarClassroomsSynchronizer < BaseSynchronizer
       return
     end
 
-    last_step_end_at = school_calendar_classroom_record_steps.map { |step| step.data_fim.to_date }.max
-    end_date_for_posting_on_create = last_step_end_at + 30
-
     school_calendar_classroom_record_steps.each do |school_calendar_classroom_step_record|
       SchoolCalendarClassroomStep.find_or_initialize_by(
         school_calendar_classroom_id: school_calendar_classroom.id,
@@ -104,27 +101,8 @@ class SchoolCalendarClassroomsSynchronizer < BaseSynchronizer
         end_at = school_calendar_classroom_step_record.data_fim.to_date
         school_calendar_classroom_step.start_at = start_at
         school_calendar_classroom_step.end_at = end_at
-
-        new_record = school_calendar_classroom_step.new_record?
-
-        if new_record
-          school_calendar_classroom_step.start_date_for_posting = start_at
-        end
-
-        # Regra fixa da sincronização: todas as etapas compartilham a mesma data final de lançamento.
-        school_calendar_classroom_step.end_date_for_posting = end_date_for_posting_on_create
-
-        if school_calendar_classroom_step.start_date_for_posting < start_at ||
-           school_calendar_classroom_step.start_date_for_posting > school_calendar_classroom_step.end_date_for_posting
-          school_calendar_classroom_step.start_date_for_posting = start_at
-        end
-
-        start_date_for_posting = school_calendar_classroom_step.start_date_for_posting
-        end_date_for_posting = school_calendar_classroom_step.end_date_for_posting
-
-        if end_date_for_posting < end_at || end_date_for_posting <= start_date_for_posting
-          school_calendar_classroom_step.end_date_for_posting = end_date_for_posting_on_create
-        end
+        school_calendar_classroom_step.start_date_for_posting = start_at
+        school_calendar_classroom_step.end_date_for_posting = end_at + 30
 
         school_calendar_classroom_step.save! if school_calendar_classroom_step.changed?
 
