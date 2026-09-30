@@ -27,7 +27,7 @@
                   <% end %>
                 <% else %>
                   <span class="btn btn-primary disabled"
-                        title="<%= t('avaliations.by_step.fill_button_blocked', date: l(step.start_date_for_posting)) %>">
+                        title="<%= step_launch_blocked_title(step, 'avaliations.by_step.fill_button_blocked') %>">
                     <i class="fa fa-lock"></i> <%= t('avaliations.by_step.fill_button') %>
                   </span>
                 <% end %>

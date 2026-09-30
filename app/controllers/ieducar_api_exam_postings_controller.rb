@@ -53,7 +53,7 @@ class IeducarApiExamPostingsController < ApplicationController
 
   def steps
     @steps = steps_fetcher.steps
-    @steps = @steps.posting_date_after_and_before(Time.zone.today) unless current_user.can_change?('ieducar_api_exam_posting_without_restrictions')
+    @steps = @steps.posting_date_after_and_before(Time.zone.today) unless unrestricted_exam_posting?
 
     @steps.each do |step|
       ApiPostingTypes.each_value do |value|
@@ -72,11 +72,16 @@ class IeducarApiExamPostingsController < ApplicationController
   def require_current_posting_step
     return unless current_school_calendar
 
-    unless current_user.can_change?('ieducar_api_exam_posting_without_restrictions') || current_school_calendar.posting_step(Time.zone.today)
+    unless unrestricted_exam_posting? || current_school_calendar.posting_step(Time.zone.today)
       flash[:alert] = t('errors.ieducar_api_exam_postings.require_current_posting_step')
 
       redirect_to root_path
     end
+  end
+
+  def unrestricted_exam_posting?
+    current_school_calendar&.opened_year? &&
+      current_user.can_change?('ieducar_api_exam_posting_without_restrictions')
   end
 
   def require_current_teacher_discipline_classrooms

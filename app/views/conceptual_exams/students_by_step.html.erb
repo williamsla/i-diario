@@ -109,7 +109,7 @@
                                 class: 'btn btn-primary btn-sm' %>
                   <% elsif current_user.can_change?(:conceptual_exams) %>
                     <span class="btn btn-primary btn-sm disabled"
-                          title="<%= t('conceptual_exams.students_by_step.launch_blocked', date: l(@step.start_date_for_posting)) %>">
+                          title="<%= step_launch_blocked_title(@step, 'conceptual_exams.students_by_step.launch_blocked') %>">
                       <%= t('conceptual_exams.students_by_step.launch') %>
                     </span>
                   <% end %>

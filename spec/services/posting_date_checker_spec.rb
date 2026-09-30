@@ -65,9 +65,24 @@ RSpec.describe PostingDateChecker, type: :service do
 
         permission.permission = Permissions::CHANGE
         permission.save!
+        classroom.calendar.school_calendar.update_column(:opened_year, true)
       end
 
       it { expect(subject.check).to be(true) }
+
+      context 'school year is closed' do
+        before do
+          classroom.calendar.school_calendar.update_column(:opened_year, false)
+        end
+
+        it { expect(subject.check).to be(false) }
+
+        it 'explains that the school year is closed' do
+          subject.check
+
+          expect(subject.not_allowed_message).to include('ano letivo está fechado')
+        end
+      end
     end
 
     context 'step posting has not started' do
@@ -78,7 +93,7 @@ RSpec.describe PostingDateChecker, type: :service do
 
       it { expect(subject.check).to be(false) }
 
-      context 'even with permission to post without restrictions' do
+      context 'with permission to post without restrictions' do
         before do
           permission = User.current
             .current_user_role
@@ -88,9 +103,18 @@ RSpec.describe PostingDateChecker, type: :service do
 
           permission.permission = Permissions::CHANGE
           permission.save!
+          classroom.calendar.school_calendar.update_column(:opened_year, true)
         end
 
-        it { expect(subject.check).to be(false) }
+        it { expect(subject.check).to be(true) }
+
+        context 'school year is closed' do
+          before do
+            classroom.calendar.school_calendar.update_column(:opened_year, false)
+          end
+
+          it { expect(subject.check).to be(false) }
+        end
       end
     end
 

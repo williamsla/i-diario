@@ -229,6 +229,10 @@ class User < ApplicationRecord
     current_user_role.role.can_change?(feature)
   end
 
+  def posting_without_date_restrictions?
+    current_user_role&.role&.can_change?(Features::IEDUCAR_API_EXAM_POSTING_WITHOUT_RESTRICTIONS)
+  end
+
   def update_tracked_fields!(request)
     logins.create!(
       sign_in_ip: request.remote_ip
