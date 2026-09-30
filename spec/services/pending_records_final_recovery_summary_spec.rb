@@ -39,6 +39,49 @@ RSpec.describe PendingRecordsFinalRecoverySummary, type: :service do
     end
   end
 
+  describe 'when a step still has no notes' do
+    subject do
+      described_class.new(
+        classroom: classroom,
+        school_calendar: school_calendar,
+        discipline_ids: [discipline.id]
+      )
+    end
+
+    it 'keeps final recovery pending and does not consult who is in the exam' do
+      expect(subject.waiting_step_notes[discipline.id]).to eq(true)
+      expect(subject.counts).to eq({})
+      expect(fetcher).not_to have_received(:fetch)
+    end
+
+    it 'keeps final recovery pending when an avaliation exists but a student has no note' do
+      avaliations = create_avaliation_on_every_step
+      create_student_without_note(avaliations.first)
+
+      expect(subject.waiting_step_notes[discipline.id]).to eq(true)
+      expect(subject.counts).to eq({})
+      expect(fetcher).not_to have_received(:fetch)
+    end
+
+    it 'only blocks the discipline that still has a step without notes' do
+      other_discipline = create(:discipline)
+      create_avaliation_on_every_step
+      allow(fetcher).to receive(:fetch).with(classroom.id, discipline.id).and_return(students)
+
+      summary = described_class.new(
+        classroom: classroom,
+        school_calendar: school_calendar,
+        discipline_ids: [discipline.id, other_discipline.id]
+      )
+
+      expect(summary.waiting_step_notes[other_discipline.id]).to eq(true)
+      expect(summary.waiting_step_notes).not_to have_key(discipline.id)
+      expect(summary.counts[discipline.id]).to eq(3)
+      expect(fetcher).to have_received(:fetch).with(classroom.id, discipline.id)
+      expect(fetcher).not_to have_received(:fetch).with(classroom.id, other_discipline.id)
+    end
+  end
+
   describe '#counts' do
     subject do
       described_class.new(
@@ -48,7 +91,10 @@ RSpec.describe PendingRecordsFinalRecoverySummary, type: :service do
       )
     end
 
+    before { create_avaliation_on_every_step }
+
     it 'counts eligible students without a launched final recovery score' do
+      expect(subject.waiting_step_notes).to eq({})
       expect(subject.counts[discipline.id]).to eq(3)
     end
 
@@ -105,6 +151,38 @@ RSpec.describe PendingRecordsFinalRecoverySummary, type: :service do
       expect(subject.errors[discipline.id]).to eq(true)
       expect(Honeybadger).to have_received(:notify)
     end
+  end
+
+  def create_avaliation_on_every_step
+    StepsFetcher.new(classroom).steps.map do |step|
+      avaliation = build(
+        :avaliation,
+        classroom: classroom,
+        discipline: discipline,
+        school_calendar: school_calendar,
+        test_date: step.start_at
+      )
+      avaliation.save!(validate: false)
+      avaliation
+    end
+  end
+
+  def create_student_without_note(avaliation)
+    enrollment_classroom = create(
+      :student_enrollment_classroom,
+      classrooms_grade: classroom.classrooms_grades.first,
+      joined_at: avaliation.test_date,
+      left_at: ''
+    )
+    daily_note = build(:daily_note, avaliation: avaliation)
+    daily_note.save!(validate: false)
+    create(
+      :daily_note_student,
+      daily_note: daily_note,
+      student: enrollment_classroom.student_enrollment.student,
+      note: nil,
+      active: true
+    )
   end
 
   def create_final_recovery_diary(scored_students:, students_without_score:)

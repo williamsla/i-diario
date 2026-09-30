@@ -297,6 +297,14 @@ $(function(){
     '</td>';
   }
 
+  function renderFinalRecoveryWaitingStepsBadge() {
+    var message = _.escape('Aguardando cadastrar as notas de todas as etapas.');
+
+    return '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; background-color: #ff9800; color: white;" title="' + message + '" aria-label="' + message + '">' +
+      '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>' +
+    '</span>';
+  }
+
   function renderFinalRecoveryCountBadge(count) {
     if (count > 0) {
       return '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; background-color: #ff9800; color: white;" title="Alunos em exame final sem nota de recuperação lançada.">' +
@@ -342,10 +350,16 @@ $(function(){
       success: function(data) {
         var counts = (data && data.counts) || {};
         var errors = (data && data.errors) || {};
+        var waitingStepNotes = (data && data.waiting_step_notes) || {};
 
         $cells.each(function() {
           var $cell = $(this);
           var disciplineId = String($cell.data('discipline-id'));
+
+          if (waitingStepNotes[disciplineId]) {
+            $cell.html(renderFinalRecoveryWaitingStepsBadge());
+            return;
+          }
 
           if (errors[disciplineId]) {
             $cell.html(renderFinalRecoveryErrorBadge());
