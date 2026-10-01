@@ -1,69 +1,60 @@
 <!DOCTYPE html>
-<html lang="pt-br" id="extr-page">
+<html lang="pt-br" id="extr-page" class="login-screen">
   <head>
     <%= render 'layouts/google_tag_manager_head' %>
     <%= render 'layouts/default_headers', title: 'Diário Escolar' %>
   </head>
 
-  <body>
+  <body class="login-screen">
     <%= render 'layouts/google_tag_manager_body' %>
-    <%= render '/layouts/not_logged_header' %>
-
-    <div id="main" role="main" class="animated fadeInDown">
-      <% if Date.current.month == 10 %>
-        <a href="https://www.google.com.br/#q=outubro+rosa+<%= "#{Date.current.year}" %>" target="_blank">
-           <%= image_tag 'outubro_rosa.svg', width: '100px', height: '100px', class: 'custom-login-image' %>
-        </a>
+    <header id="header" class="login-topbar">
+      <%= link_to root_path, class: "login-brand" do %>
+        <%= image_tag logo_url, alt: current_entity_configuration.try(:entity_name), class: "login-brand-mark" %>
+        <span><%= current_entity_configuration.try(:entity_name).presence || "i-Diário" %></span>
       <% end %>
-      <% if Date.current.month == 11 %>
-        <a href="https://www.google.com.br/#q=novembro+azul+<%= "#{Date.current.year}" %>" target="_blank">
-          <%= image_tag 'novembro-azul.jpg', width: '55px', height: '100px', class: 'custom-login-image' %>
-        </a>
-      <% end %>
-      <div id="content" class="container">
-        <div class="row">
+      <span id="extr-page-header-space">
+        <span class="hidden-mobile">Primeiro acesso?</span>
+        <%= link_to "Criar conta", new_registration_path, class: "btn btn-danger" %>
+      </span>
+    </header>
 
-          <div class="col-xs-12 col-sm-12 col-md-7 col-lg-8 hidden-xs hidden-sm hidden-md">
-            <%= alert_by_entity(current_entity.name).html_safe %>
+    <div id="main" role="main">
+      <div id="content" class="login-shell">
+        <div class="login-layout">
+          <div class="login-panel">
+            <% if Date.current.month == 10 %>
+              <a class="login-campaign" href="https://www.google.com.br/#q=outubro+rosa+<%= Date.current.year %>" target="_blank" rel="noopener noreferrer">
+                <%= image_tag 'outubro_rosa.svg', alt: 'Outubro Rosa', class: 'custom-login-image' %>
+              </a>
+            <% elsif Date.current.month == 11 %>
+              <a class="login-campaign" href="https://www.google.com.br/#q=novembro+azul+<%= Date.current.year %>" target="_blank" rel="noopener noreferrer">
+                <%= image_tag 'novembro-azul.jpg', alt: 'Novembro Azul', class: 'custom-login-image' %>
+              </a>
+            <% end %>
 
-            <h1 class="login-header-big txt-color-portabilis">Diário Escolar Online</h1>
-            <div class="hero">
+            <h1>Diário Escolar Online</h1>
+            <p class="login-lead">
+              Acesso para professores, coordenação pedagógica e busca ativa.
+            </p>
 
-              <div class="pull-left login-desc-box-l">
-                <h4 class="paragraph-header">Estamos ajudando a conectar pais, alunos e professores. Crie sua conta e confira. Ensinar e aprender nunca foi tão moderno!</h4>
-                <div class="login-app-icons">
-                  <%= link_to 'Saiba mais', entity_website, target: '_blank', class: 'btn btn-portabilis btn-sm' %>
-                </div>
-              </div>
-
-              <%= image_tag 'tablet_boletim.png', height: '220px' %>
-
-            </div>
-
-            <div class="row">
-              <div class="col-xs-12 col-sm-12 col-md-6 col-lg-6">
-                <h5 class="about-heading">Quais recursos estão disponíveis?</h5>
-                <p>
-                  Este serviço disponibiliza recursos e informações para pais, alunos e professores. A disponibilidade destes depende exclusivamente da instituição.
-                </p>
-              </div>
-              <div class="col-xs-12 col-sm-12 col-md-6 col-lg-6">
-                <h5 class="about-heading">Como obter ajuda?</h5>
-                <p>
-                  Se você precisar de ajuda, poderá contatar por e-mail ou telefone a instituição que você está tentando obter acesso.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-xs-12 col-sm-12 col-md-12 col-lg-4">
             <%= bootstrap_flash %>
-
             <%= yield %>
+
+            <div class="login-support">
+              <p>Dúvidas sobre acesso, senha ou cadastro?</p>
+              <a class="login-whatsapp" href="<%= support_whatsapp_url('Olá, preciso de ajuda para acessar o Diário Escolar.') %>" target="_blank" rel="noopener noreferrer">
+                <i class="fa fa-whatsapp" aria-hidden="true"></i>
+                Falar com o suporte no WhatsApp
+              </a>
+            </div>
           </div>
         </div>
       </div>
     </div>
+
+    <footer class="login-footer">
+      Por <%= link_to "Educa Online Tecnologia", "https://educaonline.tec.br", target: "_blank", rel: "noopener noreferrer" %>
+    </footer>
 
     <%= javascript_include_tag "devise" %>
   </body>

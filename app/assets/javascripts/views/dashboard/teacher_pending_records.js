@@ -253,6 +253,33 @@ $(function(){
     });
   }
 
+  function destroyTooltips($scope, selector) {
+    $scope.find(selector).each(function() {
+      if ($(this).data('bs.tooltip')) {
+        $(this).tooltip('destroy');
+      }
+    });
+  }
+
+  function bindFinalRecoveryWaitingStepsTooltips($scope) {
+    $scope.find('.final-recovery-waiting-steps').tooltip({
+      trigger: 'click',
+      placement: 'top',
+      container: 'body'
+    }).on('click', function(event) {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+  }
+
+  $(document).on('click', function(event) {
+    if ($(event.target).closest('.final-recovery-waiting-steps, .tooltip').length) {
+      return;
+    }
+
+    destroyTooltips($(document), '.final-recovery-waiting-steps');
+  });
+
   function renderPendingDatesButton(count, type, recordId, recordIndex, iconClass) {
     if (count > 0) {
       return '<button type="button" class="btn toggle-dates" style="background-color: #ff9800' + (type === 'content' ? '' : ' !important') + '; color: white; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#' + type + '-' + recordId + '" data-record-index="' + recordIndex + '">' +
@@ -300,9 +327,9 @@ $(function(){
   function renderFinalRecoveryWaitingStepsBadge() {
     var message = _.escape('Aguardando cadastrar as notas de todas as etapas.');
 
-    return '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; background-color: #ff9800; color: white;" title="' + message + '" aria-label="' + message + '">' +
+    return '<button type="button" class="btn final-recovery-waiting-steps" style="border-radius: 20px; padding: 6px 15px; cursor: pointer; background-color: #ff9800; color: white; border: none;" title="' + message + '" aria-label="' + message + '">' +
       '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>' +
-    '</span>';
+    '</button>';
   }
 
   function renderFinalRecoveryCountBadge(count) {
@@ -374,6 +401,8 @@ $(function(){
 
           $cell.html(renderFinalRecoveryCountBadge(parseInt(count, 10) || 0));
         });
+
+        bindFinalRecoveryWaitingStepsTooltips($('#step-data-container'));
       },
       error: function() {
         $cells.each(function() {
@@ -533,11 +562,8 @@ $(function(){
         '</div>' +
       '</div>';
 
-    $stepContainer.find('.not-in-lessons-board-label').each(function() {
-      if ($(this).data('bs.tooltip')) {
-        $(this).tooltip('destroy');
-      }
-    });
+    destroyTooltips($stepContainer, '.not-in-lessons-board-label');
+    destroyTooltips($(document), '.final-recovery-waiting-steps');
     $stepContainer.html(stepHtml);
     bindNotInLessonsBoardTooltips($stepContainer);
     fetchFinalRecoveryPending(stepData);

@@ -138,6 +138,19 @@ module ApplicationHelper
     end
   end
 
+  def support_whatsapp_number
+    number = (ENV['SUPPORT_NUMBER'].presence || '558281670619').to_s.gsub(/\D/, '')
+    number = "55#{number}" if !number.start_with?('55') && number.length.between?(10, 11)
+    number
+  end
+
+  def support_whatsapp_url(message = nil)
+    url = "https://wa.me/#{support_whatsapp_number}"
+    return url if message.blank?
+
+    "#{url}?text=#{ERB::Util.url_encode(message)}"
+  end
+
   def alert_by_entity(_entity_name)
     ''
   end

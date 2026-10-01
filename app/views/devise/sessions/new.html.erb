@@ -1,61 +1,59 @@
-<div class="well no-padding">
-  <%= simple_form_for(resource, as: resource_name, url: session_path(resource_name), html: { class: "smart-form client-form" }) do |f| %>
-    <header>Acessar</header>
-
+<div class="login-card">
+  <%= simple_form_for(resource, as: resource_name, url: session_path(resource_name), html: { class: "smart-form client-form login-form" }) do |f| %>
     <fieldset>
       <section>
-        <%= f.label :credentials, class: "label" %>
+        <%= f.label :credentials, "CPF, usuário ou e-mail", class: "label" %>
         <label class="input">
-          <i class="icon-append fa fa-user"></i>
-          <%= f.input_field :credentials, required: false, autofocus: true %>
+          <%= f.input_field :credentials, required: false, autofocus: true, autocomplete: "username", placeholder: "Digite seu CPF, usuário ou e-mail" %>
         </label>
       </section>
 
       <section>
-        <%= f.label :password, class: "label" %>
+        <%= f.label :password, "Senha", class: "label" %>
         <label class="input">
-          <i class="icon-append fa fa-eye-slash" id="eye" style="cursor: pointer;
-            position: absolute; color: #188ad1" onclick="return showPassword();" >
-          </i>
-          <%= f.input_field :password, required: false %>
+          <i class="icon-append fa fa-eye login-toggle-password" id="eye" role="button" tabindex="0" aria-label="Mostrar senha" aria-pressed="false" onclick="return showPassword();" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showPassword();}"></i>
+          <%= f.input_field :password, required: false, autocomplete: "current-password", placeholder: "Digite sua senha" %>
         </label>
 
-        <div class="note">
-          <%= render "devise/shared/links" %>
+        <div class="login-forgot">
+          <%= link_to "Esqueceu sua senha?", new_password_path(resource_name) %>
         </div>
       </section>
-
-      <%#= f.input :remember_me, as: :boolean if devise_mapping.rememberable? %>
     </fieldset>
 
     <footer>
-      <%= f.button :submit, "Acessar", class: "btn btn-primary", id: 'btn-login' %>
+      <%= f.button :submit, "Acessar", class: "btn btn-primary", id: "btn-login" %>
     </footer>
+
+    <% if devise_mapping.lockable? && resource_class.unlock_strategy_enabled?(:email) %>
+      <p class="login-unlock">
+        <%= link_to "Reenviar instruções de desbloqueio da conta", new_unlock_path(resource_name) %>
+      </p>
+    <% end %>
   <% end %>
-
-  <script>
-    var error = <%= (@time || 0).to_i %>;
-
-    if (error !== 0) {
-      document.getElementById('btn-login').disabled = true;
-
-      setTimeout(function(){
-        document.getElementById('btn-login').disabled = false;
-      }, <%= @time %>);
-    }
-
-    function showPassword() {
-      var input = document.getElementById("user_password");
-      var eye = document.getElementById("eye");
-      if (input.type === "password") {
-        input.type = "text";
-        eye.classList.remove("fa-eye-slash");
-        eye.classList.add("fa-eye");
-      } else {
-        input.type = "password";
-        eye.classList.remove("fa-eye");
-        eye.classList.add("fa-eye-slash");
-      }
-    }
-  </script>
 </div>
+
+<script>
+  var error = <%= (@time || 0).to_i %>;
+
+  if (error !== 0) {
+    document.getElementById('btn-login').disabled = true;
+
+    setTimeout(function(){
+      document.getElementById('btn-login').disabled = false;
+    }, <%= @time %>);
+  }
+
+  function showPassword() {
+    var input = document.getElementById("user_password");
+    var eye = document.getElementById("eye");
+    var visible = input.type === "password";
+
+    input.type = visible ? "text" : "password";
+    eye.classList.toggle("fa-eye", !visible);
+    eye.classList.toggle("fa-eye-slash", visible);
+    eye.setAttribute("aria-label", visible ? "Ocultar senha" : "Mostrar senha");
+    eye.setAttribute("aria-pressed", visible ? "true" : "false");
+    return false;
+  }
+</script>

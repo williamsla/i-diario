@@ -18,6 +18,15 @@ module Api
 
       private
 
+      def authenticate_api!
+        access_key = IeducarApiConfiguration.current.token.to_s.strip
+        header_token = request.headers['token'].to_s.strip
+
+        return if Devise.secure_compare(access_key, header_token)
+
+        render_invalid_token
+      end
+
       def report_params
         {
           unity_api_code: params[:unity_api_code] || params[:cod_escola],
