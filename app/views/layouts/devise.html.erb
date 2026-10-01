@@ -7,14 +7,21 @@
 
   <body class="login-screen">
     <%= render 'layouts/google_tag_manager_body' %>
+    <div class="login-aurora-grid" aria-hidden="true"></div>
     <header id="header" class="login-topbar">
       <%= link_to root_path, class: "login-brand" do %>
-        <%= image_tag logo_url, alt: current_entity_configuration.try(:entity_name), class: "login-brand-mark" %>
-        <span><%= current_entity_configuration.try(:entity_name).presence || "i-Diário" %></span>
+        <span class="login-brand-logo">
+          <%= image_tag logo_url, alt: "", class: "login-brand-mark" %>
+        </span>
+        <span class="login-brand-text">
+          <strong><%= current_entity_configuration.try(:entity_name).presence || "i-Diário" %></strong>
+          <% if current_entity_configuration.try(:organ_name).present? %>
+            <small><%= current_entity_configuration.organ_name %></small>
+          <% end %>
+        </span>
       <% end %>
       <span id="extr-page-header-space">
-        <span class="hidden-mobile">Primeiro acesso?</span>
-        <%= link_to "Criar conta", new_registration_path, class: "btn btn-danger" %>
+        <%= link_to "Primeiro acesso", new_registration_path, class: "btn btn-danger" %>
       </span>
     </header>
 
