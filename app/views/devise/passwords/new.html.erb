@@ -1,3 +1,5 @@
+<%= render "shared/initial_password_hint", context: :password %>
+
 <div class="well no-padding">
 	<%= simple_form_for(resource, as: resource_name, url: password_path(resource_name), html: { method: :post, class: "smart-form client-form"  }) do |f| %>
 
@@ -12,7 +14,7 @@
         </label>
 
 			  <div class="note">
-          <%= render "devise/shared/links" %>
+          <%= render "devise/shared/links", skip_login_link: true %>
         </div>
 		  </section>
 		</fieldset>
