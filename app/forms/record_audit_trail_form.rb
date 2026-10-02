@@ -24,6 +24,11 @@ class RecordAuditTrailForm
   validates :unity_id, presence: true
   validates :school_calendar_year, presence: true
 
+  def discipline_id=(value)
+    normalized = value.to_s.strip
+    @discipline_id = normalized.blank? || normalized == 'empty' ? nil : value
+  end
+
   def selected_record_types
     types = Array(record_types).reject(&:blank?)
     types = DEFAULT_RECORD_TYPES if types.empty?

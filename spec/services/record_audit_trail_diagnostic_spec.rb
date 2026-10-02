@@ -60,6 +60,84 @@ RSpec.describe RecordAuditTrailDiagnostic, type: :service do
     ).call
   end
 
+  it 'sem disciplina traz registros e quantitativo de todas as disciplinas' do
+    create(
+      :daily_frequency,
+      classroom: classroom,
+      unity: classroom.unity,
+      school_calendar: classroom.calendar.school_calendar,
+      teacher: teacher,
+      discipline: discipline,
+      frequency_date: record_date,
+      class_number: 1
+    )
+    create(
+      :daily_frequency,
+      classroom: classroom,
+      unity: classroom.unity,
+      school_calendar: classroom.calendar.school_calendar,
+      teacher: teacher,
+      discipline: other_discipline,
+      frequency_date: record_date,
+      class_number: 2
+    )
+    allow(PendingRecordsCalculator).to receive(:new).with(
+      hash_including(discipline_id: nil)
+    ).and_return(
+      instance_double(
+        PendingRecordsCalculator,
+        calculate: [
+          {
+            discipline_name: 'Matemática',
+            pending_frequency_dates: [record_date],
+            pending_content_dates: []
+          },
+          {
+            discipline_name: 'Português',
+            pending_frequency_dates: [record_date + 1.day],
+            pending_content_dates: [record_date]
+          }
+        ]
+      )
+    )
+
+    result = diagnostic(discipline_id: nil)
+
+    expect(result[:results].map { |item| item[:discipline_id] }).to contain_exactly(discipline.id, other_discipline.id)
+    expect(result[:stats][:total]).to eq(2)
+    expect(result[:stats][:pending_frequency_count]).to eq(2)
+    expect(result[:stats][:pending_content_count]).to eq(1)
+    expect(result[:neighbors]).to be_empty
+  end
+
+  it 'com disciplina traz somente os registros dessa disciplina' do
+    create(
+      :daily_frequency,
+      classroom: classroom,
+      unity: classroom.unity,
+      school_calendar: classroom.calendar.school_calendar,
+      teacher: teacher,
+      discipline: other_discipline,
+      frequency_date: record_date,
+      class_number: 1
+    )
+    matching = create(
+      :daily_frequency,
+      classroom: classroom,
+      unity: classroom.unity,
+      school_calendar: classroom.calendar.school_calendar,
+      teacher: teacher,
+      discipline: discipline,
+      frequency_date: record_date,
+      class_number: 2
+    )
+
+    result = diagnostic
+
+    expect(result[:results].map { |item| item[:auditable_id] }).to eq([matching.id])
+    expect(result[:stats][:total]).to eq(1)
+  end
+
   it 'aponta lançamento na disciplina errada como vizinho' do
     create(
       :daily_frequency,

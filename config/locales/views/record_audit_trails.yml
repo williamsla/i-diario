@@ -4,7 +4,7 @@ pt-BR:
       discipline: "Disciplina"
       knowledge_area: "Área de conhecimento"
       submit: "Consultar"
-      help: "Consulta o histórico de criação, alteração e exclusão dos lançamentos no período. O resultado aparece na tela. Professores com vínculo encerrado continuam na lista. Use turma e professor para ver o calendário esperado, parecer e registros em disciplina, turma ou data próximas."
+      help: "Consulta o histórico de criação, alteração e exclusão dos lançamentos no período. O resultado aparece na tela. Professores com vínculo encerrado continuam na lista. Deixe a disciplina em branco para trazer os registros e os quantitativos de todas as disciplinas. Se informar uma disciplina, a consulta mostra somente os registros dela."
     report:
       help: "Data letiva é o dia da aula ou do conteúdo. Data do evento é quando alguém criou, alterou ou excluiu o registro. Se o vínculo da professora com a turma foi encerrado, o diário dela esconde os lançamentos; esta consulta mostra o que ainda está no sistema."
       allocation_unlinked_title: "Vínculo encerrado"

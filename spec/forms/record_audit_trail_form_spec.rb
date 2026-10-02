@@ -44,6 +44,17 @@ RSpec.describe RecordAuditTrailForm, type: :model do
       expect(form.discipline_filter_value).to eq('Corpo, gestos e movimentos')
     end
 
+    it 'trata disciplina em branco como todas' do
+      form = described_class.new(discipline_id: '')
+
+      expect(form.discipline_id).to be_nil
+      expect(form.discipline_filter_value).to eq('Todas / Todos')
+
+      form.discipline_id = 'empty'
+
+      expect(form.discipline_id).to be_nil
+    end
+
     it 'mantém o nome da disciplina nas demais turmas' do
       classroom = classroom_for('Ensino Fundamental', '3º ano')
       form = described_class.new(classroom_id: classroom.id, discipline_id: discipline.id)

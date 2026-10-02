@@ -150,6 +150,36 @@ RSpec.describe RecordAuditTrailSummary, type: :service do
       )
     end
 
+    it 'sem disciplina traz frequência de todas as disciplinas' do
+      first_frequency = create(
+        :daily_frequency,
+        classroom: classroom,
+        unity: classroom.unity,
+        school_calendar: classroom.calendar.school_calendar,
+        teacher: teacher,
+        discipline: regular_discipline,
+        frequency_date: record_date,
+        class_number: 1
+      )
+      second_frequency = create(
+        :daily_frequency,
+        classroom: classroom,
+        unity: classroom.unity,
+        school_calendar: classroom.calendar.school_calendar,
+        teacher: teacher,
+        discipline: create(:discipline),
+        frequency_date: record_date,
+        class_number: 2
+      )
+
+      results = summary(discipline_id: nil, record_types: ['frequency'])
+
+      expect(results.map { |result| result[:auditable_id] }).to contain_exactly(
+        first_frequency.id,
+        second_frequency.id
+      )
+    end
+
     it 'não traz frequência de outra disciplina' do
       create(
         :daily_frequency,
