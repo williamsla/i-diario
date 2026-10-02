@@ -58,6 +58,49 @@ RSpec.describe ConceptualExam, type: :model do
       expect(conceptual_exam.errors[:student]).to include(expected_message)
     end
 
+    context 'enturmação na etapa' do
+      let(:expected_message) do
+        I18n.t(
+          'activerecord.errors.models.conceptual_exam.attributes.base.student_is_not_in_classroom'
+        )
+      end
+
+      subject do
+        build(
+          :conceptual_exam,
+          :with_teacher_discipline_classroom,
+          :with_student_enrollment_classroom,
+          :with_one_value
+        )
+      end
+
+      def enrollment_classroom
+        StudentEnrollmentClassroom.by_classroom(subject.classroom_id).by_student(subject.student_id).first
+      end
+
+      it 'permite lançar o conceito se o aluno cursou algum dia da etapa, mesmo fora da data do lançamento' do
+        step = subject.step
+        enrollment_classroom.update!(left_at: (step.start_at.to_date + 10.days).to_s)
+        subject.recorded_at = step.end_at
+
+        subject.valid?
+
+        expect(subject.errors[:base]).not_to include(expected_message)
+      end
+
+      it 'bloqueia o lançamento se o aluno não cursou nenhum dia da etapa' do
+        step = StepsFetcher.new(subject.classroom).steps.second
+        subject.step_id = step.id
+        subject.step_number = step.step_number
+        subject.recorded_at = step.start_at
+        enrollment_classroom.update!(left_at: (step.start_at.to_date - 1.day).to_s)
+
+        subject.valid?
+
+        expect(subject.errors[:base]).to include(expected_message)
+      end
+    end
+
     context 'recorded_at validations' do
       context 'creating a new conceptual_exam' do
         subject do
