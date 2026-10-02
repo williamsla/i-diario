@@ -61,15 +61,6 @@ module RecordAuditTrailsHelper
     end
   end
 
-  def record_audit_trail_calendar_badge_class(status)
-    case status
-    when 'recorded' then 'badge badge-success'
-    when 'incomplete', 'mixed' then 'badge badge-warning'
-    when 'deleted', 'missing' then 'badge badge-danger'
-    else 'badge'
-    end
-  end
-
   def record_audit_trail_registered_classroom(result)
     result[:classroom_name].presence || '—'
   end

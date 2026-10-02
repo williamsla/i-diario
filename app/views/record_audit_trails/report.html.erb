@@ -71,41 +71,6 @@
     </div>
   <% end %>
 
-  <% if @calendar.present? %>
-    <h4><%= t('record_audit_trails.report.calendar_title') %></h4>
-    <p class="text-muted"><%= t('record_audit_trails.report.calendar_help') %></p>
-    <div class="table-responsive">
-      <table class="table table-bordered table-condensed table-hover">
-        <thead>
-          <tr>
-            <th><%= t('record_audit_trails.report.columns.pedagogical_date') %></th>
-            <th><%= t('record_audit_trails.report.columns.frequency') %></th>
-            <th><%= t('record_audit_trails.report.columns.content') %></th>
-          </tr>
-        </thead>
-        <tbody>
-          <% @calendar.each do |row| %>
-            <tr>
-              <td><%= l(row[:date]) %></td>
-              <td>
-                <span class="<%= record_audit_trail_calendar_badge_class(row[:frequency][:status]) %>">
-                  <%= t("record_audit_trails.report.calendar.#{row[:frequency][:status]}") %>
-                </span>
-                <small><%= row[:frequency][:label] %></small>
-              </td>
-              <td>
-                <span class="<%= record_audit_trail_calendar_badge_class(row[:content][:status]) %>">
-                  <%= t("record_audit_trails.report.calendar.#{row[:content][:status]}") %>
-                </span>
-                <small><%= row[:content][:label] %></small>
-              </td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
-    </div>
-  <% end %>
-
   <h4><%= t('record_audit_trails.report.results_title') %></h4>
   <div class="table-responsive">
     <table class="table table-bordered table-striped table-condensed table-hover">

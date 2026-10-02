@@ -16,7 +16,6 @@ class RecordAuditTrailReport < BaseReportOld
     diagnostic = normalize_diagnostic(diagnostic)
     @results = Array(diagnostic[:results])
     @neighbors = Array(diagnostic[:neighbors])
-    @calendar = Array(diagnostic[:calendar])
     @allocation = diagnostic[:allocation]
     @summary_stats = compute_summary_stats
 
@@ -37,7 +36,6 @@ class RecordAuditTrailReport < BaseReportOld
       allocation_section
       executive_summary
       legend_section
-      calendar_section
       results_section
       neighbors_section
     end
@@ -49,7 +47,7 @@ class RecordAuditTrailReport < BaseReportOld
 
   private
 
-  attr_reader :results, :summary_stats, :neighbors, :calendar, :allocation
+  attr_reader :results, :summary_stats, :neighbors, :allocation
 
   def normalize_diagnostic(diagnostic)
     return diagnostic if diagnostic.is_a?(Hash)
@@ -85,51 +83,6 @@ class RecordAuditTrailReport < BaseReportOld
         teacher: allocation[:teacher_name],
         classroom: allocation[:classroom_name]
       )
-    end
-  end
-
-  def calendar_section
-    return if calendar.blank?
-
-    text t(:calendar_title), size: 11, style: :bold
-    move_down 4
-
-    table_data = [[
-      make_cell(content: t('columns.occurred_on'), font_style: :bold, align: :center, width: 70),
-      make_cell(content: t(:calendar_frequency), font_style: :bold, align: :center),
-      make_cell(content: t(:calendar_content), font_style: :bold, align: :center)
-    ]]
-
-    calendar.each do |row|
-      table_data << [
-        make_cell(content: I18n.l(row[:date]), size: 8, width: 70),
-        make_cell(content: calendar_cell_text(row[:frequency]), size: 8, background_color: calendar_bg(row.dig(:frequency, :status))),
-        make_cell(content: calendar_cell_text(row[:content]), size: 8, background_color: calendar_bg(row.dig(:content, :status)))
-      ]
-    end
-
-    table(table_data, width: bounds.width, header: true) do
-      cells.border_width = 0.25
-      cells.size = 8
-      cells.valign = :top
-    end
-
-    move_down GAP
-  end
-
-  def calendar_cell_text(cell)
-    cell ||= {}
-    status = I18n.t("record_audit_trails.report.calendar.#{cell[:status]}", default: cell[:status].to_s)
-    label = cell[:label]
-    label.present? && label != '—' ? "#{status} — #{label}" : status
-  end
-
-  def calendar_bg(status)
-    case status
-    when 'recorded' then ACTIVE_BG
-    when 'incomplete', 'mixed' then INCOMPLETE_BG
-    when 'deleted', 'missing' then REMOVED_BG
-    else WHITE
     end
   end
 
