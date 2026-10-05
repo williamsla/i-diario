@@ -50,6 +50,19 @@ class DisciplineTeachingPlan < ApplicationRecord
   }
   scope :by_secretary, -> { joins(:teaching_plan).where(teaching_plans: { teacher_id: nil }) }
   scope :unificado, -> { joins(:teaching_plan).merge(TeachingPlan.unificado) }
+  scope :by_classroom_teachers_or_unificado, lambda { |classroom_id, year, discipline_id|
+    assignment = TeacherDisciplineClassroom
+      .where(classroom_id: classroom_id, year: year, discipline_id: discipline_id)
+      .where('teacher_discipline_classrooms.teacher_id = teaching_plans.teacher_id')
+      .where(
+        'teacher_discipline_classrooms.grade_id = teaching_plans.grade_id OR ' \
+        'teacher_discipline_classrooms.grade_id IS NULL'
+      )
+
+    joins(:teaching_plan).where(
+      "(#{unificado_sql_condition}) OR EXISTS (#{assignment.to_sql})"
+    )
+  }
   scope :by_author, lambda { |author_type, current_teacher_id|
     teacher_id = current_teacher_id.respond_to?(:id) ? current_teacher_id.try(:id) : current_teacher_id
     unificado_condition = unificado_sql_condition

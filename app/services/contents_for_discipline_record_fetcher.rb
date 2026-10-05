@@ -34,5 +34,10 @@ class ContentsForDisciplineRecordFetcher < ContentsRecordFetcher
                                               .by_discipline(@discipline.id)
                                               .by_student_id(@student_id)
                                               .by_year(school_calendar_year)
+                                              .by_classroom_teachers_or_unificado(
+                                                @classroom.id,
+                                                school_calendar_year,
+                                                @discipline.id
+                                              )
   end
 end
