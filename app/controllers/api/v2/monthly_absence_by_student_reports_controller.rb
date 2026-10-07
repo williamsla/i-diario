@@ -34,7 +34,8 @@ module Api
           months: params[:months] || params[:meses],
           grade_id: params[:grade_id] || params[:serie_id],
           classroom_id: params[:classroom_id] || params[:turma_id],
-          sort_by: params[:sort_by] || params[:ordenar]
+          sort_by: params[:sort_by] || params[:ordenar],
+          include_without_absences: params[:include_without_absences] || params[:exibir_sem_faltas]
         }
       end
     end

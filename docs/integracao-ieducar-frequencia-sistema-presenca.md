@@ -89,6 +89,7 @@ GET {BASE_URL_IDIARIO}/api/v2/monthly_absence_by_student_reports/report
 | `serie_id` | `grade_id` | inteiro | — | Filtra por série (ID no i-diário) |
 | `turma_id` | `classroom_id` | inteiro | — | Filtra por turma (ID no i-diário) |
 | `ordenar` | `sort_by` | string | `student_name` | Ordenação (ver seção 5) |
+| `exibir_sem_faltas` | `include_without_absences` | `0` ou `1` | `0` | `1` inclui alunos com frequência lançada e nenhuma falta |
 
 **Locale (opcional):** `locale=pt-BR` — recomendado para nomes de meses em português no PDF.
 
@@ -135,7 +136,8 @@ GET {BASE_URL_IDIARIO}/api/v2/monthly_absence_by_student_reports/report
 | contém valores inválidos | Mês fora do intervalo 1–12 |
 | Turma não pertence à escola informada | `turma_id` inconsistente |
 | Turma não pertence à série informada | `turma_id` + `serie_id` incompatíveis |
-| nenhum registro de frequência encontrado... | Sem frequência lançada para os filtros |
+| nenhum registro de falta encontrado... | Nenhuma falta nos filtros, com `exibir_sem_faltas` desligado |
+| nenhum registro de frequência encontrado... | Nenhuma frequência lançada, com `exibir_sem_faltas=1` |
 
 ### 4.4 Não encontrado — `404 Not Found`
 
@@ -158,7 +160,8 @@ O **total** é a soma dos dias com falta em todos os meses solicitados (cada mê
 
 ### 6.1 Quem aparece e o que entra na contagem
 
-- Entra todo aluno com frequência lançada nos meses filtrados, inclusive quem não teve falta.
+- Por padrão entram só alunos com ao menos uma falta nos meses filtrados.
+- Com `exibir_sem_faltas=1`, entra também quem tem frequência lançada e nenhuma falta.
 - A falta é o registro em `daily_frequency_students` com **`present = false`**.
 - Frequências do **ano** informado (`ano`).
 - Apenas datas nos **meses** informados (`meses`).
@@ -196,8 +199,8 @@ Soma das colunas de meses selecionados para o aluno na linha.
 |--------|----------|
 | TURMA | Descrição da turma |
 | ALUNO | Nome do aluno |
-| {MÊS} FALTAS | Uma coluna por mês (ex.: FEVEREIRO FALTAS) — dias com falta |
-| TOTAL FALTAS | Soma dos meses |
+| {MÊS} FALTAS | Uma coluna por mês (ex.: FEVEREIRO FALTAS). A célula mostra os dias com falta e o percentual de presença entre parênteses, por exemplo `2 (90,0%)` |
+| TOTAL FALTAS | Soma dos meses, no mesmo formato `faltas (percentual)` |
 
 O nome da escola **não** se repete em cada linha; aparece apenas no cabeçalho.
 

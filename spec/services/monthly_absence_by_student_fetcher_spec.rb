@@ -108,11 +108,21 @@ RSpec.describe MonthlyAbsenceByStudentFetcher do
         active: true
       )
 
-      rows = described_class.call(
+      default_rows = described_class.call(
         unity_api_code: unity.api_code,
         year: 2026,
         months: [2],
         classroom_id: classroom.id
+      )
+
+      expect(default_rows.map(&:student_name)).not_to include(present_student.name)
+
+      rows = described_class.call(
+        unity_api_code: unity.api_code,
+        year: 2026,
+        months: [2],
+        classroom_id: classroom.id,
+        include_without_absences: true
       )
       present_row = rows.find { |row| row.student_name == present_student.name }
 

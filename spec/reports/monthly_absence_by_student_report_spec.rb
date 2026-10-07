@@ -26,9 +26,8 @@ RSpec.describe MonthlyAbsenceByStudentReport, type: :report do
     rendered_pdf = described_class.build(entity_configuration, form).render
     content = PDF::Inspector::Text.analyze(rendered_pdf).strings.join(' ')
 
-    expect(content).to include('% PRES.')
-    expect(content).to include('90,0%')
-    expect(content).to include('75,0%')
-    expect(content).to include('83,3%')
+    expect(content).to include('1 (90,0%)')
+    expect(content).to include('2 (75,0%)')
+    expect(content).to include('3 (83,3%)')
   end
 end

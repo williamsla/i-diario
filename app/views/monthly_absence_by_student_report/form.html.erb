@@ -50,6 +50,19 @@
               input_html: { value: @monthly_absence_by_student_report_form.sort_by || MonthlyAbsenceReportSortOrders::STUDENT_NAME } %>
         </div>
       </div>
+
+      <div class="row">
+        <div class="col col-sm-4">
+          <%= f.input :include_without_absences,
+              as: :select2,
+              elements: [{ id: '0', name: 'Não', text: 'Não' }, { id: '1', name: 'Sim', text: 'Sim' }].to_json,
+              hide_empty_element: true,
+              input_html: {
+                value: @monthly_absence_by_student_report_form.include_without_absences_value,
+                data: { hide_empty_element: true }
+              } %>
+        </div>
+      </div>
     </fieldset>
 
     <footer>

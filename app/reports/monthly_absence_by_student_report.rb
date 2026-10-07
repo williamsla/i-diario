@@ -116,10 +116,9 @@ class MonthlyAbsenceByStudentReport < BaseReport
 
   def metric_header_cell(title)
     make_cell(
-      content: "#{title}\nFALTAS\n% PRES.",
+      content: "#{title}\nFALTAS",
       font_style: :bold,
-      align: :center,
-      leading: 1
+      align: :center
     )
   end
 
@@ -152,13 +151,12 @@ class MonthlyAbsenceByStudentReport < BaseReport
 
   def metric_cell(absences, frequencies, bold: false)
     percentage = format_presence_percentage(absences, frequencies)
+    content = percentage == '-' ? absences.to_s : "#{absences} (#{percentage})"
 
     make_cell(
-      content: "#{absences}\n<font size='7'>#{percentage}</font>",
-      inline_format: true,
+      content: content,
       align: :center,
-      font_style: bold ? :bold : :normal,
-      leading: 1
+      font_style: bold ? :bold : :normal
     )
   end
 

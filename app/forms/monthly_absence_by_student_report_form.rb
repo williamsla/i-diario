@@ -7,7 +7,8 @@ class MonthlyAbsenceByStudentReportForm
                 :months,
                 :grade_id,
                 :classroom_id,
-                :sort_by
+                :sort_by,
+                :include_without_absences
 
   validates :year, presence: true, numericality: { only_integer: true, greater_than: 2000 }
   validate :unity_must_be_informed
@@ -27,8 +28,17 @@ class MonthlyAbsenceByStudentReportForm
       months: parsed_months,
       grade_id: grade_id,
       classroom_id: classroom_id,
-      sort_by: normalized_sort_by
+      sort_by: normalized_sort_by,
+      include_without_absences: include_without_absences?
     )
+  end
+
+  def include_without_absences?
+    ActiveRecord::Type::Boolean.new.cast(include_without_absences) == true
+  end
+
+  def include_without_absences_value
+    include_without_absences? ? '1' : '0'
   end
 
   def parsed_months
@@ -146,6 +156,14 @@ class MonthlyAbsenceByStudentReportForm
     return if errors.present?
     return if resolved_unity_api_code.blank?
 
-    errors.add(:base, 'nenhum registro de frequência encontrado para os filtros informados') if rows.empty?
+    return if rows.any?
+
+    message = if include_without_absences?
+                'nenhum registro de frequência encontrado para os filtros informados'
+              else
+                'nenhum registro de falta encontrado para os filtros informados'
+              end
+
+    errors.add(:base, message)
   end
 end

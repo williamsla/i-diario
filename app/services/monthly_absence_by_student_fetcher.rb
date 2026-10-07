@@ -18,24 +18,26 @@ class MonthlyAbsenceByStudentFetcher
     (presences.to_f / frequencies) * 100
   end
 
-  def self.call(unity_api_code:, year:, months:, grade_id: nil, classroom_id: nil, sort_by: MonthlyAbsenceReportSortOrders::STUDENT_NAME)
+  def self.call(unity_api_code:, year:, months:, grade_id: nil, classroom_id: nil, sort_by: MonthlyAbsenceReportSortOrders::STUDENT_NAME, include_without_absences: false)
     new(
       unity_api_code: unity_api_code,
       year: year,
       months: months,
       grade_id: grade_id,
       classroom_id: classroom_id,
-      sort_by: sort_by
+      sort_by: sort_by,
+      include_without_absences: include_without_absences
     ).call
   end
 
-  def initialize(unity_api_code:, year:, months:, grade_id: nil, classroom_id: nil, sort_by: MonthlyAbsenceReportSortOrders::STUDENT_NAME)
+  def initialize(unity_api_code:, year:, months:, grade_id: nil, classroom_id: nil, sort_by: MonthlyAbsenceReportSortOrders::STUDENT_NAME, include_without_absences: false)
     @unity_api_code = unity_api_code.to_s
     @year = year.to_i
     @months = Array(months).map(&:to_i).uniq.sort
     @grade_id = grade_id.presence
     @classroom_id = classroom_id.presence
     @sort_by = normalize_sort_by(sort_by)
+    @include_without_absences = ActiveRecord::Type::Boolean.new.cast(include_without_absences)
   end
 
   def call
@@ -64,6 +66,8 @@ class MonthlyAbsenceByStudentFetcher
         data[:frequencies_by_month]
       )
     end
+
+    rows = rows.reject { |row| total_absences(row).zero? } unless @include_without_absences
 
     sort_rows(rows)
   end
