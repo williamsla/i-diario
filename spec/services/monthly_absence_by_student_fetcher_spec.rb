@@ -42,6 +42,83 @@ RSpec.describe MonthlyAbsenceByStudentFetcher do
       expect(rows.size).to eq(2)
       expect(rows.first.student_name).to eq(student.name)
       expect(rows.first.absences_by_month[2]).to eq(1)
+      expect(rows.first.frequencies_by_month[2]).to eq(1)
+    end
+
+    it 'counts presence days in the frequency total of each month' do
+      create(
+        :daily_frequency,
+        unity: unity,
+        classroom: classroom,
+        school_calendar: school_calendar,
+        frequency_date: Date.new(2026, 2, 11)
+      ).tap do |daily_frequency|
+        create(
+          :daily_frequency_student,
+          daily_frequency: daily_frequency,
+          student: student,
+          present: true,
+          active: true
+        )
+      end
+
+      create(
+        :daily_frequency,
+        unity: unity,
+        classroom: classroom,
+        school_calendar: school_calendar,
+        frequency_date: Date.new(2026, 3, 4)
+      ).tap do |daily_frequency|
+        create(
+          :daily_frequency_student,
+          daily_frequency: daily_frequency,
+          student: student,
+          present: true,
+          active: true
+        )
+      end
+
+      rows = described_class.call(unity_api_code: unity.api_code, year: 2026, months: [2, 3], classroom_id: classroom.id)
+      row = rows.first
+
+      expect(row.absences_by_month[2]).to eq(1)
+      expect(row.frequencies_by_month[2]).to eq(2)
+      expect(row.absences_by_month[3]).to be_nil
+      expect(row.frequencies_by_month[3]).to eq(1)
+      expect(described_class.presence_percentage(1, 2)).to eq(50.0)
+      expect(described_class.presence_percentage(0, 1)).to eq(100.0)
+      expect(described_class.presence_percentage(0, 0)).to be_nil
+    end
+
+    it 'includes students who have frequency and no absences' do
+      present_student = create(:student, name: 'Carla Dias')
+      daily_frequency = create(
+        :daily_frequency,
+        unity: unity,
+        classroom: classroom,
+        school_calendar: school_calendar,
+        frequency_date: Date.new(2026, 2, 12)
+      )
+
+      create(
+        :daily_frequency_student,
+        daily_frequency: daily_frequency,
+        student: present_student,
+        present: true,
+        active: true
+      )
+
+      rows = described_class.call(
+        unity_api_code: unity.api_code,
+        year: 2026,
+        months: [2],
+        classroom_id: classroom.id
+      )
+      present_row = rows.find { |row| row.student_name == present_student.name }
+
+      expect(present_row).to be_present
+      expect(present_row.absences_by_month[2]).to be_nil
+      expect(present_row.frequencies_by_month[2]).to eq(1)
     end
 
     it 'filters by classroom' do

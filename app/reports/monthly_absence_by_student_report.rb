@@ -69,6 +69,11 @@ class MonthlyAbsenceByStudentReport < BaseReport
 
     move_down GAP
     text "Ano letivo: #{@form.parsed_year}", size: 10, style: :bold
+    move_down 2
+    text(
+      'Percentual de presença: dias com frequência lançada sem falta, dividido pelos dias com frequência lançada.',
+      size: 7
+    )
     move_down GAP
   end
 
@@ -83,6 +88,7 @@ class MonthlyAbsenceByStudentReport < BaseReport
       table(table_data, width: bounds.width, header: true, row_colors: ['DEDEDE', 'FFFFFF']) do
         cells.border_width = 0.25
         cells.size = 8
+        cells.padding = [2, 2, 2, 2]
         row(0).font_style = :bold
         row(0).align = :center
         cells.valign = :center
@@ -101,20 +107,20 @@ class MonthlyAbsenceByStudentReport < BaseReport
     ]
 
     @months.each do |month|
-      headers << make_cell(
-        content: "#{@form.month_label(month)}\n FALTAS",
-        font_style: :bold,
-        align: :center
-      )
+      headers << metric_header_cell(@form.month_label(month))
     end
 
-    headers << make_cell(
-      content: "TOTAL \n FALTAS",
-      font_style: :bold,
-      align: :center
-    )
-
+    headers << metric_header_cell('TOTAL')
     headers
+  end
+
+  def metric_header_cell(title)
+    make_cell(
+      content: "#{title}\nFALTAS\n% PRES.",
+      font_style: :bold,
+      align: :center,
+      leading: 1
+    )
   end
 
   def table_row(row)
@@ -123,16 +129,43 @@ class MonthlyAbsenceByStudentReport < BaseReport
       make_cell(content: row.student_name)
     ]
 
-    total = 0
+    total_absences = 0
+    total_frequencies = 0
 
     @months.each do |month|
-      count = row.absences_by_month[month] || 0
-      total += count
-      cells << make_cell(content: count.to_s, align: :center)
+      absences = row.absences_by_month[month].to_i
+      frequencies = month_frequencies(row, month)
+      total_absences += absences
+      total_frequencies += frequencies
+      cells << metric_cell(absences, frequencies)
     end
 
-    cells << make_cell(content: total.to_s, align: :center, font_style: :bold)
-
+    cells << metric_cell(total_absences, total_frequencies, bold: true)
     cells
+  end
+
+  def month_frequencies(row, month)
+    absences = row.absences_by_month[month].to_i
+    frequencies = row.frequencies_by_month&.[](month).to_i
+    [frequencies, absences].max
+  end
+
+  def metric_cell(absences, frequencies, bold: false)
+    percentage = format_presence_percentage(absences, frequencies)
+
+    make_cell(
+      content: "#{absences}\n<font size='7'>#{percentage}</font>",
+      inline_format: true,
+      align: :center,
+      font_style: bold ? :bold : :normal,
+      leading: 1
+    )
+  end
+
+  def format_presence_percentage(absences, frequencies)
+    percentage = MonthlyAbsenceByStudentFetcher.presence_percentage(absences, frequencies)
+    return '-' if percentage.nil?
+
+    "#{number_with_precision(percentage, precision: 1, separator: ',', delimiter: '.')}%"
   end
 end

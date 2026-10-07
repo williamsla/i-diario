@@ -146,6 +146,6 @@ class MonthlyAbsenceByStudentReportForm
     return if errors.present?
     return if resolved_unity_api_code.blank?
 
-    errors.add(:base, 'nenhum registro de falta encontrado para os filtros informados') if rows.empty?
+    errors.add(:base, 'nenhum registro de frequência encontrado para os filtros informados') if rows.empty?
   end
 end

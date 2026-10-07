@@ -83,7 +83,7 @@ class DisciplineTeachingPlansController < ApplicationController
 
     authorize @discipline_teaching_plan
 
-    if @discipline_teaching_plan.save
+    if !unificado_blocks_new_discipline_teaching_plan? && @discipline_teaching_plan.save
       respond_with @discipline_teaching_plan, location: discipline_teaching_plans_path
     else
       yearly_term_type_id
@@ -219,6 +219,20 @@ class DisciplineTeachingPlansController < ApplicationController
     return if current_user.administrator?
 
     current_teacher
+  end
+
+  def unificado_blocks_new_discipline_teaching_plan?
+    return false unless current_user.can_change?(:discipline_teaching_plans)
+    return false unless DisciplineTeachingPlan.unificado_exists_for_same_step?(
+      @discipline_teaching_plan.teaching_plan,
+      @discipline_teaching_plan.discipline_id
+    )
+
+    @discipline_teaching_plan.errors.add(
+      :base,
+      I18n.t('activerecord.errors.models.teaching_plan.unificado_already_registered_for_step')
+    )
+    true
   end
 
   def filter_by_grade_discipline(plans)

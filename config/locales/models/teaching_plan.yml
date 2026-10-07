@@ -32,3 +32,4 @@ pt-BR:
           attributes:
             contents:
               at_least_one_content_assigned: "Deve possuir pelo menos um conteúdo"
+          unificado_already_registered_for_step: "Não é possível criar um novo plano de ensino. Já existe um plano unificado cadastrado para esta etapa."

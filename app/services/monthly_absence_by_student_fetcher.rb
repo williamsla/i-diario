@@ -1,5 +1,22 @@
 class MonthlyAbsenceByStudentFetcher
-  Row = Struct.new(:unity_name, :classroom_description, :student_name, :absences_by_month)
+  Row = Struct.new(
+    :unity_name,
+    :classroom_description,
+    :student_name,
+    :absences_by_month,
+    :frequencies_by_month
+  )
+
+  def self.presence_percentage(absences, frequencies)
+    absences = absences.to_i
+    frequencies = frequencies.to_i
+    return if frequencies <= 0
+
+    presences = frequencies - absences
+    presences = 0 if presences.negative?
+
+    (presences.to_f / frequencies) * 100
+  end
 
   def self.call(unity_api_code:, year:, months:, grade_id: nil, classroom_id: nil, sort_by: MonthlyAbsenceReportSortOrders::STUDENT_NAME)
     new(
@@ -26,14 +43,15 @@ class MonthlyAbsenceByStudentFetcher
 
     rows_hash = {}
 
+    grouped_frequencies.each do |(unity_name, classroom_description, student_name, month), count|
+      key = [unity_name, classroom_description, student_name]
+      rows_hash[key] ||= empty_row(unity_name, classroom_description, student_name)
+      rows_hash[key][:frequencies_by_month][month] = count
+    end
+
     grouped_counts.each do |(unity_name, classroom_description, student_name, month), count|
       key = [unity_name, classroom_description, student_name]
-      rows_hash[key] ||= {
-        unity_name: unity_name,
-        classroom_description: classroom_description,
-        student_name: student_name,
-        absences_by_month: {}
-      }
+      rows_hash[key] ||= empty_row(unity_name, classroom_description, student_name)
       rows_hash[key][:absences_by_month][month] = count
     end
 
@@ -42,7 +60,8 @@ class MonthlyAbsenceByStudentFetcher
         data[:unity_name],
         data[:classroom_description],
         data[:student_name],
-        data[:absences_by_month]
+        data[:absences_by_month],
+        data[:frequencies_by_month]
       )
     end
 
@@ -70,28 +89,45 @@ class MonthlyAbsenceByStudentFetcher
     @months.sum { |month| row.absences_by_month[month] || 0 }
   end
 
+  def empty_row(unity_name, classroom_description, student_name)
+    {
+      unity_name: unity_name,
+      classroom_description: classroom_description,
+      student_name: student_name,
+      absences_by_month: {},
+      frequencies_by_month: {}
+    }
+  end
+
   def grouped_counts
-    @grouped_counts ||= begin
-      query = DailyFrequencyStudent
-              .joins(daily_frequency: { classroom: :unity })
-              .joins(:student)
-              .merge(DailyFrequencyStudent.absences)
-              .where(unities: { api_code: @unity_api_code })
-              .where('EXTRACT(YEAR FROM daily_frequencies.frequency_date) = ?', @year)
-              .where('EXTRACT(MONTH FROM daily_frequencies.frequency_date) IN (?)', @months)
+    @grouped_counts ||= count_by_month(base_query.merge(DailyFrequencyStudent.absences))
+  end
 
-      query = apply_classroom_filters(query)
+  def grouped_frequencies
+    @grouped_frequencies ||= count_by_month(base_query)
+  end
 
-      query.group(
-        'unities.name',
-        'classrooms.description',
-        'students.name',
-        Arel.sql('EXTRACT(MONTH FROM daily_frequencies.frequency_date)::integer')
-      )
-           .count(Arel.sql('DISTINCT daily_frequencies.frequency_date'))
-           .transform_keys do |(unity_name, classroom_description, student_name, month)|
-        [unity_name, classroom_description, student_name, month]
-      end
+  def base_query
+    query = DailyFrequencyStudent
+            .joins(daily_frequency: { classroom: :unity })
+            .joins(:student)
+            .where(unities: { api_code: @unity_api_code })
+            .where('EXTRACT(YEAR FROM daily_frequencies.frequency_date) = ?', @year)
+            .where('EXTRACT(MONTH FROM daily_frequencies.frequency_date) IN (?)', @months)
+
+    apply_classroom_filters(query)
+  end
+
+  def count_by_month(query)
+    query.group(
+      'unities.name',
+      'classrooms.description',
+      'students.name',
+      Arel.sql('EXTRACT(MONTH FROM daily_frequencies.frequency_date)::integer')
+    )
+         .count(Arel.sql('DISTINCT daily_frequencies.frequency_date'))
+         .transform_keys do |(unity_name, classroom_description, student_name, month)|
+      [unity_name, classroom_description, student_name, month]
     end
   end
 

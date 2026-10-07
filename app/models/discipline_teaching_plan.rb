@@ -3,6 +3,7 @@ class DisciplineTeachingPlan < ApplicationRecord
   include ColumnsLockable
   include TeacherRelationable
   include Translatable
+  include UnificadoSameStep
 
   not_updatable only: :discipline_id
   teacher_relation_columns only: :discipline
@@ -110,6 +111,12 @@ class DisciplineTeachingPlan < ApplicationRecord
 
   validates :teaching_plan, presence: true
   validates :discipline, presence: true
+
+  def self.unificado_exists_for_same_step?(teaching_plan, discipline_id)
+    return false if discipline_id.blank?
+
+    unificado_on_same_step(teaching_plan).where(discipline_id: discipline_id).exists?
+  end
 
   def self.unificado_sql_condition
     "teaching_plans.unificado = TRUE OR teaching_plans.teacher_id IS NULL OR " \

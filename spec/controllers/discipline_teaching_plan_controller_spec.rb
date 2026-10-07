@@ -276,5 +276,40 @@ RSpec.describe DisciplineTeachingPlansController, type: :controller do
         expect(TeachingPlan.order(:id).last[:unificado]).to eq(true)
       end
     end
+
+    context 'when the profile can change teaching plans and a unificado plan exists on the same step' do
+      before do
+        user.current_user_role.role.permissions.create!(
+          feature: 'discipline_teaching_plans',
+          permission: Permissions::CHANGE
+        )
+        unificado_discipline_teaching_plan
+        allow(controller).to receive(:fetch_collections).and_return([])
+        allow(controller).to receive(:yearly_term_type_id).and_return(1)
+      end
+
+      it 'does not create a new plan' do
+        expect { post :create, params: params }.to_not change(DisciplineTeachingPlan, :count)
+        expect(response).to render_template(:new)
+        expect(assigns(:discipline_teaching_plan).errors[:base]).to include(
+          I18n.t('activerecord.errors.models.teaching_plan.unificado_already_registered_for_step')
+        )
+      end
+
+      it 'creates the plan when the unificado plan belongs to another step' do
+        other_step = create(:school_term_type_step, school_term_type: school_term_type)
+        unificado_teaching_plan.update!(school_term_type_step: other_step)
+
+        expect { post :create, params: params }.to change(DisciplineTeachingPlan, :count).by(1)
+      end
+    end
+
+    context 'when the profile cannot change teaching plans' do
+      it 'still creates the plan even if a unificado plan exists on the same step' do
+        unificado_discipline_teaching_plan
+
+        expect { post :create, params: params }.to change(DisciplineTeachingPlan, :count).by(1)
+      end
+    end
   end
 end

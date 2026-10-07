@@ -173,4 +173,90 @@ RSpec.describe DisciplineTeachingPlan, type: :model do
       expect(group.first.teaching_plan[:teacher_id]).to be_nil
     end
   end
+
+  describe '.unificado_exists_for_same_step?' do
+    let(:unity) { create(:unity) }
+    let(:other_unity) { create(:unity) }
+    let(:grade) { create(:grade) }
+    let(:discipline) { create(:discipline) }
+    let(:school_term_type) { create(:school_term_type) }
+    let(:school_term_type_step) { create(:school_term_type_step, school_term_type: school_term_type) }
+    let(:year) { Date.current.year }
+    let(:candidate) do
+      TeachingPlan.new(
+        unity: unity,
+        grade: grade,
+        year: year,
+        school_term_type: school_term_type,
+        school_term_type_step: school_term_type_step
+      )
+    end
+
+    def create_plan(unificado:, step: school_term_type_step, plan_discipline: discipline, plan_unity: other_unity, student: nil)
+      teaching_plan = create(
+        :teaching_plan,
+        unificado: unificado,
+        teacher: nil,
+        unity: plan_unity,
+        grade: grade,
+        year: year,
+        school_term_type: school_term_type,
+        school_term_type_step: step,
+        student: student
+      )
+      create(
+        :discipline_teaching_plan,
+        teaching_plan: teaching_plan,
+        discipline: plan_discipline,
+        thematic_unit: 'Unidade diferente'
+      )
+    end
+
+    it 'detects a unificado plan of the same step, grade, year and discipline in another unity' do
+      create_plan(unificado: true)
+
+      expect(described_class.unificado_exists_for_same_step?(candidate, discipline.id)).to eq(true)
+    end
+
+    it 'ignores a plan of another step' do
+      other_step = create(:school_term_type_step, school_term_type: school_term_type)
+      create_plan(unificado: true, step: other_step)
+
+      expect(described_class.unificado_exists_for_same_step?(candidate, discipline.id)).to eq(false)
+    end
+
+    it 'ignores a plan of another discipline' do
+      create_plan(unificado: true, plan_discipline: create(:discipline))
+
+      expect(described_class.unificado_exists_for_same_step?(candidate, discipline.id)).to eq(false)
+    end
+
+    it 'ignores a plan that is not unificado' do
+      teacher = create(:teacher)
+      teacher_user = create(:user, :with_user_role_teacher)
+      teaching_plan = nil
+
+      Audited.audit_class.as_user(teacher_user) do
+        teaching_plan = create(
+          :teaching_plan,
+          unificado: false,
+          teacher: teacher,
+          unity: unity,
+          grade: grade,
+          year: year,
+          school_term_type: school_term_type,
+          school_term_type_step: school_term_type_step
+        )
+      end
+      create(:discipline_teaching_plan, teaching_plan: teaching_plan, discipline: discipline)
+
+      expect(described_class.unificado_exists_for_same_step?(candidate, discipline.id)).to eq(false)
+    end
+
+    it 'ignores a unificado plan of another student' do
+      create_plan(unificado: true, student: create(:student))
+
+      expect(described_class.unificado_exists_for_same_step?(candidate, discipline.id)).to eq(false)
+    end
+  end
 end

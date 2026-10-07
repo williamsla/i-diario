@@ -135,7 +135,7 @@ GET {BASE_URL_IDIARIO}/api/v2/monthly_absence_by_student_reports/report
 | contém valores inválidos | Mês fora do intervalo 1–12 |
 | Turma não pertence à escola informada | `turma_id` inconsistente |
 | Turma não pertence à série informada | `turma_id` + `serie_id` incompatíveis |
-| nenhum registro de falta encontrado... | Sem faltas para os filtros |
+| nenhum registro de frequência encontrado... | Sem frequência lançada para os filtros |
 
 ### 4.4 Não encontrado — `404 Not Found`
 
@@ -156,9 +156,10 @@ O **total** é a soma dos dias com falta em todos os meses solicitados (cada mê
 
 ## 6. Regra de negócio (dados do relatório)
 
-### 6.1 O que entra na contagem
+### 6.1 Quem aparece e o que entra na contagem
 
-- Registros em `daily_frequency_students` com **`present = false`** (falta).
+- Entra todo aluno com frequência lançada nos meses filtrados, inclusive quem não teve falta.
+- A falta é o registro em `daily_frequency_students` com **`present = false`**.
 - Frequências do **ano** informado (`ano`).
 - Apenas datas nos **meses** informados (`meses`).
 - Escola identificada por **`cod_escola`**.

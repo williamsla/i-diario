@@ -79,7 +79,7 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
 
     authorize @knowledge_area_teaching_plan
 
-    if @knowledge_area_teaching_plan.save
+    if !unificado_blocks_new_knowledge_area_teaching_plan? && @knowledge_area_teaching_plan.save
       respond_with @knowledge_area_teaching_plan, location: knowledge_area_teaching_plans_path
     else
       yearly_term_type_id
@@ -221,6 +221,20 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
     return if current_user.administrator?
 
     current_teacher
+  end
+
+  def unificado_blocks_new_knowledge_area_teaching_plan?
+    return false unless current_user.can_change?(:knowledge_area_teaching_plans)
+    return false unless KnowledgeAreaTeachingPlan.unificado_exists_for_same_step?(
+      @knowledge_area_teaching_plan.teaching_plan,
+      @knowledge_area_teaching_plan.knowledge_area_ids
+    )
+
+    @knowledge_area_teaching_plan.errors.add(
+      :base,
+      I18n.t('activerecord.errors.models.teaching_plan.unificado_already_registered_for_step')
+    )
+    true
   end
 
   def content_ids

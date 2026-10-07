@@ -2,6 +2,7 @@ class KnowledgeAreaTeachingPlan < ApplicationRecord
   include Audit
   include TeacherRelationable
   include Translatable
+  include UnificadoSameStep
 
   teacher_relation_columns only: :knowledge_areas
 
@@ -113,6 +114,31 @@ class KnowledgeAreaTeachingPlan < ApplicationRecord
 
   validates :teaching_plan, presence: true
   validates :knowledge_area_ids, presence: true
+
+  def self.unificado_exists_for_same_step?(teaching_plan, knowledge_area_ids)
+    ids = normalize_knowledge_area_ids(knowledge_area_ids)
+    return false if ids.empty?
+
+    unificado_on_same_step(teaching_plan).where(
+      <<~SQL.squish,
+        (
+          SELECT string_agg(katpka.knowledge_area_id::text, ',' ORDER BY katpka.knowledge_area_id)
+          FROM knowledge_area_teaching_plan_knowledge_areas katpka
+          WHERE katpka.knowledge_area_teaching_plan_id = knowledge_area_teaching_plans.id
+        ) = :knowledge_area_ids
+      SQL
+      knowledge_area_ids: ids.join(',')
+    ).exists?
+  end
+
+  def self.normalize_knowledge_area_ids(knowledge_area_ids)
+    Array(knowledge_area_ids).flat_map { |value| value.to_s.split(',') }
+      .map(&:to_i)
+      .select(&:positive?)
+      .uniq
+      .sort
+  end
+  private_class_method :normalize_knowledge_area_ids
 
   def self.unificado_sql_condition
     "teaching_plans.unificado = TRUE OR teaching_plans.teacher_id IS NULL OR " \
