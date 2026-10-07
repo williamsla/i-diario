@@ -414,11 +414,7 @@ class ExamStepAverageReport < BaseReport
     return nil if value.blank?
 
     exam_rule = ExamRuleFetcher.fetch(classroom, student)
-    rounding_table = exam_rule&.conceptual_rounding_table
-    return value.to_s if rounding_table.blank?
-
-    rtv = rounding_table.rounding_table_values.find { |v| v.value.to_s == value.to_s }
-    rtv ? rtv.label.to_s : value.to_s
+    ConceptValueMatcher.display(exam_rule&.conceptual_rounding_table, value)
   end
 
   def student_slice_size(students)

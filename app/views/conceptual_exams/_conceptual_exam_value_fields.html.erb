@@ -18,6 +18,7 @@
     <% if @conceptual_exam.student.present? %>
       <%= f.input :value, as: :select2,
             elements: f.object.decorator.data_for_select2,
+            input_html: { value: f.object.decorator.selected_option_id },
             label_html: { class: 'hidden' },
             readonly: (f.object.exempted_discipline.to_s == 'true') || action_name == "show" %>
     <% end %>

@@ -100,6 +100,19 @@ $(function () {
     flashMessages.error('Ocorreu um erro ao buscar a regra de avaliação');
   }
 
+  function canonicalConceptId(value) {
+    if (value == null || value === '') {
+      return value;
+    }
+
+    var number = Number(value);
+    if (!isFinite(number)) {
+      return String(value);
+    }
+
+    return String(number);
+  }
+
   function fetchExamRule() {
     var classroom_id = $classroom.select2('val');
     var student_id = $student.select2('val');
@@ -129,7 +142,7 @@ $(function () {
       window.examRule = data.exam_rule;
 
       window.roundingTableValues = _.map(data.exam_rule.conceptual_rounding_table.rounding_table_values, function (rounding_table_value) {
-        return { id: rounding_table_value.value, text: rounding_table_value.to_s };
+        return { id: canonicalConceptId(rounding_table_value.value), text: rounding_table_value.to_s };
       });
     }
   };

@@ -36,17 +36,10 @@ class OldStepsConceptualValuesFetcher
   end
 
   def rounding_table_value_of(value)
-    rounding_table_values["#{value}"] || "#{value}"
-  end
+    found = ConceptValueMatcher.find(rounding_table, value)
+    return found.to_s if found
 
-  def rounding_table_values
-    @rounding_table_values ||= begin
-      hash = {}
-      (rounding_table.try(:rounding_table_values)||[]).each do |rouding_table_value|
-        hash["#{rouding_table_value.value}"] = "#{rouding_table_value}"
-      end
-      hash
-    end
+    ConceptValueMatcher.canonical(value) || value.to_s
   end
 
   def rounding_table
