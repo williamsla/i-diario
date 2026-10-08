@@ -418,29 +418,28 @@ class AttendanceRecordReportForm
 
   def inactives_on_dates
     inactives_on_dates = {}
-    enrollment_ranges = enrollment_classrooms_list.map do |enrollment_classroom|
-      joined_at = enrollment_classroom[:student_enrollment_classroom].joined_at.to_date
-      left_at = enrollment_classroom[:student_enrollment_classroom].left_at
-      left_at = left_at.empty? ? Date.current.end_of_year : left_at.to_date
-
-      [enrollment_classroom[:student_enrollment].id, joined_at, left_at]
-    end
+    ranges = enrollment_date_ranges
 
     daily_frequencies.map(&:frequency_date).uniq.each do |frequency_date|
-      enrollments_on_date_ids = enrollment_ranges.each_with_object([]) do |(enrollment_id, joined_at, left_at), ids|
-        ids << enrollment_id if frequency_date >= joined_at && frequency_date < left_at
-      end
+      enrollment_classrooms_list.each do |enrollment_classroom|
+        student_id = enrollment_classroom[:student].id
+        next if ranges.cover?(student_id, frequency_date)
 
-      not_enrolled_on_the_date = student_enrollment_ids - enrollments_on_date_ids
-      next if not_enrolled_on_the_date.empty?
-
-      not_enrolled_on_the_date.each do |enrollment_id|
+        enrollment_id = enrollment_classroom[:student_enrollment].id
         inactives_on_dates[enrollment_id] ||= []
         inactives_on_dates[enrollment_id] << frequency_date
       end
     end
 
     inactives_on_dates
+  end
+
+  def enrollment_date_ranges
+    @enrollment_date_ranges ||= StudentEnrollmentDateRanges.for(
+      classroom_id: classroom_id,
+      student_ids: enrollment_classrooms_list.map { |enrollment_classroom| enrollment_classroom[:student].id },
+      period: period
+    )
   end
 
   def exempted_from_discipline?(daily_frequency, student_enrollment)

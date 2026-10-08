@@ -194,7 +194,7 @@ class AttendanceRecordReportPortrait < BaseReport
                                   @show_legend_active_search = true
                                   ACTIVE_SEARCH_FREQUENCY_STUDENT
                                 elsif @show_inactive_enrollments
-                                  if frequency_date >= enrollment[:joined_at] && frequency_date < enrollment[:left_at]
+                                  if enrollment_date_ranges.cover?(student_id, frequency_date)
                                     students_by_id[student_id]
                                   else
                                     NULL_FREQUENCY_STUDENT
@@ -485,8 +485,12 @@ class AttendanceRecordReportPortrait < BaseReport
     end
   end
 
-  def get_left_at(left_at)
-    left_at.empty? ? Date.current.end_of_year : left_at.to_date
+  def enrollment_date_ranges
+    @enrollment_date_ranges ||= StudentEnrollmentDateRanges.for(
+      classroom_id: classroom&.id,
+      student_ids: Array(@enrollment_classrooms).map { |enrollment_classroom| enrollment_classroom[:student].id },
+      period: @daily_frequencies.first&.period
+    )
   end
 
   def event?(record)
@@ -575,8 +579,6 @@ class AttendanceRecordReportPortrait < BaseReport
         name: student.to_s,
         social_name: student.social_name,
         student_enrollment_id: enrollment_classroom[:student_enrollment].id,
-        joined_at: student_enrollment_classroom.joined_at.to_date,
-        left_at: get_left_at(student_enrollment_classroom.left_at),
         sequence: student_enrollment_classroom.sequence
       }
     end
