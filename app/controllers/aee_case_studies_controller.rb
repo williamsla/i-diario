@@ -3,6 +3,7 @@
 class AeeCaseStudiesController < ApplicationController
   has_scope :page, default: 1
   has_scope :per, default: 10
+  has_scope :by_student_id, in: :filter
 
   before_action :require_current_classroom
   before_action :require_current_teacher, only: [:new, :create]

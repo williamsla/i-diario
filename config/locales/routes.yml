@@ -109,7 +109,6 @@ pt-BR:
     history: 'historico'
     confirm: "confirmar"
     preview: "pre-visualizar"
-    synchronizations: 'sincronizacoes'
     synchronize: 'sincronizar'
     search: 'busca'
     export_selected: 'exportar-selecionados'
