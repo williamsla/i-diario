@@ -66,6 +66,8 @@ class ApplicationController < ActionController::Base
   helper_method :current_user_unity
   helper_method :current_user_classroom
   helper_method :current_user_discipline
+  helper_method :current_user_school_year
+  helper_method :current_school_year
   helper_method :can_change_school_year?
   helper_method :can_launch_in_step?
   helper_method :step_launch_blocked_title
@@ -256,6 +258,13 @@ class ApplicationController < ActionController::Base
     return false
   end
   helper_method :is_aee
+
+  def forbid_lesson_plans_for_aee
+    return unless is_aee
+
+    flash[:alert] = I18n.t('aee.errors.lesson_plans_unavailable')
+    redirect_to root_path
+  end
 
   # Conteúdo por aluno: turma AEE (todos) ou regular com aluno de regra diferenciada (NEE)
   def content_record_by_student_enabled?

@@ -142,9 +142,22 @@ navigation:
             path: "knowledge_area_teaching_plans_path"
             shortcut: true
   - menu:
+      type: "aee_individual_plans"
+      icon: "fa-user"
+      path: "aee_individual_plans_path"
+      visible: "only-when-aee"
+      shortcut: true
+  - menu:
+      type: "aee_attendance_records"
+      icon: "fa-pencil-square-o"
+      path: "aee_attendance_records_path"
+      visible: "only-when-aee"
+      shortcut: true
+  - menu:
       type: "lesson_plans_menu"
       icon: "fa-pencil"
       shortcut: true
+      visible: "hide-when-aee"
       submenus:
         - menu:
             type: "discipline_lesson_plans"
@@ -158,6 +171,7 @@ navigation:
       type: "content_records_menu"
       icon: "fa-pencil-square-o"
       shortcut: true
+      visible: "hide-when-aee"
       submenus:
         - menu:
             type: "discipline_content_records"

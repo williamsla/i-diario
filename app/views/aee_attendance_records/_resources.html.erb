@@ -1,0 +1,32 @@
+<tbody id="resources-tbody">
+  <% if @aee_attendance_records.empty? %>
+    <tr>
+      <td class="no_record_found" colspan="4"><%= t('views.index.no_record_found') %></td>
+    </tr>
+  <% else %>
+    <% @aee_attendance_records.each do |aee_attendance_record| %>
+      <tr>
+        <td><%= aee_attendance_record.student %></td>
+        <td><%= l(aee_attendance_record.record_date) %></td>
+        <td><%= aee_attendance_record.session_focus.presence || '-' %></td>
+        <td class="actions" style="white-space: nowrap;">
+          <%= link_to(
+                t('helpers.links.print_html'),
+                aee_attendance_record_path(aee_attendance_record),
+                class: 'btn btn-info apply_tooltip',
+                target: '_blank',
+                data: { original_title: t('views.index.tooltips.show_report') }
+              ) %>
+          <%= link_to t('views.index.edit'),
+                edit_aee_attendance_record_path(aee_attendance_record),
+                class: 'btn btn-success' %>
+          <%= link_to t('views.index.delete'),
+                aee_attendance_record_path(aee_attendance_record),
+                class: 'btn btn-danger',
+                method: 'delete',
+                data: { confirm: t('views.index.confirm_deletion') } %>
+        </td>
+      </tr>
+    <% end %>
+  <% end %>
+</tbody>
