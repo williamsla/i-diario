@@ -44,13 +44,15 @@
 
       <div class="row">
         <div class="col col-sm-12">
-          <%= content_record.input :daily_activities_record, as: :text, readonly: true %>
+          <%= content_record.input :daily_activities_record, as: :text,
+                label: aee_label(:daily_activities_record, ContentRecord.human_attribute_name(:daily_activities_record)),
+                readonly: true %>
         </div>
       </div>
 
     </fieldset>
     <fieldset>
-      <legend><%= show_aee_area_label? ? 'Área do AEE' : @knowledge_area_content_record.class.human_attribute_name(:contents) %></legend>
+      <legend><%= aee_label(:contents, @knowledge_area_content_record.class.human_attribute_name(:contents)) %></legend>
       <% if content_record.object.errors[:contents].any? %>
         <div class="alert alert-danger fade in">
           <i class="fa-fw fa fa-times"></i>

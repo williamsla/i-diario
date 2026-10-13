@@ -1,3 +1,4 @@
 <div class="widget-body no-padding">
+  <%= aee_workflow_nav(:attendance, student: @knowledge_area_content_record&.content_record&.student) if is_aee %>
   <%= render 'form' %>
 </div>

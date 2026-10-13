@@ -1,12 +1,13 @@
 class KnowledgeAreaContentRecordsController < ApplicationController
   include LessonsBoardAvailability
+  include AeeContentRecordSupport
 
   has_scope :page, default: 1
   has_scope :per, default: 10
 
-  before_action :require_current_classroom, only: [:index, :new, :edit, :create, :update]
+  before_action :require_current_classroom, only: [:index, :new, :edit, :create, :update, :student_data]
   before_action :require_current_teacher
-  before_action :require_current_classroom, only: [:index, :new, :create, :edit, :update, :show]
+  before_action :require_current_classroom, only: [:index, :new, :create, :edit, :update, :show, :student_data]
   before_action :require_allow_to_modify_prev_years, only: [:create, :update, :destroy, :clone]
 
   def knowledge_areas_for_record_date

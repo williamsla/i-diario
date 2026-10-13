@@ -1,4 +1,6 @@
 class KnowledgeAreaTeachingPlansController < ApplicationController
+  include AeeTeachingPlanSupport
+
   has_scope :page, default: 1
   has_scope :per, default: 10
 
@@ -6,7 +8,7 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
   before_action :require_current_teacher, unless: :current_user_is_employee_or_administrator?
   before_action :require_allow_to_modify_prev_years, only: [:create, :update, :destroy]
   before_action :yearly_term_type_id, only: [:show, :edit, :new]
-  before_action :require_current_classroom, only: [:index, :new, :create, :edit, :update]
+  before_action :require_current_classroom, only: [:index, :new, :create, :edit, :update, :student_data]
 
   def index
     params[:filter] ||= {}
@@ -33,12 +35,13 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
 
     set_options_by_user
     @knowledge_areas = @knowledge_area_teaching_plan.knowledge_areas
+    ensure_aee_teaching_plan_detail(@knowledge_area_teaching_plan.teaching_plan)
 
     respond_with @knowledge_area_teaching_plan do |format|
       format.pdf do
-        knowledge_area_teaching_plan_pdf = KnowledgeAreaTeachingPlanPdf.build(
-          current_entity_configuration,
-          @knowledge_area_teaching_plan
+        knowledge_area_teaching_plan_pdf = teaching_plan_pdf_for(
+          @knowledge_area_teaching_plan.teaching_plan,
+          KnowledgeAreaTeachingPlanPdf.build(current_entity_configuration, @knowledge_area_teaching_plan)
         )
         send_pdf(t('routes.knowledge_area_teaching_plans'), knowledge_area_teaching_plan_pdf.render)
       end
@@ -57,6 +60,11 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
 
     set_options_by_user
     set_knowledge_area_by_classroom(current_user_classroom.id)
+    ensure_aee_teaching_plan_detail(@knowledge_area_teaching_plan.teaching_plan)
+
+    if is_aee && params[:student_id].present?
+      @knowledge_area_teaching_plan.teaching_plan.student_id = params[:student_id]
+    end
   end
 
   def create
@@ -80,11 +88,13 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
     authorize @knowledge_area_teaching_plan
 
     if @knowledge_area_teaching_plan.save
-      respond_with @knowledge_area_teaching_plan, location: knowledge_area_teaching_plans_path
+      location = is_aee ? edit_knowledge_area_teaching_plan_path(@knowledge_area_teaching_plan) : knowledge_area_teaching_plans_path
+      respond_with @knowledge_area_teaching_plan, location: location
     else
       yearly_term_type_id
       set_options_by_user
       @knowledge_areas = @knowledge_area_teaching_plan.knowledge_areas
+      ensure_aee_teaching_plan_detail(@knowledge_area_teaching_plan.teaching_plan)
 
       render :new
     end
@@ -100,6 +110,7 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
     )
 
     authorize @knowledge_area_teaching_plan
+    ensure_aee_teaching_plan_detail(@knowledge_area_teaching_plan.teaching_plan)
   end
 
   def update
@@ -124,7 +135,8 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
     authorize @knowledge_area_teaching_plan
 
     if @knowledge_area_teaching_plan.save
-      respond_with @knowledge_area_teaching_plan, location: knowledge_area_teaching_plans_path
+      location = is_aee ? edit_knowledge_area_teaching_plan_path(@knowledge_area_teaching_plan) : knowledge_area_teaching_plans_path
+      respond_with @knowledge_area_teaching_plan, location: location
     else
       yearly_term_type_id
       set_options_by_user
@@ -132,6 +144,7 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
         current_user_classroom.id,
         keep_ids: @knowledge_area_teaching_plan.knowledge_area_ids
       )
+      ensure_aee_teaching_plan_detail(@knowledge_area_teaching_plan.teaching_plan)
 
       render :edit
     end
@@ -282,7 +295,8 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
           :id,
           :attachment,
           :_destroy
-        ]
+        ],
+        aee_teaching_plan_detail_attributes: AeeTeachingPlanDetail::NESTED_ATTRIBUTES
       ]
     )
   end

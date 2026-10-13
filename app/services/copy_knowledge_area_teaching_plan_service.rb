@@ -154,9 +154,20 @@ class CopyKnowledgeAreaTeachingPlanService
     copy.build_knowledge_area_teaching_plan(experience_fields: experience_fields)
     copy.save!(validate: false)
 
+    copy_aee_teaching_plan_detail(teaching_plan, copy)
+
     copy.knowledge_area_teaching_plan.knowledge_area_ids = knowledge_area_ids
     copy.knowledge_area_teaching_plan.save!(validate: false)
     copy.knowledge_area_teaching_plan
+  end
+
+  def copy_aee_teaching_plan_detail(original, copy)
+    detail = original.aee_teaching_plan_detail
+    return if detail.blank?
+
+    copy.create_aee_teaching_plan_detail!(
+      detail.attributes.except('id', 'teaching_plan_id', 'created_at', 'updated_at')
+    )
   end
 
   def check_required_params

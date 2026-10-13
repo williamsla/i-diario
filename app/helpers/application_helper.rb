@@ -45,6 +45,7 @@ module ApplicationHelper
       user_role_cache || current_user.cache_key,
       role&.permissions_cache_key,
       Translation.cache_key,
+      navigation_cache_version,
       is_aee
     ]
 

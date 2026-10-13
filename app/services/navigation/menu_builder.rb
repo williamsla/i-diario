@@ -24,6 +24,7 @@ module Navigation
         visible = node["menu"]["visible"]
         next if (!visible.nil? && visible == false) || (visible == 'only-when-active' && node["menu"]["type"] != item)
         next if visible == 'only-when-aee' && !aee_navigation_context?
+        next if visible == 'hide-when-aee' && aee_navigation_context?
         yield node_values(node["menu"], parent_menu)
       end
     end

@@ -45,10 +45,11 @@
         </div>
       </div>
 
-      <% if @students&.any? %>
+      <% if @students&.any? || is_aee %>
         <div class="row">
           <div class="col col-sm-4">
-            <%= lesson_plan.input :student_id, as: :select2, elements: @students %>
+            <%= lesson_plan.input :student_id, as: :select2, elements: @students || [],
+                  required: is_aee %>
           </div>
         </div>
       <% end %>
@@ -62,7 +63,9 @@
 
     <% if lesson_plan.object.persisted? %>
       <div style="position: absolute; margin-top: 11px; <%= action_name == 'show' ? 'right: 340px;' : 'right: 340px;' %>">
-        <%= lesson_plan.input :validated, as: :boolean, label: false, inline_label: true, disabled: current_user.teacher? %>
+        <%= lesson_plan.input :validated, as: :boolean, label: false,
+              inline_label: aee_label(:validated_lesson_plan, LessonPlan.human_attribute_name(:validated)),
+              disabled: current_user.teacher? %>
       </div>
     <% end %>
   <% end %>

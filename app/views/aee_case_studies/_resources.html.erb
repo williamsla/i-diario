@@ -20,6 +20,7 @@
           <%= link_to t('views.index.edit'),
                 edit_aee_case_study_path(aee_case_study),
                 class: 'btn btn-success' %>
+          <%= aee_next_step_button(:case_study, aee_case_study.student) %>
           <%= link_to t('views.index.delete'),
                 aee_case_study_path(aee_case_study),
                 class: 'btn btn-danger',

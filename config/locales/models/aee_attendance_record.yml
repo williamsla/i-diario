@@ -1,0 +1,35 @@
+pt-BR:
+  activerecord:
+    models:
+      aee_attendance_record:
+        one: "Registro de atendimento AEE"
+        other: "Registros de atendimento AEE"
+
+    attributes:
+      aee_attendance_record:
+        unity: "Escola"
+        unity_id: "Escola"
+        classroom: "Turma"
+        classroom_id: "Turma"
+        student: "Nome do estudante"
+        student_id: "Nome do estudante"
+        teacher: "Professor(a)"
+        user: "Usuário"
+        school_calendar: "Calendário escolar"
+        year: "Ano letivo"
+        record_date: "Data do atendimento"
+        duration: "Duração"
+        session_focus: "Foco da sessão"
+        session_objectives: "Objetivos da sessão"
+        activities_developed: "O que foi desenvolvido"
+        student_response: "Resposta do estudante"
+        next_steps: "Encaminhamentos"
+        aee_individual_plan: "PEI"
+        aee_individual_plan_id: "PEI"
+
+    errors:
+      models:
+        aee_attendance_record:
+          attributes:
+            student_id:
+              taken: "já possui um registro de atendimento nesta data"

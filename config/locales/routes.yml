@@ -30,6 +30,10 @@ pt-BR:
     observation_diary_records: 'diario-de-observacoes'
     aee_case_studies: 'estudos-de-caso-aee'
     aee_case_study: 'estudo-de-caso-aee'
+    aee_individual_plans: 'planos-educacionais-individualizados'
+    aee_individual_plan: 'pei'
+    aee_attendance_records: 'registros-de-atendimento-aee'
+    aee_attendance_record: 'registro-de-atendimento-aee'
     conceptual_exams: 'diario-de-avaliacoes-conceituais'
     descriptive_exams: 'avaliacoes-descritivas'
     disabled_entity: 'acesso-suspenso'
@@ -105,7 +109,6 @@ pt-BR:
     history: 'historico'
     confirm: "confirmar"
     preview: "pre-visualizar"
-    synchronizations: 'sincronizacoes'
     synchronize: 'sincronizar'
     search: 'busca'
     export_selected: 'exportar-selecionados'

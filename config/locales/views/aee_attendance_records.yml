@@ -1,0 +1,25 @@
+pt-BR:
+  aee_attendance_records:
+    index:
+      title: "Registros de atendimento AEE"
+      new_html: "<i class='fa fa-plus'></i> Novo registro"
+      by_student: "Filtrar aluno"
+    form:
+      identification_legend: "Identificação do atendimento"
+      identification_hint: "Um registro por aluno e por dia. Se já existir, o sistema abre o lançamento da data."
+      session_legend: "Diário da sessão"
+      duration_hint: "Tempo desta sessão. Pode vir preenchido com o tempo previsto no PAEE."
+      session_focus_hint: "O que será trabalhado hoje. Não use área da BNCC — descreva o foco do atendimento."
+      session_objectives_hint: "Objetivos desta sessão. Vêm das metas do PEI; ajuste o que for específico do dia."
+      activities_developed_hint: "Descreva o que aconteceu nesta sessão: atividades, recursos usados e como o atendimento se desenvolveu."
+      student_response_hint: "Como o estudante respondeu às propostas: engajamento, dificuldades, avanços observados."
+      next_steps_hint: "O que fica para a próxima sessão ou para a articulação com a sala regular."
+    new:
+      title: "Novo registro de atendimento"
+    edit:
+      title: "Editar registro de atendimento"
+    errors:
+      require_aee_classroom: "O registro de atendimento AEE está disponível apenas para turmas de AEE."
+      already_exists: "Já existe um registro de atendimento para este aluno nesta data. O lançamento foi aberto para edição."
+    pdf:
+      title: "Registro de atendimento AEE"

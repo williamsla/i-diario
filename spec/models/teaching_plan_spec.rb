@@ -86,6 +86,33 @@ RSpec.describe TeachingPlan, type: :model do
       it { expect(subject.school_term_type_step).to_not be_present  }
     end
 
+    context 'when nested aee teaching plan detail is assigned' do
+      it 'saves the detail together with the teaching plan' do
+        TeachingPlan.any_instance.stub(:yearly?).and_return(true)
+
+        subject.aee_teaching_plan_detail_attributes = {
+          student_characteristics: 'Características do aluno',
+          general_objectives: 'Objetivos gerais'
+        }
+
+        expect(subject.save).to eq(true)
+        expect(subject.reload.aee_teaching_plan_detail).to be_present
+        expect(subject.aee_teaching_plan_detail.student_characteristics).to eq('Características do aluno')
+      end
+    end
+
+    context 'when grade is AEE' do
+      it 'requires a student' do
+        TeachingPlan.any_instance.stub(:yearly?).and_return(true)
+        grade = build(:grade, description: 'AEE')
+        subject.grade = grade
+        subject.student = nil
+
+        expect(subject).not_to be_valid
+        expect(subject.errors[:student_id]).to be_present
+      end
+    end
+
     context 'when contents has no records assigneds' do
       it 'should validate if at leat one record is assigned' do
         TeachingPlan.any_instance.stub(:yearly?).and_return(true)

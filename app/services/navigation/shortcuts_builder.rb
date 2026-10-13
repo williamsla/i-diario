@@ -24,6 +24,7 @@ module Navigation
       nodes.map { |node|
         visible = node['menu']['visible']
         next if visible == 'only-when-aee' && !aee_navigation_context?
+        next if visible == 'hide-when-aee' && aee_navigation_context?
         next unless node['menu']['shortcut']
 
         node_values(node['menu'])

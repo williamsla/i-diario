@@ -1,4 +1,6 @@
 class DisciplineTeachingPlansController < ApplicationController
+  include AeeTeachingPlanSupport
+
   has_scope :page, default: 1
   has_scope :per, default: 10
 
@@ -6,7 +8,7 @@ class DisciplineTeachingPlansController < ApplicationController
   before_action :require_current_teacher, unless: :current_user_is_employee_or_administrator?
   before_action :require_allow_to_modify_prev_years, only: [:create, :update, :destroy]
   before_action :yearly_term_type_id, only: [:show, :edit, :new]
-  before_action :require_current_classroom, only: [:index, :new, :create, :edit, :update]
+  before_action :require_current_classroom, only: [:index, :new, :create, :edit, :update, :student_data]
   before_action :require_allows_copy_experience_fields_in_lesson_plans, only: [:new, :edit]
 
   def index
@@ -35,12 +37,13 @@ class DisciplineTeachingPlansController < ApplicationController
 
     fetch_unities
     set_options_by_user
+    ensure_aee_teaching_plan_detail(@discipline_teaching_plan.teaching_plan)
 
     respond_with @discipline_teaching_plans do |format|
       format.pdf do
-        discipline_teaching_plan_pdf = DisciplineTeachingPlanPdf.build(
-          current_entity_configuration,
-          @discipline_teaching_plan
+        discipline_teaching_plan_pdf = teaching_plan_pdf_for(
+          @discipline_teaching_plan.teaching_plan,
+          DisciplineTeachingPlanPdf.build(current_entity_configuration, @discipline_teaching_plan)
         )
         send_pdf(t("routes.discipline_teaching_plans"), discipline_teaching_plan_pdf.render)
       end
@@ -62,6 +65,7 @@ class DisciplineTeachingPlansController < ApplicationController
     set_options_by_user
     fetch_disciplines_by_grade
     fetch_students_with_disabilities
+    ensure_aee_teaching_plan_detail(@discipline_teaching_plan.teaching_plan)
   end
 
   def create
@@ -91,6 +95,7 @@ class DisciplineTeachingPlansController < ApplicationController
       set_options_by_user
       fetch_disciplines_by_grade
       fetch_students_with_disabilities
+      ensure_aee_teaching_plan_detail(@discipline_teaching_plan.teaching_plan)
 
       render :new
     end
@@ -103,6 +108,7 @@ class DisciplineTeachingPlansController < ApplicationController
     set_options_by_user
     fetch_disciplines_by_grade
     fetch_students_with_disabilities
+    ensure_aee_teaching_plan_detail(@discipline_teaching_plan.teaching_plan)
 
     authorize @discipline_teaching_plan
   end
@@ -135,6 +141,7 @@ class DisciplineTeachingPlansController < ApplicationController
       set_options_by_user
       fetch_disciplines_by_grade
       fetch_students_with_disabilities
+      ensure_aee_teaching_plan_detail(@discipline_teaching_plan.teaching_plan)
 
       render :edit
     end
@@ -291,7 +298,8 @@ class DisciplineTeachingPlansController < ApplicationController
           :id,
           :attachment,
           :_destroy
-        ]
+        ],
+        aee_teaching_plan_detail_attributes: AeeTeachingPlanDetail::NESTED_ATTRIBUTES
       ]
     )
   end
