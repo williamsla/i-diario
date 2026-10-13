@@ -56,7 +56,7 @@ class ExamStepAverageReport < BaseReport
   end
 
   def header
-    exam_header = make_cell(content: 'Avaliações numéricas', size: 12, font_style: :bold, background_color: 'DEDEDE', height: 20, padding: [2, 2, 4, 4], align: :center, colspan: 5)
+    exam_header = make_cell(content: evaluation_sheet_title, size: 12, font_style: :bold, background_color: 'DEDEDE', height: 20, padding: [2, 2, 4, 4], align: :center, colspan: 5)
     begin
       logo_cell = make_cell(image: entity_logo_io, fit: [50, 50], width: 70, rowspan: 4, position: :center, vposition: :center)
     rescue
@@ -378,6 +378,13 @@ class ExamStepAverageReport < BaseReport
       end
   end
 
+  def evaluation_sheet_title
+    return 'Avaliações numéricas' if @students_enrollments.blank?
+
+    conceptual = @students_enrollments.any? { |enrollment| student_uses_conceptual_evaluation?(enrollment.student) }
+    conceptual ? 'Avaliações' : 'Avaliações numéricas'
+  end
+
   def student_uses_conceptual_evaluation?(student)
     @conceptual_evaluation_by_student ||= {}
     return @conceptual_evaluation_by_student[student.id] if @conceptual_evaluation_by_student.key?(student.id)
@@ -388,7 +395,7 @@ class ExamStepAverageReport < BaseReport
              elsif exam_rule.score_type == ScoreTypes::CONCEPT
                true
              elsif exam_rule.score_type == ScoreTypes::NUMERIC_AND_CONCEPT
-               teacher_discipline_classroom&.score_type == ScoreTypes::CONCEPT
+               teacher_score_type_for(student) == ScoreTypes::CONCEPT
              else
                false
              end
@@ -396,11 +403,34 @@ class ExamStepAverageReport < BaseReport
     @conceptual_evaluation_by_student[student.id] = result
   end
 
-  def teacher_discipline_classroom
-    @teacher_discipline_classroom ||= TeacherDisciplineClassroom.find_by(
-      classroom: classroom,
-      discipline: discipline
-    )
+  # Na turma multisseriada o mesmo componente pode ser numérico numa série e
+  # conceitual em outra. O vínculo precisa ser o da série do aluno.
+  def teacher_score_type_for(student)
+    links = teacher_discipline_links
+    return if links.blank?
+
+    grade_id = student_grade_id(student)
+    link = links.find { |item| item.grade_id == grade_id } if grade_id.present?
+    link ||= links.first if links.map(&:grade_id).uniq.one?
+    link&.score_type
+  end
+
+  def teacher_discipline_links
+    @teacher_discipline_links ||= TeacherDisciplineClassroom.where(
+      classroom_id: classroom.id,
+      discipline_id: discipline.id
+    ).to_a
+  end
+
+  def student_grade_id(student)
+    @grade_id_by_student ||= {}
+    return @grade_id_by_student[student.id] if @grade_id_by_student.key?(student.id)
+
+    @grade_id_by_student[student.id] = ClassroomsGrade.by_student_id(student.id)
+                                                      .by_classroom_id(classroom.id)
+                                                      .limit(1)
+                                                      .pluck(:grade_id)
+                                                      .first
   end
 
   def fetch_conceptual_score_from_exam(student, conceptual_exam)

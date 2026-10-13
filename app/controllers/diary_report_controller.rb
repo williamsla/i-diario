@@ -243,7 +243,7 @@ class DiaryReportController < ApplicationController
 
       ### avaliations
       ini = Time.now
-      @disciplines.by_score_type(ScoreTypes::NUMERIC).each do |discipline|
+      evaluation_disciplines.each do |discipline|
         @avaliation_forms = []
 
         if @school_calendar_classroom_steps.any?
@@ -266,7 +266,10 @@ class DiaryReportController < ApplicationController
 
         @avaliation_forms.each do |avaliation_discipline|
           if avaliation_discipline.valid? 
-            exam_record_report = @school_calendar_classroom_steps.any? ? build_by_classroom_steps(avaliation_discipline, discipline) : build_by_school_steps(avaliation_discipline, discipline)
+            students = evaluation_students(discipline, avaliation_discipline)
+            next if students.blank?
+
+            exam_record_report = @school_calendar_classroom_steps.any? ? build_by_classroom_steps(avaliation_discipline, discipline, students) : build_by_school_steps(avaliation_discipline, discipline, students)
             add_pdf_to_merge(pdfTarget, report_name('avaliacao'), exam_record_report.render)
           else
             Rails.logger.error "Ocorreu um erro ao carregar avaliações da disciplina"  
@@ -277,7 +280,7 @@ class DiaryReportController < ApplicationController
       finish = Time.now
       diff = finish - ini
       tempo_total += diff
-      my_logger.info("Tempo de carregamento avaliações numéricas #{diff}")
+      my_logger.info("Tempo de carregamento avaliações #{diff}")
 
       ### avaliações conceituais
       ini = Time.now
@@ -372,8 +375,7 @@ class DiaryReportController < ApplicationController
       )
     end
 
-    def build_by_school_steps(exam_average_report_form, discipline = nil)
-      @students_enrollments ||= exam_average_report_form.students_enrollments
+    def build_by_school_steps(exam_average_report_form, discipline = nil, students = nil)
       ExamStepAverageReport.build(
         current_entity_configuration,
         current_user_unity,
@@ -382,12 +384,11 @@ class DiaryReportController < ApplicationController
         current_user_classroom,
         discipline || Discipline.find(exam_average_report_form.discipline_id),
         exam_average_report_form.steps,
-        @students_enrollments
+        students || exam_average_report_form.students_enrollments
       )
     end
   
-    def build_by_classroom_steps(exam_average_report_form, discipline = nil)
-      @students_enrollments ||= exam_average_report_form.students_enrollments
+    def build_by_classroom_steps(exam_average_report_form, discipline = nil, students = nil)
       ExamStepAverageReport.build(
         current_entity_configuration,
         current_user_unity,
@@ -396,9 +397,113 @@ class DiaryReportController < ApplicationController
         current_user_classroom,
         discipline || Discipline.find(exam_average_report_form.discipline_id),
         exam_average_report_form.classroom_steps,
-        @students_enrollments
+        students || exam_average_report_form.students_enrollments
       )
-    end  
+    end
+
+    def evaluation_disciplines
+      base = @disciplines.to_a
+      base_ids = base.map(&:id)
+      return [] if base_ids.blank?
+
+      numeric_ids = Discipline.where(id: base_ids).by_score_type(ScoreTypes::NUMERIC).pluck('disciplines.id')
+      selected_ids = numeric_ids | conceptual_evaluation_discipline_ids(base_ids)
+      base.select { |discipline| selected_ids.include?(discipline.id) }
+    end
+
+    def conceptual_evaluation_discipline_ids(base_ids)
+      classroom = current_user_classroom
+      links = TeacherDisciplineClassroom.by_classroom(classroom.id)
+                                       .by_teacher_id(current_teacher.id)
+                                       .by_year(classroom.year)
+                                       .to_a
+      links = TeacherDisciplineClassroom.by_classroom(classroom.id).by_teacher_id(current_teacher.id).to_a if links.blank?
+
+      grades = classroom.classrooms_grades.includes(exam_rule: :differentiated_exam_rule).to_a
+      link_ids = links.select { |link|
+        base_ids.include?(link.discipline_id) && conceptual_link_for_grade?(link, grades)
+      }.map(&:discipline_id)
+
+      valued_ids = ConceptualExamValue.joins(:conceptual_exam)
+                                      .where(conceptual_exams: { classroom_id: classroom.id }, deleted_at: nil)
+                                      .distinct
+                                      .pluck(:discipline_id)
+
+      (link_ids | (valued_ids & base_ids)).uniq
+    end
+
+    def conceptual_link_for_grade?(link, grades)
+      grade = grades.find { |item| item.grade_id == link.grade_id }
+      rules = [grade&.exam_rule, grade&.exam_rule&.differentiated_exam_rule].compact
+      return link.score_type == ScoreTypes::CONCEPT if rules.blank?
+
+      rules.any? { |rule|
+        rule.score_type == ScoreTypes::CONCEPT ||
+          (rule.score_type == ScoreTypes::NUMERIC_AND_CONCEPT && link.score_type == ScoreTypes::CONCEPT)
+      }
+    end
+
+    def evaluation_students(discipline, form)
+      @evaluation_students_by_discipline ||= {}
+      return @evaluation_students_by_discipline[discipline.id] if @evaluation_students_by_discipline.key?(discipline.id)
+
+      steps = form.classroom_steps.presence || form.steps
+      list_params = {
+        classroom: current_user_classroom.id,
+        discipline: discipline.id,
+        start_at: steps.first.start_at,
+        end_at: steps.last.end_at,
+        search_type: :by_date_range,
+        show_inactive: false
+      }
+
+      numeric = StudentEnrollmentsList.new(
+        list_params.merge(score_type: StudentEnrollmentScoreTypeFilters::NUMERIC)
+      ).student_enrollments
+      conceptual = StudentEnrollmentsList.new(
+        list_params.merge(score_type: StudentEnrollmentScoreTypeFilters::CONCEPT)
+      ).student_enrollments
+
+      enrollments = (numeric + conceptual).uniq(&:id)
+      @evaluation_students_by_discipline[discipline.id] = enrollments_for_discipline_grades(enrollments, discipline)
+    end
+
+    def enrollments_for_discipline_grades(enrollments, discipline)
+      conceptual_student_ids = ConceptualExam.by_classroom(current_user_classroom.id)
+                                            .joins(:conceptual_exam_values)
+                                            .where(conceptual_exam_values: { discipline_id: discipline.id, deleted_at: nil })
+                                            .pluck(:student_id)
+      if conceptual_student_ids.present?
+        with_concepts = StudentEnrollment.by_classroom(current_user_classroom.id)
+                                         .where(student_id: conceptual_student_ids)
+                                         .active
+                                         .merge(StudentEnrollment.status_attending)
+                                         .to_a
+        enrollments = (enrollments + with_concepts).uniq(&:id)
+      end
+
+      return enrollments if enrollments.blank?
+
+      grade_ids = TeacherDisciplineClassroom.by_classroom(current_user_classroom.id)
+                                           .by_teacher_id(current_teacher.id)
+                                           .by_discipline_id(discipline.id)
+                                           .pluck(:grade_id)
+                                           .compact
+                                           .uniq
+      return enrollments if grade_ids.blank?
+
+      grades_by_student = ClassroomsGrade.by_classroom_id(current_user_classroom.id)
+                                         .by_student_id(enrollments.map(&:student_id))
+                                         .joins(:student_enrollments)
+                                         .pluck('student_enrollments.student_id', :grade_id)
+                                         .to_h
+
+      enrollments.select { |enrollment|
+        grade_ids.include?(grades_by_student[enrollment.student_id]) ||
+          conceptual_student_ids.include?(enrollment.student_id)
+      }
+    end
+
     def set_options_by_user
       @unities = [current_user_unity]
   
