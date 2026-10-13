@@ -1063,15 +1063,14 @@ class DailyFrequenciesController < ApplicationController
       period: nil
     )
 
-    if schedule_ids.present?
-      filtered = disciplines.select { |d| schedule_ids.include?(d.id) }
-      return { disciplines: filtered, message: nil } if filtered.present?
-    end
-
+    scheduled = if schedule_ids.present?
+                  disciplines.select { |discipline| schedule_ids.include?(discipline.id) }
+                else
+                  []
+                end
     make_up_disciplines = disciplines_for_make_up_date(disciplines, classroom, frequency_date)
-    if make_up_disciplines.present?
-      return { disciplines: make_up_disciplines, message: nil }
-    end
+    available_disciplines = merge_scheduled_with_make_up(scheduled, make_up_disciplines)
+    return { disciplines: available_disciplines, message: nil } if available_disciplines.present?
 
     disciplines_without_board = disciplines_without_lessons_board_allocation(disciplines, classroom)
     if disciplines_without_board.present?

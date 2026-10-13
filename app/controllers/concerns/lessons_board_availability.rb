@@ -221,6 +221,12 @@ module LessonsBoardAvailability
     disciplines.select { |discipline| holiday_discipline_ids.include?(discipline.id) }
   end
 
+  # A data da reposição pode cair num dia que já tem aula de outra disciplina.
+  # A lista precisa trazer as duas: a da grade daquele dia e a que está sendo reposta.
+  def merge_scheduled_with_make_up(scheduled, make_up)
+    (Array(scheduled) + Array(make_up)).uniq(&:id)
+  end
+
   def optional_holiday_knowledge_areas_for_make_up_date(knowledge_areas, classroom, date)
     holiday_discipline_ids = optional_holiday_discipline_ids_for_make_up_date(classroom, date)
     return [] if holiday_discipline_ids.blank?
@@ -274,16 +280,14 @@ module LessonsBoardAvailability
       date: record_date,
       discipline_ids: all_disciplines.map(&:id)
     )
-
-    if schedule_ids.present?
-      filtered = all_disciplines.select { |d| schedule_ids.include?(d.id) }
-      return { disciplines: filtered, message: nil } if filtered.present?
-    end
-
+    scheduled = if schedule_ids.present?
+                  all_disciplines.select { |discipline| schedule_ids.include?(discipline.id) }
+                else
+                  []
+                end
     make_up_disciplines = disciplines_for_make_up_date(all_disciplines, classroom, record_date)
-    if make_up_disciplines.present?
-      return { disciplines: make_up_disciplines, message: nil }
-    end
+    available_disciplines = merge_scheduled_with_make_up(scheduled, make_up_disciplines)
+    return { disciplines: available_disciplines, message: nil } if available_disciplines.present?
 
     disciplines_without_board = disciplines_without_lessons_board_allocation(all_disciplines, classroom)
     if disciplines_without_board.present?
@@ -341,13 +345,10 @@ module LessonsBoardAvailability
       classroom: classroom,
       date: record_date
     )
-    if matched_knowledge_areas.present?
-      return { knowledge_areas: matched_knowledge_areas, message: nil }
-    end
-
     make_up_knowledge_areas = knowledge_areas_for_make_up_date(knowledge_areas, classroom, record_date)
-    if make_up_knowledge_areas.present?
-      return { knowledge_areas: make_up_knowledge_areas, message: nil }
+    available_knowledge_areas = merge_scheduled_with_make_up(matched_knowledge_areas, make_up_knowledge_areas)
+    if available_knowledge_areas.present?
+      return { knowledge_areas: available_knowledge_areas, message: nil }
     end
 
     teacher_discipline_ids = teacher_discipline_ids_for_classroom(classroom)
