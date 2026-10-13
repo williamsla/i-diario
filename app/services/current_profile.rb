@@ -10,7 +10,7 @@ class CurrentProfile
   attr_accessor :user, :user_role, :unity, :school_year, :classroom, :teacher, :discipline
 
   def initialize(user, options = {})
-    options = options.with_indifferent_access
+    options = indifferent_options(options)
 
     self.user = user
     self.school_year = options[:by_school_year] || options[:school_year] || user.current_school_year
@@ -94,7 +94,10 @@ class CurrentProfile
   end
 
   def teachers_as_json
-    teachers.map { |teacher_record| teacher_json_with_left_status(teacher_record) }
+    teachers
+      .map { |teacher_record| teacher_json_with_left_status(teacher_record) }
+      .partition { |teacher| !teacher[:inactive] }
+      .flatten
   end
 
   def teachers
@@ -186,18 +189,27 @@ class CurrentProfile
 
   private
 
+  def indifferent_options(options)
+    hash = if options.respond_to?(:to_unsafe_h)
+             options.to_unsafe_h
+           else
+             options.to_h
+           end
+
+    hash.with_indifferent_access
+  end
+
   def teacher_json_with_left_status(teacher_record)
     name = teacher_record.name.to_s
     left_at = TeacherDisciplineClassroom.left_at_for(
       teacher_id: teacher_record.id,
       classroom_id: classroom&.id
     )
+    inactive = left_at.present? && left_at <= Date.current
 
-    if left_at.present? && left_at <= Date.current
-      name = "#{name} (saiu em #{I18n.l(left_at.to_date)})"
-    end
+    name = "#{name} (saiu em #{I18n.l(left_at.to_date)})" if inactive
 
-    { id: teacher_record.id, name: name }
+    { id: teacher_record.id, name: name, inactive: inactive }
   end
 
   def initial_value(options, model)

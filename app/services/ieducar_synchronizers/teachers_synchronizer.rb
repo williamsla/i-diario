@@ -30,7 +30,7 @@ class TeachersSynchronizer < BaseSynchronizer
       Teacher.with_discarded.find_or_initialize_by(api_code: teacher_record.servidor_id).tap do |teacher|
         
         teacher.name = teacher_record.nome
-        teacher.active = teacher_record.ativo.to_s == IeducarBooleanState::ACTIVE
+        teacher.active = active_in_ieducar?(teacher_record)
         teacher.save! if teacher.changed?
         
         if CPF.valid?(teacher_record.cpf)
@@ -58,6 +58,14 @@ class TeachersSynchronizer < BaseSynchronizer
 
       end
     end
+  end
+
+  # Servidor ativo no cadastro, mas com afastamento em vigor, fica inativo aqui
+  # para o usuário correspondente ser gravado como pendente.
+  def active_in_ieducar?(teacher_record)
+    return false if teacher_record.afastamento_ativo.to_s == IeducarBooleanState::ACTIVE
+
+    teacher_record.ativo.to_s == IeducarBooleanState::ACTIVE
   end
 
   def create_users(teacher_id, cpf, school_id, function_name)

@@ -9,6 +9,7 @@ pt-BR:
       by_school_term_type: "Filtrar tipo de período escolar"
     form:
       additional_information: "Informações adicionais"
+      unificado_hint: "Planos unificados aparecem automaticamente para todas as escolas, sem necessidade de cópia."
     fields:
       add_attachment: "Adicionar anexo"
     infos:

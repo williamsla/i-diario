@@ -1,7 +1,7 @@
 module Navigation
   class ShortcutRender < Navigation::Render::Base
     def render(menus)
-      menus = menus.select { |menu| can_show? menu['type'] }
+      menus = menus.select { |menu| can_show?(menu['type'] || menu[:type]) }
 
       raw menus.map { |menu| render_menu(menu.with_indifferent_access) }.join(' ')
     end
@@ -19,7 +19,7 @@ module Navigation
 
           text = content_tag(:i, '', class: icon_classes)
           label_class = menu[:shortcut_highlight] ? 'shortcut-label shortcut-label--highlight' : ''
-          text + content_tag(:span, menu_text(menu[:type]), class: label_class)
+          text + content_tag(:span, shortcut_text(menu), class: label_class)
         end
       end
     end

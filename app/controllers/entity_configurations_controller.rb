@@ -36,7 +36,7 @@ class EntityConfigurationsController < ApplicationController
 
   def permitted_attributes
     params.require(:entity_configuration).permit(
-      :entity_name, :cnpj,:organ_name,:phone,:website,:email,:logo,
+      :entity_name, :cnpj, :organ_name, :phone, :website, :email, :logo, :ibge_code,
       :address_attributes => [
         :id, :zip_code, :street, :number, :complement, :neighborhood, :city,
         :state, :country, :latitude, :longitude, :_destroy

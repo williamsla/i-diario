@@ -22,7 +22,6 @@ class RecordAuditTrailDiagnostic
       results: results,
       neighbors: neighbors,
       calendar: calendar,
-      phrase: phrase,
       stats: stats,
       allocation: allocation
     }
@@ -211,20 +210,6 @@ class RecordAuditTrailDiagnostic
 
   def pending_dates(key)
     pending_records.flat_map { |row| Array(row[key]) }.map(&:to_date).uniq.sort
-  end
-
-  def phrase
-    RecordAuditTrailPhrase.new(
-      results: results,
-      neighbors: neighbors,
-      stats: stats,
-      pending_frequency_dates: pending_dates(:pending_frequency_dates),
-      pending_content_dates: pending_dates(:pending_content_dates),
-      record_types: @record_types,
-      start_date: @start_date,
-      end_date: @end_date,
-      allocation: allocation
-    ).call
   end
 
   def allocation

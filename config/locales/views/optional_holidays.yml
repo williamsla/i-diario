@@ -1,0 +1,34 @@
+pt-BR:
+  optional_holidays:
+    makeup_label: "reposição"
+  views:
+    optional_holidays:
+      index:
+        title: "Pontos facultativos"
+        no_records: "Nenhum ponto facultativo cadastrado."
+        make_up_date_pending: "Data de reposição pendente"
+        new_html: "<i class='fa fa-plus'></i> Novo ponto facultativo"
+        by_description: "Filtrar descrição"
+      new:
+        title: "Cadastrar ponto facultativo"
+      edit:
+        title: "Editar ponto facultativo"
+        action: "Editar"
+        school_makeup_title: "Informar data de reposição da escola"
+        school_makeup_action: "Informar data de reposição da escola"
+        school_makeup_submit: "Informar data de reposição da escola"
+        school_makeup_hint: "A SEMED cadastrou este ponto facultativo. A escola não altera o cadastro: apenas informa a data de reposição da própria unidade."
+        school_makeup_update_title: "Atualizar data de reposição"
+        school_makeup_update_action: "Atualizar data de reposição"
+        school_makeup_update_submit: "Atualizar data de reposição"
+        school_makeup_update_hint: "A SEMED cadastrou este ponto facultativo. A escola não altera o cadastro: apenas atualiza a data de reposição da própria unidade."
+        school_make_up_date_hint: "Obrigatória. Se a reposição for em sábado, o quadro usado será o do dia da semana do ponto facultativo."
+      show:
+        title: "Ponto facultativo"
+        school_make_up_date: "Data de reposição desta escola"
+        unity_makeups: "Reposições informadas pelas escolas"
+        no_unity_makeups: "Nenhuma escola informou a data de reposição."
+      form:
+        municipal_makeup_hint: "A data vale para todas as escolas da rede."
+        by_school_makeup_hint: "Cada escola informa a própria data de reposição após o cadastro."
+      destroy_confirm: "Tem certeza que deseja excluir este ponto facultativo? Os eventos correspondentes no calendário letivo também serão removidos."

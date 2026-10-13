@@ -9,6 +9,7 @@ pt-BR:
         class_numbers: "Aulas"
         unity_id: "Escola"
         author: "Autor"
+        student_id: "Aluno"
 
     errors:
       models:

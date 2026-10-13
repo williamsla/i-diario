@@ -208,6 +208,7 @@ class User < ApplicationRecord
   end
 
   def can_show?(feature)
+    feature = feature.to_s
     if feature == "general_configurations"
       return admin?
     end
@@ -218,6 +219,7 @@ class User < ApplicationRecord
   end
 
   def can_change?(feature)
+    feature = feature.to_s
     if feature == "general_configurations"
       return admin?
     end
@@ -225,6 +227,10 @@ class User < ApplicationRecord
     return unless current_user_role
 
     current_user_role.role.can_change?(feature)
+  end
+
+  def posting_without_date_restrictions?
+    current_user_role&.role&.can_change?(Features::IEDUCAR_API_EXAM_POSTING_WITHOUT_RESTRICTIONS)
   end
 
   def update_tracked_fields!(request)

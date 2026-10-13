@@ -29,6 +29,10 @@
       <div class="row">
         <div class="col col-sm-4">
           <%= content_record.input :record_date, as: :date, readonly: true %>
+          <%= optional_holiday_makeup_badge(
+                @knowledge_area_content_record.content_record.classroom,
+                @knowledge_area_content_record.content_record.record_date
+              ) %>
         </div>
         <div class="col col-sm-4">
           <% if f.object.decorator.show_experience_fields %>

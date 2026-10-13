@@ -90,7 +90,8 @@ class FeaturesAccessLevels
       :roles,
       :unities,
       :terms_dictionaries,
-      :translations
+      :translations,
+      :school_calendar_posting_dates
     ]
   end
 end

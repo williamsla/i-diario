@@ -1,10 +1,11 @@
 class PedagogicalTrackingTagCloudFetcher
   DEFAULT_LIMIT = 40
 
-  def initialize(grade_id:, discipline_id:, year:, unity_id: nil, unity_ids: nil, step_number: nil,
-                 start_date: nil, end_date: nil, limit: DEFAULT_LIMIT)
+  def initialize(grade_id:, year:, discipline_id: nil, knowledge_area_id: nil, unity_id: nil, unity_ids: nil,
+                 step_number: nil, start_date: nil, end_date: nil, limit: DEFAULT_LIMIT)
     @grade_id = grade_id
     @discipline_id = discipline_id
+    @knowledge_area_id = knowledge_area_id
     @year = year
     @unity_id = unity_id
     @unity_ids = Array(unity_ids).presence
@@ -15,6 +16,8 @@ class PedagogicalTrackingTagCloudFetcher
   end
 
   def fetch
+    return { contents: [], objectives: [] } if @discipline_id.blank? && @knowledge_area_id.blank?
+
     {
       contents: tags_for(ContentRecordsContent, :content, Content.table_name),
       objectives: tags_for(ObjectivesContentRecord, :objective, Objective.table_name)
@@ -27,11 +30,11 @@ class PedagogicalTrackingTagCloudFetcher
     normalized_description = normalized_description_sql(table_name)
     records = join_model
       .joins(association)
-      .joins(content_record: [:discipline_content_record, { classroom: :classrooms_grades }])
-      .where(discipline_content_records: { discipline_id: @discipline_id })
+      .joins(content_record: [subject_association, { classroom: :classrooms_grades }])
       .where(classrooms_grades: { grade_id: @grade_id })
       .where(classrooms: { year: @year })
 
+    records = apply_subject_filter(records)
     records = apply_unity_filter(records)
     records = records.where('content_records.record_date >= ?', @start_date) if @start_date.present?
     records = records.where('content_records.record_date <= ?', @end_date) if @end_date.present?
@@ -47,6 +50,30 @@ class PedagogicalTrackingTagCloudFetcher
       )
 
     add_weights(rows)
+  end
+
+  def subject_association
+    if knowledge_area_filter?
+      :knowledge_area_content_record
+    else
+      :discipline_content_record
+    end
+  end
+
+  def apply_subject_filter(records)
+    if knowledge_area_filter?
+      records.where(
+        content_records: {
+          id: KnowledgeAreaContentRecord.by_knowledge_area_id(@knowledge_area_id).select(:content_record_id)
+        }
+      )
+    else
+      records.where(discipline_content_records: { discipline_id: @discipline_id })
+    end
+  end
+
+  def knowledge_area_filter?
+    @knowledge_area_id.present?
   end
 
   def apply_unity_filter(records)

@@ -39,6 +39,15 @@ RSpec.describe PostingDateChecker, type: :service do
     end
 
     it { expect(subject.check).to be(true) }
+
+    context 'step posting has not started' do
+      before do
+        step.update_attribute(:start_date_for_posting, Date.current + 1)
+        step.update_attribute(:end_date_for_posting, Date.current + 30)
+      end
+
+      it { expect(subject.check).to be(false) }
+    end
   end
 
   context 'current user isnt admin' do
@@ -56,9 +65,57 @@ RSpec.describe PostingDateChecker, type: :service do
 
         permission.permission = Permissions::CHANGE
         permission.save!
+        classroom.calendar.school_calendar.update_column(:opened_year, true)
       end
 
       it { expect(subject.check).to be(true) }
+
+      context 'school year is closed' do
+        before do
+          classroom.calendar.school_calendar.update_column(:opened_year, false)
+        end
+
+        it { expect(subject.check).to be(false) }
+
+        it 'explains that the school year is closed' do
+          subject.check
+
+          expect(subject.not_allowed_message).to include('ano letivo está fechado')
+        end
+      end
+    end
+
+    context 'step posting has not started' do
+      before do
+        step.update_attribute(:start_date_for_posting, Date.current + 1)
+        step.update_attribute(:end_date_for_posting, Date.current + 30)
+      end
+
+      it { expect(subject.check).to be(false) }
+
+      context 'with permission to post without restrictions' do
+        before do
+          permission = User.current
+            .current_user_role
+            .role
+            .permissions
+            .find_or_initialize_by(feature: Features::IEDUCAR_API_EXAM_POSTING_WITHOUT_RESTRICTIONS)
+
+          permission.permission = Permissions::CHANGE
+          permission.save!
+          classroom.calendar.school_calendar.update_column(:opened_year, true)
+        end
+
+        it { expect(subject.check).to be(true) }
+
+        context 'school year is closed' do
+          before do
+            classroom.calendar.school_calendar.update_column(:opened_year, false)
+          end
+
+          it { expect(subject.check).to be(false) }
+        end
+      end
     end
 
     context 'permission isnt setted to post without restricitons' do
@@ -125,6 +182,15 @@ RSpec.describe PostingDateChecker, type: :service do
           it { expect(subject.check).to be(true) }
         end
       end
+    end
+  end
+
+  describe '#not_allowed_message' do
+    it 'includes the posting period of the step' do
+      message = subject.not_allowed_message
+
+      expect(message).to include(I18n.l(step.start_date_for_posting))
+      expect(message).to include(I18n.l(step.end_date_for_posting))
     end
   end
 end

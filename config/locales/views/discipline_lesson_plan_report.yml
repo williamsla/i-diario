@@ -1,0 +1,4 @@
+pt-BR:
+  discipline_lesson_plan_report:
+    form:
+      student_hint: 'Deixe em branco para imprimir todos os registros da turma. Selecione um aluno para imprimir apenas os conteúdos individuais.'

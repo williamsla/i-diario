@@ -1,0 +1,53 @@
+.school-calendar-posting-dates-form fieldset {
+  padding: 15px 20px 10px;
+}
+
+.school-calendar-posting-dates-form .checkbox {
+  margin-bottom: 12px;
+}
+
+.school-calendar-posting-dates-table {
+  width: 100%;
+  table-layout: auto;
+}
+
+.school-calendar-posting-dates-table th,
+.school-calendar-posting-dates-table td {
+  vertical-align: middle !important;
+  white-space: normal;
+}
+
+.school-calendar-posting-dates-table .posting-step-cell {
+  min-width: 180px;
+  font-weight: 600;
+}
+
+.school-calendar-posting-dates-table .posting-date-cell {
+  width: 200px;
+  min-width: 180px;
+}
+
+.school-calendar-posting-dates-table .posting-current-date {
+  display: block;
+  color: #555;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.school-calendar-posting-dates-table .posting-date-cell .icon-addon {
+  max-width: 150px;
+}
+
+.school-calendar-posting-dates-table .posting-date-cell .datepicker {
+  width: 120px;
+  min-width: 120px;
+}
+
+.school-calendar-posting-dates-table .posting-reach-cell {
+  min-width: 160px;
+}
+
+.school-calendar-posting-dates-table .posting-reach-cell span {
+  display: block;
+  line-height: 1.4;
+}

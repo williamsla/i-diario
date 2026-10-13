@@ -6,7 +6,10 @@
   <% else %>
     <% @discipline_content_records.each do |discipline_content_record| %>
       <tr>
-        <td class="record_date"><%= l(discipline_content_record.content_record.record_date) %></td>
+        <td class="record_date">
+          <span class="record-date-value"><%= l(discipline_content_record.content_record.record_date) %></span>
+          <%= optional_holiday_makeup_badge(discipline_content_record.content_record.classroom, discipline_content_record.content_record.record_date) %>
+        </td>
         <td><%= discipline_content_record.content_record.student %></td>
         <td class="contents"><%= discipline_content_record.content_record.contents_ordered.map(&:to_s).join(', ') %></td>
         <td class="objectives"><%= discipline_content_record.content_record.objectives_ordered.map(&:to_s).join(', ') %></td>

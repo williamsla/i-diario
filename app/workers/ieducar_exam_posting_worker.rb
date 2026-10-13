@@ -29,6 +29,7 @@ class IeducarExamPostingWorker
 
       case posting.post_type
       when ApiPostingTypes::NUMERICAL_EXAM, ApiPostingTypes::SCHOOL_TERM_RECOVERY
+        PendingRecordsFinalRecoverySummary.expire_for_posting!(posting)
         ExamPoster::NumericalExamPoster.post!(posting, entity_id, posting_last, force_posting)
       when ApiPostingTypes::CONCEPTUAL_EXAM
         queue = SmartEnqueuer.new(EXAM_POSTING_QUEUES).less_used_queue
@@ -39,6 +40,7 @@ class IeducarExamPostingWorker
       when ApiPostingTypes::ABSENCE
         ExamPoster::AbsencePoster.post!(posting, entity_id, posting_last, force_posting)
       when ApiPostingTypes::FINAL_RECOVERY
+        PendingRecordsFinalRecoverySummary.expire_for_posting!(posting)
         ExamPoster::FinalRecoveryPoster.post!(posting, entity_id, posting_last, force_posting)
       end
     end

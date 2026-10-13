@@ -74,7 +74,7 @@ class ObservationDiaryRecord < ApplicationRecord
     @valid_for_destruction = begin
       self.validation_type = :destroy
       valid?
-      !errors[:date].include?(I18n.t('errors.messages.not_allowed_to_post_in_date'))
+      !PostingDateChecker.not_allowed_error?(errors[:date])
     end
   end
 end

@@ -182,6 +182,83 @@ RSpec.describe CopyDisciplineTeachingPlanService, type: :service do
       end
     end
 
+    context 'when copying to another grade of the same unity' do
+      let!(:other_grade) do
+        other_classroom = create(:classroom, unity: unity, year: classroom.year)
+        other_classroom_grades = create(:classrooms_grade, classroom: other_classroom)
+        other_classroom_grades.grade
+      end
+
+      subject(:copy_discipline_teaching_plan) {
+        CopyDisciplineTeachingPlanService.call(
+          discipline_teaching_plan.id,
+          classroom.year,
+          [unity.id],
+          [other_grade.id],
+          created_by_administrator: true
+        )
+      }
+
+      it 'creates an unificado copy for the other grade' do
+        expect(copy_discipline_teaching_plan.count).to eq(1)
+        copied = copy_discipline_teaching_plan.first.teaching_plan
+        expect(copied.grade_id).to eq(other_grade.id)
+        expect(copied.unity_id).to eq(unity.id)
+        expect(copied[:teacher_id]).to be_nil
+        expect(copied[:unificado]).to eq(true)
+      end
+
+      it 'copies when the destination already has an unificado plan with another thematic unit' do
+        discipline_teaching_plan.update!(thematic_unit: 'Unidade A')
+        other_plan = create(
+          :teaching_plan,
+          teacher: nil,
+          unificado: true,
+          unity: unity,
+          year: classroom.year,
+          grade: other_grade,
+          school_term_type: school_term_type,
+          school_term_type_step: school_term_type_step
+        )
+        create(
+          :discipline_teaching_plan,
+          discipline: discipline,
+          teaching_plan: other_plan,
+          thematic_unit: 'Unidade B'
+        )
+
+        copied_plans = CopyDisciplineTeachingPlanService.call(
+          discipline_teaching_plan.id,
+          classroom.year,
+          [unity.id],
+          [other_grade.id],
+          created_by_administrator: true
+        )
+
+        expect(copied_plans.count).to eq(1)
+        expect(copied_plans.first.thematic_unit).to eq('Unidade A')
+      end
+
+      it 'uses the school classroom grade when the selected grade is a duplicate description' do
+        duplicate_grade = create(
+          :grade,
+          course: other_grade.course,
+          description: other_grade.description
+        )
+
+        copied_plans = CopyDisciplineTeachingPlanService.call(
+          discipline_teaching_plan.id,
+          classroom.year,
+          [unity.id],
+          [duplicate_grade.id],
+          created_by_administrator: true
+        )
+
+        expect(copied_plans.count).to eq(1)
+        expect(copied_plans.first.teaching_plan.grade_id).to eq(other_grade.id)
+      end
+    end
+
     context 'when an unificado plan already exists in the destination' do
       subject(:copy_discipline_teaching_plan) {
         CopyDisciplineTeachingPlanService.call(

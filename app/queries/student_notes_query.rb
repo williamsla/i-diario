@@ -25,18 +25,8 @@ class StudentNotesQuery
   end
 
   def daily_note_students
-    notes = batched_daily_note_students[student.id] || []
-    enrollment = student_enrollment_classroom
-    range_start = start_at(enrollment)
-    range_end = end_at(enrollment)
-
-    notes.select do |note|
-      test_date = note.daily_note.try(:avaliation).try(:test_date)
-      next false if test_date.blank?
-
-      test_date = test_date.to_date
-      test_date >= range_start && test_date <= range_end
-    end
+    # Inclui nota lançada mesmo se o aluno chegou no meio ou depois da etapa.
+    batched_daily_note_students[student.id] || []
   end
 
   def previous_enrollments_daily_note_students

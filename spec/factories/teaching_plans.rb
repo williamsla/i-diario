@@ -30,6 +30,10 @@ FactoryGirl.define do
       discipline nil
     end
 
+    trait :unificado do
+      unificado true
+    end
+
     trait :yearly do
       school_term_type nil
       school_term_type_step nil

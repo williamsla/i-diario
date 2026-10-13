@@ -34,7 +34,8 @@ class MonthlyAbsenceByStudentReportController < ApplicationController
       :months,
       :grade_id,
       :classroom_id,
-      :sort_by
+      :sort_by,
+      :include_without_absences
     )
   end
 

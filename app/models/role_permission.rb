@@ -8,12 +8,12 @@ class RolePermission < ApplicationRecord
   belongs_to :role, touch: true
 
   def self.can_show?(feature)
-    where(arel_table[:feature].eq(feature)).
+    where(arel_table[:feature].eq(feature.to_s)).
       where(arel_table[:permission].in([Permissions::CHANGE, Permissions::READ])).exists?
   end
 
   def self.can_change?(feature)
-    where(arel_table[:feature].eq(feature)).
+    where(arel_table[:feature].eq(feature.to_s)).
       where(arel_table[:permission].eq(Permissions::CHANGE)).exists?
   end
 

@@ -7,6 +7,7 @@ module BootstrapFlashHelper
     flash.each do |type, message|
       # Skip empty messages, e.g. for devise messages set to nothing in a locale file.
       next if message.blank?
+      next if message == t('devise.failure.unauthenticated')
 
       type = type.to_sym
       type = :success if type == :notice

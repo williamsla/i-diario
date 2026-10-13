@@ -146,32 +146,93 @@ module LessonsBoardAvailability
   end
 
   def teacher_has_make_up_on_date?(classroom:, date:)
-    teacher_make_up_absences_on_date(classroom: classroom, date: date).exists?
+    teacher_make_up_absences_on_date(classroom: classroom, date: date).exists? ||
+      optional_holiday_make_up_on_date?(classroom: classroom, date: date)
+  end
+
+  def optional_holiday_make_up_on_date?(classroom:, date:, period: nil)
+    OptionalHoliday.make_up_on_date?(
+      classroom: classroom,
+      date: date,
+      period: period,
+      unity_id: classroom.unity_id
+    )
+  end
+
+  def optional_holiday_blocks_frequency?(classroom:, date:, period: nil)
+    OptionalHoliday.blocks_frequency?(
+      classroom: classroom,
+      date: date,
+      period: period,
+      unity_id: classroom.try(:unity_id)
+    )
   end
 
   def disciplines_for_make_up_date(disciplines, classroom, date)
     absences = teacher_make_up_absences_on_date(classroom: classroom, date: date).to_a
-    return [] if absences.blank?
+    if absences.present?
+      specific_discipline_ids = absences.map(&:discipline_id).compact.uniq
+      if specific_discipline_ids.present?
+        return disciplines.select { |discipline| specific_discipline_ids.include?(discipline.id) }
+      end
 
-    specific_discipline_ids = absences.map(&:discipline_id).compact.uniq
-    if specific_discipline_ids.present?
-      disciplines.select { |discipline| specific_discipline_ids.include?(discipline.id) }
-    else
-      disciplines
+      return disciplines
     end
+
+    return optional_holiday_disciplines_for_make_up_date(disciplines, classroom, date)
   end
 
   def knowledge_areas_for_make_up_date(knowledge_areas, classroom, date)
     absences = teacher_make_up_absences_on_date(classroom: classroom, date: date).to_a
-    return [] if absences.blank?
-
-    specific_discipline_ids = absences.map(&:discipline_id).compact.uniq
-    if specific_discipline_ids.present?
-      knowledge_areas.select do |knowledge_area|
-        knowledge_area.disciplines.any? { |discipline| specific_discipline_ids.include?(discipline.id) }
+    if absences.present?
+      specific_discipline_ids = absences.map(&:discipline_id).compact.uniq
+      if specific_discipline_ids.present?
+        return knowledge_areas.select do |knowledge_area|
+          knowledge_area.disciplines.any? { |discipline| specific_discipline_ids.include?(discipline.id) }
+        end
       end
-    else
-      knowledge_areas
+
+      return knowledge_areas
+    end
+
+    return optional_holiday_knowledge_areas_for_make_up_date(knowledge_areas, classroom, date)
+  end
+
+  def optional_holiday_discipline_ids_for_make_up_date(classroom, date)
+    holidays = OptionalHoliday.make_up_holidays_on_date(
+      classroom: classroom,
+      date: date,
+      unity_id: classroom.unity_id
+    )
+    return [] if holidays.blank?
+
+    holidays.flat_map do |holiday|
+      schedule_discipline_ids_for_classroom_weekday(
+        classroom_id: classroom.id,
+        date: holiday.holiday_date
+      )
+    end.uniq
+  end
+
+  def optional_holiday_disciplines_for_make_up_date(disciplines, classroom, date)
+    holiday_discipline_ids = optional_holiday_discipline_ids_for_make_up_date(classroom, date)
+    return [] if holiday_discipline_ids.blank?
+
+    disciplines.select { |discipline| holiday_discipline_ids.include?(discipline.id) }
+  end
+
+  # A data da reposição pode cair num dia que já tem aula de outra disciplina.
+  # A lista precisa trazer as duas: a da grade daquele dia e a que está sendo reposta.
+  def merge_scheduled_with_make_up(scheduled, make_up)
+    (Array(scheduled) + Array(make_up)).uniq(&:id)
+  end
+
+  def optional_holiday_knowledge_areas_for_make_up_date(knowledge_areas, classroom, date)
+    holiday_discipline_ids = optional_holiday_discipline_ids_for_make_up_date(classroom, date)
+    return [] if holiday_discipline_ids.blank?
+
+    knowledge_areas.select do |knowledge_area|
+      knowledge_area.disciplines.any? { |discipline| holiday_discipline_ids.include?(discipline.id) }
     end
   end
 
@@ -219,16 +280,14 @@ module LessonsBoardAvailability
       date: record_date,
       discipline_ids: all_disciplines.map(&:id)
     )
-
-    if schedule_ids.present?
-      filtered = all_disciplines.select { |d| schedule_ids.include?(d.id) }
-      return { disciplines: filtered, message: nil } if filtered.present?
-    end
-
+    scheduled = if schedule_ids.present?
+                  all_disciplines.select { |discipline| schedule_ids.include?(discipline.id) }
+                else
+                  []
+                end
     make_up_disciplines = disciplines_for_make_up_date(all_disciplines, classroom, record_date)
-    if make_up_disciplines.present?
-      return { disciplines: make_up_disciplines, message: nil }
-    end
+    available_disciplines = merge_scheduled_with_make_up(scheduled, make_up_disciplines)
+    return { disciplines: available_disciplines, message: nil } if available_disciplines.present?
 
     disciplines_without_board = disciplines_without_lessons_board_allocation(all_disciplines, classroom)
     if disciplines_without_board.present?
@@ -286,13 +345,10 @@ module LessonsBoardAvailability
       classroom: classroom,
       date: record_date
     )
-    if matched_knowledge_areas.present?
-      return { knowledge_areas: matched_knowledge_areas, message: nil }
-    end
-
     make_up_knowledge_areas = knowledge_areas_for_make_up_date(knowledge_areas, classroom, record_date)
-    if make_up_knowledge_areas.present?
-      return { knowledge_areas: make_up_knowledge_areas, message: nil }
+    available_knowledge_areas = merge_scheduled_with_make_up(matched_knowledge_areas, make_up_knowledge_areas)
+    if available_knowledge_areas.present?
+      return { knowledge_areas: available_knowledge_areas, message: nil }
     end
 
     teacher_discipline_ids = teacher_discipline_ids_for_classroom(classroom)

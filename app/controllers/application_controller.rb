@@ -69,6 +69,8 @@ class ApplicationController < ActionController::Base
   helper_method :current_user_school_year
   helper_method :current_school_year
   helper_method :can_change_school_year?
+  helper_method :can_launch_in_step?
+  helper_method :step_launch_blocked_title
 
   def page
     params[:page] || 1
@@ -285,6 +287,21 @@ class ApplicationController < ActionController::Base
   end
   helper_method :content_record_by_student_enabled?
 
+  def students_for_individual_contents(classroom_id)
+    classroom = Classroom.find_by(id: classroom_id)
+    return Student.none if classroom.blank?
+
+    student_enrollments = StudentEnrollmentsList.new(
+      classroom: classroom,
+      discipline: current_user_discipline,
+      search_type: :by_year
+    ).student_enrollments
+
+    students = Student.where(id: student_enrollments.map(&:student_id))
+    students = students.where(uses_differentiated_exam_rule: true) unless classroom.aee?
+    students.ordered
+  end
+
   def show_aee_area_label?
     is_aee && GeneralConfiguration.current.show_aee_area_label_in_knowledge_area_content_record
   end
@@ -404,6 +421,38 @@ class ApplicationController < ActionController::Base
 
     flash[:alert] = t('errors.general.not_allowed_to_modify_prev_years')
     redirect_to root_path
+  end
+
+  def can_launch_in_step?(step)
+    return false if step.blank?
+    return false if unrestricted_posting_on_closed_year?
+    return true if current_user&.posting_without_date_restrictions?
+
+    step.posting_started?
+  end
+
+  def step_launch_blocked_title(step, i18n_key)
+    return t('errors.messages.school_year_closed') if unrestricted_posting_on_closed_year?
+
+    t(i18n_key, date: l(step.start_date_for_posting))
+  end
+
+  def redirect_unless_can_launch_in_step!(step, fallback_path)
+    return if step.blank? || can_launch_in_step?(step)
+
+    flash[:alert] = if unrestricted_posting_on_closed_year?
+                      t('errors.messages.school_year_closed')
+                    else
+                      t(
+                        'errors.messages.step_posting_not_started',
+                        date: l(step.start_date_for_posting)
+                      )
+                    end
+    redirect_to fallback_path
+  end
+
+  def unrestricted_posting_on_closed_year?
+    current_user&.posting_without_date_restrictions? && !current_school_calendar&.opened_year?
   end
 
   def allowed_to_modify_after_steps_ended?

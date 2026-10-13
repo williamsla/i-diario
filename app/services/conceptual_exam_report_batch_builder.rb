@@ -37,12 +37,19 @@ class ConceptualExamReportBatchBuilder
   end
 
   def self.classroom_has_conceptual_score_type?(classroom)
-    classroom.classrooms_grades.any? do |classrooms_grade|
-      exam_rule = classrooms_grade.exam_rule
-      next false if exam_rule.blank?
+    return true if classroom.classrooms_grades.any? { |classrooms_grade|
+      conceptual_rule?(classrooms_grade.exam_rule) ||
+        conceptual_rule?(classrooms_grade.exam_rule&.differentiated_exam_rule)
+    }
 
-      [ScoreTypes::CONCEPT, ScoreTypes::NUMERIC_AND_CONCEPT].include?(exam_rule.score_type)
-    end
+    TeacherDisciplineClassroom.by_classroom(classroom.id).by_score_type(ScoreTypes::CONCEPT).exists? ||
+      ConceptualExam.by_classroom(classroom.id).exists?
+  end
+
+  def self.conceptual_rule?(exam_rule)
+    return false if exam_rule.blank?
+
+    [ScoreTypes::CONCEPT, ScoreTypes::NUMERIC_AND_CONCEPT].include?(exam_rule.score_type)
   end
 
   private
@@ -54,8 +61,11 @@ class ConceptualExamReportBatchBuilder
   end
 
   def steps_in_range
-    StepsFetcher.new(classroom)
-      .steps_by_date_range(start_at, end_at)
-      .ordered
+    fetcher = StepsFetcher.new(classroom)
+    ranged = fetcher.steps_by_date_range(start_at, end_at)
+    ranged = ranged.ordered if ranged.respond_to?(:ordered)
+    return ranged if ranged.present?
+
+    fetcher.steps
   end
 end

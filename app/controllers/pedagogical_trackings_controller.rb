@@ -104,12 +104,27 @@ class PedagogicalTrackingsController < ApplicationController
       subquery_sem_parecer = "SELECT ''"
     end
 
+    own_records = resume_own_records?
+    frequency_teacher_sql = own_records ? 'and df.owner_teacher_id = t.id' : ''
+    lesson_plan_teacher_sql = own_records ? 'and lp.teacher_id = t.id' : ''
+    content_teacher_sql = own_records ? 'and cr.teacher_id = t.id' : ''
+
     if has_lesson_plan
       subquery_lesson_plan = "select count(lp.id) as qtd
 					from public.lesson_plans lp
-					left join public.discipline_lesson_plans dlp on dlp.lesson_plan_id = lp.id 	
-					left join public.knowledge_area_lesson_plans kalp on kalp.lesson_plan_id = lp.id 	
-					where lp.classroom_id = c.id and (case when dlp.id is not null then dlp.discipline_id = d.id else true end)"
+					left join public.discipline_lesson_plans dlp on dlp.lesson_plan_id = lp.id
+					left join public.knowledge_area_lesson_plans kalp on kalp.lesson_plan_id = lp.id
+					where lp.classroom_id = c.id
+          #{lesson_plan_teacher_sql}
+          and (
+            dlp.discipline_id = d.id
+            or exists (
+              select 1
+              from public.knowledge_area_lesson_plan_knowledge_areas kalpka
+              where kalpka.knowledge_area_lesson_plan_id = kalp.id
+                and kalpka.knowledge_area_id = d.knowledge_area_id
+            )
+          )"
     else
       subquery_lesson_plan = "SELECT ''"
     end
@@ -125,28 +140,28 @@ class PedagogicalTrackingsController < ApplicationController
 			(
           select count(df.id) 
           from public.daily_frequencies df, step_by_classroom(c.id, df.frequency_date) as step
-          where df.classroom_id = c.id and df.owner_teacher_id = t.id 
+          where df.classroom_id = c.id #{frequency_teacher_sql}
           and (case when df.discipline_id is not null then df.discipline_id = d.id else true end)
           and step.step_number = 1
 			) as FREQUENCIA_1,
        (
           select count(df.id) 
           from public.daily_frequencies df, step_by_classroom(c.id, df.frequency_date) as step
-          where df.classroom_id = c.id and df.owner_teacher_id = t.id 
+          where df.classroom_id = c.id #{frequency_teacher_sql}
           and (case when df.discipline_id is not null then df.discipline_id = d.id else true end)
           and step.step_number = 2
 			) as FREQUENCIA_2,
        (
           select count(df.id) 
           from public.daily_frequencies df, step_by_classroom(c.id, df.frequency_date) as step
-          where df.classroom_id = c.id and df.owner_teacher_id = t.id 
+          where df.classroom_id = c.id #{frequency_teacher_sql}
           and (case when df.discipline_id is not null then df.discipline_id = d.id else true end)
           and step.step_number = 3
 			) as FREQUENCIA_3,
        (
           select count(df.id) 
           from public.daily_frequencies df, step_by_classroom(c.id, df.frequency_date) as step
-          where df.classroom_id = c.id and df.owner_teacher_id = t.id 
+          where df.classroom_id = c.id #{frequency_teacher_sql}
           and (case when df.discipline_id is not null then df.discipline_id = d.id else true end)
           and step.step_number = 4
 			) as FREQUENCIA_4,
@@ -158,7 +173,17 @@ class PedagogicalTrackingsController < ApplicationController
 					from public.content_records cr
 					left join public.discipline_content_records dcr on dcr.content_record_id = cr.id
 					left join public.knowledge_area_content_records kacr on kacr.content_record_id = cr.id
-					where cr.classroom_id = c.id and (case when dcr.id is not null then dcr.discipline_id = d.id else true end)
+					where cr.classroom_id = c.id
+          #{content_teacher_sql}
+          and (
+            dcr.discipline_id = d.id
+            or exists (
+              select 1
+              from public.knowledge_area_content_records_areas kacra
+              where kacra.knowledge_area_content_record_id = kacr.id
+                and kacra.knowledge_area_id = d.knowledge_area_id
+            )
+          )
 			) AS AULAS_DADAS,
       (
           select count(ava.id)
@@ -202,7 +227,7 @@ class PedagogicalTrackingsController < ApplicationController
 		and c.year = #{current_user_school_year}
 		and unity.id = #{unity_id}
     and (CASE WHEN #{classroom_id} > 0 THEN c.id = #{classroom_id} ELSE TRUE END)
-		GROUP by c.id, c.description,t.id, PROFESSOR, d.id, d.description
+		GROUP by c.id, c.description,t.id, PROFESSOR, d.id, d.description, d.knowledge_area_id
 		ORDER by c.description asc, PROFESSOR asc, DISCIPLINA asc")
 
     # Create a new Excel workbook
@@ -456,24 +481,15 @@ class PedagogicalTrackingsController < ApplicationController
         # OTIMIZAÇÃO: Usar consultas SQL agregadas para calcular faltas diretamente no banco
         # IMPORTANTE: Contar apenas uma falta por dia (mesmo que o aluno tenha faltado em múltiplas disciplinas)
         # Usar COUNT(DISTINCT frequency_date) para contar dias únicos de falta
-        
-        # Buscar faltas dos últimos 15 dias agrupadas por aluno (contando dias únicos)
-        absences_15_days_by_student = DailyFrequencyStudent
-          .joins(:daily_frequency)
-          .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: start_date_15_days..end_date })
-          .where(active: true)
-          .where("COALESCE(daily_frequency_students.present, 'f') = 'f'")
-          .group(:student_id)
-          .count("DISTINCT daily_frequencies.frequency_date")
+        # Faltas justificadas não entram na contagem nem no percentual de frequência.
 
-        # Buscar faltas do ano inteiro agrupadas por aluno (contando dias únicos)
-        absences_year_by_student = DailyFrequencyStudent
-          .joins(:daily_frequency)
-          .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: year_start_date..end_date })
-          .where(active: true)
-          .where("COALESCE(daily_frequency_students.present, 'f') = 'f'")
+        absences_15_days_by_student = unjustified_absence_records(classroom, start_date_15_days..end_date)
           .group(:student_id)
-          .count("DISTINCT daily_frequencies.frequency_date")
+          .count('DISTINCT daily_frequencies.frequency_date')
+
+        absences_year_by_student = unjustified_absence_records(classroom, year_start_date..end_date)
+          .group(:student_id)
+          .count('DISTINCT daily_frequencies.frequency_date')
 
         # Buscar presenças do ano inteiro agrupadas por aluno (contando dias únicos)
         presences_year_by_student = DailyFrequencyStudent
@@ -484,12 +500,7 @@ class PedagogicalTrackingsController < ApplicationController
           .group(:student_id)
           .count("DISTINCT daily_frequencies.frequency_date")
 
-        # Buscar faltas do ano por aluno e disciplina (dias únicos por disciplina)
-        absences_by_student_discipline = DailyFrequencyStudent
-          .joins(:daily_frequency)
-          .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: year_start_date..end_date })
-          .where(active: true)
-          .where("COALESCE(daily_frequency_students.present, 'f') = 'f'")
+        absences_by_student_discipline = unjustified_absence_records(classroom, year_start_date..end_date)
           .group('daily_frequency_students.student_id', 'daily_frequencies.discipline_id')
           .count('DISTINCT daily_frequencies.frequency_date')
 
@@ -804,10 +815,10 @@ class PedagogicalTrackingsController < ApplicationController
 
   def tag_cloud_modal
     grade_id = params[:grade_id].presence
-    discipline_id = params[:discipline_id].presence
+    subject = parse_tag_cloud_subject
 
-    if grade_id.blank? || discipline_id.blank?
-      return render plain: t('pedagogical_trackings.index.select_grade_and_discipline'), status: :bad_request
+    if grade_id.blank? || subject.blank?
+      return render plain: t('pedagogical_trackings.index.select_grade_and_subject'), status: :bad_request
     end
 
     unless tag_cloud_grade_allowed?(grade_id)
@@ -825,7 +836,8 @@ class PedagogicalTrackingsController < ApplicationController
 
     tag_clouds = PedagogicalTrackingTagCloudFetcher.new(
       grade_id: grade_id,
-      discipline_id: discipline_id,
+      discipline_id: subject[:kind] == PedagogicalTrackingGradeRecordTypes::DISCIPLINE ? subject[:id] : nil,
+      knowledge_area_id: subject[:kind] == PedagogicalTrackingGradeRecordTypes::KNOWLEDGE_AREA ? subject[:id] : nil,
       year: current_user_school_year,
       unity_id: unity_id,
       unity_ids: unity_id.present? ? nil : tag_cloud_restricted_unity_ids,
@@ -836,7 +848,7 @@ class PedagogicalTrackingsController < ApplicationController
 
     @content_tags = tag_clouds[:contents]
     @objective_tags = tag_clouds[:objectives]
-    @tag_cloud_summary = tag_cloud_summary(grade_id, discipline_id, unity_id, step_number)
+    @tag_cloud_summary = tag_cloud_summary(grade_id, subject, unity_id, step_number)
 
     render partial: 'pedagogical_trackings/tag_cloud_modal', layout: false
   rescue StandardError => e
@@ -849,25 +861,14 @@ class PedagogicalTrackingsController < ApplicationController
     grade_id = params[:grade_id].presence
 
     if grade_id.blank? || !tag_cloud_grade_allowed?(grade_id)
-      return render json: { disciplines: [], unities: [] }
+      return render json: { subjects: [], disciplines: [], unities: [], record_type: PedagogicalTrackingGradeRecordTypes::NONE }
     end
 
     year = current_user_school_year
     accessible_unity_ids = tag_cloud_accessible_unities.map(&:id)
-
-    disciplines_scope = Discipline
-      .by_grade(grade_id)
-      .joins(teacher_discipline_classrooms: :classroom)
-      .where(classrooms: { year: year })
-
-    unless tag_cloud_full_access?
-      disciplines_scope = disciplines_scope.where(classrooms: { unity_id: accessible_unity_ids })
-    end
-
-    disciplines = disciplines_scope
-      .distinct
-      .ordered
-      .map { |discipline| { id: discipline.id, name: discipline.to_s, text: discipline.to_s } }
+    record_type = tag_cloud_record_type_for(grade_id)
+    subject_kind = tag_cloud_subject_kind_for(grade_id, record_type)
+    subjects = tag_cloud_subjects_for(grade_id, subject_kind, year, accessible_unity_ids)
 
     unities_scope = Unity
       .joins(classrooms: :classrooms_grades)
@@ -878,10 +879,30 @@ class PedagogicalTrackingsController < ApplicationController
 
     unities = unities_scope.map { |unity| { id: unity.id, name: unity.to_s, text: unity.to_s } }
 
-    render json: { disciplines: disciplines, unities: unities }
+    render json: {
+      record_type: record_type,
+      subject_kind: subject_kind,
+      subject_label: tag_cloud_subject_label(subject_kind),
+      subjects: subjects,
+      disciplines: subjects,
+      unities: unities
+    }
   end
 
   private
+
+  def resume_own_records?
+    params[:own_records].blank? || !%w[0 false].include?(params[:own_records].to_s)
+  end
+
+  def unjustified_absence_records(classroom, date_range)
+    DailyFrequencyStudent
+      .joins(:daily_frequency)
+      .where(daily_frequencies: { classroom_id: classroom.id, frequency_date: date_range })
+      .where(active: true)
+      .where("COALESCE(daily_frequency_students.present, 'f') = 'f'")
+      .by_not_justified
+  end
 
   def parse_observation_date(value)
     return Time.zone.today if value.blank?
@@ -949,17 +970,146 @@ class PedagogicalTrackingsController < ApplicationController
   end
 
   def grades_to_select(grades_scope)
-    grades_scope
+    grades = grades_scope
       .joins(:course)
       .includes(:course)
       .order(Course.arel_table[:description].asc, Grade.arel_table[:description].asc)
-      .map do |grade|
-        OpenStruct.new(
-          id: grade.id,
-          name: "#{grade.description} - #{grade.course.description}",
-          text: "#{grade.description} - #{grade.course.description}"
-        )
-      end
+      .to_a
+
+    record_types = PedagogicalTrackingGradeRecordTypes.new(
+      year: current_user_school_year,
+      grade_ids: grades.map(&:id),
+      unity_ids: tag_cloud_restricted_unity_ids
+    ).call
+
+    grouped = grades.group_by { |grade| grade.course.description }.map do |course_name, course_grades|
+      {
+        name: course_name,
+        text: course_name,
+        children: course_grades.map { |grade| tag_cloud_grade_option(grade, course_name, record_types[grade.id]) }
+      }
+    end
+
+    [{ id: 'empty', name: '<option></option>', text: '' }, *grouped].to_json
+  end
+
+  def tag_cloud_grade_option(grade, course_name, record_type)
+    option = {
+      id: grade.id,
+      name: grade.description,
+      text: grade.description,
+      course: course_name
+    }
+
+    return option if record_type.blank? || record_type == PedagogicalTrackingGradeRecordTypes::NONE
+
+    option.merge(
+      recordType: record_type,
+      recordTypeLabel: tag_cloud_record_type_label(record_type)
+    )
+  end
+
+  def tag_cloud_record_type_for(grade_id)
+    PedagogicalTrackingGradeRecordTypes.new(
+      year: current_user_school_year,
+      grade_ids: [grade_id],
+      unity_ids: tag_cloud_restricted_unity_ids
+    ).call[grade_id.to_i] || PedagogicalTrackingGradeRecordTypes::NONE
+  end
+
+  def tag_cloud_subject_kind_for(grade_id, record_type)
+    case record_type
+    when PedagogicalTrackingGradeRecordTypes::KNOWLEDGE_AREA,
+         PedagogicalTrackingGradeRecordTypes::DISCIPLINE,
+         PedagogicalTrackingGradeRecordTypes::BOTH
+      record_type
+    else
+      grade = Grade.includes(:course).find_by(id: grade_id)
+      infantil_grade?(grade) ? PedagogicalTrackingGradeRecordTypes::KNOWLEDGE_AREA : PedagogicalTrackingGradeRecordTypes::DISCIPLINE
+    end
+  end
+
+  def tag_cloud_subjects_for(grade_id, subject_kind, year, unity_ids)
+    case subject_kind
+    when PedagogicalTrackingGradeRecordTypes::BOTH
+      [
+        {
+          name: I18n.t('pedagogical_trackings.index.filter_discipline'),
+          text: I18n.t('pedagogical_trackings.index.filter_discipline'),
+          children: tag_cloud_discipline_options(grade_id, year, unity_ids)
+        },
+        {
+          name: I18n.t('pedagogical_trackings.index.filter_knowledge_area'),
+          text: I18n.t('pedagogical_trackings.index.filter_knowledge_area'),
+          children: tag_cloud_knowledge_area_options(grade_id, year, unity_ids)
+        }
+      ].reject { |group| group[:children].blank? }
+    when PedagogicalTrackingGradeRecordTypes::KNOWLEDGE_AREA
+      tag_cloud_knowledge_area_options(grade_id, year, unity_ids)
+    else
+      tag_cloud_discipline_options(grade_id, year, unity_ids)
+    end
+  end
+
+  def tag_cloud_discipline_options(grade_id, year, unity_ids)
+    scope = Discipline
+      .by_grade(grade_id)
+      .joins(teacher_discipline_classrooms: :classroom)
+      .where(classrooms: { year: year })
+
+    scope = scope.where(classrooms: { unity_id: unity_ids }) unless tag_cloud_full_access?
+
+    scope.distinct.ordered.map do |discipline|
+      { id: "d:#{discipline.id}", name: discipline.to_s, text: discipline.to_s }
+    end
+  end
+
+  def tag_cloud_knowledge_area_options(grade_id, year, unity_ids)
+    scope = KnowledgeArea
+      .joins(disciplines: { teacher_discipline_classrooms: { classroom: :classrooms_grades } })
+      .where(classrooms_grades: { grade_id: grade_id }, classrooms: { year: year })
+
+    scope = scope.where(classrooms: { unity_id: unity_ids }) unless tag_cloud_full_access?
+
+    scope.distinct.ordered.map do |knowledge_area|
+      { id: "k:#{knowledge_area.id}", name: knowledge_area.to_s, text: knowledge_area.to_s }
+    end
+  end
+
+  def tag_cloud_record_type_label(record_type)
+    case record_type
+    when PedagogicalTrackingGradeRecordTypes::KNOWLEDGE_AREA
+      I18n.t('pedagogical_trackings.index.record_type_knowledge_area')
+    when PedagogicalTrackingGradeRecordTypes::BOTH
+      I18n.t('pedagogical_trackings.index.record_type_both')
+    when PedagogicalTrackingGradeRecordTypes::DISCIPLINE
+      I18n.t('pedagogical_trackings.index.record_type_discipline')
+    end
+  end
+
+  def tag_cloud_subject_label(subject_kind)
+    case subject_kind
+    when PedagogicalTrackingGradeRecordTypes::KNOWLEDGE_AREA
+      I18n.t('pedagogical_trackings.index.filter_knowledge_area')
+    when PedagogicalTrackingGradeRecordTypes::BOTH
+      I18n.t('pedagogical_trackings.index.filter_subject')
+    else
+      I18n.t('pedagogical_trackings.index.filter_discipline')
+    end
+  end
+
+  def parse_tag_cloud_subject
+    raw = params[:subject_id].presence || params[:discipline_id].presence
+    return if raw.blank? || raw == 'empty'
+
+    if raw.to_s =~ /\A([dk]):(\d+)\z/
+      {
+        kind: $1 == 'k' ? PedagogicalTrackingGradeRecordTypes::KNOWLEDGE_AREA : PedagogicalTrackingGradeRecordTypes::DISCIPLINE,
+        id: $2
+      }
+    else
+      { kind: PedagogicalTrackingGradeRecordTypes::DISCIPLINE, id: raw }
+    end
   end
 
   def tag_cloud_step_options
@@ -984,13 +1134,23 @@ class PedagogicalTrackingsController < ApplicationController
       end
   end
 
-  def tag_cloud_summary(grade_id, discipline_id, unity_id, step_number)
+  def tag_cloud_summary(grade_id, subject, unity_id, step_number)
     parts = []
     parts << Grade.find_by(id: grade_id)&.to_s
-    parts << Discipline.find_by(id: discipline_id)&.to_s
+    parts << tag_cloud_subject_name(subject)
     parts << Unity.find_by(id: unity_id)&.to_s if unity_id.present?
     parts << "#{step_number}ª etapa" if step_number.present?
     parts.compact.join(' · ')
+  end
+
+  def tag_cloud_subject_name(subject)
+    return if subject.blank?
+
+    if subject[:kind] == PedagogicalTrackingGradeRecordTypes::KNOWLEDGE_AREA
+      KnowledgeArea.find_by(id: subject[:id])&.to_s
+    else
+      Discipline.find_by(id: subject[:id])&.to_s
+    end
   end
 
   def minimum_year

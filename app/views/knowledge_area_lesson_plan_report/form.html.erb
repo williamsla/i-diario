@@ -49,6 +49,14 @@
             input_html: { value: PlansAuthors::MY_PLANS } %>
         </div>
       </div>
+
+      <div class="row <%= 'hidden' unless @students&.any? %>" id="individual-student-field">
+        <div class="col col-sm-4">
+          <%= f.input :student_id, as: :select2, elements: @students || [],
+                hint: t('.student_hint'),
+                input_html: { value: @knowledge_area_lesson_plan_report_form.student_id } %>
+        </div>
+      </div>
     </fieldset>
 
     <footer>

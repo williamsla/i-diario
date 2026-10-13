@@ -62,7 +62,8 @@ module Turnip
     step "poderei sair do sistema" do
       click_link 'sign_out'
 
-      wait_for(page).to have_content "Caso você não possua login de acesso cadastre-se em 'Criar conta'."
+      wait_for(page).to have_content "CPF, usuário ou e-mail"
+      expect(page).not_to have_content "Caso você não possua login de acesso"
     end
   end
 end

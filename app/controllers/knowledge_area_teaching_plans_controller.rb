@@ -87,9 +87,8 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
 
     authorize @knowledge_area_teaching_plan
 
-    if @knowledge_area_teaching_plan.save
-      location = is_aee ? edit_knowledge_area_teaching_plan_path(@knowledge_area_teaching_plan) : knowledge_area_teaching_plans_path
-      respond_with @knowledge_area_teaching_plan, location: location
+    if !unificado_blocks_new_knowledge_area_teaching_plan? && @knowledge_area_teaching_plan.save
+      respond_with @knowledge_area_teaching_plan, location: knowledge_area_teaching_plans_path
     else
       yearly_term_type_id
       set_options_by_user
@@ -206,18 +205,25 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
       return render :copy
     end
 
-    CopyKnowledgeAreaTeachingPlanWorker.perform_in(
-      1.second,
-      current_entity.id,
-      current_user.id,
-      form[:id],
-      form[:year],
-      form[:unities_ids].split(','),
-      form[:grades_ids].split(',')
-    )
+    created = Audited.audit_class.as_user(current_user) do
+      CopyKnowledgeAreaTeachingPlanService.call(
+        form[:id],
+        form[:year],
+        form[:unities_ids].split(','),
+        form[:grades_ids].split(','),
+        created_by_administrator: current_user.administrator?
+      )
+    end
 
-    flash[:success] = t('knowledge_area_teaching_plans.do_copy.copying')
+    if created.blank?
+      flash[:error] = t('knowledge_area_teaching_plans.do_copy.empty')
+    else
+      flash[:success] = t('knowledge_area_teaching_plans.do_copy.copied')
+    end
 
+    redirect_to :knowledge_area_teaching_plans
+  rescue CopyKnowledgeAreaTeachingPlanService::CopyKnowledgeAreaTeachingPlanError => error
+    flash[:error] = error.message
     redirect_to :knowledge_area_teaching_plans
   end
 
@@ -227,6 +233,20 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
     return if current_user.administrator?
 
     current_teacher
+  end
+
+  def unificado_blocks_new_knowledge_area_teaching_plan?
+    return false unless current_user.can_change?(:knowledge_area_teaching_plans)
+    return false unless KnowledgeAreaTeachingPlan.unificado_exists_for_same_step?(
+      @knowledge_area_teaching_plan.teaching_plan,
+      @knowledge_area_teaching_plan.knowledge_area_ids
+    )
+
+    @knowledge_area_teaching_plan.errors.add(
+      :base,
+      I18n.t('activerecord.errors.models.teaching_plan.unificado_already_registered_for_step')
+    )
+    true
   end
 
   def content_ids
@@ -291,6 +311,7 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
         :student_id,
         :opinion,
         :validated,
+        *(current_user.administrator? ? [:unificado] : []),
         teaching_plan_attachments_attributes: [
           :id,
           :attachment,
@@ -373,8 +394,8 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
       KnowledgeAreaTeachingPlan.includes(:knowledge_areas, teaching_plan:
                                   [:unity, :grade, :teaching_plan_attachments, :teacher,
                                    :school_term_type, :school_term_type_step,
-                                   { audits: { user: :roles } }])
-                                .by_unity(current_unity)
+                                   { audits: { user: [:roles, { current_user_role: :role }] } }])
+                                .by_unity_or_unificado(current_unity)
                                 .by_year(current_school_year)
                                 .by_grade(current_grade.map(&:grade_id))
                                 .order_by_grades

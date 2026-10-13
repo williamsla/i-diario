@@ -75,9 +75,10 @@ class DescriptiveExam < ApplicationRecord
     return if classroom.blank? || step.blank?
     return if [OpinionTypes::BY_YEAR_AND_DISCIPLINE, OpinionTypes::BY_YEAR].include?(opinion_type)
 
-    return true if PostingDateChecker.new(classroom, step.start_date_for_posting).check
+    checker = PostingDateChecker.new(classroom, step.start_date_for_posting)
+    return true if checker.check
 
-    errors.add(:step_id, I18n.t('errors.messages.not_allowed_to_post_in_date'))
+    errors.add(:step_id, checker.not_allowed_message)
   end
 
   def opinion_type_by_year?

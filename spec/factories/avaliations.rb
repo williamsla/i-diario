@@ -30,7 +30,8 @@ FactoryGirl.define do
           :teacher_discipline_classroom,
           classroom: avaliation.classroom,
           discipline: avaliation.discipline,
-          teacher: teacher
+          teacher: teacher,
+          grade: Grade.find_by(id: avaliation.grade_ids.first) || create(:grade)
         )
       end
     end

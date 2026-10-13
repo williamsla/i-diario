@@ -35,61 +35,21 @@ module ApplicationHelper
   end
 
   def menus
-    role = current_user.current_user_role&.role
-    user_role_cache = role&.cache_key.to_s + role&.id.to_s
-    key = [
-      'Menus',
-      Entity.current&.id,
-      current_user.admin?,
-      controller_name,
-      user_role_cache || current_user.cache_key,
-      role&.permissions_cache_key,
-      Translation.cache_key,
-      navigation_cache_version,
-      is_aee
-    ]
-
-    Rails.cache.fetch(key, expires_in: 1.day) do
-      begin
-        Thread.current[:navigation_is_aee] = is_aee
-        Navigation.draw_menus(controller_name, current_user)
-      ensure
-        Thread.current[:navigation_is_aee] = nil
-      end
+    begin
+      Thread.current[:navigation_is_aee] = is_aee
+      Navigation.draw_menus(controller_name, current_user)
+    ensure
+      Thread.current[:navigation_is_aee] = nil
     end
   end
 
   def shortcuts
-    role = current_user.current_user_role&.role
-    key = [
-      'HomeShortcutsV4',
-      Entity.current&.id,
-      current_user.admin?,
-      navigation_cache_version,
-      role&.cache_key || current_user&.cache_key,
-      role&.permissions_cache_key,
-      Translation.cache_key,
-      is_aee
-    ]
-
-    cached = Rails.cache.read(key)
-    return cached if cached.present?
-
-    html = begin
+    begin
       Thread.current[:navigation_is_aee] = is_aee
       Navigation.draw_shortcuts(current_user)
     ensure
       Thread.current[:navigation_is_aee] = nil
     end
-    # Nunca grava HTML vazio: evita esconder atalhos válidos por cache contaminado
-    Rails.cache.write(key, html, expires_in: 1.day) if html.present?
-    html
-  end
-
-  def navigation_cache_version
-    @navigation_cache_version ||= Digest::MD5.file(
-      Rails.root.join('config', 'navigation.yml')
-    ).hexdigest
   end
 
   def title
@@ -176,6 +136,19 @@ module ApplicationHelper
     Rails.cache.fetch("#{Entity.current.try(:id)}_entity_website", expires_in: 1.day) do
       GeneralConfiguration.current.support_url
     end
+  end
+
+  def support_whatsapp_number
+    number = (ENV['SUPPORT_NUMBER'].presence || '558281670619').to_s.gsub(/\D/, '')
+    number = "55#{number}" if !number.start_with?('55') && number.length.between?(10, 11)
+    number
+  end
+
+  def support_whatsapp_url(message = nil)
+    url = "https://wa.me/#{support_whatsapp_number}"
+    return url if message.blank?
+
+    "#{url}?text=#{ERB::Util.url_encode(message)}"
   end
 
   def alert_by_entity(_entity_name)

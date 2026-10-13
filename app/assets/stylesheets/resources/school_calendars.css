@@ -1,0 +1,25 @@
+.school-calendars-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.school-calendars-toolbar__label {
+  color: #73879c;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.school-calendars-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.school-calendars-toolbar__actions .btn {
+  margin: 0;
+  white-space: nowrap;
+}

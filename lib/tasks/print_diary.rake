@@ -23,7 +23,7 @@ task print_diary: :environment do
   end
 
   def classroom_has_opinion_type(classroom)
-    classroom.first_exam_rule.opinion_type != OpinionTypes::DONT_USE
+    classroom.has_opinion_type?
   end
 
   def current_entity_configuration
@@ -66,7 +66,7 @@ task print_diary: :environment do
   end
 
   def classroom_has_opinion_type(classroom)
-    classroom.first_exam_rule.opinion_type != OpinionTypes::DONT_USE
+    classroom.has_opinion_type?
   end
 
   def build_by_school_steps(exam_average_report_form, school, teacher, classroom, discipline, year)
@@ -414,20 +414,24 @@ task print_diary: :environment do
                     )
 
                     if @descriptive_form.valid?
-                      descriptive_report = DescriptiveReport.build(
-                        current_entity_configuration, 
-                        school, 
-                        calendar.year, 
-                        @descriptive_form.fetch_exam_steps, 
-                        @descriptive_form.fetch_exam_values, 
-                        @descriptive_form.fetch_students, 
-                        active_enrollment_classrooms,
-                        classroom,
-                        @descriptive_form.is_annual,
-                        true
-                      )
-                
-                      add_pdf_to_merge(pdfTarget, report_name('parecer'), descriptive_report.render)
+                      students = @descriptive_form.fetch_students
+
+                      if students.any?
+                        descriptive_report = DescriptiveReport.build(
+                          current_entity_configuration, 
+                          school, 
+                          calendar.year, 
+                          @descriptive_form.fetch_exam_steps, 
+                          @descriptive_form.fetch_exam_values, 
+                          students, 
+                          active_enrollment_classrooms,
+                          classroom,
+                          @descriptive_form.is_annual,
+                          true
+                        )
+                  
+                        add_pdf_to_merge(pdfTarget, report_name('parecer'), descriptive_report.render)
+                      end
                     end
                   end
 

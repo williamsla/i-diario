@@ -407,6 +407,11 @@ class PendingRecordsCalculator
         
         # Obter weekdays do professor específico para frequência geral
         current_teacher_weekdays = is_general_frequency ? (teacher_weekdays_by_teacher[teacher.id] || []) : []
+        teacher_frequency_weekday_numbers = if is_general_frequency
+          weekday_names_to_numbers(current_teacher_weekdays)
+        else
+          weekday_numbers
+        end
         
         # Sem weekdays no ativo nem no arquivado: fallback por lançamentos existentes
         if discipline_weekdays.empty? && discipline_discarded_weekdays.empty?
@@ -483,6 +488,7 @@ class PendingRecordsCalculator
         # Obter dias que estão em quadros excluídos
         # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
         school_days_discarded = all_school_days.select { |date| discarded_weekday_numbers.include?(get_equivalent_weekday_number(date)) }
+        optional_holiday_makeup_dates = Set.new
 
         # Obter frequências registradas (usar dados já carregados em batch)
         if @count_only
@@ -564,6 +570,15 @@ class PendingRecordsCalculator
             classroom, discipline, teacher, start_date, end_date, today,
             frequency_dates_set: frequency_dates_set,
             content_dates_set: content_dates_set
+          )
+          optional_holiday_makeup_dates = apply_optional_holidays!(
+            pending_frequency_dates, pending_content_dates,
+            classroom, discipline_tdcs.first.period, start_date, end_date, today,
+            frequency_dates_set: frequency_dates_set,
+            content_dates_set: content_dates_set,
+            frequency_weekday_numbers: teacher_frequency_weekday_numbers,
+            content_weekday_numbers: weekday_numbers,
+            discarded_weekday_numbers: discarded_weekday_numbers
           )
 
           pending_frequency_count = pending_frequency_dates.count
@@ -658,6 +673,15 @@ class PendingRecordsCalculator
             frequency_dates_set: frequencies,
             content_dates_set: content_records
           )
+          optional_holiday_makeup_dates = apply_optional_holidays!(
+            pending_frequency_dates, pending_content_dates,
+            classroom, discipline_tdcs.first.period, start_date, end_date, today,
+            frequency_dates_set: frequencies,
+            content_dates_set: content_records,
+            frequency_weekday_numbers: teacher_frequency_weekday_numbers,
+            content_weekday_numbers: weekday_numbers,
+            discarded_weekday_numbers: discarded_weekday_numbers
+          )
 
           pending_frequency_count = pending_frequency_dates.count
           pending_content_count = pending_content_dates.count
@@ -691,6 +715,7 @@ class PendingRecordsCalculator
         if !@count_only || @include_dates
           result[:pending_frequency_dates] = pending_frequency_dates.sort
           result[:pending_content_dates] = pending_content_dates.sort
+          result[:optional_holiday_makeup_dates] = optional_holiday_makeup_dates.to_a
         end
         
         results << result
@@ -740,6 +765,89 @@ class PendingRecordsCalculator
     end
     pending_frequency_dates.sort!
     pending_content_dates.sort!
+  end
+
+  # Remove o ponto facultativo das pendências e inclui a reposição apenas para
+  # disciplinas/áreas que tinham aula no dia da semana do ponto facultativo.
+  def apply_optional_holidays!(pending_frequency_dates, pending_content_dates,
+                               classroom, period, start_date, end_date, today,
+                               frequency_dates_set: nil, content_dates_set: nil,
+                               frequency_weekday_numbers: nil, content_weekday_numbers: nil,
+                               discarded_weekday_numbers: [])
+    holiday_dates = OptionalHoliday.holiday_dates_for(
+      classroom: classroom,
+      start_date: start_date,
+      end_date: end_date,
+      period: period,
+      unity_id: classroom.unity_id
+    )
+    makeup_entries = OptionalHoliday.make_up_entries_for(
+      classroom: classroom,
+      start_date: start_date,
+      end_date: end_date,
+      period: period,
+      unity_id: classroom.unity_id
+    )
+
+    pending_frequency_dates.reject! { |date| holiday_dates.include?(date) }
+    pending_content_dates.reject! { |date| holiday_dates.include?(date) }
+
+    freq_set = frequency_dates_set || []
+    content_set = content_dates_set || []
+    content_weekdays = Array(content_weekday_numbers)
+    frequency_weekdays = frequency_weekday_numbers.nil? ? content_weekdays : Array(frequency_weekday_numbers)
+    discarded_weekdays = Array(discarded_weekday_numbers)
+    archive_date = lessons_board_archive_date(classroom.id)
+    applicable_makeups = Set.new
+
+    makeup_entries.each do |entry|
+      makeup_date = entry[:make_up_date]
+      next if makeup_date > today
+
+      holiday_date = entry[:holiday_date]
+      add_to_frequency = optional_holiday_applies_to_weekdays?(
+        holiday_date, frequency_weekdays, discarded_weekdays, archive_date
+      )
+      add_to_content = optional_holiday_applies_to_weekdays?(
+        holiday_date, content_weekdays, discarded_weekdays, archive_date
+      )
+      next unless add_to_frequency || add_to_content
+
+      applicable_makeups << makeup_date
+      if add_to_frequency
+        pending_frequency_dates << makeup_date unless pending_frequency_dates.include?(makeup_date) || freq_set.include?(makeup_date)
+      end
+      if add_to_content
+        pending_content_dates << makeup_date unless pending_content_dates.include?(makeup_date) || content_set.include?(makeup_date)
+      end
+    end
+
+    pending_frequency_dates.sort!
+    pending_content_dates.sort!
+    applicable_makeups
+  end
+
+  def optional_holiday_applies_to_weekdays?(date, active_weekdays, archived_weekdays, archive_date)
+    school_days_by_board_archive_date(
+      [date],
+      Array(active_weekdays),
+      Array(archived_weekdays),
+      archive_date
+    ).present?
+  end
+
+  def weekday_names_to_numbers(weekdays)
+    Array(weekdays).map do |weekday|
+      case weekday.to_s
+      when 'sunday' then 0
+      when 'monday' then 1
+      when 'tuesday' then 2
+      when 'wednesday' then 3
+      when 'thursday' then 4
+      when 'friday' then 5
+      when 'saturday' then 6
+      end
+    end.compact
   end
 
   def teacher_discipline_classrooms
@@ -1132,7 +1240,16 @@ class PendingRecordsCalculator
     archived_since = effective_archived_since(classroom_id)
     query = query.where('lessons_boards.discarded_at >= ?', archived_since) if archived_since
 
-    @lessons_board_archive_dates[classroom_id] = query.maximum(:discarded_at)&.to_date
+    @lessons_board_archive_dates[classroom_id] = discarded_at_as_local_date(query.maximum(:discarded_at))
+  end
+
+  # discarded_at é gravado com end_of_day (23:59 em Brasília = madrugada do dia seguinte em UTC).
+  # maximum() devolve o timestamp em UTC; to_date sem fuso adianta um dia e mistura
+  # o weekday do quadro arquivado na vigência do quadro atual.
+  def discarded_at_as_local_date(discarded_at)
+    return if discarded_at.blank?
+
+    discarded_at.in_time_zone.to_date
   end
 
   def effective_archived_since(classroom_id)
@@ -1617,34 +1734,13 @@ class PendingRecordsCalculator
       area_discarded_weekdays = knowledge_area_discarded_weekdays[knowledge_area_id] || []
 
       # Mapear weekdays excluídos para números (sempre necessário para quadros descartados)
-      discarded_weekday_numbers = area_discarded_weekdays.map do |wd|
-        case wd
-        when 'sunday' then 0
-        when 'monday' then 1
-        when 'tuesday' then 2
-        when 'wednesday' then 3
-        when 'thursday' then 4
-        when 'friday' then 5
-        when 'saturday' then 6
-        end
-      end.compact
-      
+      discarded_weekday_numbers = weekday_names_to_numbers(area_discarded_weekdays)
+      weekday_numbers = weekday_names_to_numbers(area_weekdays)
+
       if area_weekdays.empty? && area_discarded_weekdays.empty?
         school_days_for_content = []
         school_days_for_frequency = []
       else
-        weekday_numbers = area_weekdays.map do |wd|
-          case wd
-          when 'sunday' then 0
-          when 'monday' then 1
-          when 'tuesday' then 2
-          when 'wednesday' then 3
-          when 'thursday' then 4
-          when 'friday' then 5
-          when 'saturday' then 6
-          end
-        end.compact
-
         # data <= arquivamento (até quando funcionou) => arquivado; depois => ativo
         archive_date = lessons_board_archive_date(classroom.id)
         school_days_for_content = school_days_by_board_archive_date(
@@ -1656,6 +1752,7 @@ class PendingRecordsCalculator
       # Obter dias que estão em quadros excluídos
       # IMPORTANTE: Para sábados mapeados, usar o dia equivalente ao invés do próprio sábado
       school_days_discarded = all_school_days.select { |date| discarded_weekday_numbers.include?(get_equivalent_weekday_number(date)) }
+      optional_holiday_makeup_dates = Set.new
 
       # Obter frequências registradas
       if @count_only
@@ -1728,6 +1825,15 @@ class PendingRecordsCalculator
         # Filtrar sábados pendentes baseado em eventos cadastrados
         pending_frequency_dates = filter_saturdays_by_events(pending_frequency_dates, classroom, school_calendar)
         pending_content_dates = filter_saturdays_by_events(pending_content_dates, classroom, school_calendar)
+        optional_holiday_makeup_dates = apply_optional_holidays!(
+          pending_frequency_dates, pending_content_dates,
+          classroom, classroom.period, start_date, end_date, today,
+          frequency_dates_set: frequency_dates_set,
+          content_dates_set: content_dates_set,
+          frequency_weekday_numbers: weekday_numbers,
+          content_weekday_numbers: weekday_numbers,
+          discarded_weekday_numbers: discarded_weekday_numbers
+        )
         
         pending_frequency_count = pending_frequency_dates.count
         pending_content_count = pending_content_dates.count
@@ -1818,6 +1924,15 @@ class PendingRecordsCalculator
         # Filtrar sábados pendentes baseado em eventos cadastrados
         pending_frequency_dates = filter_saturdays_by_events(pending_frequency_dates, classroom, school_calendar)
         pending_content_dates = filter_saturdays_by_events(pending_content_dates, classroom, school_calendar)
+        optional_holiday_makeup_dates = apply_optional_holidays!(
+          pending_frequency_dates, pending_content_dates,
+          classroom, classroom.period, start_date, end_date, today,
+          frequency_dates_set: frequencies,
+          content_dates_set: content_records,
+          frequency_weekday_numbers: weekday_numbers,
+          content_weekday_numbers: weekday_numbers,
+          discarded_weekday_numbers: discarded_weekday_numbers
+        )
         
         pending_frequency_count = pending_frequency_dates.count
         pending_content_count = pending_content_dates.count
@@ -1856,6 +1971,7 @@ class PendingRecordsCalculator
         else
           result[:pending_content_dates] = pending_content_dates.sort
         end
+        result[:optional_holiday_makeup_dates] = optional_holiday_makeup_dates.to_a
       end
       
       results << result

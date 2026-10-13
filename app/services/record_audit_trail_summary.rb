@@ -1419,7 +1419,19 @@ class RecordAuditTrailSummary
     discipline = selected_discipline
     return false unless discipline
 
-    discipline.grouper? || discipline.descriptor? || discipline.knowledge_area&.group_descriptors?
+    discipline.grouper? || discipline.descriptor? || discipline.knowledge_area&.group_descriptors? ||
+      early_childhood_or_aee_classroom?
+  end
+
+  def early_childhood_or_aee_classroom?
+    return @early_childhood_or_aee_classroom if defined?(@early_childhood_or_aee_classroom)
+
+    @early_childhood_or_aee_classroom =
+      if @classroom_id.blank?
+        false
+      else
+        Classroom.includes(grades: :course).find_by(id: @classroom_id)&.early_childhood_or_aee? || false
+      end
   end
 
   def related_discipline_ids

@@ -40,7 +40,7 @@
               <td>
                 <% if result[:pending_frequency_dates].present? %>
                   <small>
-                    <%= result[:pending_frequency_dates].map { |d| d.strftime('%d/%m/%Y') }.join(', ') %>
+                    <%= result[:pending_frequency_dates].map { |d| OptionalHoliday.format_pending_date(d, result[:optional_holiday_makeup_dates]) }.join(', ') %>
                   </small>
                 <% else %>
                   <span class="text-success">Nenhuma</span>
@@ -49,7 +49,7 @@
               <td>
                 <% if result[:pending_content_dates].present? %>
                   <small>
-                    <%= result[:pending_content_dates].map { |d| d.strftime('%d/%m/%Y') }.join(', ') %>
+                    <%= result[:pending_content_dates].map { |d| OptionalHoliday.format_pending_date(d, result[:optional_holiday_makeup_dates]) }.join(', ') %>
                   </small>
                 <% else %>
                   <span class="text-success">Nenhuma</span>

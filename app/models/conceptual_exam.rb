@@ -60,6 +60,7 @@ class ConceptualExam < ActiveRecord::Base
   }
 
   validates :student, :unity_id, presence: true
+  validates :recorded_at, posting_date: true, unless: :ignore_date_validates
   validate :student_must_have_conceptual_exam_score_type
   validate :at_least_one_conceptual_exam_value
   validate :uniqueness_of_student
@@ -167,7 +168,7 @@ class ConceptualExam < ActiveRecord::Base
     @valid_for_destruction = begin
       self.validation_type = :destroy
       valid?
-      !errors[:recorded_at].include?(I18n.t('errors.messages.not_allowed_to_post_in_date'))
+      !PostingDateChecker.not_allowed_error?(errors[:recorded_at])
     end
   end
 
@@ -249,9 +250,27 @@ class ConceptualExam < ActiveRecord::Base
   end
 
   def ensure_student_is_in_classroom
-    return if recorded_at.blank? || student_id.blank? || classroom_id.blank? || validation_type == :destroy
-    return if StudentEnrollment.by_student(student_id).by_classroom(classroom_id).by_date(recorded_at).exists?
+    return if student_id.blank? || classroom_id.blank? || validation_type == :destroy
+    return if student_studied_any_day_in_step?
 
     errors.add(:base, :student_is_not_in_classroom)
+  end
+
+  # A data do lançamento pode ser o último dia da etapa. O conceito vale se a
+  # enturmação cruzou qualquer dia do período da etapa selecionada.
+  def student_studied_any_day_in_step?
+    start_at, end_at = selected_step_period
+    return false if start_at.blank? || end_at.blank?
+
+    StudentEnrollment.by_student(student_id)
+                     .by_classroom(classroom_id)
+                     .by_date_range(start_at, end_at)
+                     .exists?
+  end
+
+  def selected_step_period
+    current_step = step if classroom.present?
+    return [current_step.start_at, current_step.end_at] if current_step.present?
+    return [recorded_at, recorded_at] if recorded_at.present?
   end
 end

@@ -13,10 +13,20 @@ class EntityConfiguration < ApplicationRecord
 
   validates :cnpj, mask: { with: "99.999.999/9999-99", message: :incorrect_format }, allow_blank: true
   validates :phone, format: { with: /\A\([0-9]{2}\)\ [0-9]{8,9}\z/i }, allow_blank: true
+  validates :ibge_code,
+            format: { with: /\A\d{7}\z/, message: :incorrect_format },
+            allow_blank: true
+
+  before_validation :normalize_ibge_code
 
   mount_uploader :logo, EntityLogoUploader
 
   after_update :create_logo_audit
+
+  def normalize_ibge_code
+    digits = ibge_code.to_s.gsub(/\D/, '')
+    self.ibge_code = digits.presence
+  end
 
   def self.current
     self.first.presence || new
@@ -38,15 +48,23 @@ class EntityConfiguration < ApplicationRecord
   # Retorna um IO reutilizável do logo para relatórios Prawn/HexaPDF.
   # Evita baixar/abrir o arquivo em cada seção do diário.
   def logo_io_for_report
-    return if logo.blank? || logo.url.blank?
+    return if logo.blank? || logo.file.blank?
 
-    io = ReportQueryCache.fetch([:entity_logo_io, id, logo.url]) do
+    io = ReportQueryCache.fetch([:entity_logo_io, id, logo.identifier, logo.url]) do
       require 'stringio' unless defined?(StringIO)
-      StringIO.new(open(logo.url).read)
+
+      data = logo.read
+      next if data.blank?
+
+      data = data.dup.force_encoding(Encoding::ASCII_8BIT)
+      StringIO.new(data).tap(&:binmode)
     end
+    return if io.blank?
+
     io.rewind
     io
-  rescue StandardError
+  rescue StandardError => error
+    Rails.logger.error("Não conseguiu ler a logo da entidade: #{error.class}: #{error.message}")
     nil
   end
 end

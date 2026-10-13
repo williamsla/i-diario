@@ -53,7 +53,11 @@ class SchoolCalendarClassroomsSynchronizer < BaseSynchronizer
             @school_calendar_classroom_steps_ids = []
             school_calendar_classroom_id = school_calendar_classroom.id
 
-            update_or_create_steps(school_calendar_classroom_record.etapas, school_calendar_classroom_id)
+            update_or_create_steps(
+              school_calendar_classroom_record.etapas,
+              school_calendar_classroom,
+              school_calendar
+            )
 
             destroy_removed_steps(school_calendar_classroom_id)
 
@@ -80,40 +84,57 @@ class SchoolCalendarClassroomsSynchronizer < BaseSynchronizer
     retry
   end
 
-  def update_or_create_steps(school_calendar_classroom_record_steps, school_calendar_classroom_id)
+  def update_or_create_steps(school_calendar_classroom_record_steps, school_calendar_classroom, school_calendar)
+    return if school_calendar_classroom_record_steps.blank?
+
+    if keep_existing_classroom_steps?(school_calendar_classroom_record_steps, school_calendar_classroom, school_calendar)
+      @school_calendar_classroom_steps_ids = school_calendar_classroom.classroom_steps.pluck(:id)
+      return
+    end
+
     school_calendar_classroom_record_steps.each do |school_calendar_classroom_step_record|
       SchoolCalendarClassroomStep.find_or_initialize_by(
-        school_calendar_classroom_id: school_calendar_classroom_id,
+        school_calendar_classroom_id: school_calendar_classroom.id,
         step_number: school_calendar_classroom_step_record.etapa
       ).tap do |school_calendar_classroom_step|
         start_at = school_calendar_classroom_step_record.data_inicio.to_date
         end_at = school_calendar_classroom_step_record.data_fim.to_date
         school_calendar_classroom_step.start_at = start_at
         school_calendar_classroom_step.end_at = end_at
-
-        new_record = school_calendar_classroom_step.new_record?
-
-        if new_record
-          school_calendar_classroom_step.start_date_for_posting = start_at
-          school_calendar_classroom_step.end_date_for_posting = end_at + 15
-        end
-
-        if school_calendar_classroom_step.start_date_for_posting < start_at
-          school_calendar_classroom_step.start_date_for_posting = start_at
-        end
-
-        start_date_for_posting = school_calendar_classroom_step.start_date_for_posting
-        end_date_for_posting = school_calendar_classroom_step.end_date_for_posting
-
-        if end_date_for_posting < end_at || end_date_for_posting <= start_date_for_posting
-          school_calendar_classroom_step.end_date_for_posting = end_at + 15
-        end
+        school_calendar_classroom_step.start_date_for_posting = start_at
+        school_calendar_classroom_step.end_date_for_posting = end_at + 30
 
         school_calendar_classroom_step.save! if school_calendar_classroom_step.changed?
 
         @school_calendar_classroom_steps_ids << school_calendar_classroom_step.id
       end
     end
+  end
+
+  def keep_existing_classroom_steps?(incoming_steps, school_calendar_classroom, school_calendar)
+    existing_steps = school_calendar_classroom.classroom_steps
+    return false if existing_steps.blank?
+    return false unless incoming_matches_school_calendar?(incoming_steps, school_calendar)
+    return false if step_dates(incoming_steps) == step_dates(existing_steps)
+
+    true
+  end
+
+  def incoming_matches_school_calendar?(incoming_steps, school_calendar)
+    school_steps = school_calendar.steps
+    return false if school_steps.blank?
+
+    step_dates(incoming_steps) == step_dates(school_steps)
+  end
+
+  def step_dates(steps)
+    steps.map do |step|
+      number = step.respond_to?(:etapa) ? step.etapa : step.step_number
+      start_date = step.respond_to?(:data_inicio) ? step.data_inicio : step.start_at
+      end_date = step.respond_to?(:data_fim) ? step.data_fim : step.end_at
+
+      [number.to_i, start_date.to_date, end_date.to_date]
+    end.sort
   end
 
   def destroy_removed_steps(school_calendar_classroom_id)

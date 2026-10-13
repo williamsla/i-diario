@@ -3,6 +3,10 @@
     <div class="pedagogical-modal__header">
       <div>
         <h2 class="pedagogical-modal__title"><%= t('pedagogical_trackings.index.resume_entries') %></h2>
+        <label class="resume-own-records" title="<%= t('pedagogical_trackings.resume.filter_own_records_hint') %>">
+          <input type="checkbox" id="resumeOwnRecords" checked>
+          <span><%= t('pedagogical_trackings.resume.filter_own_records') %></span>
+        </label>
       </div>
       <div class="pedagogical-modal__header-actions">
         <button id="downloadXlsxBtn" class="btn btn-primary btn-sm" type="button">

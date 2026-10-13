@@ -30,6 +30,7 @@ class TransferNote < ApplicationRecord
   before_validation :set_transfer_date, on: [:create, :update]
 
   validates :unity_id, :discipline_id, :student_id, :teacher, presence: true
+  validates :recorded_at, posting_date: true, unless: :ignore_date_validates
 
   default_scope -> { kept }
 
@@ -71,9 +72,7 @@ class TransferNote < ApplicationRecord
     @valid_for_destruction if defined?(@valid_for_destruction)
     @valid_for_destruction = begin
       self.validation_type = :destroy
-      forbidden_error = I18n.t('errors.messages.not_allowed_to_post_in_date')
-
-      return false if errors[:transfer_date].include?(forbidden_error)
+      return false if PostingDateChecker.not_allowed_error?(errors[:transfer_date])
 
       self.valid?
     end

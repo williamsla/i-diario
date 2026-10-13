@@ -8,3 +8,4 @@ pt-BR:
         grade_id: "Série"
         classroom_id: "Turma"
         sort_by: "Ordenar por"
+        include_without_absences: "Exibir alunos sem faltas"

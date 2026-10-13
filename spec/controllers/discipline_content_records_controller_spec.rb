@@ -242,5 +242,66 @@ RSpec.describe DisciplineContentRecordsController, type: :controller do
       expect(discipline_ids).to include(discipline.id)
       expect(payload['message']).to be_nil
     end
+
+    it 'na reposição, inclui a disciplina do ponto facultativo mesmo quando o dia já tem outra aula' do
+      holiday_discipline = create(:discipline)
+      scheduled_discipline = create(:discipline)
+      grade = classroom.classrooms_grades.first.grade
+      holiday_tdc = create(
+        :teacher_discipline_classroom,
+        teacher: current_teacher,
+        classroom: classroom,
+        discipline: holiday_discipline,
+        grade: grade,
+        year: classroom.year,
+        active: true
+      )
+      scheduled_tdc = create(
+        :teacher_discipline_classroom,
+        teacher: current_teacher,
+        classroom: classroom,
+        discipline: scheduled_discipline,
+        grade: grade,
+        year: classroom.year,
+        active: true
+      )
+      classrooms_grade = classroom.classrooms_grades.first
+      lessons_board = create(:lessons_board, classrooms_grade: classrooms_grade)
+      monday_lesson = create(:lessons_board_lesson, lessons_board: lessons_board, lesson_number: 1)
+      tuesday_lesson = create(:lessons_board_lesson, lessons_board: lessons_board, lesson_number: 2)
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: monday_lesson,
+        teacher_discipline_classroom: holiday_tdc,
+        weekday: :monday
+      )
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: tuesday_lesson,
+        teacher_discipline_classroom: scheduled_tdc,
+        weekday: :tuesday
+      )
+      create(
+        :optional_holiday,
+        year: classroom.year,
+        holiday_date: Date.parse('2017-02-20'),
+        make_up_date: Date.parse('2017-02-28'),
+        periods: %w[1 2 3 4 5],
+        makeup_scope: OptionalHolidayMakeupScope::MUNICIPAL
+      )
+
+      get :disciplines_for_record_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        record_date: '28/02/2017'
+      }
+
+      payload = JSON.parse(response.body)
+      discipline_ids = payload['disciplines'].map { |item| item['id'] }
+
+      expect(discipline_ids).to include(holiday_discipline.id)
+      expect(discipline_ids).to include(scheduled_discipline.id)
+      expect(payload['message']).to be_nil
+    end
   end
 end

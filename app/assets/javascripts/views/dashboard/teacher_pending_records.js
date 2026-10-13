@@ -4,6 +4,21 @@ $(function(){
   var flashMessages = new FlashMessages();
   var $container = $('#teacher-pending-records-container');
   var steps = [];
+  var makeupLabel = 'reposição';
+  var hasLessonsBoard = true;
+
+  function formatPendingDates(dates) {
+    return _.map(dates, function (date) {
+      var suffix = ' (' + makeupLabel + ')';
+      if (date && date.indexOf(suffix) !== -1) {
+        return '<span class="pending-date pending-date--makeup">' +
+          date.replace(suffix, '') +
+          ' <span class="optional-holiday-makeup-label">(' + makeupLabel + ')</span>' +
+          '</span>';
+      }
+      return date;
+    }).join(', ');
+  }
 
   function fetchSteps() {
     $.ajax({
@@ -20,17 +35,8 @@ $(function(){
 
   function handleFetchStepsSuccess(data) {
     steps = data.steps || [];
-    var hasLessonsBoard = data.has_lessons_board !== false; // Default true se não vier no JSON
-    
-    // Verificar se a turma tem quadro de aulas
-    if(!hasLessonsBoard) {
-      $container.html('<div class="alert alert-warning" style="margin-top: 20px;">' +
-        '<i class="fa fa-exclamation-triangle"></i> ' +
-        'Solicite à coordenação que cadastre o quadro de aulas da turma. Após isso você conseguirá visualizar as datas pendentes de frequência e conteúdo.' +
-        '</div>');
-      return;
-    }
-    
+    hasLessonsBoard = data.has_lessons_board !== false;
+
     if(steps.length === 0){
       $container.html('<div class="alert alert-info">Nenhuma etapa encontrada.</div>');
       return;
@@ -227,12 +233,52 @@ $(function(){
     });
   }
 
-  function notInLessonsBoardHtml() {
-    return '<span class="not-in-lessons-board-label" style="display: inline-block; color: #8a6d3b; max-width: 180px; line-height: 1.4;" title="Solicite à coordenação que adicione essa disciplina no quadro de aulas da turma.">' +
-      '<i class="fa fa-exclamation-triangle" style="margin-right: 5px;"></i>' +
-      'Não consta no quadro de aulas' +
-    '</span>';
+  function notInLessonsBoardMessage() {
+    return 'Esta disciplina não está no quadro de aulas. Solicite à coordenação da escola para adicioná-la.';
   }
+
+  function notInLessonsBoardHtml() {
+    var message = _.escape(notInLessonsBoardMessage());
+
+    return '<button type="button" class="btn not-in-lessons-board-label" title="' + message + '" aria-label="' + message + '">' +
+      '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>' +
+    '</button>';
+  }
+
+  function bindNotInLessonsBoardTooltips($scope) {
+    $scope.find('.not-in-lessons-board-label').tooltip({
+      trigger: 'hover focus',
+      placement: 'top',
+      container: 'body'
+    });
+  }
+
+  function destroyTooltips($scope, selector) {
+    $scope.find(selector).each(function() {
+      if ($(this).data('bs.tooltip')) {
+        $(this).tooltip('destroy');
+      }
+    });
+  }
+
+  function bindFinalRecoveryWaitingStepsTooltips($scope) {
+    $scope.find('.final-recovery-waiting-steps').tooltip({
+      trigger: 'click',
+      placement: 'top',
+      container: 'body'
+    }).on('click', function(event) {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+  }
+
+  $(document).on('click', function(event) {
+    if ($(event.target).closest('.final-recovery-waiting-steps, .tooltip').length) {
+      return;
+    }
+
+    destroyTooltips($(document), '.final-recovery-waiting-steps');
+  });
 
   function renderPendingDatesButton(count, type, recordId, recordIndex, iconClass) {
     if (count > 0) {
@@ -245,6 +291,125 @@ $(function(){
     return '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: green; font-size: 30px;" title="Tudo certo com ' + (type === 'freq' ? 'a frequência nessa disciplina' : 'o conteúdo nessa disciplina') + ' na etapa selecionada.">' +
       '<i class="fa fa-check-circle"' + (type === 'content' ? ' style="margin-right: 5px;"' : '') + '></i>' +
     '</span>';
+  }
+
+  function showFinalRecoveryColumn(stepData) {
+    return stepData.show_final_recovery === true;
+  }
+
+  function renderFinalRecoveryHeader(stepData) {
+    if (!showFinalRecoveryColumn(stepData)) {
+      return '';
+    }
+
+    return '<th style="width: 170px; text-align: center;">Recuperação Final</th>';
+  }
+
+  function renderFinalRecoveryCell(record, stepData) {
+    if (!showFinalRecoveryColumn(stepData)) {
+      return '';
+    }
+
+    var disciplineId = record.final_recovery_discipline_id;
+    if (!disciplineId) {
+      return '<td style="text-align: center;">' +
+        '<span title="A recuperação final é lançada por disciplina.">—</span>' +
+      '</td>';
+    }
+
+    return '<td style="text-align: center;" class="final-recovery-pending-cell" data-discipline-id="' + disciplineId + '">' +
+      '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default;" title="Consultando alunos em exame final...">' +
+        '<i class="fa fa-spinner fa-spin"></i>' +
+      '</span>' +
+    '</td>';
+  }
+
+  function renderFinalRecoveryWaitingStepsBadge() {
+    var message = _.escape('Aguardando cadastrar as notas de todas as etapas.');
+
+    return '<button type="button" class="btn final-recovery-waiting-steps" style="border-radius: 20px; padding: 6px 15px; cursor: pointer; background-color: #ff9800; color: white; border: none;" title="' + message + '" aria-label="' + message + '">' +
+      '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>' +
+    '</button>';
+  }
+
+  function renderFinalRecoveryCountBadge(count) {
+    if (count > 0) {
+      return '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; background-color: #ff9800; color: white;" title="Alunos em exame final sem nota de recuperação lançada.">' +
+        count + ' aluno(s)' +
+      '</span>';
+    }
+
+    return '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: green; font-size: 30px;" title="Todos os alunos em exame final têm nota de recuperação lançada.">' +
+      '<i class="fa fa-check-circle"></i>' +
+    '</span>';
+  }
+
+  function renderFinalRecoveryErrorBadge() {
+    return '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: #8a6d3b;" title="Não foi possível consultar os alunos em exame final. Tente novamente em instantes.">' +
+      '<i class="fa fa-exclamation-triangle"></i>' +
+    '</span>';
+  }
+
+  function fetchFinalRecoveryPending(stepData) {
+    if (!showFinalRecoveryColumn(stepData)) {
+      return;
+    }
+
+    var $cells = $('#step-data-container .final-recovery-pending-cell');
+    if ($cells.length === 0) {
+      return;
+    }
+
+    var disciplineIds = [];
+    $cells.each(function() {
+      var disciplineId = $(this).data('discipline-id');
+      if (disciplineId) {
+        disciplineIds.push(disciplineId);
+      }
+    });
+
+    $.ajax({
+      url: Routes.final_recovery_dashboard_teacher_pending_records_pt_br_path({
+        format: 'json',
+        step_id: stepData.step_id,
+        discipline_ids: disciplineIds.join(',')
+      }),
+      success: function(data) {
+        var counts = (data && data.counts) || {};
+        var errors = (data && data.errors) || {};
+        var waitingStepNotes = (data && data.waiting_step_notes) || {};
+
+        $cells.each(function() {
+          var $cell = $(this);
+          var disciplineId = String($cell.data('discipline-id'));
+
+          if (waitingStepNotes[disciplineId]) {
+            $cell.html(renderFinalRecoveryWaitingStepsBadge());
+            return;
+          }
+
+          if (errors[disciplineId]) {
+            $cell.html(renderFinalRecoveryErrorBadge());
+            return;
+          }
+
+          var count = counts[disciplineId];
+          if (count === undefined || count === null) {
+            $cell.html(renderFinalRecoveryErrorBadge());
+            return;
+          }
+
+          $cell.html(renderFinalRecoveryCountBadge(parseInt(count, 10) || 0));
+        });
+
+        bindFinalRecoveryWaitingStepsTooltips($('#step-data-container'));
+      },
+      error: function() {
+        $cells.each(function() {
+          $(this).html(renderFinalRecoveryErrorBadge());
+        });
+      }
+    });
   }
 
   function handleFetchStepDataSuccess(stepData) {
@@ -272,6 +437,7 @@ $(function(){
                 '<th style="width: 200px; text-align: center;">Frequências Pendentes</th>' +
                 '<th style="width: 200px; text-align: center;">Conteúdos Pendentes</th>' +
                 avaliationsHeaderHtml +
+                renderFinalRecoveryHeader(stepData) +
               '</tr>' +
             '</thead>' +
             '<tbody>';
@@ -281,7 +447,7 @@ $(function(){
     _.each(stepData.pending_records, function(record) {
       var recordId = 'record-' + stepData.step_id + '-' + recordIndex;
       var mergedFreqId = 'freq-merged-' + stepData.step_id;
-      var notInLessonsBoard = record.in_lessons_board === false;
+      var notInLessonsBoard = !hasLessonsBoard || record.in_lessons_board === false;
 
       // Frequências: laranja quando há pendências; verde quando está ok (0 datas)
       var frequencyButton;
@@ -292,7 +458,9 @@ $(function(){
       } else {
         // Frequência única para todas as disciplinas: só na primeira linha
         if (recordIndex === 0) {
-          frequencyButton = firstRecord.pending_frequency_count > 0 ?
+          frequencyButton = !hasLessonsBoard ?
+            notInLessonsBoardHtml() :
+            firstRecord.pending_frequency_count > 0 ?
             '<button type="button" class="btn toggle-dates toggle-dates-merged-freq" style="background-color: #ff9800 !important; border-color: #ff9800 !important; color: white !important; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#' + mergedFreqId + '" data-record-index="0">' +
               '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
               firstRecord.pending_frequency_count + ' datas' +
@@ -349,6 +517,7 @@ $(function(){
             '</div>' +
           '</td>' +
           avaliationsColumnsHtml +
+          renderFinalRecoveryCell(record, stepData) +
           '</tr>';
       } else {
         // Frequência não por disciplina: coluna de frequência só na primeira linha (rowspan)
@@ -368,6 +537,7 @@ $(function(){
               '</div>' +
             '</td>' +
             avaliationsColumnsHtml +
+            renderFinalRecoveryCell(record, stepData) +
             '</tr>';
         } else {
           stepHtml += '<tr>' +
@@ -379,6 +549,7 @@ $(function(){
               '</div>' +
             '</td>' +
             avaliationsColumnsHtml +
+            renderFinalRecoveryCell(record, stepData) +
             '</tr>';
         }
       }
@@ -391,8 +562,12 @@ $(function(){
         '</div>' +
       '</div>';
 
+    destroyTooltips($stepContainer, '.not-in-lessons-board-label');
+    destroyTooltips($(document), '.final-recovery-waiting-steps');
     $stepContainer.html(stepHtml);
-    
+    bindNotInLessonsBoardTooltips($stepContainer);
+    fetchFinalRecoveryPending(stepData);
+
     // Adicionar event listeners para os ícones de lupa
     $stepContainer.find('.toggle-dates').on('click', function(e) {
       e.preventDefault();
@@ -419,14 +594,12 @@ $(function(){
         }
         var record = stepData.pending_records[recordIndex];
         var isFrequency = targetId.indexOf('freq-') !== -1;
-        var label = isFrequency ? 'Datas pendentes de frequência' : 'Datas pendentes de conteúdo';
 
         // Datas já vieram na resposta inicial: exibir na hora (sem nova requisição)
         var datesFromRecord = isFrequency ? record.pending_frequency_dates : record.pending_content_dates;
         if (datesFromRecord !== undefined && Array.isArray(datesFromRecord)) {
           $target.html(
-            '<strong>' + label + ':</strong><br>' +
-            (datesFromRecord.length > 0 ? datesFromRecord.join(', ') : 'Nenhuma')
+            datesFromRecord.length > 0 ? formatPendingDates(datesFromRecord) : 'Nenhuma'
           ).slideDown();
           return;
         }
@@ -446,8 +619,7 @@ $(function(){
           success: function(data) {
             var dates = isFrequency ? data.pending_frequency_dates : data.pending_content_dates;
             $target.html(
-              '<strong>' + label + ':</strong><br>' +
-              (dates.length > 0 ? dates.join(', ') : 'Nenhuma')
+              dates.length > 0 ? formatPendingDates(dates) : 'Nenhuma'
             );
           },
           error: function() {

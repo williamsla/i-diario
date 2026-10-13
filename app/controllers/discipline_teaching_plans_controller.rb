@@ -87,7 +87,7 @@ class DisciplineTeachingPlansController < ApplicationController
 
     authorize @discipline_teaching_plan
 
-    if @discipline_teaching_plan.save
+    if !unificado_blocks_new_discipline_teaching_plan? && @discipline_teaching_plan.save
       respond_with @discipline_teaching_plan, location: discipline_teaching_plans_path
     else
       yearly_term_type_id
@@ -199,18 +199,24 @@ class DisciplineTeachingPlansController < ApplicationController
       return render :copy
     end
 
-    CopyDisciplineTeachingPlanWorker.perform_in(
-      1.second,
-      current_entity.id,
-      current_user.id,
+    service = CopyDisciplineTeachingPlanService.new(
       form[:id],
       form[:year],
       form[:unities_ids].split(','),
-      form[:grades_ids].split(',')
+      form[:grades_ids].split(','),
+      created_by_administrator: current_user.administrator?
     )
+    created = Audited.audit_class.as_user(current_user) { service.call }
 
-    flash[:success] = t('discipline_teaching_plans.do_copy.copying')
+    if created.blank?
+      flash[:error] = t("discipline_teaching_plans.do_copy.#{service.empty_reason}")
+    else
+      flash[:success] = t('discipline_teaching_plans.do_copy.copied')
+    end
 
+    redirect_to :discipline_teaching_plans
+  rescue CopyDisciplineTeachingPlanService::CopyDisciplineTeachingPlanError => error
+    flash[:error] = error.message
     redirect_to :discipline_teaching_plans
   end
 
@@ -220,6 +226,20 @@ class DisciplineTeachingPlansController < ApplicationController
     return if current_user.administrator?
 
     current_teacher
+  end
+
+  def unificado_blocks_new_discipline_teaching_plan?
+    return false unless current_user.can_change?(:discipline_teaching_plans)
+    return false unless DisciplineTeachingPlan.unificado_exists_for_same_step?(
+      @discipline_teaching_plan.teaching_plan,
+      @discipline_teaching_plan.discipline_id
+    )
+
+    @discipline_teaching_plan.errors.add(
+      :base,
+      I18n.t('activerecord.errors.models.teaching_plan.unificado_already_registered_for_step')
+    )
+    true
   end
 
   def filter_by_grade_discipline(plans)
@@ -294,6 +314,7 @@ class DisciplineTeachingPlansController < ApplicationController
         :student_id,
         :opinion,
         :validated,
+        *(current_user.administrator? ? [:unificado] : []),
         teaching_plan_attachments_attributes: [
           :id,
           :attachment,
@@ -381,9 +402,9 @@ class DisciplineTeachingPlansController < ApplicationController
       DisciplineTeachingPlan.includes(:discipline, teaching_plan:
                              [:unity, :grade, :teaching_plan_attachments, :teacher,
                               :school_term_type, :school_term_type_step,
-                              { audits: { user: :roles } }])
+                              { audits: { user: [:roles, { current_user_role: :role }] } }])
                             .by_discipline(@disciplines.map(&:id))
-                            .by_unity(current_unity)
+                            .by_unity_or_unificado(current_unity)
                             .by_year(current_school_year)
                             .by_grade(current_grade.map(&:grade_id))
                             .order_by_grades

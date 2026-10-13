@@ -57,7 +57,8 @@
                           elements: @tag_cloud_grades,
                           label: t('.filter_grade'),
                           placeholder: t('.filter_grade'),
-                          required: true %>
+                          required: true,
+                          input_html: { data: { dropdown_css_class: 'pedagogical-grade-dropdown' } } %>
             </div>
             <div class="col col-sm-3">
               <%= f.input :discipline_id,
@@ -66,6 +67,7 @@
                           label: t('.filter_discipline'),
                           placeholder: t('.filter_discipline'),
                           required: true,
+                          wrapper_html: { id: 'tag-cloud-subject-group' },
                           input_html: { disabled: true } %>
             </div>
             <div class="col col-sm-3">

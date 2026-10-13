@@ -1,0 +1,25 @@
+---
+description: Filtro de etapas na recuperação semestral/específica — não sobrescrever com todas as etapas
+globs: app/**/school_term_recovery_diary_records/**,app/inputs/select2_step_specific_recovery_input.rb,app/controllers/school_term_recovery_diary_records_controller.rb,app/assets/javascripts/views/school_term_recovery_diary_records/**
+alwaysApply: false
+---
+
+# Recuperação semestral — filtro de etapas
+
+Quando a regra de avaliação é **específica** (`recovery_exam_rules` presentes), o select de etapa deve listar **somente** a última etapa de cada regra (ex.: 2º e 4º bimestres), nunca todas as etapas do calendário.
+
+## Contrato obrigatório
+
+1. **Server-side:** `Select2StepSpecificRecoveryInput` filtra por `recovery_specific.steps.last.eql?(step.to_number)`.
+2. **AJAX `fetch_step`:** com `specific_recovery=true`, aplicar o **mesmo** filtro. Sem o parâmetro, devolver todas (avaliações complementares reutilizam a rota).
+3. **JS do formulário:** `getStep()` deve sempre enviar `specific_recovery: true`.
+
+## Regressão conhecida (evitar repetir)
+
+Em `4ff516806` (cabeçalho), `initializeFixedClassroom()` passou a chamar `getStep()` no load e sobrescreveu o select filtrado do HTML com todas as etapas. Qualquer hidratação AJAX no load/change da turma **precisa** preservar o filtro.
+
+## Checklist ao alterar estes arquivos
+
+- [ ] Load da tela e change de turma ainda mostram só etapas de recuperação específica
+- [ ] Endpoint compartilhado não quebra complementary exams (sem `specific_recovery`)
+- [ ] Flag `semestral_recovery` / menu “Recuperação Semestral” não confundir com o filtro de etapas (são concerns distintos)

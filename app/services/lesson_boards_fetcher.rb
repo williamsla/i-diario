@@ -73,6 +73,16 @@ class LessonBoardsFetcher
       count_lessons_on_date: ->(absence_date) { count_lessons(turma_id, disciplina_id, absence_date) }
     )
 
+    if scheduled.to_i.zero? && classroom.present?
+      make_up += OptionalHoliday.make_up_lessons_count_for(
+        classroom: classroom,
+        date: data,
+        period: classroom.period,
+        unity_id: classroom.unity_id,
+        count_lessons_on_date: ->(holiday_date) { count_lessons(turma_id, disciplina_id, holiday_date) }
+      )
+    end
+
     scheduled + make_up
   end
 

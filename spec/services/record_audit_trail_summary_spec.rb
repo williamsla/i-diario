@@ -150,6 +150,36 @@ RSpec.describe RecordAuditTrailSummary, type: :service do
       )
     end
 
+    it 'sem disciplina traz frequência de todas as disciplinas' do
+      first_frequency = create(
+        :daily_frequency,
+        classroom: classroom,
+        unity: classroom.unity,
+        school_calendar: classroom.calendar.school_calendar,
+        teacher: teacher,
+        discipline: regular_discipline,
+        frequency_date: record_date,
+        class_number: 1
+      )
+      second_frequency = create(
+        :daily_frequency,
+        classroom: classroom,
+        unity: classroom.unity,
+        school_calendar: classroom.calendar.school_calendar,
+        teacher: teacher,
+        discipline: create(:discipline),
+        frequency_date: record_date,
+        class_number: 2
+      )
+
+      results = summary(discipline_id: nil, record_types: ['frequency'])
+
+      expect(results.map { |result| result[:auditable_id] }).to contain_exactly(
+        first_frequency.id,
+        second_frequency.id
+      )
+    end
+
     it 'não traz frequência de outra disciplina' do
       create(
         :daily_frequency,
@@ -308,6 +338,65 @@ RSpec.describe RecordAuditTrailSummary, type: :service do
       expect(result[:completeness][:unmarked]).to eq(1)
       expect(result[:status]).to eq('incomplete')
       expect(result[:history_id]).to be_present
+    end
+  end
+
+  describe 'quando a turma é educação infantil' do
+    let(:area) do
+      create(:knowledge_area, description: 'Corpo, gestos e movimentos', group_descriptors: false)
+    end
+    let(:selected_discipline) do
+      create(
+        :discipline,
+        knowledge_area: area,
+        description: 'Eixo de movimento',
+        grouper: false,
+        descriptor: false
+      )
+    end
+    let(:sibling_discipline) do
+      create(
+        :discipline,
+        knowledge_area: area,
+        description: 'Brincadeiras',
+        grouper: false,
+        descriptor: false
+      )
+    end
+    let(:classroom) do
+      course = create(:course, description: 'Educação Infantil')
+      grade = create(:grade, course: course, description: 'Maternal')
+      create(:classroom, :with_classroom_semester_steps).tap do |record|
+        create(:classrooms_grade, classroom: record, grade: grade)
+      end
+    end
+
+    it 'aplica o filtro de frequência à área inteira' do
+      other_discipline = create(:discipline)
+      create(
+        :daily_frequency,
+        classroom: classroom,
+        unity: classroom.unity,
+        school_calendar: classroom.calendar.school_calendar,
+        teacher: teacher,
+        discipline: other_discipline,
+        frequency_date: record_date,
+        class_number: 1
+      )
+      matching_frequency = create(
+        :daily_frequency,
+        classroom: classroom,
+        unity: classroom.unity,
+        school_calendar: classroom.calendar.school_calendar,
+        teacher: teacher,
+        discipline: sibling_discipline,
+        frequency_date: record_date,
+        class_number: 2
+      )
+
+      results = summary(discipline_id: selected_discipline.id, record_types: ['frequency'])
+
+      expect(results.map { |result| result[:auditable_id] }).to eq([matching_frequency.id])
     end
   end
 end

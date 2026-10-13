@@ -8,7 +8,7 @@
 
     <input type="hidden" name="user[current_teacher_id]" v-model="selected.id" v-if="selected" />
     <multiselect v-model="selected"
-                 :options="options"
+                 :options="sortedOptions"
                  :searchable="true"
                  :close-on-select="true"
                  :placeholder="isLoading ? 'Carregando...' : 'Selecione'"
@@ -21,6 +21,12 @@
                  deselect-label=""
                  select-label=""
                  selected-label="">
+      <template slot="singleLabel" slot-scope="{ option }">
+        <span :class="{ 'teacher-option--inactive': isInactive(option) }">{{ option.name }}</span>
+      </template>
+      <template slot="option" slot-scope="{ option }">
+        <span :class="{ 'teacher-option--inactive': isInactive(option) }">{{ option.name }}</span>
+      </template>
       <span slot="noResult">Não encontrado...</span>
       <span slot="noOptions">Não há professores...</span>
     </multiselect>
@@ -50,9 +56,17 @@ export default {
   computed: {
     isAdminOrEmployee() {
       return this.role && (this.role.role_access_level === 'employee' || this.role.role_access_level === 'administrator')
+    },
+    sortedOptions() {
+      return _.sortBy(this.options, (teacher) => this.isInactive(teacher) ? 1 : 0)
     }
   },
   methods: {
+    isInactive(teacher) {
+      if (!teacher) return false
+
+      return teacher.inactive === true || /\(saiu em /i.test(teacher.name || '')
+    },
     setRequired() {
       if (this.classroom && _.isEmpty(this.classroom)) {
         this.required = false
@@ -134,6 +148,13 @@ export default {
 <style>
 #current-teacher-container {
   width: 220px;
+}
+#current-teacher-container .teacher-option--inactive {
+  color: darkgray;
+}
+#current-teacher-container .multiselect__option--highlight .teacher-option--inactive,
+#current-teacher-container .multiselect__option--selected.multiselect__option--highlight .teacher-option--inactive {
+  color: #d0d0d0;
 }
 @media (max-width: 1365px) {
   #current-teacher-container {

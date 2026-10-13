@@ -23,7 +23,7 @@ $(function () {
     $disciplineContentRecord.val(discipline_content_record_id);
     var classroom = $(this).data('classroom');
     var discipline = $(this).data('discipline');
-    record_date = $row.find(".record_date").text();
+    record_date = $row.find(".record_date .record-date-value").text() || $row.find(".record_date").text();
 
     $("#copy-discipline-content-record-modal table tbody td.classroom").text(classroom);
     $("#copy-discipline-content-record-modal table tbody td.discipline").text(discipline);

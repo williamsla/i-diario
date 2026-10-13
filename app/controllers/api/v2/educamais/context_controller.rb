@@ -16,15 +16,16 @@ module Api
               name: current_user.name,
               is_admin: current_user.admin? || current_user.administrator?,
               can_semed_view: current_user.admin? || current_user.administrator?
-            },
+            }.merge(EducaMais::UserClaims.role_payload(current_user)),
             entity: {
               id: Entity.current.id,
-              name: Entity.current.name
+              name: Entity.current.name,
+              ibge_code: EntityConfiguration.current.ibge_code
             },
             unity: unity_json(unity),
             school_year: current_school_year,
             classroom: profile.classroom_as_json,
-            unities: profile.unities_as_json
+            unities: unities_json(profile)
           }
         end
 
@@ -36,6 +37,12 @@ module Api
             name: unity.name,
             api_code: unity.api_code
           }
+        end
+
+        def unities_json(profile)
+          profile.unities_as_json
+        rescue StandardError
+          [{ id: current_unity.id, name: current_unity.name }]
         end
 
         def render_unity_required

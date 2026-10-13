@@ -6,7 +6,7 @@ RSpec.describe Api::V2::MonthlyAbsenceByStudentReportsController, type: :control
     let(:classroom) { create(:classroom, unity: unity) }
     let(:student) { create(:student) }
     let(:school_calendar) { create(:school_calendar, unity: unity, year: 2026) }
-    let(:configuration) { create(:ieducar_api_configuration) }
+    let(:configuration) { create(:ieducar_api_configuration, api_security_token: 'security-token') }
 
     let!(:daily_frequency) do
       create(
@@ -36,7 +36,7 @@ RSpec.describe Api::V2::MonthlyAbsenceByStudentReportsController, type: :control
 
     before do
       request.env['REQUEST_PATH'] = '/api/v2/monthly_absence_by_student_reports/report'
-      request.headers['token'] = configuration.api_security_token
+      request.headers['token'] = configuration.token
     end
 
     it 'returns pdf when params are valid' do
@@ -49,6 +49,32 @@ RSpec.describe Api::V2::MonthlyAbsenceByStudentReportsController, type: :control
 
       expect(response).to have_http_status(:ok)
       expect(response.content_type).to eq('application/pdf')
+    end
+
+    it 'rejects the secret key and the diary security token' do
+      request.headers['token'] = configuration.secret_token
+
+      get :report, params: { cod_escola: unity.api_code, ano: 2026, meses: '2' }
+
+      expect(response).to have_http_status(:unauthorized)
+
+      request.headers['token'] = configuration.api_security_token
+
+      get :report, params: { cod_escola: unity.api_code, ano: 2026, meses: '2' }
+
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'rejects an unknown token' do
+      request.headers['token'] = 'token-diferente'
+
+      get :report, params: {
+        cod_escola: unity.api_code,
+        ano: 2026,
+        meses: '2'
+      }
+
+      expect(response).to have_http_status(:unauthorized)
     end
 
     it 'returns errors when school is not found' do

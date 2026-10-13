@@ -69,6 +69,7 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
             discipline: result[:discipline_name],
             discipline_id: result[:discipline_id] || result[:knowledge_area_id], # Usar knowledge_area_id se discipline_id for nil
             knowledge_area_id: result[:knowledge_area_id], # Para áreas de conhecimento
+            final_recovery_discipline_id: result[:discipline_id],
             in_lessons_board: result[:in_lessons_board] != false,
             pending_frequency_count: result[:pending_frequency_count],
             pending_content_count: result[:pending_content_count]
@@ -78,8 +79,9 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
             record[:students_without_note_from_classroom_total] = result[:students_without_note_from_classroom_total] == true
           end
           if result[:pending_frequency_dates].present? || result[:pending_content_dates].present?
-            record[:pending_frequency_dates] = result[:pending_frequency_dates]&.map { |d| d.strftime('%d/%m/%Y') } || []
-            record[:pending_content_dates] = result[:pending_content_dates]&.map { |d| d.strftime('%d/%m/%Y') } || []
+            makeup_dates = result[:optional_holiday_makeup_dates]
+            record[:pending_frequency_dates] = format_pending_dates_with_makeup(result[:pending_frequency_dates], makeup_dates)
+            record[:pending_content_dates] = format_pending_dates_with_makeup(result[:pending_content_dates], makeup_dates)
           end
           record
         end.reject do |record|
@@ -100,6 +102,8 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
         frequency_type_definer.define!
         frequency_by_discipline = frequency_type_definer.frequency_type == FrequencyTypes::BY_DISCIPLINE
 
+        last_step = last_step?(steps, step)
+
         step_data = {
           step_id: step.id,
           step_name: step.to_s,
@@ -108,12 +112,42 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
           end_at: step.end_at.strftime('%d/%m/%Y'),
           frequency_by_discipline: frequency_by_discipline,
           has_numeric_avaliation: show_avaliations_summary,
+          last_step: last_step,
+          show_final_recovery: last_step && PendingRecordsFinalRecoverySummary.available_for?(current_user_classroom),
           pending_records: pending_records
         }
       end
     end
 
     render json: { steps: steps_list, step_data: step_data, has_lessons_board: has_lessons_board }
+  end
+
+  def final_recovery
+    return render json: { error: 'Não autorizado' }, status: :unauthorized if current_user_classroom.blank? || current_teacher.blank?
+
+    steps_fetcher = StepsFetcher.new(current_user_classroom)
+    steps = steps_fetcher.steps
+    step = steps.find { |s| s.id.to_s == params[:step_id].to_s }
+
+    return render json: { error: 'Etapa não encontrada' }, status: :not_found unless step
+
+    unless last_step?(steps, step) && PendingRecordsFinalRecoverySummary.available_for?(current_user_classroom)
+      return render json: { counts: {}, errors: {} }
+    end
+
+    if current_school_calendar.blank?
+      return render json: { counts: {}, errors: {} }
+    end
+
+    discipline_ids = params[:discipline_ids].to_s.split(',').map(&:to_i).reject(&:zero?)
+
+    summary = PendingRecordsFinalRecoverySummary.new(
+      classroom: current_user_classroom,
+      school_calendar: current_school_calendar,
+      discipline_ids: discipline_ids
+    )
+
+    render json: summary.payload
   end
 
   def dates
@@ -144,9 +178,20 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
     return render json: { error: 'Disciplina/Área de conhecimento não encontrada' }, status: :not_found unless result
 
     render json: {
-      pending_frequency_dates: result[:pending_frequency_dates].map { |d| d.strftime('%d/%m/%Y') },
-      pending_content_dates: result[:pending_content_dates].map { |d| d.strftime('%d/%m/%Y') }
+      pending_frequency_dates: format_pending_dates_with_makeup(result[:pending_frequency_dates], result[:optional_holiday_makeup_dates]),
+      pending_content_dates: format_pending_dates_with_makeup(result[:pending_content_dates], result[:optional_holiday_makeup_dates])
     }
+  end
+
+  private
+
+  def last_step?(steps, step)
+    last_step = steps.max_by(&:end_at)
+    last_step.present? && last_step.id == step.id
+  end
+
+  def format_pending_dates_with_makeup(dates, makeup_dates)
+    Array(dates).map { |date| OptionalHoliday.format_pending_date(date, makeup_dates) }
   end
 end
 

@@ -21,4 +21,8 @@ module SchoolTermable
   def school_term
     "#{to_number}º #{step_type_description}"
   end
+
+  def posting_started?
+    start_date_for_posting.present? && Time.zone.today >= start_date_for_posting
+  end
 end

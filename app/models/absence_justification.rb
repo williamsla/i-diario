@@ -147,8 +147,8 @@ class AbsenceJustification < ApplicationRecord
     @valid_for_destruction = begin
       self.validation_type = :destroy
       valid?
-      forbidden_error = I18n.t('errors.messages.not_allowed_to_post_in_date')
-      !(errors[:absence_date_end].include?(forbidden_error) || errors[:absence_date].include?(forbidden_error))
+      !PostingDateChecker.not_allowed_error?(errors[:absence_date_end]) &&
+        !PostingDateChecker.not_allowed_error?(errors[:absence_date])
     end
   end
 

@@ -89,13 +89,58 @@ module Api
           render plain: payload.to_json, content_type: 'application/json'
         end
 
+        # CurrentProfile#unities devolve Relation para administrador e Array
+        # ([unity]) para coordenador/professor. Esta API precisa de Relation
+        # (.ordered / .where) — senão estoura NoMethodError (500).
+        # Coordenador: incluir unity_id do JWT — current_unity no User pode estar
+        # em branco na API, enquanto context() já cai no JWT e funciona.
         def scoped_unities
           profile = CurrentProfile.new(current_user)
-          profile.unities
+          return Unity.ordered if administrator_access?(profile)
+
+          Unity.where(id: allowed_unity_ids(profile)).ordered
+        end
+
+        def administrator_access?(profile = nil)
+          profile ||= CurrentProfile.new(current_user)
+          profile.user_role&.role_administrator? ||
+            current_user.admin? ||
+            current_user.administrator?
+        rescue StandardError
+          current_user.admin?
+        end
+
+        def jwt_unity_id
+          jwt_claims[:unity_id].to_i
+        end
+
+        def allowed_unity_ids(profile = nil)
+          ids = [jwt_unity_id, current_user.current_unity_id.to_i]
+          begin
+            ids << current_user.current_user_role.try(:unity_id).to_i
+            profile ||= CurrentProfile.new(current_user)
+            ids.concat(unity_ids_from(profile.unities))
+          rescue StandardError => e
+            Rails.logger.warn("[educamais] allowed_unity_ids: #{e.class}: #{e.message}")
+          end
+          ids.select(&:positive?).uniq
+        end
+
+        def unity_ids_from(records)
+          Array(records).filter_map do |record|
+            if record.respond_to?(:id)
+              record.id
+            elsif record.is_a?(Hash)
+              record[:id] || record['id']
+            end
+          end
         end
 
         def ensure_unity_access!(unity_id)
-          return if scoped_unities.where(id: unity_id).exists?
+          uid = unity_id.to_i
+          return if uid.positive? && jwt_unity_id.positive? && uid == jwt_unity_id
+          return if administrator_access?
+          return if uid.positive? && allowed_unity_ids.include?(uid)
 
           raise Pundit::NotAuthorizedError
         end

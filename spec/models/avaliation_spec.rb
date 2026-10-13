@@ -204,5 +204,46 @@ RSpec.describe Avaliation, type: :model do
 
       it { expect(subject).to validate_presence_of(:description) }
     end
+
+    context 'when validating that discipline belongs to selected grades' do
+      let(:grade) { create(:grade) }
+      let(:teacher) { create(:teacher) }
+
+      it 'is valid when the teacher is allocated to the discipline and grade without school calendar mapping' do
+        avaliation = build(
+          :avaliation,
+          grade_ids: [grade.id],
+          teacher_id: teacher.id
+        )
+        create(
+          :teacher_discipline_classroom,
+          classroom: avaliation.classroom,
+          discipline: avaliation.discipline,
+          teacher: teacher,
+          grade: grade
+        )
+
+        expect(avaliation).to be_valid
+      end
+
+      it 'is invalid when the discipline is not in the teacher allocation nor in the school calendar' do
+        allocated_grade = create(:grade)
+        avaliation = build(
+          :avaliation,
+          grade_ids: [grade.id],
+          teacher_id: teacher.id
+        )
+        create(
+          :teacher_discipline_classroom,
+          classroom: avaliation.classroom,
+          discipline: avaliation.discipline,
+          teacher: teacher,
+          grade: allocated_grade
+        )
+
+        expect(avaliation).not_to be_valid
+        expect(avaliation.errors[:grades]).to include('não tem essa disciplina nessas series')
+      end
+    end
   end
 end

@@ -7,6 +7,7 @@ pt-BR:
       entity_configuration:
         entity_name: "Nome da entidade"
         cnpj: "CNPJ"
+        ibge_code: "Código IBGE do município"
         organ_name: "Nome do órgão/secretaria"
         phone: "Telefone"
         website: "Site"

@@ -6,7 +6,10 @@
   <% else %>
     <% @knowledge_area_content_records.each do |knowledge_area_content_record| %>
       <tr>
-        <td class="record_date"><%= l(knowledge_area_content_record.content_record.record_date) %></td>
+        <td class="record_date">
+          <span class="record-date-value"><%= l(knowledge_area_content_record.content_record.record_date) %></span>
+          <%= optional_holiday_makeup_badge(knowledge_area_content_record.content_record.classroom, knowledge_area_content_record.content_record.record_date) %>
+        </td>
         <% if is_aee %>
           <td><%= knowledge_area_content_record.content_record.student %></td>
         <% end %>

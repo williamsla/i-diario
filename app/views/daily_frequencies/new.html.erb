@@ -44,6 +44,11 @@
       <div class="row">
         <div class="col col-sm-4">
           <%= f.input :frequency_date %>
+          <%= optional_holiday_makeup_badge_placeholder(
+                @daily_frequency.classroom || current_user_classroom,
+                @daily_frequency.frequency_date,
+                period: @period
+              ) %>
           <p class="help-block text-warning frequency-date-hint <%= @frequency_date_message.blank? ? 'hidden' : '' %>" id="frequency-date-hint">
             <%= @frequency_date_message %>
           </p>

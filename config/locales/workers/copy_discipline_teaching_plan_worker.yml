@@ -2,3 +2,5 @@ pt-BR:
   copy_discipline_teaching_plan_worker:
     title: 'Plano de ensino copiado com sucesso'
     description: 'O plano de ensino foi copiado com sucesso para as escolas e séries selecionadas.'
+    empty_title: 'Plano de ensino não foi copiado'
+    empty_description: 'Nenhuma cópia foi criada. A escola de destino precisa ter turma na série escolhida e ainda não pode ter plano unificado dessa disciplina, etapa e ano.'

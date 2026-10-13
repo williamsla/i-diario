@@ -170,8 +170,6 @@ class AttendanceRecordReport < BaseReport
             student_enrollment = enrollment_classroom[:student_enrollment]
             student = enrollment_classroom[:student]
             student_enrollment_classroom = enrollment_classroom[:student_enrollment_classroom]
-            joined_at = enrollment_classroom[:student_enrollment_classroom].joined_at.to_date
-            left_at = get_left_at(enrollment_classroom[:student_enrollment_classroom].left_at)
             sequence = enrollment_classroom[:student_enrollment_classroom].sequence
 
             if exempted_from_discipline?(all_exempts, student_enrollment, daily_frequency)
@@ -181,10 +179,10 @@ class AttendanceRecordReport < BaseReport
               student_frequency = ActiveSearchFrequencyStudent.new
             elsif @show_inactive_enrollments
               frequency_date = daily_frequency.frequency_date.to_date
-              if frequency_date >= joined_at && frequency_date < left_at
+              if enrollment_date_ranges.cover?(student.id, frequency_date)
                 student_frequency = daily_frequency.students.detect { |student_frequency| student_frequency.student_id.eql?(student.id) && student_frequency.active.eql?(true) }
               else
-                student_frequency ||= NullDailyFrequencyStudent.new
+                student_frequency = NullDailyFrequencyStudent.new
               end
             else
               student_frequency = daily_frequency.students.detect { |student_frequency| student_frequency.student_id.eql?(student.id) && student_frequency.active.eql?(true) }
@@ -412,8 +410,12 @@ class AttendanceRecordReport < BaseReport
     end
   end
 
-  def get_left_at(left_at)
-    left_at.empty? ? Date.current.end_of_year : left_at.to_date
+  def enrollment_date_ranges
+    @enrollment_date_ranges ||= StudentEnrollmentDateRanges.for(
+      classroom_id: classroom&.id,
+      student_ids: Array(@enrollment_classrooms).map { |enrollment_classroom| enrollment_classroom[:student].id },
+      period: @daily_frequencies.first&.period
+    )
   end
 
   def event?(record)

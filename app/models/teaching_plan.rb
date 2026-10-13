@@ -41,11 +41,21 @@ class TeachingPlan < ApplicationRecord
   validate :student_required_when_aee
 
   scope :by_unity_id, ->(unity_id) { where(unity_id: unity_id) }
+  scope :by_unity_id_or_unificado, lambda { |unity_id|
+    where(
+      "#{table_name}.unity_id = :unity_id OR #{table_name}.unificado = TRUE",
+      unity_id: unity_id
+    )
+  }
   scope :by_teacher_id, ->(teacher_id) { where(teacher_id: teacher_id) }
   scope :by_year, ->(year) { where(year: year) }
   scope :semed, -> { where(teacher_id: nil) }
   scope :unificado, lambda {
-    where("#{table_name}.id IN (#{administrator_created_ids_sql})")
+    where(
+      "#{table_name}.unificado = TRUE OR " \
+      "#{table_name}.teacher_id IS NULL OR " \
+      "#{table_name}.id IN (#{unificado_created_ids_sql})"
+    )
   }
 
   attr_accessor :grade_ids, :contents_created_at_position, :objectives_created_at_position
@@ -53,7 +63,7 @@ class TeachingPlan < ApplicationRecord
   def self.administrator_created_ids_sql
     Audited::Audit
       .joins("INNER JOIN users ON users.id = audits.user_id AND audits.user_type = 'User'")
-      .joins('INNER JOIN user_roles ON user_roles.user_id = users.id')
+      .joins('INNER JOIN user_roles ON user_roles.id = users.current_user_role_id')
       .joins('INNER JOIN roles ON roles.id = user_roles.role_id')
       .where(auditable_type: name, action: 'create')
       .where(roles: { access_level: AccessLevel::ADMINISTRATOR })
@@ -61,16 +71,37 @@ class TeachingPlan < ApplicationRecord
       .to_sql
   end
 
+  # Alguns unificados "institucionais" chegam com o audit de criação sem user_id/user_type
+  # (Autor em branco no histórico). Pelo regra de negócio, tratamos esses como unificados também.
+  def self.created_without_user_ids_sql
+    Audited::Audit
+      .where(auditable_type: name, action: 'create', user_id: nil, user_type: nil)
+      .select('audits.auditable_id')
+      .to_sql
+  end
+
+  def self.unificado_created_ids_sql
+    "(#{administrator_created_ids_sql}) UNION (#{created_without_user_ids_sql})"
+  end
+
   def semed?
     unificado?
   end
 
   def unificado?
-    created_by_administrator?
+    self[:unificado] || inferred_unificado?
+  end
+
+  def inferred_unificado?
+    self[:teacher_id].nil? || created_by_administrator? || created_without_user?
   end
 
   def created_by_administrator?
-    creation_user&.has_administrator_access_level?
+    creation_user&.administrator?
+  end
+
+  def created_without_user?
+    creation_audit.present? && creation_audit.user_id.blank? && creation_audit.user_type.blank?
   end
 
   def creation_user

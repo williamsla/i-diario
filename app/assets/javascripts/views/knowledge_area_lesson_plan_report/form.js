@@ -4,6 +4,8 @@ $(function () {
   var $classroom = $('#knowledge_area_lesson_plan_report_form_classroom_id'),
     $unity = $('#knowledge_area_lesson_plan_report_form_unity_id'),
     $knowledge_area = $('#knowledge_area_lesson_plan_report_form_knowledge_area_id'),
+    $student = $('#knowledge_area_lesson_plan_report_form_student_id'),
+    $studentField = $('#individual-student-field'),
     flashMessages = new FlashMessages();
 
   $unity.on('change', function () {
@@ -50,8 +52,10 @@ $(function () {
 
     if (!_.isEmpty(classroom_id)) {
       fetchKnowledgeArea(classroom_id);
+      fetchStudents(classroom_id);
     } else {
       $knowledge_area.val('').trigger('change');
+      clearStudents();
     }
   });
 
@@ -86,6 +90,43 @@ $(function () {
     flashMessages.error('Ocorreu um erro ao buscar as áreas de conhecimento da turma selecionada.');
   };
 
+  function fetchStudents(classroom_id) {
+    $.ajax({
+      url: Routes.fetch_students_knowledge_area_lesson_plan_report_pt_br_path({
+        classroom_id: classroom_id,
+        format: 'json'
+      }),
+      success: handleFetchStudentsSuccess,
+      error: handleFetchStudentsError
+    });
+  }
+
+  function handleFetchStudentsSuccess(students) {
+    if (!students || students.length === 0) {
+      clearStudents();
+      return;
+    }
+
+    var studentOptions = _.map(students, function (student) {
+      return { id: student.id, name: student.name || student.text, text: student.text || student.name };
+    });
+
+    studentOptions.unshift({ id: 'empty', name: '<option></option>', text: '' });
+    $student.select2({ data: studentOptions });
+    $student.val('').trigger('change');
+    $studentField.removeClass('hidden');
+  }
+
+  function handleFetchStudentsError() {
+    clearStudents();
+    flashMessages.error('Ocorreu um erro ao buscar os alunos com conteúdo individual da turma selecionada.');
+  }
+
+  function clearStudents() {
+    $student.val('').select2({ data: [] });
+    $studentField.addClass('hidden');
+  }
+
   $('#lesson-plan-report').on('click', function (e) {
     e.preventDefault();
     $('#knowledge-area-lesson-plan-report-form').attr('action',
@@ -105,6 +146,7 @@ $(function () {
   function clearFields() {
     $classroom.val('').select2({ data: [] });
     $knowledge_area.val('').select2({ data: [] });
+    clearStudents();
   }
 
   // Carrega as áreas de conhecimento quando a página carrega com uma turma já selecionada

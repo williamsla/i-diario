@@ -14,8 +14,25 @@
             :'data-toggle'=> 'popover',
             maxlength: "1" %>
         <% end %>
+      </div>
     </div>
-
+  </fieldset>
+  <fieldset>
+    <legend>Educa+</legend>
+    <div class="row">
+      <div class="col-sm-4">
+        <%= f.input :educamais_label do %>
+          <i class="icon-append fa fa-question-circle"></i>
+          <%= f.input_field :educamais_label,
+            rel: 'popover-hover',
+            :'data-placement' => 'bottom',
+            :'data-content' => t('terms_dictionaries.help.educamais_label'),
+            :'data-toggle'=> 'popover',
+            maxlength: TermsDictionary::EDUCAMAIS_LABEL_MAX_LENGTH,
+            placeholder: t('navigation.educamais') %>
+        <% end %>
+      </div>
+    </div>
   </fieldset>
   <footer>
     <%= link_to 'Histórico', history_terms_dictionaries_path, class: 'btn btn-info' %>

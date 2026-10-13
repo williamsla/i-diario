@@ -2,6 +2,7 @@ class KnowledgeAreaTeachingPlan < ApplicationRecord
   include Audit
   include TeacherRelationable
   include Translatable
+  include UnificadoSameStep
 
   teacher_relation_columns only: :knowledge_areas
 
@@ -21,6 +22,13 @@ class KnowledgeAreaTeachingPlan < ApplicationRecord
 
   scope :by_year, ->(year) { joins(:teaching_plan).where(teaching_plans: { year: year }) }
   scope :by_unity, ->(unity) { joins(:teaching_plan).where(teaching_plans: { unity_id: unity }) }
+  scope :by_unity_or_unificado, lambda { |unity|
+    unity_id = unity.respond_to?(:id) ? unity.id : unity
+    joins(:teaching_plan).where(
+      'teaching_plans.unity_id = :unity_id OR teaching_plans.unificado = TRUE',
+      unity_id: unity_id
+    )
+  }
   scope :by_grade, ->(grade) { joins(:teaching_plan).where(teaching_plans: { grade_id: grade }) }
   scope :by_school_term_type_id, lambda { |school_term_type_id|
     joins(:teaching_plan).where(teaching_plans: { school_term_type_id: school_term_type_id })
@@ -42,6 +50,21 @@ class KnowledgeAreaTeachingPlan < ApplicationRecord
   }
   scope :by_secretary, -> { joins(:teaching_plan).where(teaching_plans: { teacher_id: nil }) }
   scope :unificado, -> { joins(:teaching_plan).merge(TeachingPlan.unificado) }
+  scope :by_classroom_teachers_or_unificado, lambda { |classroom_id, year, knowledge_area_ids|
+    assignment = TeacherDisciplineClassroom
+      .joins(:discipline)
+      .where(classroom_id: classroom_id, year: year)
+      .where(disciplines: { knowledge_area_id: knowledge_area_ids })
+      .where('teacher_discipline_classrooms.teacher_id = teaching_plans.teacher_id')
+      .where(
+        'teacher_discipline_classrooms.grade_id = teaching_plans.grade_id OR ' \
+        'teacher_discipline_classrooms.grade_id IS NULL'
+      )
+
+    joins(:teaching_plan).where(
+      "(#{unificado_sql_condition}) OR EXISTS (#{assignment.to_sql})"
+    )
+  }
   scope :by_author, lambda { |author_type, current_teacher_id|
     teacher_id = current_teacher_id.respond_to?(:id) ? current_teacher_id.try(:id) : current_teacher_id
     unificado_condition = unificado_sql_condition
@@ -92,8 +115,34 @@ class KnowledgeAreaTeachingPlan < ApplicationRecord
   validates :teaching_plan, presence: true
   validates :knowledge_area_ids, presence: true
 
+  def self.unificado_exists_for_same_step?(teaching_plan, knowledge_area_ids)
+    ids = normalize_knowledge_area_ids(knowledge_area_ids)
+    return false if ids.empty?
+
+    unificado_on_same_step(teaching_plan).where(
+      <<~SQL.squish,
+        (
+          SELECT string_agg(katpka.knowledge_area_id::text, ',' ORDER BY katpka.knowledge_area_id)
+          FROM knowledge_area_teaching_plan_knowledge_areas katpka
+          WHERE katpka.knowledge_area_teaching_plan_id = knowledge_area_teaching_plans.id
+        ) = :knowledge_area_ids
+      SQL
+      knowledge_area_ids: ids.join(',')
+    ).exists?
+  end
+
+  def self.normalize_knowledge_area_ids(knowledge_area_ids)
+    Array(knowledge_area_ids).flat_map { |value| value.to_s.split(',') }
+      .map(&:to_i)
+      .select(&:positive?)
+      .uniq
+      .sort
+  end
+  private_class_method :normalize_knowledge_area_ids
+
   def self.unificado_sql_condition
-    "teaching_plans.id IN (#{TeachingPlan.administrator_created_ids_sql})"
+    "teaching_plans.unificado = TRUE OR teaching_plans.teacher_id IS NULL OR " \
+    "teaching_plans.id IN (#{TeachingPlan.unificado_created_ids_sql})"
   end
 
   def self.deduped_unificado_ids_sql

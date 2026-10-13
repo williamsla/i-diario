@@ -3,6 +3,7 @@ class DisciplineTeachingPlan < ApplicationRecord
   include ColumnsLockable
   include TeacherRelationable
   include Translatable
+  include UnificadoSameStep
 
   not_updatable only: :discipline_id
   teacher_relation_columns only: :discipline
@@ -22,6 +23,13 @@ class DisciplineTeachingPlan < ApplicationRecord
 
   scope :by_year, ->(year) { joins(:teaching_plan).where(teaching_plans: { year: year }) }
   scope :by_unity, ->(unity) { joins(:teaching_plan).where(teaching_plans: { unity_id: unity }) }
+  scope :by_unity_or_unificado, lambda { |unity|
+    unity_id = unity.respond_to?(:id) ? unity.id : unity
+    joins(:teaching_plan).where(
+      'teaching_plans.unity_id = :unity_id OR teaching_plans.unificado = TRUE',
+      unity_id: unity_id
+    )
+  }
   scope :by_grade, ->(grade) { joins(:teaching_plan).where(teaching_plans: { grade_id: grade }) }
   scope :by_school_term_type_id, lambda { |school_term_type_id|
     joins(:teaching_plan).where(teaching_plans: { school_term_type_id: school_term_type_id })
@@ -43,6 +51,19 @@ class DisciplineTeachingPlan < ApplicationRecord
   }
   scope :by_secretary, -> { joins(:teaching_plan).where(teaching_plans: { teacher_id: nil }) }
   scope :unificado, -> { joins(:teaching_plan).merge(TeachingPlan.unificado) }
+  scope :by_classroom_teachers_or_unificado, lambda { |classroom_id, year, discipline_id|
+    assignment = TeacherDisciplineClassroom
+      .where(classroom_id: classroom_id, year: year, discipline_id: discipline_id)
+      .where('teacher_discipline_classrooms.teacher_id = teaching_plans.teacher_id')
+      .where(
+        'teacher_discipline_classrooms.grade_id = teaching_plans.grade_id OR ' \
+        'teacher_discipline_classrooms.grade_id IS NULL'
+      )
+
+    joins(:teaching_plan).where(
+      "(#{unificado_sql_condition}) OR EXISTS (#{assignment.to_sql})"
+    )
+  }
   scope :by_author, lambda { |author_type, current_teacher_id|
     teacher_id = current_teacher_id.respond_to?(:id) ? current_teacher_id.try(:id) : current_teacher_id
     unificado_condition = unificado_sql_condition
@@ -91,8 +112,15 @@ class DisciplineTeachingPlan < ApplicationRecord
   validates :teaching_plan, presence: true
   validates :discipline, presence: true
 
+  def self.unificado_exists_for_same_step?(teaching_plan, discipline_id)
+    return false if discipline_id.blank?
+
+    unificado_on_same_step(teaching_plan).where(discipline_id: discipline_id).exists?
+  end
+
   def self.unificado_sql_condition
-    "teaching_plans.id IN (#{TeachingPlan.administrator_created_ids_sql})"
+    "teaching_plans.unificado = TRUE OR teaching_plans.teacher_id IS NULL OR " \
+    "teaching_plans.id IN (#{TeachingPlan.unificado_created_ids_sql})"
   end
 
   def self.deduped_unificado_ids_sql

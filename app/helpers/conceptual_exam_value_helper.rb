@@ -10,7 +10,7 @@ module ConceptualExamValueHelper
     rounding_table.rounding_table_values.map { |rtv|
       [
         concept_option_short_label(rtv),
-        concept_option_value(rtv.value),
+        ConceptValueMatcher.canonical(rtv.value),
         { title: rtv.to_s }
       ]
     }
@@ -20,14 +20,18 @@ module ConceptualExamValueHelper
     rounding_table_value.label.to_s.strip.presence || rounding_table_value.to_s
   end
 
-  # Normaliza decimal/BigDecimal para o value do <option>, evitando mismatch na reexibição
-  # (ex.: BigDecimal#to_s => "0.1e2" vs "10.0" enviado pelo formulário).
+  # Normaliza decimal/BigDecimal para o value do <option>.
+  # BigDecimal#to_s varia com a escala ("0.1e2", "10.0", "10.00") e o select fica em branco.
   def concept_option_value(value)
+    ConceptValueMatcher.canonical(value)
+  end
+
+  # Id da opção que representa o conceito já lançado, mesmo se a escala do decimal diferir.
+  def concept_selected_option(classroom, student, value)
     return if value.nil?
 
-    value.to_d.to_s('F')
-  rescue ArgumentError, TypeError, NoMethodError
-    value.to_s
+    exam_rule = ExamRuleFetcher.fetch(classroom, student)
+    ConceptValueMatcher.option_id(exam_rule&.conceptual_rounding_table, value)
   end
 
   def concept_legend_items_for_classroom(classroom, students)

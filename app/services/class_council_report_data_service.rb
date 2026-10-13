@@ -457,11 +457,7 @@ class ClassCouncilReportDataService
     return nil if value.blank?
 
     exam_rule = student_exam_rule(student)
-    rounding_table = exam_rule&.conceptual_rounding_table
-    return value.to_s if rounding_table.blank?
-
-    rounding_table_value = rounding_table.rounding_table_values.find { |rtv| rtv.value.to_s == value.to_s }
-    rounding_table_value ? rounding_table_value.label.to_s : value.to_s
+    ConceptValueMatcher.display(exam_rule&.conceptual_rounding_table, value)
   end
 
   def calculate_score(student, discipline, step)

@@ -76,7 +76,7 @@ $(function () {
     var data = raw && raw.responseJSON != null ? raw.responseJSON : raw;
 
     if (data && _.isArray(data.disciplines)) {
-      return { disciplines: data.disciplines, message: data.message || null };
+      return { disciplines: data.disciplines, message: data.message || null, makeup: data.makeup === true };
     }
     if (_.isArray(data)) {
       return { disciplines: data, message: null };
@@ -386,6 +386,20 @@ $(function () {
       $discipline.val('').trigger('change');
     }
     toggleFrequencyDateAlert(payload.message);
+    toggleOptionalHolidayMakeupBadge(payload.makeup);
+  };
+
+  var toggleOptionalHolidayMakeupBadge = function (isMakeup) {
+    var $badge = $('#optional-holiday-makeup-badge');
+    if (!$badge.length) {
+      return;
+    }
+
+    if (isMakeup) {
+      $badge.show();
+    } else {
+      $badge.hide();
+    }
   };
 
   var reloadScheduleForSelectedDate = function () {
@@ -394,6 +408,7 @@ $(function () {
 
     if (_.isEmpty(classroomId) || _.isEmpty(frequencyDate)) {
       toggleFrequencyDateAlert(null);
+      toggleOptionalHolidayMakeupBadge(false);
       return;
     }
 

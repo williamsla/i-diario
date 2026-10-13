@@ -97,6 +97,11 @@ class ConceptualExamsController < ApplicationController
     @conceptual_exam.assign_attributes(resource_params) if params[:conceptual_exam].present?
     apply_step_defaults_for_new
 
+    if @conceptual_exam.step.present?
+      redirect_unless_can_launch_in_step!(@conceptual_exam.step, conceptual_exams_path)
+      return if performed?
+    end
+
     authorize @conceptual_exam
 
     fetch_collections
@@ -129,6 +134,9 @@ class ConceptualExamsController < ApplicationController
         step = steps_fetcher(@classroom).step_by_id(resource_params[:step_id])
         record_at = resource_params[:recorded_at].to_date
       end
+
+      redirect_unless_can_launch_in_step!(step, conceptual_exams_path)
+      return if performed?
       
       resource_params_changed = resource_params.merge!("step_id": step.id)
       resource_params_changed = resource_params_changed.merge!("step_number": step.step_number)
@@ -163,6 +171,9 @@ class ConceptualExamsController < ApplicationController
     @conceptual_exam.teacher_id = current_teacher_id
     @conceptual_exam.current_user = current_user
 
+    redirect_unless_can_launch_in_step!(@conceptual_exam.step, conceptual_exams_path)
+    return if performed?
+
     authorize @conceptual_exam
 
     if @conceptual_exam.save
@@ -190,6 +201,7 @@ class ConceptualExamsController < ApplicationController
 
     if @conceptual_exam.valid?
       ConceptualExamValue.by_conceptual_exam_id(@conceptual_exam.id)
+                         .where(discipline_id: disciplines_with_assignment)
                          .destroy_all
 
       @conceptual_exam.destroy unless ConceptualExamValue.by_conceptual_exam_id(@conceptual_exam.id).any?
@@ -272,6 +284,9 @@ class ConceptualExamsController < ApplicationController
     end
     @batch_form.recorded_at = @recorded_at
 
+    redirect_unless_can_launch_in_step!(@step, conceptual_exams_path)
+    return if performed?
+
     enrollment_start = @only_one_conceptual_avaliation ? @annual_period_start : @step.start_at
     enrollment_end = @only_one_conceptual_avaliation ? @annual_period_end : @step.end_at
     @student_enrollments = batch_student_enrollments(@classroom, enrollment_start, enrollment_end)
@@ -279,9 +294,7 @@ class ConceptualExamsController < ApplicationController
     @students = Student.where(id: student_ids).ordered
 
     @existing_by_student = batch_existing_conceptual_exams(@classroom, @step, student_ids)
-    @disciplines_by_student = batch_disciplines_by_student(
-      @classroom, @students, @step, existing_by_student: @existing_by_student
-    )
+    @disciplines_by_student = batch_disciplines_by_student(@classroom, @students, @step)
     @all_discipline_ids = @disciplines_by_student.values.flatten.uniq
     @disciplines = Discipline.where(id: @all_discipline_ids).includes(:knowledge_area)
     @disciplines = @disciplines.to_a.sort_by { |d| [d.knowledge_area&.sequence.to_i, d.knowledge_area&.description.to_s, d.sequence.to_i, d.description] }
@@ -311,8 +324,13 @@ class ConceptualExamsController < ApplicationController
       @batch_form.step_id = @step.id if @step
     end
 
+    redirect_unless_can_launch_in_step!(@step, conceptual_exams_path)
+    return if performed?
+
     base_record_at = batch_valid_recorded_at(@step, @batch_form.recorded_at.to_date, @classroom)
     base_record_at = batch_last_date_of_step(@step) if base_record_at.blank?
+    school_calendar = SchoolCalendar.find_by(unity_id: @classroom.unity_id, year: @classroom.year)
+    allowed_discipline_ids = batch_allowed_discipline_ids(@classroom, school_calendar, @step)
     saved = 0
     errors = []
 
@@ -341,7 +359,7 @@ class ConceptualExamsController < ApplicationController
         next if step.blank?
 
         values_by_discipline = filter_batch_values_by_teacher_disciplines(
-          values_by_discipline, @classroom, step
+          values_by_discipline, allowed_discipline_ids
         )
         next if values_by_discipline.empty?
 
@@ -358,7 +376,13 @@ class ConceptualExamsController < ApplicationController
         conceptual_exam.teacher_id = current_teacher_id
         conceptual_exam.current_user = current_user
 
-        build_batch_conceptual_exam_values(conceptual_exam, values_by_discipline)
+        # Exame existente: não carregar/autosave valores de outras disciplinas.
+        # Exame novo: monta só as disciplinas da professora para passar na validação.
+        if conceptual_exam.new_record?
+          build_batch_conceptual_exam_values(conceptual_exam, values_by_discipline, allowed_discipline_ids)
+        else
+          conceptual_exam.association(:conceptual_exam_values).reset
+        end
 
         authorize conceptual_exam
 
@@ -368,8 +392,9 @@ class ConceptualExamsController < ApplicationController
             raise ActiveRecord::Rollback
           end
 
-          # Garante persistência dos valores (não depende só do autosave após assign da associação).
-          persist_batch_conceptual_exam_values!(conceptual_exam, values_by_discipline)
+          persist_batch_conceptual_exam_values!(
+            conceptual_exam, values_by_discipline, allowed_discipline_ids
+          )
           saved += 1
         end
       rescue ActiveRecord::RecordNotUnique
@@ -426,13 +451,12 @@ class ConceptualExamsController < ApplicationController
     set_options_by_user
     fetch_collections
     add_missing_disciplines
-    mark_not_assigned_disciplines_for_destruction
     mark_not_existing_disciplines_as_invisible
     mark_exempted_disciplines
   end
 
   def resource_params
-    params.require(:conceptual_exam).permit(
+    permitted = params.require(:conceptual_exam).permit(
       :unity_id,
       :classroom_id,
       :recorded_at,
@@ -446,6 +470,48 @@ class ConceptualExamsController < ApplicationController
         :_destroy
       ]
     )
+
+    filter_nested_values_to_teacher_disciplines(permitted)
+  end
+
+  def filter_nested_values_to_teacher_disciplines(permitted)
+    attributes = permitted[:conceptual_exam_values_attributes]
+    return permitted if attributes.blank?
+
+    allowed = teacher_discipline_ids_for_classroom(
+      permitted[:classroom_id].presence || @conceptual_exam&.classroom_id
+    )
+
+    keep = lambda do |attrs|
+      attrs = attrs.respond_to?(:to_unsafe_h) ? attrs.to_unsafe_h : attrs.to_h
+      attrs = attrs.with_indifferent_access
+      discipline_id = attrs[:discipline_id].presence
+      if discipline_id.blank? && attrs[:id].present?
+        discipline_id = ConceptualExamValue.where(id: attrs[:id]).limit(1).pluck(:discipline_id).first
+      end
+      allowed.include?(discipline_id.to_i)
+    end
+
+    permitted[:conceptual_exam_values_attributes] =
+      if attributes.respond_to?(:each_pair) && !attributes.is_a?(Array)
+        attributes.each_with_object({}) do |(key, attrs), memo|
+          memo[key] = attrs if keep.call(attrs)
+        end
+      else
+        Array(attributes).select { |attrs| keep.call(attrs) }
+      end
+
+    permitted
+  end
+
+  def teacher_discipline_ids_for_classroom(classroom_id)
+    return [] if classroom_id.blank? || current_teacher_id.blank?
+
+    TeacherDisciplineClassroom.by_classroom(classroom_id)
+                              .by_teacher_id(current_teacher_id)
+                              .by_year(current_school_calendar.year)
+                              .pluck(:discipline_id)
+                              .uniq
   end
 
   def find_step_id
@@ -508,12 +574,6 @@ class ConceptualExamsController < ApplicationController
     missing_disciplines
   end
 
-  def mark_not_assigned_disciplines_for_destruction
-    @conceptual_exam.conceptual_exam_values.where.not(discipline_id: disciplines_with_assignment).each do |conceptual_exam_value|
-      conceptual_exam_value.mark_for_destruction
-    end
-  end
-
   def mark_not_existing_disciplines_as_invisible
     teacher_discipline_ids = disciplines_with_assignment
 
@@ -560,11 +620,7 @@ class ConceptualExamsController < ApplicationController
   end
 
   def disciplines_with_assignment
-    TeacherDisciplineClassroom.by_classroom(@conceptual_exam.classroom_id)
-                              .by_teacher_id(current_teacher_id)
-                              .by_year(current_school_calendar.year)
-                              .pluck(:discipline_id)
-                              .uniq
+    teacher_discipline_ids_for_classroom(@conceptual_exam.classroom_id)
   end
 
   def fetch_collections
@@ -621,13 +677,11 @@ class ConceptualExamsController < ApplicationController
     classroom ||= @conceptual_exam.classroom
     @period = current_teacher_period(classroom) != Periods::FULL.to_i ? current_teacher_period(classroom) : nil
 
-    StudentEnrollmentsList.new(
+    ConceptualExamStudentEnrollments.new(
       classroom: classroom,
       discipline: discipline,
       start_at: start_at,
       end_at: end_at,
-      score_type: StudentEnrollmentScoreTypeFilters::CONCEPT,
-      search_type: :by_date_range,
       period: @period
     ).student_enrollments
   end
@@ -882,14 +936,11 @@ class ConceptualExamsController < ApplicationController
       end_at = step.end_at
     end
 
-    StudentEnrollmentsList.new(
+    ConceptualExamStudentEnrollments.new(
       classroom: classroom,
       discipline: current_user_discipline,
       start_at: start_at,
-      end_at: end_at,
-      score_type: StudentEnrollmentScoreTypeFilters::CONCEPT,
-      search_type: :by_date_range,
-      period: nil
+      end_at: end_at
     ).student_enrollments
   end
 
@@ -906,49 +957,67 @@ class ConceptualExamsController < ApplicationController
 
     step_number = step.respond_to?(:to_number) ? step.to_number : step.step_number
     exempted_discipline_ids = ExemptedDisciplinesInStep.discipline_ids(classroom.id, step_number)
-    discipline_scope = Discipline.by_score_type(ScoreTypes::CONCEPT).not_grouper
+    # O tipo de nota do componente da série vem em teacher_discipline_classrooms.score_type.
+    # Discipline.by_score_type olha a regra da turma e deixa de fora componente conceitual
+    # quando a regra de avaliação é numérica.
+    concept_from_component = TeacherDisciplineClassroom
+      .by_classroom(classroom.id)
+      .by_teacher_id(current_teacher_id)
+      .by_year(year)
+      .by_score_type(ScoreTypes::CONCEPT)
+      .pluck(:discipline_id)
+    concept_from_exam_rule = Discipline.by_score_type(ScoreTypes::CONCEPT)
+      .where(id: teacher_discipline_ids)
+      .pluck(:id)
+    concept_discipline_ids = (concept_from_component | concept_from_exam_rule).uniq
+
+    discipline_scope = Discipline.not_grouper.where(id: concept_discipline_ids)
     discipline_scope = discipline_scope.descriptor unless conceptual_exam_batch_layout?
 
     discipline_scope
-      .where(id: teacher_discipline_ids)
       .where.not(id: exempted_discipline_ids)
       .pluck(:id)
   end
 
-  def batch_disciplines_by_student(classroom, students, step, existing_by_student: {})
+  def batch_disciplines_by_student(classroom, students, step)
     school_calendar = SchoolCalendar.find_by(unity_id: classroom.unity_id, year: classroom.year)
     return {} if school_calendar.blank?
 
+    # Não inclui disciplinas persistidas de outros professores no mesmo exame.
     discipline_ids_global = batch_discipline_ids_global(classroom, school_calendar, step)
-    persisted_discipline_ids = existing_by_student.values.flat_map { |exam|
-      exam.conceptual_exam_values.map(&:discipline_id)
-    }.uniq
-    discipline_ids_global = (discipline_ids_global + persisted_discipline_ids).uniq
+
+    # A série do componente já vem no vínculo do professor. O calendário escolar
+    # (school_calendar_discipline_grades) pode não ter o componente conceitual
+    # e, no cruzamento, apagava todas as colunas.
+    links_by_grade = TeacherDisciplineClassroom
+      .by_classroom(classroom.id)
+      .by_teacher_id(current_teacher_id)
+      .by_year(school_calendar.year)
+      .where(discipline_id: discipline_ids_global)
+      .pluck(:grade_id, :discipline_id)
+      .each_with_object(Hash.new { |hash, key| hash[key] = [] }) do |(grade_id, discipline_id), hash|
+        hash[grade_id] << discipline_id
+      end
 
     result = {}
     students.each do |student|
       cg = ClassroomsGrade.by_student_id(student.id).by_classroom_id(classroom.id).first
       next if cg.blank?
 
-      grade_discipline_ids = SchoolCalendarDisciplineGrade
-        .where(school_calendar_id: school_calendar.id, grade_id: cg.grade_id)
-        .pluck(:discipline_id)
-      student_discipline_ids = discipline_ids_global & grade_discipline_ids
-      student_exam = existing_by_student[student.id]
-      if student_exam.present?
-        student_discipline_ids = (student_discipline_ids + student_exam.conceptual_exam_values.map(&:discipline_id)).uniq
-      end
-      result[student.id] = student_discipline_ids
+      result[student.id] = links_by_grade[cg.grade_id].uniq
     end
     result
   end
 
-  def filter_batch_values_by_teacher_disciplines(values_by_discipline, classroom, step)
-    school_calendar = SchoolCalendar.find_by(unity_id: classroom.unity_id, year: classroom.year)
-    return {} if school_calendar.blank?
+  def batch_allowed_discipline_ids(classroom, school_calendar, step)
+    return [] if classroom.blank? || school_calendar.blank? || step.blank?
 
-    allowed_ids = batch_discipline_ids_global(classroom, school_calendar, step)
-    values_by_discipline.select { |discipline_id, _| allowed_ids.include?(discipline_id.to_i) }
+    batch_discipline_ids_global(classroom, school_calendar, step).map(&:to_i)
+  end
+
+  def filter_batch_values_by_teacher_disciplines(values_by_discipline, allowed_discipline_ids)
+    allowed = Array(allowed_discipline_ids).map(&:to_i)
+    values_by_discipline.select { |discipline_id, _| allowed.include?(discipline_id.to_i) }
   end
 
   def batch_exempted_by_student(student_enrollments, step)
@@ -966,14 +1035,13 @@ class ConceptualExamsController < ApplicationController
 
     by_step = scope.by_step_number(step.step_number)
                    .order(updated_at: :desc)
-                   .includes(:conceptual_exam_values)
                    .first
     return by_step if by_step.present?
 
     # Modo anual: pode haver lançamento salvo em outra etapa (bug antigo); reutiliza o mais recente.
     return unless GeneralConfiguration.annual_conceptual_evaluation?
 
-    scope.order(updated_at: :desc).includes(:conceptual_exam_values).first
+    scope.order(updated_at: :desc).first
   end
 
   def batch_existing_conceptual_exams(classroom, step, student_ids)
@@ -1000,17 +1068,15 @@ class ConceptualExamsController < ApplicationController
     step.respond_to?(:first_school_calendar_date) ? step.first_school_calendar_date : date
   end
 
-  def build_batch_conceptual_exam_values(conceptual_exam, values_by_discipline)
+  def build_batch_conceptual_exam_values(conceptual_exam, values_by_discipline, allowed_discipline_ids)
+    allowed = Array(allowed_discipline_ids).map(&:to_i)
+
     values_by_discipline.each do |discipline_id, value|
       discipline_id = discipline_id.to_i
-      next if discipline_id.zero?
+      next unless allowed.include?(discipline_id)
+      next if value.blank?
 
       existing_value = conceptual_exam.conceptual_exam_values.find { |v| v.discipline_id == discipline_id }
-
-      if value.blank?
-        existing_value&.mark_for_destruction
-        next
-      end
 
       if existing_value
         existing_value.value = value
@@ -1023,10 +1089,13 @@ class ConceptualExamsController < ApplicationController
     end
   end
 
-  def persist_batch_conceptual_exam_values!(conceptual_exam, values_by_discipline)
+  def persist_batch_conceptual_exam_values!(conceptual_exam, values_by_discipline, allowed_discipline_ids)
+    allowed = Array(allowed_discipline_ids).map(&:to_i)
+
     values_by_discipline.each do |discipline_id, value|
       discipline_id = discipline_id.to_i
-      next if discipline_id.zero? || value.blank?
+      next unless allowed.include?(discipline_id)
+      next if value.blank?
 
       conceptual_exam_value = ConceptualExamValue.find_or_initialize_by(
         conceptual_exam_id: conceptual_exam.id,

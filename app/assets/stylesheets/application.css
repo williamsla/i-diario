@@ -25,6 +25,7 @@
  *= require summernote
  *= require_tree ./resources
  *= require_self
+ *= require login
  */
 
 textarea.form-control.text {

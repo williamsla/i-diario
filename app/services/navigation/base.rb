@@ -1,8 +1,16 @@
 module Navigation
   class Base
-    MENU = YAML.safe_load(
-      ERB.new(Rails.root.join('config', 'navigation.yml').open.read).result
-    )['navigation']
+    def self.menu
+      path = Rails.root.join('config', 'navigation.yml')
+      mtime = path.mtime.to_i
+
+      if @menu_mtime != mtime
+        @menu = YAML.safe_load(ERB.new(path.read).result)['navigation']
+        @menu_mtime = mtime
+      end
+
+      @menu
+    end
 
     def self.build(*args)
       new(*args).build
@@ -11,7 +19,7 @@ module Navigation
     def initialize(item, user, render = Navigation::Render::Base)
       @item = item.to_s
       @navigation_render = render.new(user)
-      @navigation = MENU
+      @navigation = self.class.menu
     end
 
     def build

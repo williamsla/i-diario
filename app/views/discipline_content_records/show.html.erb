@@ -24,6 +24,10 @@
       <div class="row">
         <div class="col col-sm-4">
           <%= content_record.input :record_date, as: :date, readonly: true %>
+          <%= optional_holiday_makeup_badge(
+                @discipline_content_record.content_record.classroom,
+                @discipline_content_record.content_record.record_date
+              ) %>
         </div>
 
         <% if @allow_class_number %>

@@ -25,39 +25,59 @@ class ConceptualExamReportDataFetcher
   attr_reader :classroom, :step, :teacher_id
 
   def fetch_students
-    student_ids = StudentEnrollmentClassroom
+    enrolled_ids = ConceptualExamStudentEnrollments.new(
+      classroom: classroom,
+      discipline: nil,
+      start_at: step.start_at,
+      end_at: step.end_at
+    ).student_enrollments.map(&:student_id)
+
+    # Série conceitual (ou numérica e conceitual) precisa entrar mesmo quando o
+    # filtro antigo de score_type só reconhecia a regra exatamente "conceito".
+    active_ids = StudentEnrollmentClassroom
       .by_classroom(classroom.id)
       .by_date_range(step.start_at, step.end_at)
-      .by_score_type(StudentEnrollmentScoreTypeFilters::CONCEPT, classroom.id)
       .active
       .joins(student_enrollment: :student)
       .merge(StudentEnrollment.status_attending)
       .pluck('students.id')
       .uniq
 
+    student_ids = (enrolled_ids | (conceptual_exam_student_ids & active_ids)).uniq
     Student.where(id: student_ids).ordered
+  end
+
+  def conceptual_exam_student_ids
+    scope = ConceptualExam.by_classroom(classroom.id)
+    scope = scope.by_step_number(step.step_number) unless GeneralConfiguration.annual_conceptual_evaluation?
+    scope.pluck(:student_id)
   end
 
   def fetch_disciplines
     school_calendar = SchoolCalendar.find_by(unity_id: classroom.unity_id, year: classroom.year)
     return [] if school_calendar.blank?
 
-    teacher_discipline_ids = TeacherDisciplineClassroom
-      .by_classroom(classroom.id)
-      .by_teacher_id(teacher_id)
-      .by_year(school_calendar.year)
-      .pluck(:discipline_id)
-      .uniq
+    teacher_discipline_ids = teacher_discipline_ids_for(school_calendar)
 
     step_number = step.respond_to?(:to_number) ? step.to_number : step.step_number
     exempted_discipline_ids = ExemptedDisciplinesInStep.discipline_ids(classroom.id, step_number)
 
-    discipline_scope = Discipline.by_score_type(ScoreTypes::CONCEPT).not_grouper
-    discipline_scope = discipline_scope.descriptor unless conceptual_exam_batch_layout?
-
     discipline_ids_global = if teacher_discipline_ids.present?
-      discipline_scope
+      concept_from_component = TeacherDisciplineClassroom
+        .by_classroom(classroom.id)
+        .by_teacher_id(teacher_id)
+        .by_year(school_calendar.year)
+        .by_score_type(ScoreTypes::CONCEPT)
+        .pluck(:discipline_id)
+      concept_from_exam_rule = Discipline.by_score_type(ScoreTypes::CONCEPT)
         .where(id: teacher_discipline_ids)
+        .pluck('disciplines.id')
+      concept_discipline_ids = (concept_from_component | concept_from_exam_rule).uniq
+
+      discipline_scope = Discipline.not_grouper.where(id: concept_discipline_ids)
+      discipline_scope = discipline_scope.descriptor unless conceptual_exam_batch_layout?
+
+      discipline_scope
         .where.not(id: exempted_discipline_ids)
         .pluck(:id)
     else
@@ -66,6 +86,9 @@ class ConceptualExamReportDataFetcher
         .where(school_calendar_id: school_calendar.id, grade_id: grade_ids)
         .pluck(:discipline_id)
         .uniq
+
+      discipline_scope = Discipline.by_score_type(ScoreTypes::CONCEPT).not_grouper
+      discipline_scope = discipline_scope.descriptor unless conceptual_exam_batch_layout?
 
       discipline_scope
         .where(id: grade_discipline_ids)
@@ -84,8 +107,11 @@ class ConceptualExamReportDataFetcher
       end
 
     grade_ids = grade_ids_by_student.values.uniq
-    disciplines_by_grade = SchoolCalendarDisciplineGrade
-      .where(school_calendar_id: school_calendar.id, grade_id: grade_ids)
+    disciplines_by_grade = TeacherDisciplineClassroom
+      .by_classroom(classroom.id)
+      .by_teacher_id(teacher_id)
+      .by_year(school_calendar.year)
+      .where(grade_id: grade_ids, discipline_id: discipline_ids_global)
       .pluck(:grade_id, :discipline_id)
       .each_with_object(Hash.new { |h, k| h[k] = [] }) do |(grade_id, discipline_id), hash|
         hash[grade_id] << discipline_id
@@ -96,6 +122,11 @@ class ConceptualExamReportDataFetcher
       grade_discipline_ids = disciplines_by_grade[grade_id] || []
       result_ids = (result_ids + (discipline_ids_global & grade_discipline_ids)).uniq
     end
+
+    # O cruzamento por série apagava o componente quando o vínculo do professor
+    # não batia com a série do aluno.
+    result_ids = discipline_ids_global if result_ids.blank?
+    result_ids = (result_ids | printable_valued_discipline_ids(teacher_discipline_ids)).uniq
 
     Discipline
       .where(id: result_ids)
@@ -120,5 +151,29 @@ class ConceptualExamReportDataFetcher
 
   def conceptual_exam_batch_layout?
     GeneralConfiguration.conceptual_exam_batch_layout?
+  end
+
+  def teacher_discipline_ids_for(school_calendar)
+    scoped = TeacherDisciplineClassroom.by_classroom(classroom.id).by_teacher_id(teacher_id)
+    ids = scoped.by_year(school_calendar.year).pluck(:discipline_id).uniq
+    return ids if ids.present?
+
+    scoped.pluck(:discipline_id).uniq
+  end
+
+  def printable_valued_discipline_ids(teacher_discipline_ids)
+    return [] if teacher_discipline_ids.blank? || students.blank?
+
+    scope = ConceptualExam.by_classroom(classroom.id).where(student_id: students.map(&:id))
+    scope = scope.by_step_number(step.step_number) unless GeneralConfiguration.annual_conceptual_evaluation?
+
+    valued_ids = ConceptualExamValue.where(conceptual_exam_id: scope.select(:id))
+                                    .distinct
+                                    .pluck(:discipline_id)
+    valued_ids &= teacher_discipline_ids
+    return [] if valued_ids.blank?
+
+    without_groupers = Discipline.not_grouper.where(id: valued_ids).pluck(:id)
+    without_groupers.presence || valued_ids
   end
 end

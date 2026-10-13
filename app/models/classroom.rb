@@ -96,6 +96,17 @@ class Classroom < ApplicationRecord
                      .exists?
   end
 
+  def aee?
+    grades.any? { |grade| grade.description.to_s.match?(/aee/i) }
+  end
+
+  def early_childhood_or_aee?
+    grades.includes(:course).any? do |grade|
+      early_childhood_or_aee_course?(grade.course&.description) ||
+        early_childhood_or_aee_grade?(grade.description)
+    end
+  end
+
   def multi_grade?
     grades.count > 1
   end
@@ -107,6 +118,27 @@ class Classroom < ApplicationRecord
   def first_exam_rule_with_recovery
     exam = classrooms_grades.map(&:exam_rule).detect { |rule| rule.recovery_type != RecoveryTypes::DONT_USE }
     exam || first_exam_rule
+  end
+
+  # Em turma multisseriada a primeira série pode não usar parecer enquanto outra usa.
+  def has_opinion_type?
+    classrooms_grades.any? do |classrooms_grade|
+      exam_rule = classrooms_grade.exam_rule
+      next false if exam_rule.blank?
+
+      exam_rule.allow_descriptive_exam? || exam_rule.differentiated_exam_rule&.allow_descriptive_exam?
+    end
+  end
+
+  def descriptive_opinion_types
+    classrooms_grades.flat_map do |classrooms_grade|
+      exam_rule = classrooms_grade.exam_rule
+      next [] if exam_rule.blank?
+
+      [exam_rule, exam_rule.differentiated_exam_rule].compact
+        .select(&:allow_descriptive_exam?)
+        .map(&:opinion_type)
+    end
   end
 
   def first_grade
@@ -126,6 +158,21 @@ class Classroom < ApplicationRecord
   end
 
   private
+
+  EARLY_CHILDHOOD_OR_AEE_COURSE_PATTERN = /infantil|aee|atendimento educacional especializado/
+  EARLY_CHILDHOOD_OR_AEE_GRADE_PATTERN = /creche|pre|pre i|pre ii|pre[- ]escola(r)?|maternal|bercario|jardim|infantil|aee/
+
+  def early_childhood_or_aee_course?(description)
+    normalized_stage_text(description).match?(EARLY_CHILDHOOD_OR_AEE_COURSE_PATTERN)
+  end
+
+  def early_childhood_or_aee_grade?(description)
+    normalized_stage_text(description).match?(EARLY_CHILDHOOD_OR_AEE_GRADE_PATTERN)
+  end
+
+  def normalized_stage_text(description)
+    I18n.transliterate(description.to_s.downcase)
+  end
 
   def set_label_color
     self.label_color = LABEL_COLORS.sample

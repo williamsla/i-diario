@@ -38,7 +38,7 @@ services:
       - DATABASE_USERNAME=idiario
       - DATABASE_PASSWORD=idiario
       - REDIS_URL=redis://redis:6379/0
-      - SUPPORT_NUMBER=82981670619
+      - SUPPORT_NUMBER=5582981670619
     depends_on:
       - postgres
       - redis

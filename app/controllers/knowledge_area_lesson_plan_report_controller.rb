@@ -73,6 +73,14 @@ class KnowledgeAreaLessonPlanReportController < ApplicationController
     render json: knowledge_areas.to_json
   end
 
+  def fetch_students
+    return render json: [] if params[:classroom_id].blank?
+
+    students = students_for_individual_contents(params[:classroom_id])
+
+    render json: students.map { |student| { id: student.id, name: student.to_s, text: student.to_s } }
+  end
+
   private
 
   def select_options_by_user
@@ -84,6 +92,8 @@ class KnowledgeAreaLessonPlanReportController < ApplicationController
                    .ordered,
       current_user_classroom
     )
+
+    @students = students_for_individual_contents(@knowledge_area_lesson_plan_report_form.classroom_id)
 
     return fetch_linked_by_teacher unless @admin_or_teacher
 
@@ -120,7 +130,8 @@ class KnowledgeAreaLessonPlanReportController < ApplicationController
       :date_start,
       :date_end,
       :knowledge_area_id,
-      :author
+      :author,
+      :student_id
     )
   end
 

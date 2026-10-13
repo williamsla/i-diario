@@ -1,0 +1,37 @@
+pt-BR:
+  school_calendar_posting_dates:
+    default_step_type: "etapa"
+    errors:
+      invalid_start_date: "Data inicial para lançamentos inválida"
+      invalid_end_date: "Data final para lançamentos inválida"
+    edit:
+      info: "Altere as datas de lançamento do ano %{year} para todas as escolas. Deixe o campo em branco para não alterar aquele valor. Etapas com tipos diferentes (bimestre, trimestre, semestre) aparecem em linhas separadas."
+      apply_to_classroom_steps: "Aplicar também nas etapas específicas de turma"
+      step: "Etapa"
+      start_date_for_posting: "Data inicial para lançamentos"
+      end_date_for_posting: "Data final para lançamentos"
+      current_date: "Atual: %{date}"
+      reach: "Alcance"
+      leave_blank: "Não alterar"
+      mixed_dates: "Várias"
+      schools_count:
+        one: "%{count} escola"
+        other: "%{count} escolas"
+      classroom_steps_count:
+        one: "%{count} etapa de turma"
+        other: "%{count} etapas de turma"
+      errors_title: "Algumas etapas não foram atualizadas:"
+      empty_changes: "Informe ao menos uma data inicial ou final para lançamentos."
+      confirm_title: "Confirmar atualização em lote"
+      confirm_start: "data inicial"
+      confirm_end: "data final"
+      confirm_schools: "%{count} escola(s)"
+      confirm_classrooms: "%{count} etapa(s) de turma"
+      confirm_button: "Aplicar"
+      cancel_button: "Cancelar"
+    update:
+      notice:
+        one: "%{count} etapa atualizada com sucesso."
+        other: "%{count} etapas atualizadas com sucesso."
+      alert: "%{updated} etapa(s) atualizada(s). %{errors} não puderam ser alteradas."
+      nothing_to_update: "Nenhuma data foi informada para atualização."

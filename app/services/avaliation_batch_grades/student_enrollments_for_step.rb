@@ -1,23 +1,50 @@
 # frozen_string_literal: true
 
 module AvaliationBatchGrades
-  # Alunos da turma/disciplina na etapa, incluindo inativos (transferido, fora do período).
+  # Alunos da turma/disciplina na etapa, incluindo inativos (transferido, fora do período)
+  # e quem só chegou depois que a etapa já tinha acabado.
   # "Ativo" = enturmado na data de referência (último dia da etapa).
-  # Pode liberar nota = inativo na data de referência, mas com overlap na etapa.
+  # Pode liberar nota = inativo na data de referência, mas com overlap na etapa
+  # ou enturmado após o fim da etapa.
   module StudentEnrollmentsForStep
     extend ActiveSupport::Concern
 
     private
 
     def batch_student_enrollments
+      (enrollments_overlapping_step + enrollments_joined_after_step).uniq(&:student_id)
+    end
+
+    def enrollments_overlapping_step
+      student_enrollments_by_date_range(step.start_at, step.end_at)
+    end
+
+    def enrollments_joined_after_step
+      after = step.end_at.to_date + 1.day
+      year_end = classroom_calendar_last_day
+      return [] if after > year_end
+
+      student_enrollments_by_date_range(after, year_end)
+    end
+
+    def student_enrollments_by_date_range(start_at, end_at)
       StudentEnrollmentsList.new(
         classroom: classroom,
         discipline: discipline,
-        start_at: step.start_at,
-        end_at: step.end_at,
+        start_at: start_at,
+        end_at: end_at,
         score_type: StudentEnrollmentScoreTypeFilters::NUMERIC,
         search_type: :by_date_range
       ).student_enrollments
+    end
+
+    def classroom_calendar_last_day
+      calendar = StepsFetcher.new(classroom_record).school_calendar
+      calendar&.last_day || Date.new(classroom_record.year, 12, 31)
+    end
+
+    def classroom_record
+      classroom.is_a?(Classroom) ? classroom : Classroom.find(classroom)
     end
 
     def batch_reference_date
@@ -59,7 +86,28 @@ module AvaliationBatchGrades
     end
 
     def student_can_unlock_notes?(student_enrollment)
-      !student_active_in_step?(student_enrollment) && student_attended_step?(student_enrollment)
+      student_can_unlock_notes_by_student_id?(student_enrollment.student_id)
+    end
+
+    def student_can_unlock_notes_by_student_id?(student_id)
+      return false if student_active_in_step_by_student_id?(student_id)
+
+      student_attended_step_by_student_id?(student_id) ||
+        student_joined_after_step_by_student_id?(student_id)
+    end
+
+    def student_joined_after_step_by_student_id?(student_id)
+      after = step.end_at.to_date + 1.day
+      year_end = classroom_calendar_last_day
+      return false if after > year_end
+
+      StudentEnrollment
+        .by_classroom(classroom)
+        .by_discipline(discipline)
+        .by_student(student_id)
+        .by_date_range(after, year_end)
+        .active
+        .any?
     end
 
     def enrollment_active_on_date?(student_enrollment, date)
@@ -91,14 +139,38 @@ module AvaliationBatchGrades
       nil
     end
 
+    def batch_student_joined_at(enrollment)
+      classroom_id = classroom.is_a?(Classroom) ? classroom.id : classroom
+      sec = StudentEnrollmentClassroom
+        .by_classroom(classroom_id)
+        .by_student_enrollment(enrollment.id)
+        .ordered
+        .last
+      joined_at = sec&.joined_at
+      return nil if joined_at.blank?
+
+      joined_at.is_a?(String) ? Date.parse(joined_at) : joined_at.to_date
+    rescue ArgumentError, TypeError
+      nil
+    end
+
     def batch_student_status_message(enrollment, active)
       return nil if active
 
       left_at = batch_student_left_at(enrollment)
-      if left_at.present?
+      joined_at = batch_student_joined_at(enrollment)
+      step_end = step.end_at.to_date
+      step_start = step.start_at.to_date
+
+      if left_at.present? && left_at <= step_end
         I18n.t(
           'avaliations.batch.transferred_on',
           date: I18n.l(left_at, format: :default)
+        )
+      elsif joined_at.present? && joined_at > step_start
+        I18n.t(
+          'avaliations.batch.joined_on',
+          date: I18n.l(joined_at, format: :default)
         )
       else
         I18n.t('avaliations.batch.inactive_student_status')

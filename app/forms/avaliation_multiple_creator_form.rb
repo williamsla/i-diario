@@ -164,7 +164,7 @@ class AvaliationMultipleCreatorForm
   def avaliation_error(avaliation)
     avaliation.errors.full_messages.reject { |msg|
       msg.include?('Data da avaliação') || msg.include?('Aulas') ||
-        msg.include?(I18n.t('errors.messages.not_allowed_to_post_in_date'))
+        PostingDateChecker.not_allowed_error?(msg)
     }.first
   end
 end

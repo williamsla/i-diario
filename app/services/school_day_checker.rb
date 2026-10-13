@@ -1,5 +1,5 @@
 class SchoolDayChecker
-  def initialize(school_calendar, date, grade_id, classroom_id, discipline_id)
+  def initialize(school_calendar, date, grade_id, classroom_id, discipline_id, period = nil)
     raise ArgumentError unless school_calendar.present? && date.present?
 
     @school_calendar = get_school_calendar(school_calendar, classroom_id)
@@ -7,6 +7,7 @@ class SchoolDayChecker
     @grade_id = grade_id
     @classroom_id = classroom_id
     @discipline_id = discipline_id
+    @period = period
   end
 
   def school_day?
@@ -129,13 +130,13 @@ class SchoolDayChecker
       return true if any_classroom_event?(allowed_events, @grade_id, @classroom_id)
 
 
-      return false if any_grade_event?(not_allowed_events.by_period(classroom.period), @grade_id)
-      return true if any_grade_event?(allowed_events.by_period(classroom.period), @grade_id)
-      return false if any_course_event?(not_allowed_events.by_period(classroom.period), grade_course_ids)
-      return true if any_course_event?(allowed_events.by_period(classroom.period), grade_course_ids)
+      return false if any_grade_event?(not_allowed_events.by_period(period_for_event_match), @grade_id)
+      return true if any_grade_event?(allowed_events.by_period(period_for_event_match), @grade_id)
+      return false if any_course_event?(not_allowed_events.by_period(period_for_event_match), grade_course_ids)
+      return true if any_course_event?(allowed_events.by_period(period_for_event_match), grade_course_ids)
       
-      return false if any_global_event?(not_allowed_events.by_period(classroom.period))
-      return true if any_global_event?(allowed_events.by_period(classroom.period))
+      return false if any_global_event?(not_allowed_events.by_period(period_for_event_match))
+      return true if any_global_event?(allowed_events.by_period(period_for_event_match))
       return false if steps_fetcher.step_by_date(date).nil?
     else
       if @grade_id.present?
@@ -147,6 +148,10 @@ class SchoolDayChecker
       return false if school_calendar.step(date).nil?
     end
     ![0, 6].include? date.wday
+  end
+
+  def period_for_event_match
+    (@period.presence || classroom.period).to_s
   end
 
   def any_discipline_event?(query, grade_id, classroom_id, discipline_id)
