@@ -1,4 +1,5 @@
 require 'hexapdf'
+require 'tempfile'
 
 class DiaryCoverReport < BaseReport
     def self.build(pdfTarget, entity_configuration, unity, classroom, discipline, teacher, year)
@@ -35,10 +36,9 @@ class DiaryCoverReport < BaseReport
       canvas.rectangle(20, 20, page_box.width - 40, page_box.height - 40, radius: 5).stroke
       
       begin
-        logo_io = @entity_configuration.logo_io_for_report
-        canvas.image(logo_io, at: [250, 670], width: 70, height: 70) if logo_io
-      rescue
-        Rails.logger.error "Não não conseguiu carregar a imagem"
+        draw_logo(canvas)
+      rescue StandardError => error
+        Rails.logger.error("Não conseguiu carregar a logo da capa do diário: #{error.class}: #{error.message}")
       end
       
       canvas.font('Helvetica', size: 14)
@@ -76,6 +76,24 @@ class DiaryCoverReport < BaseReport
       canvas.text("Professor(a): #{@teacher.name}", at:[30, y_position_info_escola - 5*y_distance])
       #falta curso, série e disciplina
       
+    end
+
+    def draw_logo(canvas)
+      logo_io = @entity_configuration.logo_io_for_report
+      return if logo_io.blank?
+
+      extension = File.extname(@entity_configuration.logo.identifier.to_s)
+      extension = '.img' if extension.blank?
+
+      # O HexaPDF 0.15 não reconhece a imagem quando recebe um StringIO.
+      # O caminho em disco, aberto em binário, é o que a capa já usava.
+      Tempfile.create(['diary-cover-logo', extension]) do |file|
+        file.binmode
+        file.write(logo_io.read)
+        file.flush
+        logo_io.rewind
+        canvas.image(file.path, at: [250, 670], width: 70, height: 70)
+      end
     end
 
     def calculate_xposition_to_center(text_size, line_size)

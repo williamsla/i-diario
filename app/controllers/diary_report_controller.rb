@@ -425,7 +425,7 @@ class DiaryReportController < ApplicationController
       }.map(&:discipline_id)
 
       valued_ids = ConceptualExamValue.joins(:conceptual_exam)
-                                      .where(conceptual_exams: { classroom_id: classroom.id }, deleted_at: nil)
+                                      .where(conceptual_exams: { classroom_id: classroom.id })
                                       .distinct
                                       .pluck(:discipline_id)
 
@@ -471,7 +471,7 @@ class DiaryReportController < ApplicationController
     def enrollments_for_discipline_grades(enrollments, discipline)
       conceptual_student_ids = ConceptualExam.by_classroom(current_user_classroom.id)
                                             .joins(:conceptual_exam_values)
-                                            .where(conceptual_exam_values: { discipline_id: discipline.id, deleted_at: nil })
+                                            .where(conceptual_exam_values: { discipline_id: discipline.id })
                                             .pluck(:student_id)
       if conceptual_student_ids.present?
         with_concepts = StudentEnrollment.by_classroom(current_user_classroom.id)

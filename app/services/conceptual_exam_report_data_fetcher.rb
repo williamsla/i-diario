@@ -167,7 +167,7 @@ class ConceptualExamReportDataFetcher
     scope = ConceptualExam.by_classroom(classroom.id).where(student_id: students.map(&:id))
     scope = scope.by_step_number(step.step_number) unless GeneralConfiguration.annual_conceptual_evaluation?
 
-    valued_ids = ConceptualExamValue.where(conceptual_exam_id: scope.select(:id), deleted_at: nil)
+    valued_ids = ConceptualExamValue.where(conceptual_exam_id: scope.select(:id))
                                     .distinct
                                     .pluck(:discipline_id)
     valued_ids &= teacher_discipline_ids
