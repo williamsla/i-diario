@@ -66,6 +66,9 @@ class KnowledgeAreaLessonPlansController < ApplicationController
     @knowledge_area_lesson_plan.lesson_plan.teacher_id = current_teacher.id
     @knowledge_area_lesson_plan.lesson_plan.start_at = Time.zone.today
     @knowledge_area_lesson_plan.lesson_plan.end_at = Time.zone.today
+    if is_aee && params[:student_id].present?
+      @knowledge_area_lesson_plan.lesson_plan.student_id = params[:student_id]
+    end
 
     authorize @knowledge_area_lesson_plan
 

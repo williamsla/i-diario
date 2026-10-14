@@ -7,6 +7,9 @@ module AeeHelper
 
   def aee_navigation_label(menu_type, fallback = nil)
     return fallback unless is_aee
+    if aee_uses_dictionary_name?(menu_type)
+      return Translator.t("navigation.#{menu_type}", default: fallback)
+    end
 
     i18n_key = "aee.navigation.#{menu_type}"
     return I18n.t(i18n_key) if I18n.exists?(i18n_key)
@@ -115,11 +118,33 @@ module AeeHelper
     return if student.blank?
 
     @aee_paee_for ||= {}
-    @aee_paee_for[student.id] ||= TeachingPlan
-      .includes(:knowledge_area_teaching_plan, :discipline_teaching_plan)
-      .where(student_id: student.id, year: current_user_school_year)
-      .order(updated_at: :desc)
+    return @aee_paee_for[student.id] if @aee_paee_for.key?(student.id)
+
+    plan = aee_knowledge_area_teaching_plan_for(student) if aee_feature_enabled?(:knowledge_area_teaching_plans)
+    plan ||= aee_knowledge_area_lesson_plan_for(student) if aee_feature_enabled?(:knowledge_area_lesson_plans)
+
+    @aee_paee_for[student.id] = plan
+  end
+
+  def aee_knowledge_area_teaching_plan_for(student)
+    KnowledgeAreaTeachingPlan
+      .joins(:teaching_plan)
+      .merge(TeachingPlan.where(student_id: student.id, year: current_user_school_year))
+      .order('teaching_plans.updated_at DESC')
       .first
+  end
+
+  def aee_knowledge_area_lesson_plan_for(student)
+    scope = KnowledgeAreaLessonPlan
+      .joins(lesson_plan: :school_calendar)
+      .merge(LessonPlan.where(student_id: student.id))
+      .where(school_calendars: { year: current_user_school_year })
+
+    if current_user_classroom.present?
+      scope = scope.merge(LessonPlan.where(classroom_id: current_user_classroom.id))
+    end
+
+    scope.order('lesson_plans.updated_at DESC').first
   end
 
   def aee_pei_for(student)
@@ -143,15 +168,59 @@ module AeeHelper
 
   def aee_paee_path_for(student)
     plan = aee_paee_for(student)
-    if plan&.knowledge_area_teaching_plan
-      return edit_knowledge_area_teaching_plan_path(plan.knowledge_area_teaching_plan)
+
+    if plan.is_a?(KnowledgeAreaTeachingPlan)
+      return aee_existing_plan_path(plan, :knowledge_area_teaching_plans)
     end
-    if plan&.discipline_teaching_plan
-      return edit_discipline_teaching_plan_path(plan.discipline_teaching_plan)
+    if plan.is_a?(KnowledgeAreaLessonPlan)
+      return aee_existing_plan_path(plan, :knowledge_area_lesson_plans)
     end
-    return new_knowledge_area_teaching_plan_path(student_id: student.id) if student.present?
+
+    aee_blank_paee_path(student)
+  end
+
+  def aee_existing_plan_path(plan, feature)
+    if current_user&.can_change?(feature)
+      return edit_knowledge_area_teaching_plan_path(plan) if plan.is_a?(KnowledgeAreaTeachingPlan)
+
+      return edit_knowledge_area_lesson_plan_path(plan)
+    end
+
+    return knowledge_area_teaching_plan_path(plan) if plan.is_a?(KnowledgeAreaTeachingPlan)
+
+    knowledge_area_lesson_plan_path(plan)
+  end
+
+  def aee_blank_paee_path(student)
+    if aee_feature_enabled?(:knowledge_area_teaching_plans)
+      if student.present? && current_user.can_change?(:knowledge_area_teaching_plans)
+        return new_knowledge_area_teaching_plan_path(student_id: student.id)
+      end
+
+      return knowledge_area_teaching_plans_path
+    end
+
+    if aee_feature_enabled?(:knowledge_area_lesson_plans)
+      if student.present? && current_user.can_change?(:knowledge_area_lesson_plans)
+        return new_knowledge_area_lesson_plan_path(student_id: student.id)
+      end
+
+      return knowledge_area_lesson_plans_path
+    end
 
     knowledge_area_teaching_plans_path
+  end
+
+  def aee_feature_enabled?(feature)
+    current_user&.can_show?(feature)
+  end
+
+  def aee_uses_dictionary_name?(menu_type)
+    %w[
+      knowledge_area_teaching_plans
+      knowledge_area_lesson_plans
+      knowledge_area_content_records
+    ].include?(menu_type.to_s)
   end
 
   def aee_pei_path_for(student)
