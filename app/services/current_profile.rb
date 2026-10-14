@@ -6,6 +6,8 @@ class CurrentProfile
   UNITY_JSON = { only: [:id, :name] }
   CLASSROOM_JSON = { only: [:id, :description] }
   TEACHER_JSON = { only: [:id, :name] }
+  INFANTIL_GRADE_PATTERN = /creche|pre|pre i|pre ii|pre[- ]escola(r)?|maternal|bercario|jardim|infantil|aee/
+  INFANTIL_COURSE_PATTERN = /infantil|aee/
 
   attr_accessor :user, :user_role, :unity, :school_year, :classroom, :teacher, :discipline
 
@@ -118,7 +120,16 @@ class CurrentProfile
   end
 
   def disciplines_as_json
-    disciplines.as_json
+    records = Array(disciplines)
+    return [] if records.blank?
+
+    kinds = record_kinds_by_discipline_id(records.map { |record| discipline_record_id(record) })
+
+    records.map do |record|
+      record.as_json.merge(
+        'record_kind' => record_kind_for(record, kinds[discipline_record_id(record)])
+      )
+    end
   end
 
   def last_allocation
@@ -230,5 +241,47 @@ class CurrentProfile
 
   def cache_key_to_user
     ['CurrentProfile', Entity.current.id, user.id]
+  end
+
+  def discipline_record_id(record)
+    record.id || record.read_attribute(:discipline_id)
+  end
+
+  def record_kinds_by_discipline_id(discipline_ids)
+    ids = discipline_ids.compact.uniq
+    return {} if classroom.blank? || teacher.blank? || ids.empty?
+
+    TeacherDisciplineClassroom
+      .where(teacher_id: teacher.id, classroom_id: classroom.id, discipline_id: ids)
+      .includes(grade: :course)
+      .group_by(&:discipline_id)
+      .transform_values { |rows| record_kind_from_grades(rows.map(&:grade)) }
+  end
+
+  def record_kind_for(record, grade_kind)
+    return 'knowledge_area' if ActiveModel::Type::Boolean.new.cast(record.group_descriptors)
+
+    grade_kind || 'discipline'
+  end
+
+  def record_kind_from_grades(grades)
+    flags = grades.compact.map { |grade| infantil_grade?(grade) }
+    return 'discipline' if flags.empty? || flags.none?
+    return 'knowledge_area' if flags.all?
+
+    'both'
+  end
+
+  def infantil_grade?(grade)
+    return false if grade.blank?
+    return true if infantil_text?(grade.course&.description, INFANTIL_COURSE_PATTERN)
+
+    infantil_text?(grade.description, INFANTIL_GRADE_PATTERN)
+  end
+
+  def infantil_text?(description, pattern)
+    return false if description.blank?
+
+    I18n.transliterate(description.to_s.downcase).match?(pattern)
   end
 end
