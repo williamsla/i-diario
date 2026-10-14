@@ -369,13 +369,29 @@ class ExamStepAverageReport < BaseReport
     student_ids = @students_enrollments.map(&:student_id)
     step_numbers = @steps.map(&:step_number)
 
-    ConceptualExam
+    exams = ConceptualExam
       .by_classroom_id(classroom.id)
-      .where(student_id: student_ids, step_number: step_numbers)
+      .where(student_id: student_ids)
       .includes(:conceptual_exam_values)
-      .each_with_object({}) do |exam, hash|
-        hash[[exam.student_id, exam.step_number]] = exam
+      .to_a
+
+    by_student_and_step = exams.each_with_object({}) do |exam, hash|
+      hash[[exam.student_id, exam.step_number]] = exam
+    end
+
+    # Avaliação anual guarda um único conceito. Repete na coluna de cada etapa.
+    return by_student_and_step unless GeneralConfiguration.annual_conceptual_evaluation?
+
+    exams.group_by(&:student_id).each do |student_id, student_exams|
+      fallback = student_exams.max_by(&:updated_at)
+      next if fallback.blank?
+
+      step_numbers.each do |step_number|
+        by_student_and_step[[student_id, step_number]] ||= fallback
       end
+    end
+
+    by_student_and_step
   end
 
   def evaluation_sheet_title
@@ -385,12 +401,24 @@ class ExamStepAverageReport < BaseReport
     conceptual ? 'Avaliações' : 'Avaliações numéricas'
   end
 
+  def classroom_without_numeric_score?
+    return @classroom_without_numeric_score unless @classroom_without_numeric_score.nil?
+
+    @classroom_without_numeric_score = classroom.classrooms_grades.none? { |classrooms_grade|
+      [classrooms_grade.exam_rule, classrooms_grade.exam_rule&.differentiated_exam_rule].compact.any? { |rule|
+        [ScoreTypes::NUMERIC, ScoreTypes::NUMERIC_AND_CONCEPT].include?(rule.score_type)
+      }
+    }
+  end
+
   def student_uses_conceptual_evaluation?(student)
     @conceptual_evaluation_by_student ||= {}
     return @conceptual_evaluation_by_student[student.id] if @conceptual_evaluation_by_student.key?(student.id)
 
     exam_rule = ExamRuleFetcher.fetch(classroom, student)
-    result = if exam_rule.blank?
+    result = if classroom_without_numeric_score?
+               true
+             elsif exam_rule.blank?
                false
              elsif exam_rule.score_type == ScoreTypes::CONCEPT
                true

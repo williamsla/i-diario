@@ -282,23 +282,6 @@ class DiaryReportController < ApplicationController
       tempo_total += diff
       my_logger.info("Tempo de carregamento avaliações #{diff}")
 
-      ### avaliações conceituais
-      ini = Time.now
-      ConceptualExamReportBatchBuilder.new(
-        entity_configuration: current_entity_configuration,
-        unity: current_user_unity,
-        classroom: current_user_classroom,
-        teacher_id: current_teacher.id,
-        start_at: @diary_report_form.start_at,
-        end_at: @diary_report_form.end_at
-      ).each_rendered_report do |render|
-        add_pdf_to_merge(pdfTarget, report_name('avaliacao-conceitual'), render)
-      end
-      finish = Time.now
-      diff = finish - ini
-      tempo_total += diff
-      my_logger.info("Tempo de carregamento avaliações conceituais #{diff}")
-
       # parecer
       if classroom_has_opinion_type(current_user_classroom) == true
         ini = Time.now
@@ -404,32 +387,58 @@ class DiaryReportController < ApplicationController
     def evaluation_disciplines
       base = @disciplines.to_a
       base_ids = base.map(&:id)
-      return [] if base_ids.blank?
+      numeric_ids = if base_ids.present?
+                      Discipline.where(id: base_ids).by_score_type(ScoreTypes::NUMERIC).pluck('disciplines.id')
+                    else
+                      []
+                    end
+      conceptual_ids = conceptual_evaluation_discipline_ids
+      selected_ids = numeric_ids | conceptual_ids
+      return [] if selected_ids.blank?
 
-      numeric_ids = Discipline.where(id: base_ids).by_score_type(ScoreTypes::NUMERIC).pluck('disciplines.id')
-      selected_ids = numeric_ids | conceptual_evaluation_discipline_ids(base_ids)
-      base.select { |discipline| selected_ids.include?(discipline.id) }
+      by_id = Discipline.where(id: selected_ids).includes(:knowledge_area).index_by(&:id)
+      ordered = base.select { |discipline| selected_ids.include?(discipline.id) }
+      extras = (selected_ids - ordered.map(&:id)).map { |id| by_id[id] }.compact.sort_by { |discipline|
+        [discipline.knowledge_area&.sequence.to_i, discipline.sequence.to_i, discipline.description.to_s]
+      }
+      ordered + extras
     end
 
-    def conceptual_evaluation_discipline_ids(base_ids)
+    def conceptual_evaluation_discipline_ids
       classroom = current_user_classroom
       links = TeacherDisciplineClassroom.by_classroom(classroom.id)
                                        .by_teacher_id(current_teacher.id)
                                        .by_year(classroom.year)
                                        .to_a
       links = TeacherDisciplineClassroom.by_classroom(classroom.id).by_teacher_id(current_teacher.id).to_a if links.blank?
+      return [] if links.blank?
 
       grades = classroom.classrooms_grades.includes(exam_rule: :differentiated_exam_rule).to_a
-      link_ids = links.select { |link|
-        base_ids.include?(link.discipline_id) && conceptual_link_for_grade?(link, grades)
-      }.map(&:discipline_id)
+      link_ids = links.select { |link| conceptual_link_for_grade?(link, grades) }.map(&:discipline_id)
 
+      scope = Discipline.not_grouper.where(id: link_ids)
+      scope = scope.descriptor unless GeneralConfiguration.conceptual_exam_batch_layout?
+      configured_ids = scope.pluck(:id)
+      # Turma sem nota numérica e sem descritor: o componente conceitual é a própria disciplina.
+      if configured_ids.blank? && classroom_without_numeric_score?
+        configured_ids = Discipline.not_grouper.where(id: link_ids).pluck(:id)
+      end
+
+      teacher_ids = links.map(&:discipline_id)
       valued_ids = ConceptualExamValue.joins(:conceptual_exam)
                                       .where(conceptual_exams: { classroom_id: classroom.id })
                                       .distinct
-                                      .pluck(:discipline_id)
+                                      .pluck(:discipline_id) & teacher_ids
 
-      (link_ids | (valued_ids & base_ids)).uniq
+      (configured_ids | valued_ids).uniq
+    end
+
+    def classroom_without_numeric_score?
+      current_user_classroom.classrooms_grades.includes(exam_rule: :differentiated_exam_rule).none? { |classrooms_grade|
+        [classrooms_grade.exam_rule, classrooms_grade.exam_rule&.differentiated_exam_rule].compact.any? { |rule|
+          [ScoreTypes::NUMERIC, ScoreTypes::NUMERIC_AND_CONCEPT].include?(rule.score_type)
+        }
+      }
     end
 
     def conceptual_link_for_grade?(link, grades)
@@ -457,14 +466,19 @@ class DiaryReportController < ApplicationController
         show_inactive: false
       }
 
-      numeric = StudentEnrollmentsList.new(
-        list_params.merge(score_type: StudentEnrollmentScoreTypeFilters::NUMERIC)
-      ).student_enrollments
-      conceptual = StudentEnrollmentsList.new(
-        list_params.merge(score_type: StudentEnrollmentScoreTypeFilters::CONCEPT)
-      ).student_enrollments
-
-      enrollments = (numeric + conceptual).uniq(&:id)
+      enrollments = if classroom_without_numeric_score?
+                      StudentEnrollmentsList.new(
+                        list_params.merge(score_type: StudentEnrollmentScoreTypeFilters::BOTH)
+                      ).student_enrollments
+                    else
+                      numeric = StudentEnrollmentsList.new(
+                        list_params.merge(score_type: StudentEnrollmentScoreTypeFilters::NUMERIC)
+                      ).student_enrollments
+                      conceptual = StudentEnrollmentsList.new(
+                        list_params.merge(score_type: StudentEnrollmentScoreTypeFilters::CONCEPT)
+                      ).student_enrollments
+                      (numeric + conceptual).uniq(&:id)
+                    end
       @evaluation_students_by_discipline[discipline.id] = enrollments_for_discipline_grades(enrollments, discipline)
     end
 
