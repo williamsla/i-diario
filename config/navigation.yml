@@ -162,6 +162,7 @@ navigation:
             type: "discipline_lesson_plans"
             path: "discipline_lesson_plans_path"
             shortcut: true
+            visible: "hide-when-aee"
         - menu:
             type: "knowledge_area_lesson_plans"
             path: "knowledge_area_lesson_plans_path"

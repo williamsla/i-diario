@@ -261,7 +261,7 @@ class ApplicationController < ActionController::Base
 
   def forbid_lesson_plans_for_aee
     return unless is_aee
-    return if current_user.can_show?(controller_name)
+    return if controller_name == 'knowledge_area_lesson_plans' && current_user.can_show?(controller_name)
 
     flash[:alert] = I18n.t('aee.errors.lesson_plans_unavailable')
     redirect_to root_path

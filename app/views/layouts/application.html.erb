@@ -202,10 +202,9 @@
                 if (aeeContentRecordIndex >= 0) hrefs_to_hide.splice(aeeContentRecordIndex, 1);
               <% end %>
 
-              <% if is_aee && current_user.can_show?(:discipline_lesson_plans) %>
+              <% if is_aee %>
                 ['/planos-de-aulas-por-disciplina', '/relatorios/planos-de-aula-por-disciplina'].forEach(function(path) {
-                  const lessonPlanIndex = hrefs_to_hide.indexOf(path);
-                  if (lessonPlanIndex >= 0) hrefs_to_hide.splice(lessonPlanIndex, 1);
+                  if (hrefs_to_hide.indexOf(path) < 0) hrefs_to_hide.push(path);
                 });
               <% end %>
 

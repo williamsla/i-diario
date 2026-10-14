@@ -37,6 +37,8 @@ module Navigation
     def node_values(node)
       if node['submenus']
         node['submenus'].map { |submenu|
+          visible = submenu['menu']['visible']
+          next if visible == 'hide-when-aee' && aee_navigation_context?
           next unless shortcut_enabled?(submenu['menu']['shortcut'])
 
           submenu['menu'].merge(node.slice('icon'))
