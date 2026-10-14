@@ -28,12 +28,12 @@
   <% pei = f.object.linked_pei %>
   <div class="alert alert-info fade in" id="aee-pei-context"
        <% if pei.blank? %>style="display:none"<% end %>
-       data-empty-message="<%= t('aee.fields.pei_context_empty') %>"
        data-goals-label="<%= t('aee.fields.pei_context_goals') %>"
        data-strategies-label="<%= t('aee.fields.pei_context_strategies') %>"
        data-resources-label="<%= t('aee.fields.pei_context_resources') %>">
     <i class="fa-fw fa fa-info"></i>
     <strong><%= t('aee.fields.pei_context_title') %></strong>
+    <p><%= t('aee.fields.pei_context_filled') %></p>
     <div id="aee-pei-context-body">
       <% if pei.present? %>
         <% if pei.goals.present? %>

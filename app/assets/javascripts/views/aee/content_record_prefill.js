@@ -36,9 +36,8 @@ $(function () {
       return;
     }
 
-    if (!data || (!data.goals && !data.strategies && !data.resources)) {
-      $contextBody.html('<p>' + escapeHtml($context.data('empty-message')) + '</p>');
-      $context.show();
+    if (!data || !data.has_pei) {
+      $context.hide();
       return;
     }
 

@@ -14,6 +14,20 @@ $(function () {
     return;
   }
 
+  var $caseStudyHint = $('#aee-case-study-hint');
+
+  var toggleCaseStudyHint = function (data) {
+    if (!$caseStudyHint.length) {
+      return;
+    }
+
+    if (data && data.has_case_study) {
+      $caseStudyHint.show();
+    } else {
+      $caseStudyHint.hide();
+    }
+  };
+
   var fields = {
     student_characteristics: $('#' + prefix + '_teaching_plan_attributes_aee_teaching_plan_detail_attributes_student_characteristics'),
     methodology: $('#' + prefix + '_teaching_plan_attributes_methodology')
@@ -48,6 +62,7 @@ $(function () {
 
   var fillFromCaseStudy = function (studentId) {
     if (!studentId) {
+      toggleCaseStudyHint(null);
       return;
     }
 
@@ -56,12 +71,9 @@ $(function () {
       dataType: 'json',
       data: { student_id: studentId },
       success: function (data) {
-        var filled = fillIfEmpty(fields.student_characteristics, data.student_characteristics);
-        filled = fillIfEmpty(fields.methodology, data.methodology) || filled;
-
-        if (filled) {
-          $('.aee-prefill-notice').show();
-        }
+        toggleCaseStudyHint(data);
+        fillIfEmpty(fields.student_characteristics, data.student_characteristics);
+        fillIfEmpty(fields.methodology, data.methodology);
       }
     });
   };

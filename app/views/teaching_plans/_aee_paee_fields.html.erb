@@ -1,8 +1,6 @@
 <% if is_aee %>
   <% teaching_plan_form.object.build_aee_teaching_plan_detail if teaching_plan_form.object.aee_teaching_plan_detail.blank? %>
   <%= teaching_plan_form.simple_fields_for :aee_teaching_plan_detail do |detail| %>
-    <%= aee_prefill_notice %>
-
     <fieldset>
       <legend><%= t('teaching_plans.aee_paee.organization_legend') %></legend>
 

@@ -7,6 +7,7 @@ class AeePrefill
       return {} if case_study.blank?
 
       {
+        has_case_study: true,
         student_characteristics: join_present(
           case_study.identification,
           case_study.potentialities_and_support
@@ -34,6 +35,7 @@ class AeePrefill
       return {} if pei.blank?
 
       {
+        has_pei: true,
         goals: pei.goals,
         strategies: pei.strategies,
         resources: pei.resources,

@@ -29,9 +29,8 @@ $(function () {
       return;
     }
 
-    if (!data || (!data.pei_goals && !data.pei_strategies && !data.pei_resources)) {
-      $contextBody.html('<p>' + escapeHtml($context.data('empty-message')) + '</p>');
-      $context.show();
+    if (!data || !data.has_pei) {
+      $context.hide();
       return;
     }
 

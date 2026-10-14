@@ -42,7 +42,7 @@ pt-BR:
       copy_from_teaching_plan: "plano de AEE (PAEE)"
       school_term_type: "Período de atendimento"
       pei_context_title: "PEI do aluno"
-      pei_context_empty: "Não há PEI cadastrado para este aluno neste ano. Os campos abaixo não foram preenchidos automaticamente."
+      pei_context_filled: "Os campos abaixo foram preenchidos automaticamente a partir do PEI cadastrado para o aluno."
       pei_context_goals: "Objetivos"
       pei_context_strategies: "Estratégias"
       pei_context_resources: "Recursos"

@@ -11,6 +11,7 @@ RSpec.describe AeePrefill do
         year: case_study.year
       )
 
+      expect(result[:has_case_study]).to eq(true)
       expect(result[:methodology]).to eq(case_study.accessibility_strategies)
       expect(result[:student_characteristics]).to include(case_study.identification)
       expect(result[:student_characteristics]).to include(case_study.potentialities_and_support)
@@ -55,6 +56,7 @@ RSpec.describe AeePrefill do
         year: pei.year
       )
 
+      expect(result[:has_pei]).to eq(true)
       expect(result[:goals]).to eq(pei.goals)
       expect(result[:strategies]).to eq(pei.strategies)
       expect(result[:contents]).to eq([pei.strategies])

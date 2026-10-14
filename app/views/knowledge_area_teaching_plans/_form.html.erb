@@ -58,8 +58,7 @@
         <% if is_aee %>
           <div class="col col-sm-4">
             <%= teaching_plan_form.input :student_id, as: :select2, elements: @students || [],
-                  required: true,
-                  hint: t('teaching_plans.aee_paee.student_hint') %>
+                  required: true %>
           </div>
         <% end %>
 
@@ -87,6 +86,12 @@
           <% end %>
         </div>
       </div>
+
+      <% if is_aee %>
+        <p id="aee-case-study-hint" class="aee-inline-note" style="display:none">
+          <%= t('teaching_plans.aee_paee.student_hint') %>
+        </p>
+      <% end %>
 
       <div class="row">
         <div class="col col-sm-4">

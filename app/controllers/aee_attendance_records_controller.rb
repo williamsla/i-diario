@@ -87,6 +87,7 @@ class AeeAttendanceRecordsController < ApplicationController
     pei = record.linked_pei
 
     render json: {
+      has_pei: pei.present?,
       aee_individual_plan_id: record.aee_individual_plan_id,
       duration: record.duration,
       session_objectives: record.session_objectives,
