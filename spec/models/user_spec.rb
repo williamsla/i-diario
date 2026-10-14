@@ -154,5 +154,29 @@ RSpec.describe User, type: :model do
 
       expect(user.can_show?(:pedagogical_trackings)).to eq(false)
     end
+
+    it 'follows the role permission for registro de atendimento AEE even when the user is admin' do
+      user = create(:user, admin: true)
+      role = create(:role, :administrator)
+      create(:role_permission, role: role, feature: 'aee_attendance_records', permission: Permissions::DENIED)
+      user_role = create(:user_role, user: user, role: role)
+      user.update!(current_user_role: user_role)
+      user.reload
+
+      expect(user.can_show?(:aee_attendance_records)).to eq(false)
+      expect(user.can_change?(:aee_attendance_records)).to eq(false)
+    end
+
+    it 'shows registro de atendimento AEE for the administrator profile when the permission allows it' do
+      user = create(:user, admin: true)
+      role = create(:role, :administrator)
+      create(:role_permission, role: role, feature: 'aee_attendance_records', permission: Permissions::CHANGE)
+      user_role = create(:user_role, user: user, role: role)
+      user.update!(current_user_role: user_role)
+      user.reload
+
+      expect(user.can_show?(:aee_attendance_records)).to eq(true)
+      expect(user.can_change?(:aee_attendance_records)).to eq(true)
+    end
   end
 end

@@ -20,6 +20,7 @@ pt-BR:
       title: "Editar registro de atendimento"
     errors:
       require_aee_classroom: "O registro de atendimento AEE está disponível apenas para turmas de AEE."
+      unavailable: "O registro de atendimento AEE não está liberado neste perfil. Registre a sessão em registros de conteúdos por áreas de conhecimento."
       already_exists: "Já existe um registro de atendimento para este aluno nesta data. O lançamento foi aberto para edição."
     pdf:
       title: "Registro de atendimento AEE"

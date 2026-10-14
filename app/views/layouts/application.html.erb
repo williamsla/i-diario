@@ -197,6 +197,11 @@
 
               <% end %>
 
+              <% if is_aee && !current_user.can_show?(:aee_attendance_records) %>
+                const aeeContentRecordIndex = hrefs_to_hide.indexOf('/registros-de-conteudos-por-areas-de-conhecimento');
+                if (aeeContentRecordIndex >= 0) hrefs_to_hide.splice(aeeContentRecordIndex, 1);
+              <% end %>
+
               hrefs_to_hide.forEach(href => {
                 const links = document.querySelectorAll(`a[href="${href}"]`);
                 links.forEach(link => {

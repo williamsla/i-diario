@@ -8,6 +8,7 @@ class AeeAttendanceRecordsController < ApplicationController
   before_action :require_current_classroom
   before_action :require_current_teacher, only: [:new, :create]
   before_action :require_aee_classroom
+  before_action :require_aee_attendance_records_permission
   before_action :require_allow_to_modify_prev_years, only: [:create, :update, :destroy]
   before_action :set_aee_attendance_record, only: [:show, :edit, :update, :destroy, :history]
   before_action :fetch_students, only: [:index, :new, :create, :edit, :update]
@@ -177,5 +178,12 @@ class AeeAttendanceRecordsController < ApplicationController
 
     flash[:alert] = I18n.t('aee_attendance_records.errors.require_aee_classroom')
     redirect_to root_path
+  end
+
+  def require_aee_attendance_records_permission
+    return if current_user.can_show?(:aee_attendance_records)
+
+    redirect_to knowledge_area_content_records_path,
+                alert: I18n.t('aee_attendance_records.errors.unavailable')
   end
 end

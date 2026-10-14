@@ -171,7 +171,7 @@ navigation:
       type: "content_records_menu"
       icon: "fa-pencil-square-o"
       shortcut: true
-      visible: "hide-when-aee"
+      visible: "hide-when-aee-attendance-allowed"
       submenus:
         - menu:
             type: "discipline_content_records"

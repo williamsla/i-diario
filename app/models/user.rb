@@ -212,6 +212,7 @@ class User < ApplicationRecord
     if feature == "general_configurations"
       return admin?
     end
+    return role_can_show?(feature) if respects_role_permission?(feature)
     return true if admin?
     return unless current_user_role
 
@@ -223,8 +224,27 @@ class User < ApplicationRecord
     if feature == "general_configurations"
       return admin?
     end
+    return role_can_change?(feature) if respects_role_permission?(feature)
     return true if admin?
     return unless current_user_role
+
+    current_user_role.role.can_change?(feature)
+  end
+
+  # Visibilidade destas funcionalidades segue a permissão do perfil atual,
+  # inclusive para o usuário administrador e para o perfil Administrador.
+  def respects_role_permission?(feature)
+    feature.to_s == 'aee_attendance_records'
+  end
+
+  def role_can_show?(feature)
+    return false unless current_user_role
+
+    current_user_role.role.can_show?(feature)
+  end
+
+  def role_can_change?(feature)
+    return false unless current_user_role
 
     current_user_role.role.can_change?(feature)
   end

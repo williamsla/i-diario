@@ -1,6 +1,7 @@
 module Navigation
   class MenuBuilder < Base
     def initialize(item, user, render = MenuRender)
+      @navigation_user = user
       super(item, user, render)
     end
 
@@ -25,6 +26,7 @@ module Navigation
         next if (!visible.nil? && visible == false) || (visible == 'only-when-active' && node["menu"]["type"] != item)
         next if visible == 'only-when-aee' && !aee_navigation_context?
         next if visible == 'hide-when-aee' && aee_navigation_context?
+        next if visible == 'hide-when-aee-attendance-allowed' && aee_navigation_context? && aee_attendance_records_allowed?
         yield node_values(node["menu"], parent_menu)
       end
     end
@@ -58,5 +60,11 @@ module Navigation
     def aee_navigation_context?
       Thread.current[:navigation_is_aee]
     end
+
+    def aee_attendance_records_allowed?
+      navigation_user.respond_to?(:can_show?) && navigation_user.can_show?('aee_attendance_records')
+    end
+
+    attr_reader :navigation_user
   end
 end

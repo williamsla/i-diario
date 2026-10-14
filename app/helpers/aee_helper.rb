@@ -166,16 +166,34 @@ module AeeHelper
     return false if student.blank? || current_user_classroom.blank?
 
     @aee_attendance_for ||= {}
-    @aee_attendance_for[student.id] ||= AeeAttendanceRecord.exists?(
-      student_id: student.id,
-      classroom_id: current_user_classroom.id,
-      year: current_user_school_year
+    @aee_attendance_for[student.id] ||= (
+      if aee_attendance_records_allowed?
+        AeeAttendanceRecord.exists?(
+          student_id: student.id,
+          classroom_id: current_user_classroom.id,
+          year: current_user_school_year
+        )
+      else
+        KnowledgeAreaContentRecord.by_classroom_id(current_user_classroom.id)
+                                  .by_student_id(student.id)
+                                  .exists?
+      end
     )
   end
 
   def aee_attendance_path_for(student)
-    return new_aee_attendance_record_path(student_id: student.id) if student.present?
+    if aee_attendance_records_allowed?
+      return new_aee_attendance_record_path(student_id: student.id) if student.present?
 
-    aee_attendance_records_path
+      return aee_attendance_records_path
+    end
+
+    return new_knowledge_area_content_record_path(student_id: student.id) if student.present?
+
+    knowledge_area_content_records_path
+  end
+
+  def aee_attendance_records_allowed?
+    current_user&.can_show?(:aee_attendance_records)
   end
 end

@@ -27,6 +27,7 @@ module Navigation
       nodes.map { |node|
         visible = node['menu']['visible']
         next if visible == 'only-when-aee' && !aee_navigation_context?
+        next if visible == 'hide-when-aee-attendance-allowed' && aee_navigation_context? && aee_attendance_records_allowed?
         next unless shortcut_enabled?(node['menu']['shortcut'])
 
         node_values(node['menu'])
@@ -61,6 +62,10 @@ module Navigation
 
     def aee_navigation_context?
       Thread.current[:navigation_is_aee]
+    end
+
+    def aee_attendance_records_allowed?
+      user.respond_to?(:can_show?) && user.can_show?('aee_attendance_records')
     end
   end
 end
