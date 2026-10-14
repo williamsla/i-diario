@@ -157,7 +157,6 @@ navigation:
       type: "lesson_plans_menu"
       icon: "fa-pencil"
       shortcut: true
-      visible: "hide-when-aee"
       submenus:
         - menu:
             type: "discipline_lesson_plans"

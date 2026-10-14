@@ -202,6 +202,18 @@
                 if (aeeContentRecordIndex >= 0) hrefs_to_hide.splice(aeeContentRecordIndex, 1);
               <% end %>
 
+              <% if is_aee && current_user.can_show?(:discipline_lesson_plans) %>
+                ['/planos-de-aulas-por-disciplina', '/relatorios/planos-de-aula-por-disciplina'].forEach(function(path) {
+                  const lessonPlanIndex = hrefs_to_hide.indexOf(path);
+                  if (lessonPlanIndex >= 0) hrefs_to_hide.splice(lessonPlanIndex, 1);
+                });
+              <% end %>
+
+              <% if is_aee && current_user.can_show?(:knowledge_area_lesson_plans) %>
+                const knowledgeAreaLessonPlanIndex = hrefs_to_hide.indexOf('/planos-de-aula-por-areas-de-conhecimento');
+                if (knowledgeAreaLessonPlanIndex >= 0) hrefs_to_hide.splice(knowledgeAreaLessonPlanIndex, 1);
+              <% end %>
+
               hrefs_to_hide.forEach(href => {
                 const links = document.querySelectorAll(`a[href="${href}"]`);
                 links.forEach(link => {

@@ -209,44 +209,30 @@ class User < ApplicationRecord
 
   def can_show?(feature)
     feature = feature.to_s
-    if feature == "general_configurations"
-      return admin?
-    end
-    return role_can_show?(feature) if respects_role_permission?(feature)
-    return true if admin?
-    return unless current_user_role
+    return admin? if feature == 'general_configurations'
 
-    current_user_role.role.can_show?(feature)
+    role = role_for_permission
+    return false unless role
+
+    if RolePermission::YES_OR_NO_FEATURES.include?(feature)
+      role.can_change?(feature)
+    else
+      role.can_show?(feature)
+    end
   end
 
   def can_change?(feature)
     feature = feature.to_s
-    if feature == "general_configurations"
-      return admin?
-    end
-    return role_can_change?(feature) if respects_role_permission?(feature)
-    return true if admin?
-    return unless current_user_role
+    return admin? if feature == 'general_configurations'
 
-    current_user_role.role.can_change?(feature)
+    role = role_for_permission
+    return false unless role
+
+    role.can_change?(feature)
   end
 
-  # Visibilidade destas funcionalidades segue a permissão do perfil atual,
-  # inclusive para o usuário administrador e para o perfil Administrador.
-  def respects_role_permission?(feature)
-    feature.to_s == 'aee_attendance_records'
-  end
-
-  def role_can_show?(feature)
-    return false unless current_user_role
-
-    current_user_role.role.can_show?(feature)
-  end
-
-  def role_can_change?(feature)
-    return false unless current_user_role
-
-    current_user_role.role.can_change?(feature)
+  def role_for_permission
+    current_user_role&.role || user_roles.first&.role
   end
 
   def posting_without_date_restrictions?

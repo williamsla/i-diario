@@ -60,7 +60,7 @@ module Navigation
         role = current_user.current_user_role&.role
 
         cache_key = [
-          'MenuRender#can_show?',
+          'MenuRender#can_show?/role-permission',
           entity_id,
           current_user.admin?,
           role&.cache_key || current_user.cache_key,

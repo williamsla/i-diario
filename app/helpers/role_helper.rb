@@ -1,14 +1,5 @@
 module RoleHelper
-  FEATURES_YES_OR_NO = [
-    'can_change_user_password',
-    'ieducar_api_exam_posting_without_restrictions',
-    'change_school_year',
-    'infrequency_trackings',
-    'educamais',
-    'pedagogical_trackings',
-    'lessons_boards',
-    'copy_discipline_teaching_plan'
-  ].freeze
+  FEATURES_YES_OR_NO = RolePermission::YES_OR_NO_FEATURES
 
   def features_yes_or_no
     FEATURES_YES_OR_NO

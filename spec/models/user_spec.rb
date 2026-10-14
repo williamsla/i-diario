@@ -131,6 +131,33 @@ RSpec.describe User, type: :model do
   end
 
   describe '#can_show?' do
+    it 'hides Educa+ in shortcuts when the permission is Não or Sem acesso' do
+      user = create(:user, admin: true)
+      role = create(:role, :administrator)
+      create(:role_permission, role: role, feature: Features::EDUCAMAIS, permission: Permissions::READ)
+      user_role = create(:user_role, user: user, role: role)
+      user.update!(current_user_role: user_role)
+      user.reload
+
+      expect(user.can_show?(:educamais)).to eq(false)
+
+      user.current_user_role.role.permissions.find_by(feature: 'educamais').update!(permission: Permissions::DENIED)
+      user.reload
+
+      expect(user.can_show?(:educamais)).to eq(false)
+    end
+
+    it 'shows Educa+ when the permission is Sim' do
+      user = create(:user, admin: true)
+      role = create(:role, :administrator)
+      create(:role_permission, role: role, feature: Features::EDUCAMAIS, permission: Permissions::CHANGE)
+      user_role = create(:user_role, user: user, role: role)
+      user.update!(current_user_role: user_role)
+      user.reload
+
+      expect(user.can_show?(:educamais)).to eq(true)
+    end
+
     it 'shows Educa+ and Acompanhamento pedagógico only when the role permission is enabled' do
       user = create(:user, admin: false)
       role = create(:role, :administrator)
@@ -165,6 +192,23 @@ RSpec.describe User, type: :model do
 
       expect(user.can_show?(:aee_attendance_records)).to eq(false)
       expect(user.can_change?(:aee_attendance_records)).to eq(false)
+    end
+
+    it 'hides planos de ensino por áreas de conhecimento when the administrator profile has no access' do
+      user = create(:user, admin: true)
+      role = create(:role, :administrator)
+      create(
+        :role_permission,
+        role: role,
+        feature: 'knowledge_area_teaching_plans',
+        permission: Permissions::DENIED
+      )
+      user_role = create(:user_role, user: user, role: role)
+      user.update!(current_user_role: user_role)
+      user.reload
+
+      expect(user.can_show?(:knowledge_area_teaching_plans)).to eq(false)
+      expect(user.can_change?(:knowledge_area_teaching_plans)).to eq(false)
     end
 
     it 'shows registro de atendimento AEE for the administrator profile when the permission allows it' do

@@ -1,4 +1,16 @@
 class RolePermission < ApplicationRecord
+  # Permissões Sim/Não/Sem acesso. Só "Sim" (change) libera menu e atalho.
+  YES_OR_NO_FEATURES = %w[
+    can_change_user_password
+    ieducar_api_exam_posting_without_restrictions
+    change_school_year
+    infrequency_trackings
+    educamais
+    pedagogical_trackings
+    lessons_boards
+    copy_discipline_teaching_plan
+  ].freeze
+
   acts_as_copy_target
   audited associated_with: :role, only: [:feature, :permission]
 
