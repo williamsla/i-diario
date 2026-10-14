@@ -289,6 +289,127 @@ class BaseReport
     end while information.present?
   end
 
+  def process_html_text(html_content)
+    return nil if html_content.blank?
+
+    processed_text = html_content.to_s
+    processed_text = processed_text.gsub(/<br\s*\/?>/i, "\n")
+                                   .gsub(/<\/p>\s*<p[^>]*>/i, "\n\n")
+                                   .gsub(/<\/div>\s*<div[^>]*>/i, "\n\n")
+                                   .gsub(/<\/li>\s*<li[^>]*>/i, "\n")
+                                   .gsub(/<p[^>]*>/i, "")
+                                   .gsub(/<\/p>/i, "\n")
+                                   .gsub(/<div[^>]*>/i, "")
+                                   .gsub(/<\/div>/i, "\n")
+                                   .gsub(/<li[^>]*>/i, "")
+                                   .gsub(/<\/li>/i, "\n")
+                                   .gsub(/<[^>]*>/, "")
+    processed_text = CGI.unescapeHTML(processed_text).tr("\u00A0", " ")
+    processed_text = processed_text.gsub(/^[ \t]+$/, "")
+                                   .gsub(/[ \t]+\n/, "\n")
+                                   .gsub(/\n{3,}/, "\n\n")
+                                   .strip
+    processed_text.presence
+  rescue StandardError
+    CGI.unescapeHTML(html_content.to_s.gsub(/<[^>]*>/, "")).strip.presence
+  end
+
+  def text_box_dynamic_height(title, information)
+    return if information.blank?
+
+    text_to_render = information.to_s
+    if text_to_render.match?(/<[^>]+>/)
+      text_to_render = process_html_text(text_to_render) || text_to_render
+    end
+    text_to_render = text_to_render.to_s.strip
+    return if text_to_render.blank?
+
+    title_height = 12
+    title_spacing = 5
+    padding = 8
+    horizontal_inset = 5
+    footer_reserve = 20
+    text_width = bounds.width - (horizontal_inset * 2)
+    remaining_text = text_to_render
+    iteration_count = 0
+    stalls = 0
+
+    while remaining_text.present?
+      iteration_count += 1
+      break if iteration_count > 50
+
+      minimum_box = title_height + title_spacing + padding + 14
+      start_new_content_page if cursor < minimum_box + footer_reserve
+
+      available_height = cursor - footer_reserve
+      break if available_height < minimum_box
+
+      max_text_height = available_height - title_height - title_spacing - padding
+      natural_height = begin
+        height_of(remaining_text, width: text_width, size: 10)
+      rescue StandardError
+        14
+      end
+
+      line_slack = 12
+      text_fits = natural_height <= max_text_height
+      text_height = if text_fits
+                      [natural_height + line_slack, max_text_height].min
+                    else
+                      max_text_height
+                    end
+      text_height = [text_height, 12].max
+      box_height = [title_height + title_spacing + text_height + padding, available_height].min
+      text_before = remaining_text
+
+      bounding_box([0, cursor], width: bounds.width, height: box_height) do
+        line_width 0.5
+        stroke_bounds
+        draw_text(title, size: 8, style: :bold, at: [horizontal_inset, box_height - 8])
+
+        leftover = text_box(
+          remaining_text,
+          width: text_width,
+          height: [box_height - title_height - title_spacing - 4, 12].max,
+          at: [horizontal_inset, box_height - title_height - title_spacing],
+          overflow: :truncate,
+          size: 10
+        )
+        remaining_text = normalize_text_box_remainder(leftover)
+      end
+
+      if remaining_text.blank?
+        break
+      elsif remaining_text.length >= text_before.length
+        stalls += 1
+        break if stalls > 1
+
+        start_new_content_page
+      elsif text_fits
+        stalls = 0
+      else
+        stalls = 0
+        start_new_content_page
+      end
+    end
+
+    move_down 5
+  rescue StandardError => e
+    Rails.logger.error "Erro em text_box_dynamic_height para #{title}: #{e.message}"
+    Rails.logger.error e.backtrace.first(10).join("\n")
+    move_down 5
+  end
+
+  def normalize_text_box_remainder(value)
+    text = if value.is_a?(Array)
+             value.map { |item| item.is_a?(Hash) ? (item[:text] || item["text"]).to_s : item.to_s }.join
+           else
+             value.to_s
+           end
+    stripped = text.strip
+    stripped.empty? ? "" : stripped
+  end
+
   def text_box_overflow_to_new_page(information, size, at, width, height)
     begin
       if information.class.eql?(Array)

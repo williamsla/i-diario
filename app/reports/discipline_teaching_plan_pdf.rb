@@ -147,12 +147,12 @@ class DisciplineTeachingPlanPdf < BaseReport
     references_label_translation = Translation.find_by(key: 'navigation.references_by_discipline', group: 'teaching_plans').translation
     references_label = references_label_translation.present? ? references_label_translation : 'Referências'
 
-    text_box_truncate(thematic_unit_label, thematic_unit) if thematic_unit
-    text_box_truncate(contents_label, content)
-    text_box_truncate(objectives_label, objectives)
-    text_box_truncate(methodology_label, methodology)
-    text_box_truncate(evaluation_label, evaluation)
-    text_box_truncate(references_label, references)
+    text_box_dynamic_height(thematic_unit_label, thematic_unit) if thematic_unit
+    text_box_dynamic_height(contents_label, content)
+    text_box_dynamic_height(objectives_label, objectives)
+    text_box_dynamic_height(methodology_label, methodology)
+    text_box_dynamic_height(evaluation_label, evaluation)
+    text_box_dynamic_height(references_label, references)
   end
 
   def body

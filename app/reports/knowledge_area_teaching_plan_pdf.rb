@@ -189,12 +189,12 @@ class KnowledgeAreaTeachingPlanPdf < BaseReport
     references_label_translation = Translation.find_by(key: 'navigation.references_by_knowledge_area', group: 'teaching_plans').translation
     references_label = references_label_translation.present? ? references_label_translation : 'Referências'
 
-    text_box_truncate(experience_fields_label, experience_fields) if experience_fields
-    text_box_truncate(contents_label, content)
-    text_box_truncate(objectives_label, objectives)
-    text_box_truncate(methodology_label, methodology)
-    text_box_truncate(evaluation_label, evaluation)
-    text_box_truncate(references_label, references)
+    text_box_dynamic_height(experience_fields_label, experience_fields) if experience_fields
+    text_box_dynamic_height(contents_label, content)
+    text_box_dynamic_height(objectives_label, objectives)
+    text_box_dynamic_height(methodology_label, methodology)
+    text_box_dynamic_height(evaluation_label, evaluation)
+    text_box_dynamic_height(references_label, references)
   end
 
   def teaching_plan
