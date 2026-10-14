@@ -424,7 +424,7 @@ Rails.application.routes.draw do
       collection do
         get :student_data
       end
-    end    synchronize: 'sincronizar'
+    end
 
     resources :aee_attendance_records, concerns: :history do
       collection do
