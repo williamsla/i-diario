@@ -103,20 +103,11 @@ module Navigation
 
       def aee_menu_text(menu_type)
         return unless aee_navigation_context?
-        return if aee_dictionary_navigation?(menu_type)
 
         i18n_key = "aee.navigation.#{menu_type}"
         return I18n.t(i18n_key) if I18n.exists?(i18n_key)
 
         nil
-      end
-
-      def aee_dictionary_navigation?(menu_type)
-        %w[
-          knowledge_area_teaching_plans
-          knowledge_area_lesson_plans
-          knowledge_area_content_records
-        ].include?(menu_type.to_s)
       end
 
       def aee_navigation_context?

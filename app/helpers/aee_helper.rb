@@ -7,9 +7,6 @@ module AeeHelper
 
   def aee_navigation_label(menu_type, fallback = nil)
     return fallback unless is_aee
-    if aee_uses_dictionary_name?(menu_type)
-      return Translator.t("navigation.#{menu_type}", default: fallback)
-    end
 
     i18n_key = "aee.navigation.#{menu_type}"
     return I18n.t(i18n_key) if I18n.exists?(i18n_key)
@@ -213,14 +210,6 @@ module AeeHelper
 
   def aee_feature_enabled?(feature)
     current_user&.can_show?(feature)
-  end
-
-  def aee_uses_dictionary_name?(menu_type)
-    %w[
-      knowledge_area_teaching_plans
-      knowledge_area_lesson_plans
-      knowledge_area_content_records
-    ].include?(menu_type.to_s)
   end
 
   def aee_pei_path_for(student)
