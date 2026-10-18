@@ -55,7 +55,7 @@ class AeePrefill
     def find_pei(student:, classroom:, year:)
       return if student.blank? || classroom.blank? || year.blank?
 
-      AeeIndividualPlan.find_by(student_id: student.id, classroom_id: classroom.id, year: year)
+      AeeIndividualPlan.aee.find_by(student_id: student.id, classroom_id: classroom.id, year: year)
     end
 
     def strip_html(value)

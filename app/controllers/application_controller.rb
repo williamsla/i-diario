@@ -259,6 +259,21 @@ class ApplicationController < ActionController::Base
   end
   helper_method :is_aee
 
+  def pei_available?
+    return @pei_available if defined?(@pei_available)
+
+    classroom = current_user_classroom
+    @pei_available =
+      if classroom.blank?
+        false
+      elsif classroom.aee?
+        true
+      else
+        AeeIndividualPlan.enrolled_student_ids_for(current_user).any?
+      end
+  end
+  helper_method :pei_available?
+
   def forbid_lesson_plans_for_aee
     return unless is_aee
     return if controller_name == 'knowledge_area_lesson_plans' && current_user.can_show?(controller_name)

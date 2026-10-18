@@ -1,0 +1,22 @@
+<div class="modal fade" tabindex="-1" role="dialog" id="aee-case-study-modal" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">
+          <span aria-hidden="true">&times;</span>
+          <span class="sr-only"><%= t('aee_individual_plans.form.case_study_close') %></span>
+        </button>
+        <h4 class="modal-title"><%= t('aee_individual_plans.form.view_case_study') %></h4>
+        <p id="aee-case-study-summary" class="text-muted"><%= case_study&.consultation_summary %></p>
+      </div>
+      <div class="modal-body" id="aee-case-study-sections">
+        <%= render 'case_study_sections', case_study: case_study %>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">
+          <%= t('aee_individual_plans.form.case_study_close') %>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -2,41 +2,94 @@
   <%= javascript_include_tag 'views/aee_individual_plans/form' %>
 <% end %>
 
+<% if @aee_individual_plan.regular? %>
+  <% case_study = AeeCaseStudy.latest_for_aee(
+    student: @aee_individual_plan.student,
+    unity: @aee_individual_plan.unity,
+    year: @aee_individual_plan.year
+  ) %>
+<% end %>
+
 <%= simple_form_for @aee_individual_plan, html: { class: 'smart-form', id: 'aee_individual_plans_form' } do |f| %>
   <%= f.error_notification %>
+  <input type="hidden" id="aee_individual_plan_id" value="<%= f.object.id if f.object.persisted? %>">
   <%= f.hidden_field :aee_case_study_id %>
   <%= aee_prefill_notice %>
 
+  <% if @readonly %>
+    <div class="alert alert-info">
+      <%= t('.readonly_notice', context: f.object.context_label) %>
+    </div>
+  <% end %>
+
+  <fieldset <%= 'disabled' if @readonly %>>
   <fieldset>
     <legend><%= t('.identification_legend') %></legend>
 
     <div class="row">
-      <div class="col col-sm-8">
+      <div class="col col-sm-6">
         <%= f.association :student, as: :select2, elements: @students, required: true,
                           readonly: f.object.persisted? %>
       </div>
-      <div class="col col-sm-4">
-        <%= f.input :age, readonly: true %>
-      </div>
     </div>
 
+    <p class="aee-pei-identification" id="aee-pei-identification">
+      <span id="aee-pei-age-item" style="<%= 'display: none;' if f.object.age.blank? %>">
+        <span class="aee-pei-identification-label"><%= AeeIndividualPlan.human_attribute_name(:age) %></span>
+        <span id="aee_individual_plan_age"><%= f.object.age %></span>
+      </span>
+      <span id="aee-pei-birth-item" style="<%= 'display: none;' if f.object.birth_date_label.blank? %>">
+        <span class="aee-pei-identification-label"><%= AeeIndividualPlan.human_attribute_name(:birth_date_label) %></span>
+        <span id="aee_individual_plan_birth_date_label"><%= f.object.birth_date_label %></span>
+      </span>
+      <span>
+        <span class="aee-pei-identification-label"><%= AeeIndividualPlan.human_attribute_name(:origin) %></span>
+        <%= f.object.origin_humanize %>
+      </span>
+      <span>
+        <span class="aee-pei-identification-label"><%= AeeIndividualPlan.human_attribute_name(:classroom) %></span>
+        <%= f.object.classroom %>
+      </span>
+    </p>
+
     <div class="row">
-      <div class="col col-sm-4">
-        <%= f.input :birth_date_label, readonly: true %>
-      </div>
       <div class="col col-sm-4">
         <%= f.input :start_on, as: :date %>
       </div>
       <div class="col col-sm-4">
         <%= f.input :review_on, as: :date %>
       </div>
-    </div>
-
-    <div class="row">
       <div class="col col-sm-4">
         <%= f.input :document_date, as: :date %>
       </div>
     </div>
+
+    <% if f.object.regular? %>
+      <div class="row" id="aee-case-study-action" style="<%= 'display: none;' unless case_study %>">
+        <div class="col col-sm-12" style="margin-bottom: 10px;">
+          <a href="#" class="btn btn-info" id="view-aee-case-study" data-toggle="modal" data-target="#aee-case-study-modal">
+            <%= t('.view_case_study') %>
+          </a>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col col-sm-12">
+          <% if @readonly %>
+            <%= f.input :discipline_ids, as: :string, disabled: true, required: false,
+                        label: AeeIndividualPlan.human_attribute_name(:disciplines),
+                        input_html: { value: f.object.disciplines.map(&:to_s).join(', ') } %>
+          <% else %>
+            <%= f.association :disciplines, as: :select2, multiple: true, required: true,
+                              elements: linked_disciplines_for_form(f.object),
+                              hint: t('.disciplines_hint'),
+                              input_html: {
+                                value: f.object.discipline_ids.join(','),
+                                data: { without_json_parser: true }
+                              } %>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
   </fieldset>
 
   <details class="aee-legal">
@@ -127,9 +180,10 @@
       </div>
     </div>
 
+    <% if f.object.aee? %>
     <p class="help-block">
-      <%= t('.attendance_records_hint') %>
-      <% if f.object.persisted? && f.object.student_id.present? %>
+      <%= is_aee ? t('.attendance_records_hint') : t('.attendance_records_readonly_hint') %>
+      <% if !@readonly && is_aee && f.object.persisted? && f.object.student_id.present? %>
         <%= link_to t('.new_attendance'),
               new_aee_attendance_record_path(student_id: f.object.student_id),
               class: 'btn btn-success btn-xs pull-right' %>
@@ -151,7 +205,11 @@
             <% attendance_records.each do |record| %>
               <tr>
                 <td>
-                  <%= link_to l(record.record_date), edit_aee_attendance_record_path(record) %>
+                  <% if is_aee %>
+                    <%= link_to l(record.record_date), edit_aee_attendance_record_path(record) %>
+                  <% else %>
+                    <%= l(record.record_date) %>
+                  <% end %>
                 </td>
                 <td><%= record.session_focus.presence || '-' %></td>
                 <td><%= truncate(record.activities_developed.to_s, length: 220) %></td>
@@ -165,6 +223,7 @@
         </tbody>
       </table>
     </div>
+    <% end %>
   </fieldset>
 
   <fieldset>
@@ -191,6 +250,7 @@
       <p><%= t('.final_considerations_text') %></p>
     </details>
   </fieldset>
+  </fieldset>
 
   <footer>
     <%= link_to t('views.form.back'), aee_individual_plans_path, class: 'btn btn-default' %>
@@ -202,6 +262,12 @@
       <%= aee_next_step_button(:pei, f.object.student) %>
     <% end %>
 
-    <%= f.submit t('views.form.save'), class: 'btn btn-primary', data: { disable_with: 'Salvando...' } %>
+    <% unless @readonly %>
+      <%= f.submit t('views.form.save'), class: 'btn btn-primary', data: { disable_with: 'Salvando...' } %>
+    <% end %>
   </footer>
+<% end %>
+
+<% if @aee_individual_plan.regular? %>
+  <%= render 'case_study_modal', case_study: case_study %>
 <% end %>

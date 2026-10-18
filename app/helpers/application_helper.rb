@@ -35,21 +35,20 @@ module ApplicationHelper
   end
 
   def menus
-    begin
-      Thread.current[:navigation_is_aee] = is_aee
-      Navigation.draw_menus(controller_name, current_user)
-    ensure
-      Thread.current[:navigation_is_aee] = nil
-    end
+    with_navigation_context { Navigation.draw_menus(controller_name, current_user) }
   end
 
   def shortcuts
-    begin
-      Thread.current[:navigation_is_aee] = is_aee
-      Navigation.draw_shortcuts(current_user)
-    ensure
-      Thread.current[:navigation_is_aee] = nil
-    end
+    with_navigation_context { Navigation.draw_shortcuts(current_user) }
+  end
+
+  def with_navigation_context
+    Thread.current[:navigation_is_aee] = is_aee
+    Thread.current[:navigation_pei_available] = pei_available?
+    yield
+  ensure
+    Thread.current[:navigation_is_aee] = nil
+    Thread.current[:navigation_pei_available] = nil
   end
 
   def title

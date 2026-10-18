@@ -67,6 +67,48 @@ class AeeCaseStudy < ApplicationRecord
     [place.presence, date_label].compact.join(', ')
   end
 
+  def self.latest_for_aee(student:, unity:, year:)
+    return if student.blank? || unity.blank? || year.blank?
+
+    where(student_id: student.id, unity_id: unity.id, year: year)
+      .includes(classroom: :grades)
+      .ordered
+      .detect { |study| study.classroom&.aee? }
+  end
+
+  def self.consultation_payload_for(student:, unity:, year:)
+    study = latest_for_aee(student: student, unity: unity, year: year)
+    return { present: false } if study.blank?
+
+    study.consultation_payload
+  end
+
+  def consultation_payload
+    {
+      present: true,
+      summary: consultation_summary,
+      sections: consultation_sections
+    }
+  end
+
+  def consultation_summary
+    date_label = I18n.l(document_date) if document_date.present?
+
+    [date_label, classroom&.to_s].reject(&:blank?).join(' — ')
+  end
+
+  def consultation_sections
+    %i[
+      identification
+      individual_demands
+      barriers_and_context
+      potentialities_and_support
+      accessibility_strategies
+      final_considerations
+    ].map { |attribute| { label: self.class.human_attribute_name(attribute), text: public_send(attribute).to_s.strip } }
+      .select { |section| section[:text].present? }
+  end
+
   private
 
   def default_identification

@@ -11,12 +11,18 @@
             </td>
             <td></td>
             <td></td>
-            <td width="215px">
-              <%= link_to t('.new_html'), new_aee_individual_plan_path, class: 'btn btn-primary pull-right' %>
+            <td></td>
+            <td></td>
+            <td width="280px">
+              <% if policy(AeeIndividualPlan).create? %>
+                <%= link_to t('.new_html'), new_aee_individual_plan_path, class: 'btn btn-primary pull-right' %>
+              <% end %>
             </td>
           </tr>
           <tr>
             <th><%= AeeIndividualPlan.human_attribute_name :student %></th>
+            <th><%= t('.origin') %></th>
+            <th><%= AeeIndividualPlan.human_attribute_name :classroom %></th>
             <th><%= AeeIndividualPlan.human_attribute_name :start_on %></th>
             <th><%= AeeIndividualPlan.human_attribute_name :review_on %></th>
             <th></th>
@@ -26,7 +32,7 @@
         <%= render 'resources' %>
 
         <tfoot id="paginator" class="remote">
-          <td colspan="4">
+          <td colspan="6">
             <div id="page_entries_info" class="pull-left hidden-xs">
               <%= page_entries_info @aee_individual_plans %>
             </div>

@@ -159,7 +159,7 @@ navigation:
       type: "aee_individual_plans"
       icon: "fa-user"
       path: "aee_individual_plans_path"
-      visible: "only-when-aee"
+      visible: "only-when-pei"
       shortcut: true
   - menu:
       type: "aee_attendance_records"

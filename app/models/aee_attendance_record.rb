@@ -51,7 +51,7 @@ class AeeAttendanceRecord < ApplicationRecord
     return aee_individual_plan if aee_individual_plan.present?
     return if student_id.blank? || classroom_id.blank?
 
-    AeeIndividualPlan.find_by(student_id: student_id, classroom_id: classroom_id, year: year)
+    AeeIndividualPlan.aee.find_by(student_id: student_id, classroom_id: classroom_id, year: year)
   end
 
   def to_s

@@ -1,0 +1,5 @@
+pt-BR:
+  enumerations:
+    aee_individual_plan_origins:
+      aee: "AEE"
+      regular: "Ensino regular"

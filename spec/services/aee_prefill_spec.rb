@@ -44,6 +44,29 @@ RSpec.describe AeePrefill do
       expect(result[:pei_goals]).to eq('Metas do PEI')
       expect(result[:duration]).to eq('50 minutos')
     end
+
+    it 'uses the AEE PEI when a regular PEI also exists for the student' do
+      aee_pei = create(:aee_individual_plan, goals: 'Metas do AEE')
+      create(
+        :aee_individual_plan,
+        :regular,
+        student: aee_pei.student,
+        classroom: aee_pei.classroom,
+        year: aee_pei.year,
+        unity: aee_pei.unity,
+        school_calendar: aee_pei.school_calendar,
+        goals: 'Metas da disciplina'
+      )
+
+      result = described_class.attendance_from_pei(
+        student: aee_pei.student,
+        classroom: aee_pei.classroom,
+        year: aee_pei.year
+      )
+
+      expect(result[:aee_individual_plan_id]).to eq(aee_pei.id)
+      expect(result[:session_objectives]).to eq('Metas do AEE')
+    end
   end
 
   describe '.content_record_from_pei' do

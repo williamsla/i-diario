@@ -14,6 +14,9 @@ pt-BR:
         unity_id: "Escola"
         classroom: "Turma"
         classroom_id: "Turma"
+        disciplines: "Disciplinas"
+        discipline_ids: "Disciplinas"
+        origin: "Origem"
         student: "Nome do estudante"
         student_id: "Nome do estudante"
         teacher: "Professor(a)"
@@ -71,6 +74,9 @@ pt-BR:
         aee_individual_plan:
           attributes:
             student_id:
-              taken: "já possui um PEI para esta turma no ano letivo"
+              taken: "já possui um PEI neste contexto no ano letivo"
+            disciplines:
+              blank: "selecione ao menos uma disciplina"
+              not_linked: "deve incluir somente disciplinas com vínculo nesta turma"
             review_on:
               must_be_after_start_on: "deve ser igual ou posterior à data de início"

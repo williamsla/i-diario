@@ -1,0 +1,8 @@
+<% if case_study.present? %>
+  <% case_study.consultation_sections.each do |section| %>
+    <h5><%= section[:label] %></h5>
+    <p style="white-space: pre-wrap;"><%= section[:text] %></p>
+  <% end %>
+<% else %>
+  <p><%= t('aee_individual_plans.form.case_study_empty') %></p>
+<% end %>

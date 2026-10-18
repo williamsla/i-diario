@@ -190,6 +190,46 @@ RSpec.describe AeeCaseStudy do
     end
   end
 
+  describe '.latest_for_aee' do
+    let(:year) { Date.current.year }
+    let(:student) { create(:student) }
+    let(:unity) { create(:unity) }
+
+    it 'returns the most recent case study written in an AEE classroom' do
+      older_classroom = create_aee_classroom(unity, year)
+      newer_classroom = create_aee_classroom(unity, year)
+      regular_classroom = create(:classroom, unity: unity, year: year)
+      create(
+        :aee_case_study,
+        student: student,
+        unity: unity,
+        classroom: older_classroom,
+        year: year,
+        document_date: Date.current - 10.days
+      )
+      newer = create(
+        :aee_case_study,
+        student: student,
+        unity: unity,
+        classroom: newer_classroom,
+        year: year,
+        document_date: Date.current
+      )
+      create(
+        :aee_case_study,
+        student: student,
+        unity: unity,
+        classroom: regular_classroom,
+        year: year,
+        document_date: Date.current
+      )
+
+      expect(
+        described_class.latest_for_aee(student: student, unity: unity, year: year)
+      ).to eq(newer)
+    end
+  end
+
   describe '#location_and_date' do
     it 'joins city, state and the document date' do
       unity = create(:unity)
@@ -214,6 +254,13 @@ RSpec.describe AeeCaseStudy do
       classrooms_grade: classrooms_grade,
       left_at: left_at
     )
+  end
+
+  def create_aee_classroom(unity, year)
+    classroom = create(:classroom, unity: unity, year: year, description: 'Turma AEE')
+    grade = create(:grade, description: 'AEE')
+    create(:classrooms_grade, classroom: classroom, grade: grade)
+    classroom
   end
 
   def create_aee_enrollment(student, year)

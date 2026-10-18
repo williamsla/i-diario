@@ -25,6 +25,7 @@ module Navigation
         visible = node["menu"]["visible"]
         next if (!visible.nil? && visible == false) || (visible == 'only-when-active' && node["menu"]["type"] != item)
         next if visible == 'only-when-aee' && !aee_navigation_context?
+        next if visible == 'only-when-pei' && !pei_navigation_available?
         next if visible == 'hide-when-aee' && aee_navigation_context?
         next if visible == 'hide-when-aee-attendance-allowed' && aee_navigation_context? && aee_attendance_records_allowed?
         yield node_values(node["menu"], parent_menu)
@@ -59,6 +60,10 @@ module Navigation
 
     def aee_navigation_context?
       Thread.current[:navigation_is_aee]
+    end
+
+    def pei_navigation_available?
+      Thread.current[:navigation_pei_available]
     end
 
     def aee_attendance_records_allowed?

@@ -3,10 +3,11 @@
 class AeeIndividualPlansController < ApplicationController
   has_scope :page, default: 1
   has_scope :per, default: 10
+  has_scope :by_student_id, in: :filter
 
   before_action :require_current_classroom
   before_action :require_current_teacher, only: [:new, :create]
-  before_action :require_aee_classroom
+  before_action :require_pei_access
   before_action :require_allow_to_modify_prev_years, only: [:create, :update, :destroy]
   before_action :set_aee_individual_plan, only: [:show, :edit, :update, :destroy, :history]
   before_action :fetch_students, only: [:index, :new, :create, :edit, :update]
@@ -24,14 +25,25 @@ class AeeIndividualPlansController < ApplicationController
   end
 
   def new
+    return if redirect_to_existing_plan(params[:student_id])
+
     @aee_individual_plan = build_aee_individual_plan.localized
     authorize @aee_individual_plan
   end
 
   def create
+    return if redirect_to_existing_plan(resource_params[:student_id])
+
     @aee_individual_plan = AeeIndividualPlan.new(resource_params)
     assign_context(@aee_individual_plan)
     authorize @aee_individual_plan
+
+    unless student_allowed?(@aee_individual_plan.student_id)
+      @aee_individual_plan.errors.add(:student, :invalid)
+      @aee_individual_plan = @aee_individual_plan.localized
+      render :new
+      return
+    end
 
     if @aee_individual_plan.save
       respond_with @aee_individual_plan, location: edit_aee_individual_plan_path(@aee_individual_plan)
@@ -44,6 +56,7 @@ class AeeIndividualPlansController < ApplicationController
   def edit
     @aee_individual_plan = @aee_individual_plan.localized
     authorize @aee_individual_plan
+    @readonly = !policy(@aee_individual_plan).update?
   end
 
   def update
@@ -74,12 +87,16 @@ class AeeIndividualPlansController < ApplicationController
     student = students_for_classroom.find_by(id: params[:student_id])
     return render json: {} if student.blank?
 
+    existing = AeeIndividualPlan.owned_record_for(current_user, student.id)
+    return render json: { existing_id: existing.id } if existing.present?
+
     record = AeeIndividualPlan.new
     assign_context(record)
     record.student = student
     record.apply_defaults!
 
     render json: {
+      existing_id: nil,
       age: record.age,
       birth_date_label: record.birth_date_label,
       characteristics: record.characteristics,
@@ -93,15 +110,16 @@ class AeeIndividualPlansController < ApplicationController
       socioemotional_skills: record.socioemotional_skills,
       linguistic_skills: record.linguistic_skills,
       specialized_teacher_name: record.specialized_teacher_name,
-      aee_case_study_id: record.aee_case_study_id
+      regular_teacher_name: record.regular_teacher_name,
+      aee_case_study_id: record.aee_case_study_id,
+      case_study: case_study_consultation_for(record)
     }
   end
 
   private
 
   def resource_params
-    params.require(:aee_individual_plan).permit(
-      :student_id,
+    permitted = [
       :aee_case_study_id,
       :start_on,
       :review_on,
@@ -125,19 +143,27 @@ class AeeIndividualPlansController < ApplicationController
       :school_management_name,
       :responsible_name,
       :document_date
-    )
+    ]
+    permitted.unshift(:student_id) if action_name == 'create'
+    permitted << :discipline_ids if regular_pei_context?
+
+    permitted_params = params.require(:aee_individual_plan).permit(permitted)
+    if permitted_params[:discipline_ids].is_a?(String)
+      permitted_params[:discipline_ids] = permitted_params[:discipline_ids].split(',').grep(/\A\d+\z/)
+    end
+    permitted_params
   end
 
   def set_aee_individual_plan
-    @aee_individual_plan = AeeIndividualPlan.find(params[:id])
+    @aee_individual_plan = aee_individual_plans_scope.find(params[:id])
   end
 
   def aee_individual_plans_scope
     AeeIndividualPlan
-      .includes(:student, :classroom, :teacher, :unity)
-      .by_classroom(current_user_classroom)
-      .by_year(current_user_school_year)
-      .ordered
+      .visible_for(current_user)
+      .includes(:student, :classroom, :teacher, :unity, :disciplines)
+      .joins(:student)
+      .order('students.name ASC, aee_individual_plans.start_on DESC, aee_individual_plans.created_at DESC')
   end
 
   def build_aee_individual_plan
@@ -145,18 +171,29 @@ class AeeIndividualPlansController < ApplicationController
       assign_context(record)
       record.start_on = Time.zone.today
       record.document_date = Time.zone.today
-      record.specialized_teacher_name = current_teacher&.name
+      assign_default_disciplines(record)
       assign_student_from_params(record)
     end
   end
 
   def assign_context(record)
+    context = AeeIndividualPlan.ownership_context(current_user)
     record.unity = current_unity
     record.classroom = current_user_classroom
     record.teacher = current_teacher if record.teacher.blank?
     record.user = current_user
     record.school_calendar = current_school_calendar
     record.year = current_user_school_year
+    return if context.blank?
+
+    record.origin = context[:origin]
+  end
+
+  def assign_default_disciplines(record)
+    return unless record.regular?
+    return if record.discipline_ids.present?
+
+    record.discipline_ids = AeeIndividualPlan.linked_disciplines_for(current_user).pluck(:id)
   end
 
   def assign_student_from_params(record)
@@ -172,19 +209,54 @@ class AeeIndividualPlansController < ApplicationController
   end
 
   def students_for_classroom
-    student_ids = StudentEnrollmentsList.new(
-      classroom: current_user_classroom,
-      discipline: current_user_discipline,
-      search_type: :by_year
-    ).student_enrollments.map(&:student_id)
-
-    Student.where(id: student_ids).ordered
+    @students_for_classroom ||= Student.where(
+      id: AeeIndividualPlan.enrolled_student_ids_for(current_user)
+    ).ordered
   end
 
-  def require_aee_classroom
-    return if is_aee
+  def student_allowed?(student_id)
+    return true if student_id.blank?
 
-    flash[:alert] = I18n.t('aee_individual_plans.errors.require_aee_classroom')
+    students_for_classroom.where(id: student_id).exists?
+  end
+
+  def redirect_to_existing_plan(student_id)
+    existing = AeeIndividualPlan.owned_record_for(current_user, student_id)
+    return false if existing.blank?
+
+    redirect_to edit_aee_individual_plan_path(existing),
+                notice: I18n.t('aee_individual_plans.notices.already_exists')
+    true
+  end
+
+  def require_pei_access
+    return if pei_available?
+
+    flash[:alert] =
+      if current_user_classroom.present? && !current_user_classroom.aee? &&
+         AeeIndividualPlan.linked_disciplines_for(current_user).blank?
+        I18n.t('aee_individual_plans.errors.require_linked_disciplines')
+      else
+        I18n.t('aee_individual_plans.errors.require_special_needs_students')
+      end
     redirect_to root_path
   end
+
+  def regular_pei_context?
+    current_user_classroom.present? && !current_user_classroom.aee?
+  end
+
+  def case_study_consultation_for(record)
+    return { present: false } unless record&.regular?
+
+    AeeCaseStudy.consultation_payload_for(student: record.student, unity: record.unity, year: record.year)
+  end
+
+  def linked_disciplines_for_form(record)
+    linked = AeeIndividualPlan.linked_disciplines_for(current_user).to_a
+    return linked if record.blank? || !record.regular?
+
+    (linked + record.disciplines.to_a).uniq(&:id)
+  end
+  helper_method :linked_disciplines_for_form
 end

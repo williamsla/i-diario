@@ -9,6 +9,8 @@ FactoryGirl.define do
     user
     school_calendar { create(:school_calendar, :with_one_step, unity: unity) }
 
+    origin { AeeIndividualPlanOrigins::AEE }
+
     year { Date.current.year }
     start_on { Date.current }
     age '6 anos'
@@ -27,5 +29,24 @@ FactoryGirl.define do
     final_considerations 'Considerações finais'
     specialized_teacher_name { teacher.name }
     document_date { Date.current }
+
+    trait :regular do
+      origin { AeeIndividualPlanOrigins::REGULAR }
+      regular_teacher_name { teacher.name }
+
+      after(:build) do |plan|
+        next if plan.disciplines.any?
+
+        discipline = create(:discipline)
+        plan.disciplines << discipline
+        create(
+          :teacher_discipline_classroom,
+          teacher: plan.teacher,
+          classroom: plan.classroom,
+          discipline: discipline,
+          year: plan.year
+        )
+      end
+    end
   end
 end

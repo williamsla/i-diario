@@ -2,10 +2,6 @@ $(function () {
   'use strict';
 
   var $student = $('#aee_individual_plan_student_id');
-  var derivedFields = {
-    age: $('#aee_individual_plan_age'),
-    birth_date_label: $('#aee_individual_plan_birth_date_label')
-  };
   var fields = {
     characteristics: $('#aee_individual_plan_characteristics'),
     identified_difficulties: $('#aee_individual_plan_identified_difficulties'),
@@ -25,8 +21,46 @@ $(function () {
     return;
   }
 
+  var updateIdentification = function (data) {
+    var age = (data && data.age) || '';
+    var birthDate = (data && data.birth_date_label) || '';
+
+    $('#aee_individual_plan_age').text(age);
+    $('#aee-pei-age-item').toggle(!!age);
+    $('#aee_individual_plan_birth_date_label').text(birthDate);
+    $('#aee-pei-birth-item').toggle(!!birthDate);
+  };
+
+  var updateCaseStudy = function (caseStudy) {
+    var $action = $('#aee-case-study-action');
+
+    if (!$action.length) {
+      return;
+    }
+
+    if (!caseStudy || !caseStudy.present) {
+      $action.hide();
+      $('#aee-case-study-summary').text('');
+      $('#aee-case-study-sections').empty();
+      return;
+    }
+
+    $('#aee-case-study-summary').text(caseStudy.summary || '');
+
+    var $sections = $('#aee-case-study-sections').empty();
+
+    $.each(caseStudy.sections || [], function (_, section) {
+      $sections.append($('<h5>').text(section.label || ''));
+      $sections.append($('<p>').css('white-space', 'pre-wrap').text(section.text || ''));
+    });
+
+    $action.show();
+  };
+
   var fillFromPreviousDocuments = function (studentId) {
     if (!studentId) {
+      updateIdentification(null);
+      updateCaseStudy(null);
       return;
     }
 
@@ -36,15 +70,15 @@ $(function () {
         format: 'json'
       }),
       success: function (data) {
+        if (data.existing_id) {
+          window.location = Routes.edit_aee_individual_plan_pt_br_path(data.existing_id);
+          return;
+        }
+
+        updateIdentification(data);
+        updateCaseStudy(data.case_study);
+
         var filled = false;
-
-        $.each(derivedFields, function (key, $field) {
-          if (!$field.length) {
-            return;
-          }
-
-          $field.val(data[key] || '');
-        });
 
         $.each(fields, function (key, $field) {
           if (!$field.length || $field.val() || !data[key]) {
@@ -61,6 +95,10 @@ $(function () {
       }
     });
   };
+
+  $('#view-aee-case-study').on('click', function (event) {
+    event.preventDefault();
+  });
 
   $student.on('change', function () {
     fillFromPreviousDocuments($student.select2('val'));

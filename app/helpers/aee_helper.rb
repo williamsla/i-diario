@@ -148,7 +148,7 @@ module AeeHelper
     return if student.blank? || current_user_classroom.blank?
 
     @aee_pei_for ||= {}
-    @aee_pei_for[student.id] ||= AeeIndividualPlan.find_by(
+    @aee_pei_for[student.id] ||= AeeIndividualPlan.aee.find_by(
       student_id: student.id,
       classroom_id: current_user_classroom.id,
       year: current_user_school_year

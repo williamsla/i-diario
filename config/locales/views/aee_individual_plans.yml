@@ -4,6 +4,8 @@ pt-BR:
       title: "PEI"
       new_html: "<i class='fa fa-plus'></i> Novo PEI"
       by_student: "Filtrar aluno"
+      origin: "Origem"
+      view: "Visualizar"
     form:
       identification_legend: "Informações gerais"
       characteristics_legend: "Descrição e características do estudante"
@@ -16,10 +18,16 @@ pt-BR:
       final_considerations_legend: "Considerações finais"
       signatures_legend: "Assinaturas"
       legal_text: "Este Plano Educacional Individualizado – PEI é elaborado com base no Decreto nº 12.686/2025, alterado pelo Decreto nº 12.773/2025, que institui a Política Nacional de Educação Especial Inclusiva."
+      readonly_notice: "Consulta do PEI de %{context}. A edição fica com o professor responsável por esse registro."
+      disciplines_hint: "Vincule as disciplinas que você leciona nesta turma."
+      view_case_study: "Visualizar estudo de caso"
+      case_study_close: "Fechar"
+      case_study_empty: "Nenhum estudo de caso do AEE encontrado para este estudante."
       objective_title: "Objetivo do PEI"
       objective_text: "Promover o desenvolvimento integral do estudante, considerando suas potencialidades e necessidades, favorecendo a ampliação das habilidades cognitivas, motoras, sociais e comunicativas, por meio de atividades lúdicas e significativas que estimulem a autonomia, a interação e a participação nas rotinas da Educação Infantil."
       final_considerations_text: "Este PEI tem como objetivo garantir ao estudante oportunidades de desenvolvimento integral, respeitando seu tempo, suas características e suas formas de aprender. As propostas pedagógicas serão organizadas de maneira lúdica e significativa, favorecendo a participação, a interação e a construção de novas aprendizagens no cotidiano da Educação Infantil. O acompanhamento contínuo, as adaptações nas atividades e a parceria com a família são fundamentais para apoiar o desenvolvimento da criança e fortalecer seu processo de aprendizagem."
       attendance_records_hint: "Os registros de atendimento do período do PEI aparecem abaixo. Clique na data para abrir o diário da sessão."
+      attendance_records_readonly_hint: "Registros de atendimento do AEE no período deste PEI, disponíveis para consulta."
       attendance_records_empty: "Nenhum registro de atendimento encontrado no período do PEI."
       attendance_record_date: "Data"
       attendance_record_area: "Foco da sessão"
@@ -37,7 +45,10 @@ pt-BR:
     edit:
       title: "Editar PEI"
     errors:
-      require_aee_classroom: "O PEI está disponível apenas para turmas de AEE."
+      require_special_needs_students: "O PEI no ensino regular está disponível quando a turma tem alunos com necessidade especial."
+      require_linked_disciplines: "O PEI do ensino regular exige vínculo com ao menos uma disciplina nesta turma."
+    notices:
+      already_exists: "Já existe um PEI deste contexto para o aluno. O registro foi aberto para consulta ou edição."
     pdf:
       title: "Plano educacional individualizado – PEI"
       skills: "1. Habilidades apresentadas"

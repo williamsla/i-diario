@@ -111,7 +111,7 @@ class AeeIndividualPlanPdf < BaseReport
         I18n.t('aee_individual_plans.pdf.monitoring'),
         present_text(@aee_individual_plan.monitoring)
       )
-      attendance_records
+      attendance_records if @aee_individual_plan.aee?
       text_box_truncate(
         AeeIndividualPlan.human_attribute_name(:short_term_goals),
         present_text(@aee_individual_plan.short_term_goals)
@@ -134,6 +134,8 @@ class AeeIndividualPlanPdf < BaseReport
   def identification
     rows = [
       identification_row(:student, @aee_individual_plan.student.to_s),
+      identification_row(:origin, @aee_individual_plan.context_label),
+      identification_row(:classroom, @aee_individual_plan.classroom.to_s),
       identification_row(:birth_date, @aee_individual_plan.birth_date_label),
       identification_row(:age, @aee_individual_plan.age),
       identification_row(:start_on, formatted_date(@aee_individual_plan.start_on)),
