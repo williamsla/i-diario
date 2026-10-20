@@ -90,17 +90,13 @@ module ExamPoster
       filter_daily_notes = daily_notes.where(avaliation_id: avaliations.keys)
       daily_note_students = filter_daily_notes.flat_map(&:students)
                                               .select { |dns| dns.transfer_note_id.present? }
-      active_enrollment_classrooms = StudentEnrollmentClassroom.by_classroom(@classroom.id)
-                                                               .joins(:student_enrollment)
-                                                               .where(
-                                                                 student_enrollments: { active: IeducarBooleanState::ACTIVE }
-                                                               )
-                                                               .or(
-                                                                 StudentEnrollmentClassroom.by_classroom(@classroom.id)
-                                                                                          .joins(:student_enrollment)
-                                                                                          .where.not(left_at: nil)
-                                                                                          .where(left_at: @step.start_at..@step.end_at)
-                                                               )
+      base_query = StudentEnrollmentClassroom.by_classroom(@classroom.id).joins(:student_enrollment)
+
+      active_enrollment_classrooms = base_query.where(student_enrollments: { active: IeducarBooleanState::ACTIVE })
+                                               .or(
+                                                 base_query.where.not(left_at: nil)
+                                                           .where(left_at: @step.start_at..@step.end_at)
+                                               )
 
       enrollment_classroom_on_date = []
 
