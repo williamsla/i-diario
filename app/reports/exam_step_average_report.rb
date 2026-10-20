@@ -95,6 +95,8 @@ class ExamStepAverageReport < BaseReport
   end
 
   def data_table
+    return data_table_semestral if semestral_recovery_sheet?
+
     students = {}
     conceptual_exams_by_student_and_step = load_conceptual_exams_by_student_and_step
     step_recovery_scores = load_step_recovery_scores
@@ -165,6 +167,296 @@ class ExamStepAverageReport < BaseReport
     headers = build_table_headers
     students_cells = build_students_cells(students)
 
+    sliced_students_cells = students_cells.each_slice(student_slice_size(students)).to_a
+
+    sliced_students_cells.each_with_index do |students_cells_slice, index|
+      data = [headers] + students_cells_slice
+
+      page_content do
+        table(data, row_colors: ['FFFFFF', 'DEDEDE'], cell_style: { size: 7, padding: [2, 1, 2, 1], inline_format: true }, width: bounds.width) do |t|
+          t.cells.border_width = 0.25
+          t.before_rendering_page do |page|
+            page.row(0).border_top_width = 0.25
+            page.row(-1).border_bottom_width = 0.25
+            page.column(0).border_left_width = 0.25
+            page.column(-1).border_right_width = 0.25
+          end
+        end
+      end
+
+      start_new_page if index < sliced_students_cells.count - 1
+    end
+  end
+
+  def semestral_recovery_sheet?
+    GeneralConfiguration.semestral_recovery? && @steps.size > 1 && !classroom_without_numeric_score?
+  end
+
+  def footer_legend
+    recovery_label = if semestral_recovery_sheet?
+                       'Rec = Recuperação do semestre'
+                     else
+                       'Rec = Recuperação parcial da etapa'
+                     end
+
+    "Legendas: #{recovery_label} | Situação conforme matrícula no i-Educar"
+  end
+
+  # Recuperação semestral: a nota da recuperação compõe a média das etapas do semestre,
+  # (média parcial + recuperação) / 2, quando a recuperação é maior que a média parcial.
+  def data_table_semestral
+    conceptual_exams_by_student_and_step = load_conceptual_exams_by_student_and_step
+    final_recovery_scores = load_final_recovery_scores
+    groups = semestral_step_groups
+    recovery_scores = semestral_recovery_scores(groups)
+    promotion_average = recovery_rule_average
+
+    students = {}
+    @students_enrollments.each do |student_enrollment|
+      student = student_enrollment.student
+      uses_conceptual = student_uses_conceptual_evaluation?(student)
+      step_scores = []
+
+      @steps.each do |step|
+        step_scores << if uses_conceptual
+                         conceptual_exam = conceptual_exams_by_student_and_step[[student.id, step.step_number]]
+                         fetch_conceptual_score_from_exam(student, conceptual_exam)
+                       else
+                         StudentAverageCalculator.new(student).calculate(classroom, discipline, step)
+                       end
+      end
+
+      final_recovery = uses_conceptual ? nil : final_recovery_scores[student.id]
+      summary = if uses_conceptual
+                  empty_semestral_summary(groups)
+                else
+                  semestral_summary(step_scores, recovery_scores, student.id, groups, final_recovery)
+                end
+
+      students[student_enrollment.id] = {
+        name: student.to_s,
+        social_name: student.social_name,
+        dependence: false,
+        cells: semestral_score_cells(step_scores, summary, groups, uses_conceptual, promotion_average) + [
+          make_cell(
+            content: enrollment_status_label(
+              student_enrollment.status,
+              summary[:final_average],
+              promotion_average,
+              final_recovery
+            ).to_s,
+            align: :center,
+            size: 6
+          )
+        ]
+      }
+    end
+
+    render_score_table(semestral_headers(groups), build_semestral_rows(students), students)
+  end
+
+  def semestral_step_groups
+    if @steps.size == 2
+      [{
+        steps: @steps,
+        label: :single,
+        recovery_step: SchoolTermRecoveryScoresFetcher.recovery_step_for(classroom, @steps),
+        fallback_recovery_step: SchoolTermRecoveryScoresFetcher.recovery_step_for(classroom, [@steps.first])
+      }]
+    else
+      total = @steps.size
+      first_count = (total.to_f / 2).ceil
+      first_steps = @steps.first(first_count)
+      second_steps = @steps.last(total - first_count)
+
+      [
+        {
+          steps: first_steps,
+          label: :first,
+          recovery_step: SchoolTermRecoveryScoresFetcher.recovery_step_for(classroom, first_steps)
+        },
+        {
+          steps: second_steps,
+          label: :second,
+          recovery_step: SchoolTermRecoveryScoresFetcher.recovery_step_for(classroom, second_steps)
+        }
+      ].reject { |group| group[:steps].blank? }
+    end
+  end
+
+  def semestral_recovery_scores(groups)
+    steps = groups.flat_map { |group| [group[:recovery_step], group[:fallback_recovery_step]] }
+    SchoolTermRecoveryScoresFetcher.new(classroom, discipline, steps)
+  end
+
+  def semestral_summary(step_scores, recovery_scores, student_id, groups, final_recovery)
+    offset = 0
+    semester_finals = []
+    columns = groups.map do |group|
+      values = step_scores.slice(offset, group[:steps].size) || []
+      offset += group[:steps].size
+      partial_raw = if values.empty?
+                      nil
+                    else
+                      values.map { |value| value.to_f }.sum / values.size.to_f
+                    end
+      recovery = semester_recovery_score(recovery_scores, student_id, group)
+      final_raw = apply_semester_recovery(partial_raw, recovery)
+      semester_finals << final_raw
+
+      {
+        partial: round_semestral_score(partial_raw),
+        recovery: recovery,
+        average: round_semestral_score(final_raw)
+      }
+    end
+
+    year_raw = if groups.size == 1
+                 semester_finals.first
+               else
+                 rounded_semesters = semester_finals.map { |value| round_semestral_score(value) || 0 }
+                 rounded_semesters.sum.to_f / rounded_semesters.size
+               end
+    final_raw = year_raw
+    if final_recovery.present? && year_raw.present? && final_recovery.to_f > year_raw.to_f
+      final_raw = (final_recovery.to_f + year_raw.to_f) / 2.0
+    end
+
+    {
+      columns: columns,
+      final_recovery: final_recovery,
+      final_average: round_semestral_score(final_raw)
+    }
+  end
+
+  def empty_semestral_summary(groups)
+    {
+      columns: groups.map { { partial: nil, recovery: nil, average: nil } },
+      final_recovery: nil,
+      final_average: nil
+    }
+  end
+
+  def semester_recovery_score(recovery_scores, student_id, group)
+    score = recovery_scores.score_for(student_id, group[:recovery_step])
+    return score if score.present? || group[:fallback_recovery_step].blank?
+
+    recovery_scores.score_for(student_id, group[:fallback_recovery_step])
+  end
+
+  def apply_semester_recovery(average, recovery_score)
+    return average if average.blank? || recovery_score.blank?
+    return (average.to_f + recovery_score.to_f) / 2.0 if recovery_score.to_f > average.to_f
+
+    average
+  end
+
+  def round_semestral_score(score)
+    return nil if score.nil?
+
+    ScoreRounder.new(classroom, RoundedAvaliations::NUMERICAL_EXAM, @steps.last).round(score)
+  end
+
+  def recovery_rule_average
+    rule = classroom.first_exam_rule_with_recovery.try(:recovery_exam_rules).try(:first)
+    rule.try(:average) || 0
+  end
+
+  def semestral_score_cells(step_scores, summary, groups, uses_conceptual, promotion_average)
+    cells = []
+    offset = 0
+
+    groups.each_with_index do |group, index|
+      group[:steps].each_with_index do |step, step_index|
+        cells << score_cell(step_scores[offset + step_index], step, uses_conceptual, promotion_average)
+      end
+      offset += group[:steps].size
+
+      column = summary[:columns][index]
+      cells << semestral_numeric_cell(column[:partial], 'F0F0F0')
+      cells << semestral_numeric_cell(column[:recovery], 'F0F0F0')
+      cells << semestral_numeric_cell(column[:average], 'D0D0D0', bold: true)
+    end
+
+    cells << semestral_numeric_cell(summary[:final_recovery], 'D0D0D0')
+    cells << semestral_numeric_cell(summary[:final_average], 'B0B0B0', bold: true)
+    cells
+  end
+
+  def semestral_numeric_cell(value, background, bold: false)
+    options = {
+      content: localize_score(value),
+      align: :center,
+      background_color: background
+    }
+    options[:font_style] = :bold if bold
+    make_cell(options)
+  end
+
+  def semestral_headers(groups)
+    headers = [
+      make_cell(content: 'Nº', size: 7, font_style: :bold, background_color: 'FFFFFF', align: :center, width: 15),
+      make_cell(content: 'Nome do aluno', size: 7, font_style: :bold, background_color: 'FFFFFF', align: :center)
+    ]
+
+    groups.each do |group|
+      group[:steps].each do |step|
+        headers << make_cell(
+          content: "#{step.step_number}ª Etapa",
+          size: 7,
+          font_style: :bold,
+          background_color: 'FFFFFF',
+          align: :center,
+          width: 28
+        )
+      end
+      headers.concat(semester_summary_headers(group))
+    end
+
+    headers << make_cell(content: "Rec.\nFinal", size: 7, font_style: :bold, background_color: 'D0D0D0', align: :center, valign: :center, width: 30)
+    headers << make_cell(content: "Média\nFinal", size: 7, font_style: :bold, background_color: 'B0B0B0', align: :center, valign: :center, width: 30)
+    headers << make_cell(content: 'Situação', size: 7, font_style: :bold, background_color: 'FFFFFF', align: :center, width: 46)
+    headers
+  end
+
+  def semester_summary_headers(group)
+    labels = case group[:label]
+             when :single
+               ["MP\nSemestre", "Rec\nSemestre", "Média\nSemestre"]
+             when :first
+               ["MP\n1º Sem", "Rec.\n1º Sem", "Média\n1º Sem"]
+             else
+               ["MP\n2º Sem", "Rec\n2º Sem", "Média\n2º Sem"]
+             end
+    colors = ['F0F0F0', 'F0F0F0', 'D0D0D0']
+
+    labels.zip(colors).map do |label, color|
+      make_cell(
+        content: label,
+        size: 7,
+        font_style: :bold,
+        background_color: color,
+        align: :center,
+        valign: :center,
+        width: 32
+      )
+    end
+  end
+
+  def build_semestral_rows(students)
+    rows = []
+    sequence = 1
+
+    students.each_value do |value|
+      name_content = (value[:dependence] ? '* ' : '') + value[:name]
+      rows << [make_cell(content: sequence.to_s, align: :center), { content: name_content }].concat(value[:cells])
+      sequence += 1
+    end
+
+    rows
+  end
+
+  def render_score_table(headers, students_cells, students)
     sliced_students_cells = students_cells.each_slice(student_slice_size(students)).to_a
 
     sliced_students_cells.each_with_index do |students_cells_slice, index|
@@ -498,7 +790,7 @@ class ExamStepAverageReport < BaseReport
 
         draw_text('Data:', size: 8, style: :bold, at: [450, 34])
         draw_text('________________', size: 8, at: [472, 34])
-        draw_text('Legendas: Rec = Recuperação parcial da etapa | Situação conforme matrícula no i-Educar', size: 7, style: :bold, at: [0, 34])
+        draw_text(footer_legend, size: 7, style: :bold, at: [0, 34])
         draw_text('* Alunos cursando dependência', size: 8, at: [0, 24]) if self.any_student_with_dependence
       end
     end
