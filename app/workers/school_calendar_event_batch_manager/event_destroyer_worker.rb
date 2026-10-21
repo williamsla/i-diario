@@ -69,7 +69,12 @@ module SchoolCalendarEventBatchManager
         rescue StandardError => error
           Rails.logger.error("Erro ao excluir evento em lote #{school_calendar_event_batch_id}: #{error.class} - #{error.message}")
           Rails.logger.error(error.backtrace.join("\n")) if error.backtrace
-          mark_batch_with_error_simple(school_calendar_event_batch_id, error.message, school_calendar_event_batch)
+          if events_already_removed?(school_calendar_event_batch)
+            school_calendar_event_batch.destroy!
+            Rails.logger.info("Lote #{school_calendar_event_batch_id} removido porque o evento já não estava no calendário")
+          else
+            mark_batch_with_error_simple(school_calendar_event_batch_id, error.message, school_calendar_event_batch)
+          end
         end
       end
     end
@@ -96,6 +101,10 @@ module SchoolCalendarEventBatchManager
     end
 
     private
+
+    def events_already_removed?(batch)
+      batch.present? && batch.persisted? && !batch.destroyed? && batch.school_calendar_events.reload.none?
+    end
 
     def mark_batch_with_error_simple(school_calendar_event_batch_id, error_message, batch = nil)
       Rails.logger.info("Tentando marcar batch #{school_calendar_event_batch_id} como erro: #{error_message}")

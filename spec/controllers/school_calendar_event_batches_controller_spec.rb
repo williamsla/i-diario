@@ -29,6 +29,18 @@ RSpec.describe SchoolCalendarEventBatchesController, type: :controller do
   end
 
   describe 'DELETE #destroy' do
+    it 'apaga na hora o lote cujo evento já saiu do calendário' do
+      batch_id = batch.id
+
+      expect(SchoolCalendarEventBatchManager::EventDestroyerWorker).not_to receive(:perform_async)
+      expect(SchoolCalendarEventBatchManager::EventDestroyerWorker).not_to receive(:new)
+
+      delete :destroy, params: { locale: 'pt-BR', id: batch_id, keep_teacher_records: false }
+
+      expect(SchoolCalendarEventBatch.find_by(id: batch_id)).to be_nil
+      expect(response).to redirect_to(school_calendar_event_batches_path)
+    end
+
     context 'quando solicita manter os registros dos professores' do
       it 'exclui o lote na hora e não deixa em andamento' do
         batch_id = batch.id
@@ -47,6 +59,38 @@ RSpec.describe SchoolCalendarEventBatchesController, type: :controller do
 
         expect(SchoolCalendarEventBatch.find_by(id: batch.id)).to be_nil
       end
+    end
+
+    it 'exclui os eventos na requisição, sem deixar o lote em andamento no Sidekiq' do
+      create(
+        :school_calendar_event,
+        school_calendar: create(:school_calendar, :with_one_step),
+        batch_id: batch.id,
+        start_date: event_date,
+        end_date: event_date,
+        event_type: EventTypes::EXTRA_SCHOOL,
+        coverage: EventCoverageType::BY_UNITY,
+        periods: Periods.list
+      )
+      worker = instance_double(SchoolCalendarEventBatchManager::EventDestroyerWorker, perform: true)
+      allow(SchoolCalendarEventBatchManager::EventDestroyerWorker).to receive(:new).and_return(worker)
+      expect(SchoolCalendarEventBatchManager::EventDestroyerWorker).not_to receive(:perform_async)
+
+      delete :destroy, params: { locale: 'pt-BR', id: batch.id, keep_teacher_records: false }
+
+      expect(worker).to have_received(:perform).with(entity.id, batch.id, user.id, 'destroy', false)
+    end
+  end
+
+  describe 'GET #index' do
+    it 'conclui o cadastro preso que ainda não tinha evento no calendário' do
+      batch.update_columns(created_at: 2.hours.ago, updated_at: 2.hours.ago)
+      worker = instance_double(SchoolCalendarEventBatchManager::EventCreatorWorker, perform: true)
+      allow(SchoolCalendarEventBatchManager::EventCreatorWorker).to receive(:new).and_return(worker)
+
+      get :index, params: { locale: 'pt-BR' }
+
+      expect(worker).to have_received(:perform).with(entity.id, batch.id, user.id, 'create')
     end
   end
 end

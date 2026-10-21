@@ -2,7 +2,7 @@ module SchoolCalendarEventBatchManager
   class Base
     include Sidekiq::Worker
 
-    sidekiq_options unique: :until_and_while_executing, queue: :low, retry: 3, dead: false
+    sidekiq_options queue: :low, retry: 3, dead: false
 
     sidekiq_retries_exhausted do |msg, exception|
       entity_id, school_calendar_event_batch_id, user_id, action_name = msg['args']

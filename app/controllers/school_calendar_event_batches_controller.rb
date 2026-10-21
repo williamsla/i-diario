@@ -3,6 +3,8 @@ class SchoolCalendarEventBatchesController < ApplicationController
   has_scope :per, default: 10
 
   def index
+    finalize_stuck_batches
+
     @school_calendar_event_batches = apply_scopes(SchoolCalendarEventBatch).ordered
     @school_calendar_event_batches = @school_calendar_event_batches.by_year(current_school_year)
     authorize @school_calendar_event_batches
@@ -54,7 +56,9 @@ class SchoolCalendarEventBatchesController < ApplicationController
 
     authorize school_calendar_event_batch
 
-    if keep_teacher_records?
+    if school_calendar_event_batch.school_calendar_events.none?
+      school_calendar_event_batch.destroy!
+    elsif keep_teacher_records?
       destroy_keeping_teacher_records!(school_calendar_event_batch)
     else
       school_calendar_event_batch.update_columns(
@@ -112,7 +116,7 @@ class SchoolCalendarEventBatchesController < ApplicationController
   end
 
   def create_or_update_batch(school_calendar_event_batch_id)
-    enqueue_or_run_worker(
+    run_worker(
       SchoolCalendarEventBatchManager::EventCreatorWorker,
       school_calendar_event_batch_id,
       action_name == 'reprocess' ? 'create' : action_name
@@ -120,12 +124,22 @@ class SchoolCalendarEventBatchesController < ApplicationController
   end
 
   def destroy_batch(school_calendar_event_batch_id, keep_teacher_records = false)
-    enqueue_or_run_worker(
+    run_worker(
       SchoolCalendarEventBatchManager::EventDestroyerWorker,
       school_calendar_event_batch_id,
       action_name,
       keep_teacher_records
     )
+  end
+
+  def finalize_stuck_batches
+    SchoolCalendarEventBatch.resolve_stuck_batches!.each do |school_calendar_event_batch_id|
+      run_worker(
+        SchoolCalendarEventBatchManager::EventCreatorWorker,
+        school_calendar_event_batch_id,
+        'create'
+      )
+    end
   end
 
   def keep_teacher_records?
@@ -145,7 +159,7 @@ class SchoolCalendarEventBatchesController < ApplicationController
     batch.mark_with_error!("Erro ao excluir mantendo registros: #{e.message}")
   end
 
-  def enqueue_or_run_worker(worker_class, school_calendar_event_batch_id, worker_action, *extra_args)
+  def run_worker(worker_class, school_calendar_event_batch_id, worker_action, *extra_args)
     unless current_entity.present?
       error_message = "Entity não encontrada para o domínio #{request.host}"
       Rails.logger.error(error_message)
@@ -155,28 +169,12 @@ class SchoolCalendarEventBatchesController < ApplicationController
 
     args = [current_entity.id, school_calendar_event_batch_id, current_user.id, worker_action, *extra_args]
 
-    if sidekiq_process_available?
-      worker_class.perform_async(*args)
-      Rails.logger.info("Worker #{worker_class} enfileirado no Sidekiq para batch #{school_calendar_event_batch_id}")
-    else
-      Rails.logger.info("Sidekiq indisponível, executando #{worker_class} de forma síncrona para batch #{school_calendar_event_batch_id}")
-      worker_class.new.perform(*args)
-    end
-  rescue Redis::BaseError, Redis::CannotConnectError => e
-    Rails.logger.warn("Redis indisponível (#{e.message}), executando #{worker_class} de forma síncrona")
+    Rails.logger.info("Executando #{worker_class} de forma síncrona para batch #{school_calendar_event_batch_id}")
     worker_class.new.perform(*args)
   rescue StandardError => e
     Rails.logger.error("Erro ao executar #{worker_class} para batch #{school_calendar_event_batch_id}: #{e.class} - #{e.message}")
     Rails.logger.error(e.backtrace.join("\n")) if e.backtrace
     mark_batch_with_error(school_calendar_event_batch_id, "Erro ao executar worker: #{e.message}")
-  end
-
-  def sidekiq_process_available?
-    require 'sidekiq/api'
-
-    Sidekiq::ProcessSet.new.size.positive?
-  rescue StandardError
-    false
   end
 
   def mark_batch_with_error(school_calendar_event_batch_id, error_message)

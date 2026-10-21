@@ -75,11 +75,11 @@ pt-BR:
 
     school_calendar_event_batches:
       create:
-        notice: 'Os eventos estão sendo criados.'
+        notice: 'Os eventos foram criados.'
       destroy:
-        notice: 'Os eventos estão sendo apagados.'
+        notice: 'Os eventos foram apagados.'
       reprocess:
-        notice: 'O evento em lote está sendo reprocessado.'
+        notice: 'O evento em lote foi reprocessado.'
 
     discipline_lesson_plans:
       <<: *male

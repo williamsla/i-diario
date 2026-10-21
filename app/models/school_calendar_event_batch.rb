@@ -34,6 +34,30 @@ class SchoolCalendarEventBatch < ApplicationRecord
   scope :by_description, lambda { |description|
     where('unaccent(school_calendar_event_batches.description) ILIKE unaccent(?)', "%#{description}%")
   }
+  scope :stuck_started, lambda {
+    where(batch_status: BatchStatus::STARTED).where('updated_at < ?', 1.minute.ago)
+  }
+
+  def self.resolve_stuck_batches!
+    pending_create_ids = []
+
+    stuck_started.find_each do |batch|
+      begin
+        if batch.school_calendar_events.exists?
+          batch.mark_as_completed!
+        elsif batch.touched_after_create?
+          batch.destroy!
+        else
+          pending_create_ids << batch.id
+        end
+      rescue StandardError => error
+        Rails.logger.error("Erro ao encerrar evento em lote #{batch.id}: #{error.class} - #{error.message}")
+        batch.mark_with_error!(error.message) if batch.persisted? && !batch.destroyed?
+      end
+    end
+
+    pending_create_ids
+  end
 
   def mark_with_error!(message)
     update_columns(
@@ -41,6 +65,10 @@ class SchoolCalendarEventBatch < ApplicationRecord
       error_message: message.to_s.truncate(255),
       updated_at: Time.current
     )
+  end
+
+  def touched_after_create?
+    updated_at.present? && created_at.present? && updated_at > created_at + 2.seconds
   end
 
   def mark_as_completed!
