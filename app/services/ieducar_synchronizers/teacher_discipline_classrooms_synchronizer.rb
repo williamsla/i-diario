@@ -25,7 +25,7 @@ class TeacherDisciplineClassroomsSynchronizer < BaseSynchronizer
         created_linked_teachers = []
 
         classroom = classroom(teacher_discipline_classroom_record.turma_id)
-        teacher = teacher(teacher_discipline_classroom_record.servidor_id)
+        teacher = teacher_receiving_vinculo(teacher_discipline_classroom_record.servidor_id)
 
         if classroom.blank? || teacher.blank? || classroom.discarded? || teacher.discarded?
           TeacherDisciplineClassroom.unscoped.where(
@@ -93,7 +93,6 @@ class TeacherDisciplineClassroomsSynchronizer < BaseSynchronizer
       api_code: teacher_discipline_classroom_record.id,
       year: year,
       discipline_id: discipline_id,
-      teacher_id: teacher_id,
       grade_id: grade_id,
       classroom_id: classroom_id
     )
@@ -109,21 +108,25 @@ class TeacherDisciplineClassroomsSynchronizer < BaseSynchronizer
       destroy_grouped_links(classroom_old, teacher_id)
     end
 
-    teacher_discipline_classroom =
-      if teacher_discipline_classrooms.size == 1
-        teacher_discipline_classrooms.first
-      elsif teacher_discipline_classrooms.size > 1
-        teacher_discipline_classrooms.find_by(discarded_at: nil)
-      end
+    teacher_discipline_classroom = teacher_discipline_classroom_for(
+      teacher_discipline_classrooms,
+      teacher_id
+    )
 
     teacher_discipline_classroom ||= TeacherDisciplineClassroom.new(
       api_code: teacher_discipline_classroom_record.id,
       year: year,
       teacher_id: teacher_id,
-      teacher_api_code: teacher_discipline_classroom_record.servidor_id,
+      teacher_api_code: resolved_teacher_api_code(teacher_id, teacher_discipline_classroom_record),
       grade_id: grade_id,
       discipline_id: discipline_id,
       discipline_api_code: discipline_api_code
+    )
+
+    teacher_discipline_classroom.teacher_id = teacher_id
+    teacher_discipline_classroom.teacher_api_code = resolved_teacher_api_code(
+      teacher_id,
+      teacher_discipline_classroom_record
     )
 
     teacher_discipline_classroom.classroom_id = classroom_id
@@ -148,6 +151,51 @@ class TeacherDisciplineClassroomsSynchronizer < BaseSynchronizer
     teacher_discipline_classroom.discard_or_undiscard(false)
 
     teacher_discipline_classroom
+  end
+
+  def teacher_receiving_vinculo(servidor_id)
+    found = teacher(servidor_id) || teacher(servidor_id.to_s)
+    return if found.blank?
+
+    unified_main_teacher(found) || found
+  end
+
+  def unified_main_teacher(found)
+    @unified_main_teachers ||= {}
+    return @unified_main_teachers[found.id] if @unified_main_teachers.key?(found.id)
+
+    unification = TeacherUnification.joins(:unified_teachers).where(
+      active: true,
+      teacher_unification_teachers: { teacher_id: found.id }
+    ).first
+
+    @unified_main_teachers[found.id] = unification&.teacher
+  end
+
+  def teacher_discipline_classroom_for(teacher_discipline_classrooms, teacher_id)
+    return if teacher_discipline_classrooms.blank?
+
+    chosen = teacher_discipline_classrooms.find_by(teacher_id: teacher_id, discarded_at: nil)
+    chosen ||= teacher_discipline_classrooms.find_by(teacher_id: teacher_id)
+    chosen ||= teacher_discipline_classrooms.find_by(discarded_at: nil)
+    chosen ||= teacher_discipline_classrooms.first
+
+    teacher_discipline_classrooms.where.not(id: chosen.id).find_each do |extra|
+      next unless extra.kept?
+
+      LessonsBoardLessonWeekday.unscoped.where(teacher_discipline_classroom_id: extra.id).update_all(
+        teacher_discipline_classroom_id: chosen.id
+      )
+      extra.discard
+    end
+
+    chosen
+  end
+
+  def resolved_teacher_api_code(teacher_id, teacher_discipline_classroom_record)
+    @teacher_api_codes ||= {}
+    @teacher_api_codes[teacher_id] ||= Teacher.with_discarded.where(id: teacher_id).limit(1).pluck(:api_code).first
+    @teacher_api_codes[teacher_id].presence || teacher_discipline_classroom_record.servidor_id
   end
 
   def discard_inexisting_teacher_discipline_classrooms(teacher_discipline_classrooms_to_discard)
