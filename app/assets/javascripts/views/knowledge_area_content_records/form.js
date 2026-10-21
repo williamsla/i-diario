@@ -1,6 +1,15 @@
 $(function () {
   'use strict';
 
+  var $formElement = $('#knowledge-area-content-record-form');
+  if ($formElement.length && typeof UnsavedChangesGuard !== 'undefined') {
+    UnsavedChangesGuard.watch($formElement, {
+      title: 'Deseja salvar este registro antes de sair?',
+      message: 'Você fez alterações no registro de conteúdo que ainda não foram salvas. ' +
+               'Se sair agora, suas alterações serão perdidas.'
+    });
+  }
+
   // Initialize all checkboxes (for edit mode and new mode)
   $('.list-group.checked-list-box .list-group-item:not(.initialized)').each(initializeListEvents);
 

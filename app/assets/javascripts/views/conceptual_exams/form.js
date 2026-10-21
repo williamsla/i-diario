@@ -1,6 +1,15 @@
 $(function () {
   'use strict';
 
+  var $formElement = $('form[id^="new_conceptual_exam"], form[id^="edit_conceptual_exam"]');
+  if ($formElement.length && typeof UnsavedChangesGuard !== 'undefined') {
+    UnsavedChangesGuard.watch($formElement, {
+      title: 'Deseja salvar esta avaliação conceitual antes de sair?',
+      message: 'Você fez alterações na avaliação conceitual que ainda não foram salvas. ' +
+               'Se sair agora, suas alterações serão perdidas.'
+    });
+  }
+
   var $classroom = $('#conceptual_exam_classroom_id');
   var $step = $('#conceptual_exam_step_id');
   var $student = $('#conceptual_exam_student_id');

@@ -4,6 +4,15 @@ window['content_list_submodel_name'] = 'lesson_plan';
 $(function () {
   'use strict';
 
+  var $formElement = $('#discipline_lesson_plan');
+  if ($formElement.length && typeof UnsavedChangesGuard !== 'undefined') {
+    UnsavedChangesGuard.watch($formElement, {
+      title: 'Deseja salvar este plano de aula antes de sair?',
+      message: 'Você fez alterações no plano de aula que ainda não foram salvas. ' +
+               'Se sair agora, suas alterações serão perdidas.'
+    });
+  }
+
   var flashMessages = new FlashMessages();
   var $classroom = $('#discipline_lesson_plan_lesson_plan_attributes_classroom_id');
   var $discipline = $('#discipline_lesson_plan_discipline_id');

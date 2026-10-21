@@ -1,6 +1,15 @@
 $(function () {
   'use strict';
 
+  var $formElement = $('#discipline-content-record-form');
+  if ($formElement.length && typeof UnsavedChangesGuard !== 'undefined') {
+    UnsavedChangesGuard.watch($formElement, {
+      title: 'Deseja salvar este registro antes de sair?',
+      message: 'Você fez alterações no registro de conteúdo que ainda não foram salvas. ' +
+               'Se sair agora, suas alterações serão perdidas.'
+    });
+  }
+
   $('.list-group.checked-list-box .list-group-item:not(.initialized)').each(initializeListEvents);
 
   // Regular expression for dd/mm/yyyy date including validation for leap year and more

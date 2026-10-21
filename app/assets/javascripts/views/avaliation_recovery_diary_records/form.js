@@ -1,6 +1,15 @@
 $(function () {
   'use strict';
 
+  var $formElement = $('form[id^="new_avaliation_recovery_diary_record"], form[id^="edit_avaliation_recovery_diary_record"]');
+  if ($formElement.length && typeof UnsavedChangesGuard !== 'undefined') {
+    UnsavedChangesGuard.watch($formElement, {
+      title: 'Deseja salvar este lançamento antes de sair?',
+      message: 'Você fez alterações na recuperação de avaliação que ainda não foram salvas. ' +
+               'Se sair agora, suas alterações serão perdidas.'
+    });
+  }
+
   var flashMessages = new FlashMessages();
   var $classroom = $('#avaliation_recovery_diary_record_recovery_diary_record_attributes_classroom_id');
   var $discipline = $('#avaliation_recovery_diary_record_recovery_diary_record_attributes_discipline_id');

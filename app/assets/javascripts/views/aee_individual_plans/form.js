@@ -1,6 +1,15 @@
 $(function () {
   'use strict';
 
+  var $formElement = $('#aee_individual_plans_form');
+  if ($formElement.length && typeof UnsavedChangesGuard !== 'undefined') {
+    UnsavedChangesGuard.watch($formElement, {
+      title: 'Deseja salvar este PEI antes de sair?',
+      message: 'Você fez alterações no Plano Educacional Individualizado (PEI) que ainda não foram salvas. ' +
+               'Se sair agora, suas alterações serão perdidas.'
+    });
+  }
+
   var $student = $('#aee_individual_plan_student_id');
   var fields = {
     characteristics: $('#aee_individual_plan_characteristics'),

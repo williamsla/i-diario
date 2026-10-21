@@ -1,6 +1,15 @@
 $(function () {
   'use strict';
 
+  var $formElement = $('form[id^="new_complementary_exam"], form[id^="edit_complementary_exam"]');
+  if ($formElement.length && typeof UnsavedChangesGuard !== 'undefined') {
+    UnsavedChangesGuard.watch($formElement, {
+      title: 'Deseja salvar esta avaliação complementar antes de sair?',
+      message: 'Você fez alterações na avaliação complementar que ainda não foram salvas. ' +
+               'Se sair agora, suas alterações serão perdidas.'
+    });
+  }
+
   var flashMessages = new FlashMessages();
   var $classroom = $('#complementary_exam_classroom_id');
   var $discipline = $('#complementary_exam_discipline_id');
