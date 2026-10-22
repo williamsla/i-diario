@@ -47,13 +47,7 @@ class StudentAverageFromIeducarFetcher
     # ou {"message"=>"...", "data"=>[{"stage"=>1, "score"=>"7.5", ...}]} (array)
     return nil unless result.is_a?(Hash) && result['data'].present?
 
-    # Se data for um array, busca a etapa específica (compatibilidade com versões antigas)
-    stage_data = if result['data'].is_a?(Array)
-                   result['data'].find { |item| item['stage'] == step_number }
-                 else
-                   result['data']
-                 end
-
+    stage_data = stage_record_for(result['data'], step_number)
     return nil unless stage_data.present?
 
     # Prioridade: recovery_specific_score > recovery_parallel_score > score
@@ -67,6 +61,20 @@ class StudentAverageFromIeducarFetcher
   rescue IeducarApi::Base::ApiError, StandardError => error
     logger.error "Erro ao buscar média da matrícula #{student_enrollment.api_code}: #{error.message}"
     nil
+  end
+
+  def stage_record_for(data, step_number)
+    records = data.is_a?(Array) ? data : [data]
+    records.find { |item| same_stage?(item, step_number) }
+  end
+
+  def same_stage?(item, step_number)
+    return false unless item.is_a?(Hash)
+
+    stage = item['stage']
+    return false if stage.blank? || step_number.blank?
+
+    stage.to_i == step_number.to_i
   end
 
   def api
