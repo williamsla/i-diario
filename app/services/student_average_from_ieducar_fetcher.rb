@@ -12,17 +12,32 @@ class StudentAverageFromIeducarFetcher
 
     return nil if student.api_code.blank? || classroom.api_code.blank? || discipline.api_code.blank?
 
-    # Buscar a matrícula (StudentEnrollment) do aluno na turma
-    student_enrollment = StudentEnrollment
-      .by_student(student_id)
-      .by_classroom(classroom_id)
-      .first
+    # Da matrícula mais recente para a primeira. A nota vazia na última
+    # matrícula é preenchida pela matrícula anterior do mesmo aluno.
+    StudentClassroomEnrollments.for_student(student_id, classroom_id).reverse_each do |student_enrollment|
+      score = score_for_enrollment(student_enrollment, discipline.api_code, step_number)
+      return score if score.present?
+    end
 
+    nil
+  rescue IeducarApi::Base::ApiError => error
+    logger.error "Erro ao buscar média do i-educar: #{error.message}"
+    logger.error "Backtrace: #{error.backtrace.join("\n")}" if error.backtrace
+    nil
+  rescue StandardError => error
+    logger.error "Erro inesperado ao buscar média do i-educar: #{error.message}"
+    logger.error "Backtrace: #{error.backtrace.join("\n")}" if error.backtrace
+    nil
+  end
+
+  private
+
+  def score_for_enrollment(student_enrollment, discipline_api_code, step_number)
     return nil if student_enrollment.blank? || student_enrollment.api_code.blank?
 
     result = api.fetch(
       registration_id: student_enrollment.api_code,
-      discipline_id: discipline.api_code,
+      discipline_id: discipline_api_code,
       stage: step_number
     )
 
@@ -42,24 +57,17 @@ class StudentAverageFromIeducarFetcher
     return nil unless stage_data.present?
 
     # Prioridade: recovery_specific_score > recovery_parallel_score > score
-    score = stage_data['recovery_specific_score'] || 
-            stage_data['recovery_parallel_score'] || 
+    score = stage_data['recovery_specific_score'] ||
+            stage_data['recovery_parallel_score'] ||
             stage_data['score']
 
     return nil if score.blank?
 
     score.to_f
-  rescue IeducarApi::Base::ApiError => error
-    logger.error "Erro ao buscar média do i-educar: #{error.message}"
-    logger.error "Backtrace: #{error.backtrace.join("\n")}" if error.backtrace
-    nil
-  rescue StandardError => error
-    logger.error "Erro inesperado ao buscar média do i-educar: #{error.message}"
-    logger.error "Backtrace: #{error.backtrace.join("\n")}" if error.backtrace
+  rescue IeducarApi::Base::ApiError, StandardError => error
+    logger.error "Erro ao buscar média da matrícula #{student_enrollment.api_code}: #{error.message}"
     nil
   end
-
-  private
 
   def api
     IeducarApi::StudentAverages.new(@ieducar_api_configuration.to_api)

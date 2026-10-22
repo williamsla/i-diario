@@ -125,6 +125,26 @@ class ExamRecordReportController < ApplicationController
     @disciplines = @disciplines.by_classroom_id(classroom_id).not_descriptor
   end
 
+  def one_enrollment_per_student(students_enrollments, classroom)
+    return students_enrollments if students_enrollments.blank?
+
+    classroom_id = classroom.id
+    ActiveRecord::Associations::Preloader.new.preload(
+      students_enrollments,
+      [:student, { student_enrollment_classrooms: :classrooms_grade }]
+    )
+
+    students_enrollments
+      .group_by { |enrollment| enrollment.student_id || enrollment.id }
+      .map { |_student_key, enrollments| StudentClassroomEnrollments.ordered(enrollments, classroom_id).last }
+      .sort_by { |enrollment|
+        [
+          StudentClassroomEnrollments.sequence_in_classroom(enrollment, classroom_id),
+          enrollment.student&.name.to_s
+        ]
+      }
+  end
+
   def build_all_steps_averages_report
     classroom = Classroom.find(@exam_record_report_form.classroom_id)
     steps_fetcher = StepsFetcher.new(classroom)
@@ -139,6 +159,7 @@ class ExamRecordReportController < ApplicationController
       search_type: :by_date_range,
       show_inactive: false
     ).student_enrollments
+    students_enrollments = one_enrollment_per_student(students_enrollments, classroom)
 
     if GeneralConfiguration.semestral_recovery?
       ExamRecordAllStepsAveragesReport.build(
