@@ -7,17 +7,25 @@ class PendingRecordsAvaliationsSummary
   end
 
   def apply!
-    discipline_ids = @pending_records.map { |record| record[:discipline_id] }.compact
-    return @pending_records if discipline_ids.blank?
+    optional_ids = optional_discipline_ids
 
-    students_without_note_by_discipline = count_students_without_note_by_discipline(discipline_ids)
-    created_avaliations_by_discipline = count_created_avaliations_by_discipline(discipline_ids)
+    @pending_records.each do |record|
+      record[:notes_required] = !optional_ids.include?(record[:discipline_id])
+    end
+
+    required_ids = @pending_records.select { |record| record[:notes_required] && record[:discipline_id].present? }
+                                   .map { |record| record[:discipline_id] }
+                                   .uniq
+    return @pending_records if required_ids.blank?
+
+    students_without_note_by_discipline = count_students_without_note_by_discipline(required_ids)
+    created_avaliations_by_discipline = count_created_avaliations_by_discipline(required_ids)
     classroom_students_count = count_classroom_students
 
     @pending_records.each do |record|
-      discipline_id = record[:discipline_id]
-      next unless discipline_id
+      next unless record[:notes_required] && record[:discipline_id].present?
 
+      discipline_id = record[:discipline_id]
       created_count = created_avaliations_by_discipline[discipline_id] || 0
 
       if created_count.zero?
@@ -33,6 +41,15 @@ class PendingRecordsAvaliationsSummary
   end
 
   private
+
+  # Componente com "Desconsiderar o componente na aprovação/reprovação dos alunos?"
+  # no i-Educar não gera pendência de nota numérica nem de recuperação final.
+  def optional_discipline_ids
+    ids = @pending_records.map { |record| record[:discipline_id] }.compact.uniq
+    return Set.new if ids.blank?
+
+    Discipline.where(id: ids, disregard_for_progression: true).pluck(:id).to_set
+  end
 
   def count_students_without_note_by_discipline(discipline_ids)
     DailyNoteStudent

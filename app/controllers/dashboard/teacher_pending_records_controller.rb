@@ -75,6 +75,7 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
             pending_content_count: result[:pending_content_count]
           }
           if show_avaliations_summary
+            record[:notes_required] = result[:notes_required] == true
             record[:students_without_note_count] = result[:students_without_note_count] || 0
             record[:students_without_note_from_classroom_total] = result[:students_without_note_from_classroom_total] == true
           end

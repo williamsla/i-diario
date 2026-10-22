@@ -25,12 +25,22 @@ class DisciplinesSynchronizer < BaseSynchronizer
         discipline.sequence = discipline_record.ordenamento
         discipline.knowledge_area = knowledge_area
         discipline.descriptor = group_descriptors
+        discipline.disregard_for_progression = disregard_for_progression?(discipline_record)
 
         create_or_destroy_grouper_disciplines(knowledge_area) if group_descriptors
 
         discipline.save! if discipline.changed?
       end
     end
+  end
+
+  # modules.componente_curricular.desconsidera_para_progressao
+  # ("Desconsiderar o componente na aprovação/reprovação dos alunos?").
+  def disregard_for_progression?(discipline_record)
+    value = discipline_record.desconsidera_para_progressao
+    return false if [nil, false, 0, '0', 'f', 'F', 'false', 'FALSE', ''].include?(value)
+
+    true
   end
 
   def create_or_destroy_grouper_disciplines(knowledge_area)

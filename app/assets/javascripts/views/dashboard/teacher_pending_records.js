@@ -245,8 +245,20 @@ $(function(){
     '</button>';
   }
 
+  function notesNotRequiredMessage() {
+    return 'Não é obrigatório lançar notas. Este componente é desconsiderado na aprovação/reprovação dos alunos.';
+  }
+
+  function notesNotRequiredHtml() {
+    var message = _.escape(notesNotRequiredMessage());
+
+    return '<button type="button" class="btn notes-not-required-label" title="' + message + '" aria-label="' + message + '">' +
+      '<i class="fa fa-info-circle" aria-hidden="true"></i>' +
+    '</button>';
+  }
+
   function bindNotInLessonsBoardTooltips($scope) {
-    $scope.find('.not-in-lessons-board-label').tooltip({
+    $scope.find('.not-in-lessons-board-label, .notes-not-required-label').tooltip({
       trigger: 'hover focus',
       placement: 'top',
       container: 'body'
@@ -311,6 +323,10 @@ $(function(){
     }
 
     var disciplineId = record.final_recovery_discipline_id;
+    if (record.notes_required === false && disciplineId) {
+      return '<td style="text-align: center;">' + notesNotRequiredHtml() + '</td>';
+    }
+
     if (!disciplineId) {
       return '<td style="text-align: center;">' +
         '<span title="A recuperação final é lançada por disciplina.">—</span>' +
@@ -478,7 +494,9 @@ $(function(){
         var showingClassroomTotal = record.students_without_note_from_classroom_total === true;
         var studentsWithoutNoteBadge;
 
-        if (showingClassroomTotal) {
+        if (record.notes_required === false) {
+          studentsWithoutNoteBadge = notesNotRequiredHtml();
+        } else if (showingClassroomTotal) {
           studentsWithoutNoteBadge = '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; background-color: #ff9800; color: white;" title="Nenhuma avaliação criada na etapa. Total de alunos da turma com nota numérica.">' +
             studentsWithoutNoteCount + ' aluno(s)' +
           '</span>';
@@ -562,7 +580,7 @@ $(function(){
         '</div>' +
       '</div>';
 
-    destroyTooltips($stepContainer, '.not-in-lessons-board-label');
+    destroyTooltips($stepContainer, '.not-in-lessons-board-label, .notes-not-required-label');
     destroyTooltips($(document), '.final-recovery-waiting-steps');
     $stepContainer.html(stepHtml);
     bindNotInLessonsBoardTooltips($stepContainer);

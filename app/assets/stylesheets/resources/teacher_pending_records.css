@@ -266,3 +266,22 @@
   background: transparent;
   outline: none;
 }
+
+.notes-not-required-label {
+  border: none;
+  border-radius: 20px;
+  padding: 6px 15px;
+  background: transparent;
+  box-shadow: none;
+  color: #5b7c99;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.notes-not-required-label:hover,
+.notes-not-required-label:focus {
+  color: #5b7c99;
+  background: transparent;
+  outline: none;
+}
