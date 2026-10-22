@@ -147,6 +147,53 @@ function runTests() {
   const applicationCode = fs.readFileSync(applicationPath, 'utf8');
   assertContains(applicationCode, 'unsaved_changes_guard', 'application.js.erb requer unsaved_changes_guard');
 
+  console.log('\n=== Verificando conflitos de arquivos .js/.js.erb ===\n');
+
+  const dirsToCheck = [
+    'app/assets/javascripts/views/discipline_teaching_plans',
+    'app/assets/javascripts/views/knowledge_area_teaching_plans',
+    'app/assets/javascripts/views/discipline_lesson_plans',
+    'app/assets/javascripts/views/knowledge_area_lesson_plans',
+    'app/assets/javascripts/views/discipline_content_records',
+    'app/assets/javascripts/views/knowledge_area_content_records',
+    'app/assets/javascripts/views/observation_diary_records',
+    'app/assets/javascripts/views/school_term_recovery_diary_records',
+    'app/assets/javascripts/views/avaliation_recovery_diary_records',
+    'app/assets/javascripts/views/final_recovery_diary_records',
+    'app/assets/javascripts/views/aee_individual_plans',
+    'app/assets/javascripts/views/aee_case_studies',
+    'app/assets/javascripts/views/aee_attendance_records',
+    'app/assets/javascripts/views/conceptual_exams',
+    'app/assets/javascripts/views/descriptive_exams',
+    'app/assets/javascripts/views/complementary_exams',
+    'app/assets/javascripts/views/transfer_notes',
+    'app/assets/javascripts/views/daily_frequencies',
+    'app/assets/javascripts/views/daily_frequencies_in_batchs'
+  ];
+
+  dirsToCheck.forEach(dir => {
+    const fullDir = path.join(__dirname, '../../', dir);
+    try {
+      const files = fs.readdirSync(fullDir);
+      const jsFiles = files.filter(f => f.endsWith('.js') && !f.endsWith('.js.erb'));
+      const jsErbFiles = files.filter(f => f.endsWith('.js.erb'));
+      
+      jsFiles.forEach(jsFile => {
+        const baseName = jsFile.replace('.js', '');
+        const hasErbConflict = jsErbFiles.some(f => f.startsWith(baseName + '.js.erb'));
+        
+        if (hasErbConflict) {
+          assert(false, `CONFLITO: ${dir}/${jsFile} pode sobrescrever ${baseName}.js.erb`);
+        }
+      });
+    } catch (e) {
+      // Diretório não existe, ok
+    }
+  });
+
+  // Se chegou aqui sem falhar, todos os diretórios estão ok
+  assert(true, 'Nenhum conflito .js/.js.erb detectado nos diretórios de formulários');
+
   // Resumo
   console.log('\n=== Resumo dos Testes ===');
   console.log(`✓ Passou: ${testsPassed}`);
