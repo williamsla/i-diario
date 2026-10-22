@@ -108,6 +108,84 @@ RSpec.describe StudentAverageCalculator, type: :service do
       end
     end
 
+    context 'when the sum is divided by the configured evaluation count' do
+      let(:recovered_note_1) { 10.0 }
+      let(:recovered_note_2) { 10.0 }
+      let(:sum_calculation_type?) { true }
+      let(:daily_note_students) { [daily_note_student_1, daily_note_student_2] }
+
+      before do
+        stub_const('TestSettingFetcher', Class.new)
+        allow(TestSettingFetcher).to(
+          receive(:current).with(classroom, school_calendar_step).and_return(test_setting)
+        )
+      end
+
+      it 'divides by a weight of 4' do
+        allow(test_setting).to receive(:default_division_weight).and_return(4)
+        allow(score_rounder).to receive(:round).with(5.0).and_return(5.0)
+
+        expect(subject.calculate(classroom, discipline, school_calendar_step)).to eq(5.0)
+      end
+
+      it 'divides by a weight of 2' do
+        allow(test_setting).to receive(:default_division_weight).and_return(2)
+        allow(score_rounder).to receive(:round).with(10.0).and_return(10.0)
+
+        expect(subject.calculate(classroom, discipline, school_calendar_step)).to eq(10.0)
+      end
+
+      it 'keeps the sum when the division weight is 1' do
+        allow(test_setting).to receive(:default_division_weight).and_return(1)
+        allow(score_rounder).to receive(:round).with(20.0).and_return(20.0)
+
+        expect(subject.calculate(classroom, discipline, school_calendar_step)).to eq(20.0)
+      end
+    end
+
+    context 'when an avaliation recovery repeats the same avaliation' do
+      let(:recovered_note_1) { 10.0 }
+      let(:score_1) { 10.0 }
+      let(:sum_calculation_type?) { true }
+      let(:daily_note_students) { [daily_note_student_1] }
+      let(:recovery_diary_records) { [recovery_diary_record_1] }
+      let(:recovery_student) { double(:recovery_student, student_id: student.id, score: 10.0) }
+
+      before do
+        stub_const('TestSettingFetcher', Class.new)
+        allow(TestSettingFetcher).to(
+          receive(:current).with(classroom, school_calendar_step).and_return(test_setting)
+        )
+        allow(test_setting).to receive(:default_division_weight).and_return(1)
+        allow(recovery_diary_record_1).to receive(:students).and_return([recovery_student])
+        allow(score_rounder).to receive(:round).with(10.0).and_return(10.0)
+      end
+
+      it 'keeps the highest score of that avaliation' do
+        expect(subject.calculate(classroom, discipline, school_calendar_step)).to eq(10.0)
+      end
+    end
+
+    context 'when arithmetic average ignores the sum division weight' do
+      let(:recovered_note_1) { 10.0 }
+      let(:recovered_note_2) { 10.0 }
+      let(:arithmetic_calculation_type?) { true }
+      let(:daily_note_students) { [daily_note_student_1, daily_note_student_2] }
+
+      before do
+        stub_const('TestSettingFetcher', Class.new)
+        allow(TestSettingFetcher).to(
+          receive(:current).with(classroom, school_calendar_step).and_return(test_setting)
+        )
+        allow(test_setting).to receive(:default_division_weight).and_return(4)
+        allow(score_rounder).to receive(:round).with(10.0).and_return(10.0)
+      end
+
+      it 'divides by the number of scores' do
+        expect(subject.calculate(classroom, discipline, school_calendar_step)).to eq(10.0)
+      end
+    end
+
     context 'when the calculation type is arithmetic' do
       let(:recovered_note_1) { 9.0 }
       let(:recovered_note_2) { 8.0 }
@@ -218,6 +296,222 @@ RSpec.describe StudentAverageCalculator, type: :service do
         end
       end
     end
+    context 'when three scores are divided by a configured weight of 4' do
+      let(:recovered_note_1) { 10.0 }
+      let(:recovered_note_2) { 10.0 }
+      let(:recovered_note_3) { 8.0 }
+      let(:sum_calculation_type?) { true }
+      let(:daily_note_students) { [daily_note_student_1, daily_note_student_2, daily_note_student_3] }
+
+      before do
+        stub_const('TestSettingFetcher', Class.new)
+        allow(TestSettingFetcher).to(
+          receive(:current).with(classroom, school_calendar_step).and_return(test_setting)
+        )
+        allow(test_setting).to receive(:default_division_weight).and_return(4)
+        allow(score_rounder).to receive(:round).with(7.0).and_return(7.0)
+        expect(SchoolTermAverageCalculator).not_to receive(:new)
+      end
+
+      it 'does not divide by the number of filled scores' do
+        expect(subject.calculate(classroom, discipline, school_calendar_step)).to eq(7.0)
+      end
+    end
+
+    context 'when one avaliation is exempted from a sum' do
+      let(:recovered_note_1) { 10.0 }
+      let(:recovered_note_2) { 10.0 }
+      let(:avaliation_1_exempted?) { true }
+      let(:sum_calculation_type?) { true }
+      let(:daily_note_students) { [daily_note_student_1, daily_note_student_2] }
+
+      before do
+        stub_const('TestSettingFetcher', Class.new)
+        allow(TestSettingFetcher).to(
+          receive(:current).with(classroom, school_calendar_step).and_return(test_setting)
+        )
+        allow(test_setting).to receive(:default_division_weight).and_return(4)
+        allow(score_rounder).to receive(:round).with(2.5).and_return(2.5)
+      end
+
+      it 'keeps the configured divisor' do
+        expect(subject.calculate(classroom, discipline, school_calendar_step)).to eq(2.5)
+      end
+    end
+
+    context 'when transfer and previous enrollment scores belong to the step' do
+      let(:recovered_note_1) { 10.0 }
+      let(:recovered_note_2) { 8.0 }
+      let(:recovered_note_3) { 6.0 }
+      let(:sum_calculation_type?) { true }
+      let(:daily_note_students) { [daily_note_student_1] }
+      let(:transfer_notes) { [daily_note_student_2] }
+      let(:previous_enrollments_daily_note_students) { [daily_note_student_3] }
+
+      before do
+        stub_const('TestSettingFetcher', Class.new)
+        allow(TestSettingFetcher).to(
+          receive(:current).with(classroom, school_calendar_step).and_return(test_setting)
+        )
+        allow(test_setting).to receive(:default_division_weight).and_return(4)
+        allow(score_rounder).to receive(:round).with(6.0).and_return(6.0)
+      end
+
+      it 'includes both sources in the sum' do
+        expect(subject.calculate(classroom, discipline, school_calendar_step)).to eq(6.0)
+      end
+    end
+
+    context 'when a transfer note has no local score' do
+      let(:recovered_note_1) { 10.0 }
+      let(:recovered_note_2) { 8.0 }
+      let(:sum_calculation_type?) { true }
+      let(:daily_note_students) { [daily_note_student_1] }
+      let(:transfer_notes) { [daily_note_student_2] }
+
+      before do
+        stub_const('TestSettingFetcher', Class.new)
+        allow(TestSettingFetcher).to(
+          receive(:current).with(classroom, school_calendar_step).and_return(test_setting)
+        )
+        allow(test_setting).to receive(:default_division_weight).and_return(4)
+        transfer_note = double(:transfer_note)
+        allow(transfer_note).to receive(:present?).and_return(true)
+        allow(daily_note_student_2).to receive(:note).and_return(nil)
+        allow(daily_note_student_2).to receive(:transfer_note).and_return(transfer_note)
+        allow(score_rounder).to receive(:round).with(2.5).and_return(2.5)
+      end
+
+      it 'ignores the empty transfer note' do
+        expect(subject.calculate(classroom, discipline, school_calendar_step)).to eq(2.5)
+      end
+    end
+
+    context 'when the lowest score recovery is higher than the lowest score' do
+      let(:recovered_note_1) { 4.0 }
+      let(:recovered_note_2) { 10.0 }
+      let(:sum_calculation_type?) { true }
+      let(:daily_note_students) { [daily_note_student_1, daily_note_student_2] }
+      let(:lowest_recovery) { double(:lowest_recovery, score: 9.0) }
+
+      before do
+        stub_const('TestSettingFetcher', Class.new)
+        allow(TestSettingFetcher).to(
+          receive(:current).with(classroom, school_calendar_step).and_return(test_setting)
+        )
+        allow(test_setting).to receive(:default_division_weight).and_return(4)
+        allow(student_notes_query).to receive(:recovery_lowest_note_in_step).and_return(lowest_recovery)
+        allow(score_rounder).to receive(:round).with(4.75).and_return(4.75)
+      end
+
+      it 'replaces only the lowest score' do
+        expect(subject.calculate(classroom, discipline, school_calendar_step)).to eq(4.75)
+      end
+    end
+
+    context 'when the lowest score recovery does not improve the score' do
+      let(:recovered_note_1) { 4.0 }
+      let(:recovered_note_2) { 10.0 }
+      let(:sum_calculation_type?) { true }
+      let(:daily_note_students) { [daily_note_student_1, daily_note_student_2] }
+      let(:lowest_recovery) { double(:lowest_recovery, score: 3.0) }
+
+      before do
+        stub_const('TestSettingFetcher', Class.new)
+        allow(TestSettingFetcher).to(
+          receive(:current).with(classroom, school_calendar_step).and_return(test_setting)
+        )
+        allow(test_setting).to receive(:default_division_weight).and_return(4)
+        allow(student_notes_query).to receive(:recovery_lowest_note_in_step).and_return(lowest_recovery)
+        allow(score_rounder).to receive(:round).with(3.5).and_return(3.5)
+      end
+
+      it 'keeps the original scores' do
+        expect(subject.calculate(classroom, discipline, school_calendar_step)).to eq(3.5)
+      end
+    end
+
+    context 'when an avaliation recovery is higher than the original score' do
+      let(:recovered_note_1) { 6.0 }
+      let(:score_1) { 10.0 }
+      let(:sum_calculation_type?) { true }
+      let(:daily_note_students) { [daily_note_student_1] }
+      let(:recovery_diary_records) { [recovery_diary_record_1] }
+      let(:recovery_student) { double(:recovery_student, student_id: student.id, score: 10.0) }
+
+      before do
+        stub_const('TestSettingFetcher', Class.new)
+        allow(TestSettingFetcher).to(
+          receive(:current).with(classroom, school_calendar_step).and_return(test_setting)
+        )
+        allow(test_setting).to receive(:default_division_weight).and_return(4)
+        allow(recovery_diary_record_1).to receive(:students).and_return([recovery_student])
+        allow(score_rounder).to receive(:round).with(2.5).and_return(2.5)
+      end
+
+      it 'divides the highest score by the configured weight' do
+        expect(subject.calculate(classroom, discipline, school_calendar_step)).to eq(2.5)
+      end
+    end
+
+    context 'when a complementary exam changes the step average' do
+      let(:recovered_note_1) { 10.0 }
+      let(:recovered_note_2) { 10.0 }
+      let(:sum_calculation_type?) { true }
+      let(:daily_note_students) { [daily_note_student_1, daily_note_student_2] }
+
+      before do
+        stub_const('TestSettingFetcher', Class.new)
+        allow(TestSettingFetcher).to(
+          receive(:current).with(classroom, school_calendar_step).and_return(test_setting)
+        )
+        allow(test_setting).to receive(:default_division_weight).and_return(4)
+        allow(complementary_exam_calculator).to receive(:calculate).with(5.0).and_return(7.5)
+        allow(score_rounder).to receive(:round).with(7.5).and_return(7.5)
+      end
+
+      it 'rounds the average after the complementary exam' do
+        expect(subject.calculate(classroom, discipline, school_calendar_step)).to eq(7.5)
+      end
+    end
+
+    context 'when the step has no local scores' do
+      let(:daily_note_students) { [] }
+      let(:recovery_diary_records) { [] }
+
+      before do
+        allow(student_notes_query).to receive(:recovery_lowest_note_in_step).and_return(nil)
+        allow(subject).to receive(:fetch_average_from_ieducar).with(classroom, discipline, school_calendar_step).and_return(10.0)
+        expect(complementary_exam_calculator).not_to receive(:calculate)
+      end
+
+      it 'uses the i-Educar average' do
+        expect(subject.calculate(classroom, discipline, school_calendar_step)).to eq(10.0)
+      end
+    end
+
+    context 'when the local average is blank' do
+      let(:recovered_note_1) { 10.0 }
+      let(:recovered_note_2) { 10.0 }
+      let(:arithmetic_and_sum_calculation_type?) { true }
+      let(:weight_avaliation_1) { 0 }
+      let(:weight_avaliation_2) { 0 }
+      let(:daily_note_students) { [daily_note_student_1, daily_note_student_2] }
+
+      before do
+        stub_const('TestSettingFetcher', Class.new)
+        allow(TestSettingFetcher).to(
+          receive(:current).with(classroom, school_calendar_step).and_return(test_setting)
+        )
+        allow(subject).to receive(:fetch_average_from_ieducar).with(classroom, discipline, school_calendar_step).and_return(9.5)
+        expect(complementary_exam_calculator).not_to receive(:calculate)
+      end
+
+      it 'uses the i-Educar average' do
+        expect(subject.calculate(classroom, discipline, school_calendar_step)).to eq(9.5)
+      end
+    end
+
     context '#when params are correct' do
       let(:daily_note_students) { [daily_note_student_1, daily_note_student_2, daily_note_student_3] }
       it 'expects to call score_rounder with correct params' do

@@ -136,10 +136,6 @@ class StudentAverageCalculator
     values
   end
 
-  def calculate_average(sum, count)
-    count == 0 ? 0 : sum / count
-  end
-
   def avaliation_exempted?(avaliation)
     @exemption_query ||= StudentAvaliationExemptionQuery.new(student)
     @exemption_query.is_exempted(avaliation)
@@ -150,19 +146,17 @@ class StudentAverageCalculator
   end
 
   def calculate_average_by_settings(test_setting)
-    return if score_sum.blank?
+    sum = score_sum
+    return if sum.blank?
 
-    if test_setting.sum_calculation_type?
-      score_sum / test_setting.default_division_weight
-    elsif test_setting.arithmetic_and_sum_calculation_type?
-      return if weight_sum.blank?
-      return if weight_sum.to_d <= 0
+    weight_sum_value = test_setting.arithmetic_and_sum_calculation_type? ? weight_sum : nil
 
-      # Regra mista: considera somatório com pesos livres, normalizando a média final para escala 0..10.
-      score_sum / (weight_sum / 10.to_d)
-    else
-      calculate_average(score_sum, @scores.size)
-    end
+    ClassCouncilAverageCalculator.average_for(
+      test_setting: test_setting,
+      score_sum: sum,
+      scores_count: @scores.size,
+      weight_sum: weight_sum_value
+    )
   end
 
   def fetch_average_from_ieducar(classroom, discipline, step)

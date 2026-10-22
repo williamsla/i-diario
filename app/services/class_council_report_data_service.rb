@@ -252,14 +252,7 @@ class ClassCouncilReportDataService
   end
 
   def preload_scores_data!
-    @test_settings_by_step = @steps.each_with_object({}) do |step, hash|
-      hash[step.id] = TestSettingFetcher.current(@classroom, step)
-    end
-    @test_settings_by_step_discipline = {}
     preload_minimum_scores_by_step!
-    @exemptions_by_student = load_exemptions_by_student
-    @daily_notes_index = load_daily_notes_index
-    @recovery_scores_index = load_recovery_scores_index
     @conceptual_exams_index = load_conceptual_exams_index
     @teacher_discipline_score_types = load_teacher_discipline_score_types
     @student_grade_ids = load_student_grade_ids
@@ -274,61 +267,6 @@ class ClassCouncilReportDataService
           @scores_cache[key] = calculate_score(student, discipline, step)
         end
       end
-    end
-  end
-
-  def load_exemptions_by_student
-    AvaliationExemption
-      .where(student_id: @student_ids)
-      .pluck(:student_id, :avaliation_id)
-      .each_with_object(Hash.new { |hash, key| hash[key] = Set.new }) do |(student_id, avaliation_id), hash|
-        hash[student_id] << avaliation_id
-      end
-  end
-
-  def load_daily_notes_index
-    return {} if @student_ids.blank? || @discipline_ids.blank?
-
-    notes = DailyNoteStudent
-      .by_classroom_id(@classroom.id)
-      .where(student_id: @student_ids)
-      .joins(daily_note: :avaliation)
-      .merge(Avaliation.by_discipline_id(@discipline_ids))
-      .by_test_date_between(@year_start, @year_end)
-      .where.not(note: nil)
-      .includes(
-        daily_note: {
-          avaliation: [
-            :test_setting_test,
-            :discipline,
-            :recovery_diary_record,
-            :avaliation_recovery_diary_record
-          ]
-        }
-      )
-      .to_a
-
-    # Usa avaliation.discipline_id (não o delegate) para evitar chave nil após joins compostos.
-    notes.group_by { |note| [note.student_id, note.daily_note.avaliation.discipline_id] }
-  end
-
-  def load_recovery_scores_index
-    return {} if @student_ids.blank? || @discipline_ids.blank?
-
-    records = RecoveryDiaryRecordStudent
-      .joins(recovery_diary_record: { avaliation_recovery_diary_record: :avaliation })
-      .where(student_id: @student_ids)
-      .merge(RecoveryDiaryRecord.by_classroom_id(@classroom.id).by_discipline_id(@discipline_ids))
-      .merge(Avaliation.by_test_date_between(@year_start, @year_end))
-      .where.not(score: nil)
-      .pluck(:student_id, 'avaliations.discipline_id', 'avaliations.id', 'avaliations.test_date', :score)
-
-    records.each_with_object(Hash.new { |hash, key| hash[key] = [] }) do |(student_id, discipline_id, avaliation_id, test_date, score), hash|
-      hash[[student_id, discipline_id]] << {
-        avaliation_id: avaliation_id,
-        test_date: test_date.to_date,
-        score: score
-      }
     end
   end
 
@@ -464,51 +402,13 @@ class ClassCouncilReportDataService
     return nil unless student_has_gradable_score_type?(student)
     return conceptual_score(student, discipline, step) if student_uses_conceptual_evaluation?(student, discipline)
 
-    notes = daily_notes_in_step(student.id, discipline.id, step)
-    recoveries = @recovery_scores_index[[student.id, discipline.id]] || []
-    step_start = step.start_at.to_date
-    step_end = step.end_at.to_date
-
-    step_recoveries = recoveries.each_with_object({}) do |entry, hash|
-      next unless entry[:test_date].to_date.between?(step_start, step_end)
-
-      avaliation_id = entry[:avaliation_id]
-      current = hash[avaliation_id]
-      hash[avaliation_id] = current.present? ? [current, entry[:score]].max : entry[:score]
-    end
-
+    # Mesma média da coluna Etapa do relatório de avaliações numéricas.
     ClassCouncilAverageCalculator.new(
+      student: student,
       classroom: @classroom,
-      step: step,
-      test_setting: test_setting_for(step, discipline),
-      daily_note_students: notes,
-      recovery_scores: step_recoveries,
-      exempted_avaliation_ids: @exemptions_by_student[student.id] || Set.new
+      discipline: discipline,
+      step: step
     ).calculate
-  end
-
-  def test_setting_for(step, discipline)
-    cached = @test_settings_by_step[step.id]
-    return cached if cached.present?
-
-    key = [step.id, discipline.id]
-    return @test_settings_by_step_discipline[key] if @test_settings_by_step_discipline.key?(key)
-
-    @test_settings_by_step_discipline[key] =
-      TestSettingFetcher.current(@classroom, step, discipline: discipline)
-  end
-
-  def daily_notes_in_step(student_id, discipline_id, step)
-    notes = @daily_notes_index[[student_id, discipline_id]] || []
-    step_start = step.start_at.to_date
-    step_end = step.end_at.to_date
-
-    notes.select do |note|
-      test_date = note.daily_note&.avaliation&.test_date
-      next false if test_date.blank?
-
-      test_date.to_date.between?(step_start, step_end)
-    end
   end
 
   def score_cache_key(student_id, discipline_id, step_number)
