@@ -1,6 +1,15 @@
 $(function () {
   'use strict';
 
+  var $formElement = $('#observation_diary_records_form');
+  if ($formElement.length && typeof UnsavedChangesGuard !== 'undefined') {
+    UnsavedChangesGuard.watch($formElement, {
+      title: 'Deseja salvar este registro antes de sair?',
+      message: 'Você fez alterações no diário de observação que ainda não foram salvas. ' +
+               'Se sair agora, suas alterações serão perdidas.'
+    });
+  }
+
   var flashMessages = new FlashMessages();
   var $classroom = $('#observation_diary_record_classroom_id');
   var $discipline = $('#observation_diary_record_discipline_id');

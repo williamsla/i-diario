@@ -1,6 +1,15 @@
 $(function () {
   'use strict';
 
+  var $formElement = $('#aee_case_studies_form');
+  if ($formElement.length && typeof UnsavedChangesGuard !== 'undefined') {
+    UnsavedChangesGuard.watch($formElement, {
+      title: 'Deseja salvar este estudo de caso antes de sair?',
+      message: 'Você fez alterações no estudo de caso que ainda não foram salvas. ' +
+               'Se sair agora, suas alterações serão perdidas.'
+    });
+  }
+
   var $student = $('#aee_case_study_student_id');
   var $age = $('#aee_case_study_age');
   var $gradeStage = $('#aee_case_study_grade_stage');

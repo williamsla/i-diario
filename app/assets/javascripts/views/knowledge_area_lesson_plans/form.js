@@ -3,6 +3,16 @@ window['content_list_submodel_name'] = 'lesson_plan';
 
 $(function () {
   'use strict';
+
+  var $formElement = $('form[id^="new_knowledge_area_lesson_plan"], form[id^="edit_knowledge_area_lesson_plan"]');
+  if ($formElement.length && typeof UnsavedChangesGuard !== 'undefined') {
+    UnsavedChangesGuard.watch($formElement, {
+      title: 'Deseja salvar este plano de aula antes de sair?',
+      message: 'Você fez alterações no plano de aula que ainda não foram salvas. ' +
+               'Se sair agora, suas alterações serão perdidas.'
+    });
+  }
+
   var $classroom = $('#knowledge_area_lesson_plan_lesson_plan_attributes_classroom_id');
   var $student = $('#knowledge_area_lesson_plan_lesson_plan_attributes_student_id');
   var idContentsCounter = 1;

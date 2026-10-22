@@ -1,6 +1,15 @@
 $(function () {
   'use strict';
 
+  var $formElement = $('#aee_attendance_records_form');
+  if ($formElement.length && typeof UnsavedChangesGuard !== 'undefined') {
+    UnsavedChangesGuard.watch($formElement, {
+      title: 'Deseja salvar este registro de atendimento antes de sair?',
+      message: 'Você fez alterações no registro de atendimento AEE que ainda não foram salvas. ' +
+               'Se sair agora, suas alterações serão perdidas.'
+    });
+  }
+
   var $student = $('#aee_attendance_record_student_id');
   var $planId = $('#aee_attendance_record_aee_individual_plan_id');
   var $duration = $('#aee_attendance_record_duration');

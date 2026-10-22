@@ -1,6 +1,15 @@
 $(function () {
   'use strict';
 
+  var $formElement = $('form[id^="new_school_term_recovery_diary_record"], form[id^="edit_school_term_recovery_diary_record"]');
+  if ($formElement.length && typeof UnsavedChangesGuard !== 'undefined') {
+    UnsavedChangesGuard.watch($formElement, {
+      title: 'Deseja salvar este lançamento antes de sair?',
+      message: 'Você fez alterações na recuperação de etapa que ainda não foram salvas. ' +
+               'Se sair agora, suas alterações serão perdidas.'
+    });
+  }
+
   let flashMessages = new FlashMessages();
   let examRule = null;
   let $unity = $('#school_term_recovery_diary_record_recovery_diary_record_attributes_unity_id');

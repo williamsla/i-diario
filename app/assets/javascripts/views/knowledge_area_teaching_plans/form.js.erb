@@ -4,6 +4,15 @@ window['content_list_submodel_name'] = 'teaching_plan';
 $(function () {
   'use strict';
 
+  var $formElement = $('#knowledge_area_teaching_plan');
+  if ($formElement.length && typeof UnsavedChangesGuard !== 'undefined') {
+    UnsavedChangesGuard.watch($formElement, {
+      title: 'Deseja salvar este plano de ensino antes de sair?',
+      message: 'Você fez alterações no plano de ensino que ainda não foram salvas. ' +
+               'Se sair agora, suas alterações serão perdidas.'
+    });
+  }
+
   var $unity = $('#knowledge_area_teaching_plan_teaching_plan_attributes_unity_id');
   var $grade = $('#knowledge_area_teaching_plan_teaching_plan_attributes_grade_id');
   var $knowledgeAreas = $('#knowledge_area_teaching_plan_knowledge_area_ids');
