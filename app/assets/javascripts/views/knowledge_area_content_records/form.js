@@ -2,13 +2,20 @@ $(function () {
   'use strict';
 
   var $formElement = $('#knowledge-area-content-record-form');
+  var unsavedGuard = null;
   if ($formElement.length && typeof UnsavedChangesGuard !== 'undefined') {
-    UnsavedChangesGuard.watch($formElement, {
+    unsavedGuard = UnsavedChangesGuard.watch($formElement, {
       title: 'Deseja salvar este registro antes de sair?',
       message: 'Você fez alterações no registro de conteúdo que ainda não foram salvas. ' +
                'Se sair agora, suas alterações serão perdidas.'
     });
   }
+
+  var markContentFormChanged = function () {
+    if (unsavedGuard) {
+      unsavedGuard.markAsChanged();
+    }
+  };
 
   // Initialize all checkboxes (for edit mode and new mode)
   $('.list-group.checked-list-box .list-group-item:not(.initialized)').each(initializeListEvents);
@@ -19,6 +26,9 @@ $(function () {
   var flashMessages = new FlashMessages();
   var $form = $('#knowledge-area-content-record-form');
   var isModalForm = $form.data('modal') === true || $form.data('modal') === 'true' || $form.attr('data-modal') === 'true';
+  if (isModalForm && typeof UnsavedChangesGuard !== 'undefined') {
+    UnsavedChangesGuard.listenForModalClose(unsavedGuard);
+  }
   var apiPaths = {
     knowledgeAreasForRecordDate: $form.attr('data-knowledge-areas-for-record-date-url') || $form.data('knowledgeAreasForRecordDateUrl'),
     findExisting: $form.attr('data-find-existing-url') || $form.data('findExistingUrl'),
@@ -627,10 +637,12 @@ $(function () {
 
         $('#contents-list').append(html);
         $('.list-group.checked-list-box .list-group-item:not(.initialized)').each(initializeListEvents);
+        markContentFormChanged();
       }else{
         var content_input = $('input[type=checkbox][data-content_description="'+content_description+'"]');
         content_input.closest('li').show();
         content_input.prop('checked', true).trigger('change');
+        markContentFormChanged();
       }
 
       $('.knowledge_area_content_record_content_record_contents_tags .select2-input').val("");
@@ -654,10 +666,12 @@ $(function () {
 
         $('#objectives-list').append(html);
         $('.list-group.checked-list-box .list-group-item:not(.initialized)').each(initializeListEvents);
+        markContentFormChanged();
       }else{
         var objective_input = $('input[type=checkbox][data-objective_description="'+objective_description+'"]');
         objective_input.closest('li').show();
         objective_input.prop('checked', true).trigger('change');
+        markContentFormChanged();
       }
 
       $('.knowledge_area_content_record_content_record_objectives_tags .select2-input').val("");

@@ -98,13 +98,14 @@ class DescriptiveReport < BaseReport
     formatted_parecer = convert_html_to_prawn_format(parecer)
     
     exam_cell = make_cell(
-      content: formatted_parecer, 
-      size: 10, 
-      width: 100, 
-      borders: [:bottom, :left, :right], 
-      padding: [0, 2, 4, 4], 
+      content: formatted_parecer,
+      size: 10,
+      width: 100,
+      borders: [:bottom, :left, :right],
+      padding: [0, 2, 4, 4],
       colspan: 2,
-      inline_format: true
+      inline_format: true,
+      align: :justify
     )
     
     identification_table_data = [

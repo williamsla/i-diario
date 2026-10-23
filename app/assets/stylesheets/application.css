@@ -664,3 +664,29 @@ body.modal-mode header {
 body.modal-mode #content-page {
   margin-top: 0 !important;
 }
+
+body.modal-mode .content-record-form-actions {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1020;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 16px;
+  background: #fff;
+  border-top: 1px solid #d9d9d9;
+  box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.08);
+}
+
+body.modal-mode .content-record-form-actions .btn,
+body.modal-mode .content-record-form-actions input[type="submit"] {
+  float: none;
+}
+
+body.modal-mode:has(.content-record-form-actions) {
+  padding-bottom: 72px;
+}

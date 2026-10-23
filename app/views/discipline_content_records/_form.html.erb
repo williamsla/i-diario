@@ -241,7 +241,7 @@
     </fieldset>    
   <% end %>
 
-  <footer>
+  <footer class="<%= 'content-record-form-actions' if params[:modal] == 'true' %>">
     <%= f.submit t('views.form.save'), class: "btn btn-primary pull-right #{'disabled' if @record_date_message.present?}", data: { disable_with: 'Salvando...'} %>
 
     <% unless params[:modal] == 'true' %>

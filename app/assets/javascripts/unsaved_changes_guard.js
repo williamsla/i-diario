@@ -216,6 +216,40 @@
         return message;
       };
 
+      var closePromptOpen = false;
+
+      var requestClose = function (onAllowClose) {
+        if (closePromptOpen) {
+          return;
+        }
+
+        if (isSubmitting || !shouldBlockNavigation()) {
+          onAllowClose();
+          return;
+        }
+
+        closePromptOpen = true;
+        showConfirmationModal(
+          function () {
+            closePromptOpen = false;
+            var $submitBtn = $form.find(opts.submitButtonSelector).first();
+            var cannotSubmit = !$submitBtn.length || $submitBtn.hasClass('disabled') || $submitBtn.prop('disabled');
+
+            if (cannotSubmit) {
+              return;
+            }
+
+            $submitBtn.click();
+          },
+          function () {
+            closePromptOpen = false;
+            hasUnsavedChanges = false;
+            isSubmitting = true;
+            onAllowClose();
+          }
+        );
+      };
+
       var bindEvents = function () {
         var ignoreSelector = opts.ignoreSelectors.join(', ');
 
@@ -258,6 +292,7 @@
         markAsChanged: markAsChanged,
         markAsSaved: markAsSaved,
         hasChanges: shouldBlockNavigation,
+        requestClose: requestClose,
         reset: function () {
           hasUnsavedChanges = false;
           captureInitialValues();
@@ -288,6 +323,34 @@
       while (this.instances.length) {
         this.instances[0].destroy();
       }
+    },
+
+    listenForModalClose: function (instance) {
+      if (window.parent === window) {
+        return;
+      }
+
+      window.addEventListener('message', function (event) {
+        if (!event.data || event.data.action !== 'contentModalCloseRequested') {
+          return;
+        }
+        if (event.origin !== window.location.origin) {
+          return;
+        }
+
+        window.parent.postMessage({ action: 'contentModalCloseAck' }, window.location.origin);
+
+        var allowClose = function () {
+          window.parent.postMessage({ action: 'closeContentModal' }, window.location.origin);
+        };
+
+        if (instance && typeof instance.requestClose === 'function') {
+          instance.requestClose(allowClose);
+          return;
+        }
+
+        allowClose();
+      });
     }
   };
 

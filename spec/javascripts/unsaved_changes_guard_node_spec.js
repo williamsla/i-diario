@@ -86,6 +86,11 @@ function runTests() {
   // Test 17: Tem método destroyAll
   assertContains(guardCode, 'destroyAll:', 'Define método destroyAll');
 
+  // Test 17b: Fechamento do modal de conteúdo reutiliza a confirmação
+  assertContains(guardCode, 'requestClose:', 'Expõe requestClose para o modal perguntar antes de descartar');
+  assertContains(guardCode, 'listenForModalClose:', 'Ouve o pedido de fechamento vindo do modal pai');
+  assertContains(guardCode, 'contentModalCloseRequested', 'Reconhece a mensagem de fechamento do modal');
+
   // Test 18: Ignora campos select2-search
   assertContains(guardCode, 'select2-search', 'Ignora campos de busca do Select2');
 
@@ -142,6 +147,13 @@ function runTests() {
     } catch (e) {
       assert(false, `${name} - arquivo não encontrado: ${file}`);
     }
+  });
+
+  ['discipline_content_records', 'knowledge_area_content_records'].forEach((name) => {
+    const formPath = path.join(__dirname, `../../app/assets/javascripts/views/${name}/form.js`);
+    const formCode = fs.readFileSync(formPath, 'utf8');
+    assertContains(formCode, 'listenForModalClose', `${name} responde ao fechamento do modal`);
+    assertContains(formCode, 'markContentFormChanged', `${name} marca inclusão de conteúdo como alteração não salva`);
   });
 
   console.log('\n=== Verificando application.js.erb ===\n');

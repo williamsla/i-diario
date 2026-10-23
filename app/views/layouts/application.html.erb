@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://unpkg.com/vue-multiselect@2.1.0/dist/vue-multiselect.min.css">
   </head>
 
-  <body class="smart-style-2 fixed-header <%= controller_name %>">
+  <body class="smart-style-2 fixed-header <%= controller_name %><%= ' modal-mode' if params[:modal] == 'true' %>">
     <%= render 'layouts/google_tag_manager_body' %>
 
     <div id="page-loading" class="hidden">
