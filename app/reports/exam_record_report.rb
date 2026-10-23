@@ -112,26 +112,13 @@ class ExamRecordReport < BaseReport
     school_term_recovery_scores = {}
     self.any_student_with_dependence = false
 
-    # Obter data de início do ano letivo
-    year_start_date = year_start_date_for_classroom
-
     @students_enrollments.each do |student_enrollment|
-      average = StudentAverageCalculator.new(
-        student_enrollment.student
-      ).calculate(
-        classroom,
-        discipline,
-        @school_calendar_step
-      )
-
-      # Se a média estiver em branco e o aluno chegou após o início do ano letivo,
-      # consultar o i-educar para recuperar a média
-      if average.blank? && student_arrived_after_year_start?(student_enrollment, year_start_date)
-        average = fetch_average_from_ieducar(
-          student_enrollment.student_id,
-          @school_calendar_step.step_number
-        )
-      end
+      average = ClassCouncilAverageCalculator.new(
+        student: student_enrollment.student,
+        classroom: classroom,
+        discipline: discipline,
+        step: @school_calendar_step
+      ).calculate
 
       averages[student_enrollment.id] = average
 
@@ -467,41 +454,4 @@ class ExamRecordReport < BaseReport
     end
   end
 
-  def year_start_date_for_classroom
-    steps_fetcher = StepsFetcher.new(classroom)
-    school_calendar = steps_fetcher.school_calendar
-    
-    if school_calendar&.steps&.any?
-      school_calendar.first_day
-    else
-      Date.new(@year, 1, 1)
-    end
-  end
-
-  def student_arrived_after_year_start?(student_enrollment, year_start_date)
-    student_enrollment_classroom = StudentEnrollmentClassroom
-      .joins(:student_enrollment)
-      .where(student_enrollments: { id: student_enrollment.id })
-      .by_classroom(classroom.id)
-      .first
-
-    return false if student_enrollment_classroom.blank? || student_enrollment_classroom.joined_at.blank?
-
-    student_enrollment_classroom.joined_at.to_date > year_start_date
-  end
-
-  def fetch_average_from_ieducar(student_id, step_number)
-    ieducar_api_configuration = IeducarApiConfiguration.current
-    return nil if ieducar_api_configuration.blank?
-
-    fetcher = StudentAverageFromIeducarFetcher.new(ieducar_api_configuration)
-    average = fetcher.fetch(student_id, classroom.id, discipline.id, step_number)
-    
-    # Arredondar a média conforme as configurações da turma
-    if average.present?
-      ScoreRounder.new(classroom, RoundedAvaliations::NUMERICAL_EXAM, @school_calendar_step).round(average)
-    else
-      nil
-    end
-  end
 end

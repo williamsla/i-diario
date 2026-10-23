@@ -115,12 +115,12 @@ class ExamRecordAllStepsAveragesAdaptiveReport < BaseReport
       step_averages_with_recovery = []
       
       @steps.each_with_index do |step, step_index|
-        # Calcular média localmente primeiro
-        average = StudentAverageCalculator.new(student).calculate(@classroom, @discipline, step)
-        # Se a média estiver null ou em branco, buscar no i-educar
-        if average.blank?
-          average = fetch_average_from_ieducar(student_id, step.step_number)
-        end
+        average = ClassCouncilAverageCalculator.new(
+          student: student,
+          classroom: @classroom,
+          discipline: @discipline,
+          step: step
+        ).calculate
         step_averages[student_enrollment.id] << average
 
         step_recovery_score = recovery_scores.score_for(student_id, step)
@@ -233,23 +233,5 @@ class ExamRecordAllStepsAveragesAdaptiveReport < BaseReport
     number_with_precision(score, precision: 1, separator: ',', delimiter: '.')
   end
 
-  def fetch_average_from_ieducar(student_id, step_number)
-    ieducar_api_configuration = IeducarApiConfiguration.current
-    return nil if ieducar_api_configuration.blank?
-
-    fetcher = StudentAverageFromIeducarFetcher.new(ieducar_api_configuration)
-    average = fetcher.fetch(student_id, @classroom.id, @discipline.id, step_number)
-    
-    # Arredondar a média conforme as configurações da turma
-    if average.present?
-      step = @steps.find { |s| s.step_number == step_number }
-      ScoreRounder.new(@classroom, RoundedAvaliations::NUMERICAL_EXAM, step).round(average) if step
-    else
-      nil
-    end
-  rescue StandardError => error
-    Rails.logger.error "Erro ao buscar média do i-educar: #{error.message}"
-    nil
-  end
 end
 
