@@ -92,6 +92,9 @@ function runTests() {
   // Test 19: Detecta mudanças em checkboxes
   assertContains(guardCode, ':checkbox', 'Detecta mudanças em checkboxes');
 
+  // Test 19b: Ignora o hidden companheiro do checkbox do Rails/simple_form
+  assertContains(guardCode, 'isRailsCheckboxHidden', 'Ignora hidden companheiro do checkbox para não marcar o form como alterado');
+
   // Test 20: Detecta mudanças em radio buttons
   assertContains(guardCode, ':radio', 'Detecta mudanças em radio buttons');
 

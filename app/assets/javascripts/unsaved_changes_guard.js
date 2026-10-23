@@ -70,43 +70,70 @@
       var initialValues = {};
       var formId = $form.attr('id') || 'form_' + Date.now();
 
+      // Rails/simple_form envia um hidden (valor desmarcado) e um checkbox com o mesmo name.
+      // Guardar os dois na mesma chave faz o hidden "0" divergir do boolean do checkbox
+      // e o formulário parece alterado mesmo sem edição do usuário.
+      var checkboxNames = function () {
+        var names = {};
+        $form.find('input[type="checkbox"]').each(function () {
+          if (this.name) {
+            names[this.name] = true;
+          }
+        });
+        return names;
+      };
+
+      var isRailsCheckboxHidden = function ($el, names) {
+        var name = $el.attr('name');
+        return $el.is('input[type="hidden"]') && !!name && !!names[name];
+      };
+
+      var fieldName = function ($el, names) {
+        var name = $el.attr('name') || $el.attr('id');
+
+        if (!name || self._shouldIgnore($el, opts) || isRailsCheckboxHidden($el, names)) {
+          return null;
+        }
+
+        return name;
+      };
+
+      var fieldValue = function ($el) {
+        if ($el.is(':checkbox') || $el.is(':radio')) {
+          return $el.is(':checked');
+        }
+
+        return $el.val();
+      };
+
       var captureInitialValues = function () {
+        var names = checkboxNames();
         initialValues = {};
         $form.find('input, select, textarea').each(function () {
           var $el = $(this);
-          var name = $el.attr('name') || $el.attr('id');
+          var name = fieldName($el, names);
 
-          if (!name || self._shouldIgnore($el, opts)) {
+          if (!name) {
             return;
           }
 
-          if ($el.is(':checkbox') || $el.is(':radio')) {
-            initialValues[name] = $el.is(':checked');
-          } else {
-            initialValues[name] = $el.val();
-          }
+          initialValues[name] = fieldValue($el);
         });
       };
 
       var checkForChanges = function () {
+        var names = checkboxNames();
         var changed = false;
 
         $form.find('input, select, textarea').each(function () {
           var $el = $(this);
-          var name = $el.attr('name') || $el.attr('id');
+          var name = fieldName($el, names);
 
-          if (!name || self._shouldIgnore($el, opts)) {
+          if (!name) {
             return;
           }
 
-          var currentValue;
-          if ($el.is(':checkbox') || $el.is(':radio')) {
-            currentValue = $el.is(':checked');
-          } else {
-            currentValue = $el.val();
-          }
-
-          if (initialValues.hasOwnProperty(name) && initialValues[name] !== currentValue) {
+          if (initialValues.hasOwnProperty(name) && initialValues[name] !== fieldValue($el)) {
             changed = true;
             return false;
           }
@@ -194,7 +221,7 @@
 
         $form.on('change.unsavedGuard input.unsavedGuard', 'input, select, textarea', function (e) {
           var $el = $(e.target);
-          if (!self._shouldIgnore($el, opts)) {
+          if (!self._shouldIgnore($el, opts) && !isRailsCheckboxHidden($el, checkboxNames())) {
             markAsChanged();
           }
         });
