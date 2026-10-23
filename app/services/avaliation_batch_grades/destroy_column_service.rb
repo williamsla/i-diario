@@ -12,6 +12,7 @@ module AvaliationBatchGrades
 
     def call
       @error = nil
+      snapshot = PostedExamScoreRefresher.snapshot(@avaliation)
       ActiveRecord::Base.transaction do
         @avaliation.daily_notes.reload.each do |dn|
           unless dn.destroy
@@ -28,6 +29,7 @@ module AvaliationBatchGrades
       end
       return false if @error.present?
 
+      PostedExamScoreRefresher.enqueue(snapshot)
       true
     rescue StandardError => e
       Rails.logger.error("[AvaliationBatchGrades::DestroyColumnService] #{e.class}: #{e.message}")

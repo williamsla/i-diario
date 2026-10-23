@@ -488,6 +488,14 @@ RSpec.describe StudentAverageCalculator, type: :service do
       it 'uses the i-Educar average' do
         expect(subject.calculate(classroom, discipline, school_calendar_step)).to eq(10.0)
       end
+
+      it 'keeps the step empty when the i-Educar fallback is disabled' do
+        expect(subject).not_to receive(:fetch_average_from_ieducar)
+
+        expect(
+          subject.calculate(classroom, discipline, school_calendar_step, ieducar_fallback: false)
+        ).to be_nil
+      end
     end
 
     context 'when the local average is blank' do

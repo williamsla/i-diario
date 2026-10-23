@@ -313,7 +313,9 @@ class AvaliationsController < ApplicationController
       return
     end
 
+    snapshot = PostedExamScoreRefresher.snapshot(resource)
     resource.destroy
+    PostedExamScoreRefresher.enqueue(snapshot) if resource.destroyed?
 
     respond_with resource, location: avaliations_path
   end

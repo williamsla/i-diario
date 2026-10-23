@@ -11,6 +11,15 @@ class ClassCouncilAverageCalculator
   end
 
   def calculate
+    average = StudentAverageCalculator.new(@student).calculate(
+      @classroom,
+      @discipline,
+      @step,
+      ieducar_fallback: false
+    )
+    return average unless average.nil?
+    return if diary_in_classroom?
+
     StudentAverageCalculator.new(@student).calculate(@classroom, @discipline, @step)
   end
 
@@ -26,5 +35,24 @@ class ClassCouncilAverageCalculator
     else
       scores_count.zero? ? 0 : score_sum / scores_count
     end
+  end
+
+  private
+
+  # Aluno que já tem diário nesta turma não recebe nota de outra origem
+  # numa etapa que o professor deixou sem avaliação.
+  def diary_in_classroom?
+    student_id = @student.id
+    classroom_id = @classroom.id
+
+    DailyNoteStudent.by_student_id(student_id).by_classroom_id(classroom_id).where.not(note: nil).exists? ||
+      ConceptualExam.by_student_id(student_id).by_classroom_id(classroom_id)
+        .joins(:conceptual_exam_values)
+        .where.not(conceptual_exam_values: { value: [nil, ''] })
+        .exists? ||
+      RecoveryDiaryRecordStudent.joins(:recovery_diary_record)
+        .where(student_id: student_id, recovery_diary_records: { classroom_id: classroom_id })
+        .where.not(score: nil)
+        .exists?
   end
 end

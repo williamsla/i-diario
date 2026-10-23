@@ -3,7 +3,7 @@ class StudentAverageCalculator
     @student = student
   end
 
-  def calculate(classroom, discipline, step)
+  def calculate(classroom, discipline, step, ieducar_fallback: true)
     student_notes_query = StudentNotesQuery.new(student, discipline, classroom, step.start_at, step.end_at)
     @daily_note_students = student_notes_query.daily_note_students + student_notes_query.transfer_notes +
       student_notes_query.previous_enrollments_daily_note_students
@@ -14,6 +14,8 @@ class StudentAverageCalculator
 
     # Se não houver notas locais, tentar buscar do i-educar
     if daily_note_students.blank? && recovery_diary_records.blank? && recovery_lowest_note_in_step.blank?
+      return nil unless ieducar_fallback
+
       return fetch_average_from_ieducar(classroom, discipline, step)
     end
 
@@ -21,6 +23,8 @@ class StudentAverageCalculator
 
     # Se o cálculo local retornar nil/blank, tentar buscar do i-educar
     if result.blank?
+      return nil unless ieducar_fallback
+
       return fetch_average_from_ieducar(classroom, discipline, step)
     end
 

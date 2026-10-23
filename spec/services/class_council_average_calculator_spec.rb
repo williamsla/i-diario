@@ -175,7 +175,9 @@ RSpec.describe ClassCouncilAverageCalculator, type: :service do
       report_calculator = instance_double(StudentAverageCalculator)
 
       expect(StudentAverageCalculator).to receive(:new).with(student).and_return(report_calculator)
-      expect(report_calculator).to receive(:calculate).with(classroom, discipline, step).and_return(9.5)
+      expect(report_calculator).to receive(:calculate)
+        .with(classroom, discipline, step, ieducar_fallback: false)
+        .and_return(9.5)
 
       result = described_class.new(
         student: student,
@@ -185,6 +187,52 @@ RSpec.describe ClassCouncilAverageCalculator, type: :service do
       ).calculate
 
       expect(result).to eq(9.5)
+    end
+
+    it 'keeps an empty step blank when the student already has a diary in the classroom' do
+      student = double(:student, id: 1)
+      classroom = double(:classroom, id: 2)
+      discipline = double(:discipline)
+      step = double(:step)
+      report_calculator = instance_double(StudentAverageCalculator)
+      calculator = described_class.new(
+        student: student,
+        classroom: classroom,
+        discipline: discipline,
+        step: step
+      )
+
+      allow(StudentAverageCalculator).to receive(:new).with(student).and_return(report_calculator)
+      expect(report_calculator).to receive(:calculate)
+        .with(classroom, discipline, step, ieducar_fallback: false)
+        .and_return(nil)
+      expect(report_calculator).not_to receive(:calculate).with(classroom, discipline, step)
+      allow(calculator).to receive(:diary_in_classroom?).and_return(true)
+
+      expect(calculator.calculate).to be_nil
+    end
+
+    it 'uses i-Educar only when the student never had a diary in the classroom' do
+      student = double(:student, id: 1)
+      classroom = double(:classroom, id: 2)
+      discipline = double(:discipline)
+      step = double(:step)
+      report_calculator = instance_double(StudentAverageCalculator)
+      calculator = described_class.new(
+        student: student,
+        classroom: classroom,
+        discipline: discipline,
+        step: step
+      )
+
+      allow(StudentAverageCalculator).to receive(:new).with(student).and_return(report_calculator)
+      expect(report_calculator).to receive(:calculate)
+        .with(classroom, discipline, step, ieducar_fallback: false)
+        .and_return(nil)
+      expect(report_calculator).to receive(:calculate).with(classroom, discipline, step).and_return(9.5)
+      allow(calculator).to receive(:diary_in_classroom?).and_return(false)
+
+      expect(calculator.calculate).to eq(9.5)
     end
   end
 end
