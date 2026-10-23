@@ -406,11 +406,6 @@ class DailyFrequenciesController < ApplicationController
 
       ActiveRecord::Base.transaction do
         daily_frequencies_attributes.each_value do |daily_frequency_students_params|
-
-          daily_frequency_students_params[:students_attributes].delete_if do |_, daily_frequency_student|
-            daily_frequency_student[:absence_justification_student_id].to_i.eql?(-2)
-          end
-          
           daily_frequency_attribute_normalizer = DailyFrequencyAttributesNormalizer.new(
             daily_frequency_students_params,
             daily_frequency_attributes
@@ -423,31 +418,12 @@ class DailyFrequenciesController < ApplicationController
             daily_frequency_students_params
           )
 
-          daily_frequency_students_params[:students_attributes].each_value do |daily_frequency_student|
-            next unless daily_frequency_student[:absence_justification_student_id].to_i.eql?(-1)
+          sync_student_absence_justifications!(
+            daily_frequency_students_params,
+            daily_frequency_attributes
+          )
 
-            params = {
-              student_ids: [daily_frequency_student[:student_id]],
-              absence_date: daily_frequency_attributes[:frequency_date],
-              justification: nil,
-              absence_date_end: daily_frequency_attributes[:frequency_date],
-              unity_id: daily_frequency_attributes[:unity_id],
-              classroom_id: daily_frequency_attributes[:classroom_id],
-              class_number: daily_frequency_students_params[:class_number]
-            }
-
-            absence_justification = AbsenceJustification.new(params)
-            absence_justification.teacher = current_teacher
-            absence_justification.user = current_user
-            absence_justification.school_calendar = current_school_calendar
-            absence_justification.period = daily_frequency_attributes[:period]
-
-            absence_justification.save
-
-            daily_frequency_student[:absence_justification_student_id] = absence_justification.absence_justifications_students.first.id
-          end
           daily_frequency_record.assign_attributes(daily_frequency_students_params)
-
           daily_frequency_record.save!
         end
       end
@@ -568,10 +544,101 @@ class DailyFrequenciesController < ApplicationController
       daily_frequencies: [
         :class_number,
         students_attributes: [
-          [:id, :daily_frequency_id, :student_id, :present, :dependence, :active, :type_of_teaching, :absence_justification_student_id]
+          [:id, :daily_frequency_id, :student_id, :present, :dependence, :active, :type_of_teaching,
+           :absence_justification_student_id, :original_absence_justification_student_id]
         ]
       ]
     ).require(:daily_frequencies)
+  end
+
+  def sync_student_absence_justifications!(daily_frequency_students_params, daily_frequency_attributes)
+    class_number = daily_frequency_students_params[:class_number]
+    frequency_date = daily_frequency_attributes[:frequency_date]
+    students_attributes = daily_frequency_students_params[:students_attributes]
+    return if students_attributes.blank?
+
+    students_attributes.delete_if do |_, attrs|
+      original_id = attrs.delete(:original_absence_justification_student_id)
+      flag = attrs[:absence_justification_student_id].to_s
+
+      case flag
+      when '-2'
+        next true if original_id.blank?
+
+        # Em branco depois de uma FJ salva: remove o vínculo e volta para presença.
+        release_original_absence_justification!(original_id, frequency_date, class_number)
+        attrs[:absence_justification_student_id] = nil
+        attrs[:present] = '1'
+        false
+      when '-1'
+        new_id = create_frequency_absence_justification!(attrs, daily_frequency_attributes, class_number)
+        if new_id
+          if original_id.present? && original_id.to_s != new_id.to_s
+            release_original_absence_justification!(original_id, frequency_date, class_number)
+          end
+          attrs[:absence_justification_student_id] = new_id
+        else
+          attrs[:absence_justification_student_id] = existing_justification_link_id(
+            attrs, daily_frequency_attributes, class_number
+          ) || original_id.presence
+        end
+        false
+      when ''
+        release_original_absence_justification!(original_id, frequency_date, class_number)
+        attrs[:absence_justification_student_id] = nil
+        false
+      else
+        false
+      end
+    end
+  end
+
+  def release_original_absence_justification!(original_id, frequency_date, class_number)
+    return if original_id.blank?
+
+    AbsenceJustificationRelease.call(
+      absence_justifications_student_id: original_id,
+      frequency_date: frequency_date,
+      class_number: class_number
+    )
+  end
+
+  def existing_justification_link_id(daily_frequency_student, daily_frequency_attributes, class_number)
+    student_id = daily_frequency_student[:student_id]
+    return if student_id.blank?
+
+    frequency_date = daily_frequency_attributes[:frequency_date].to_date
+    justified = AbsenceJustifiedOnDate.call(
+      students: [student_id],
+      date: frequency_date,
+      end_date: frequency_date,
+      classroom: daily_frequency_attributes[:classroom_id],
+      period: daily_frequency_attributes[:period],
+      class_numbers: [class_number].compact
+    )
+    slots = justified.dig(student_id.to_i, frequency_date) || {}
+    class_key = class_number.present? ? class_number.to_i : 0
+
+    slots[class_key] || slots[0]
+  end
+
+  def create_frequency_absence_justification!(daily_frequency_student, daily_frequency_attributes, class_number)
+    absence_justification = AbsenceJustification.new(
+      student_ids: [daily_frequency_student[:student_id]],
+      absence_date: daily_frequency_attributes[:frequency_date],
+      justification: nil,
+      absence_date_end: daily_frequency_attributes[:frequency_date],
+      unity_id: daily_frequency_attributes[:unity_id],
+      classroom_id: daily_frequency_attributes[:classroom_id],
+      class_number: class_number
+    )
+    absence_justification.teacher = current_teacher
+    absence_justification.user = current_user
+    absence_justification.school_calendar = current_school_calendar
+    absence_justification.period = daily_frequency_attributes[:period]
+    return unless absence_justification.save
+
+    absence_justification.absence_justifications_students.first&.id
   end
 
   def current_frequency_type(daily_frequency)

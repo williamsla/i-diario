@@ -31,29 +31,42 @@
       <td>
         <div>
           <% absence_justifications = absence_justification[@daily_frequency.frequency_date] || {} %>
-          <% absence_justification_student_id = absence_justifications[0] || absence_justifications[class_number] %>
+          <% lookup_justification_id = absence_justifications[0] || absence_justifications[class_number] %>
+          <%# Frequência já salva prevalece sobre a justificativa do período, para permitir desmarcar a FJ. %>
+          <% absence_justification_student_id = if daily_frequency_student.persisted?
+                                                  daily_frequency_student.absence_justification_student_id
+                                                else
+                                                  lookup_justification_id
+                                                end %>
           <% ignore_student = !active || exempted_from_discipline || in_active_search.present? %>
+          <% justified = absence_justification_student_id.present? %>
+          <% frequency_status = if justified
+                                  'justified'
+                                elsif is_aee_classroom && !daily_frequency_student.id
+                                  'blank'
+                                elsif daily_frequency_student.present == true
+                                  'present'
+                                else
+                                  'absent'
+                                end %>
           <%= f.hidden_field :id, value: daily_frequency_student.id, disabled: ignore_student %>
           <%= f.hidden_field :daily_frequency_id, value: daily_frequency.id, disabled: ignore_student %>
           <%= f.hidden_field :student_id, value: student.id, disabled: ignore_student %>
           <%= f.hidden_field :dependence, value: dependence, disabled: ignore_student %>
           <%= f.hidden_field :active, value: active, disabled: ignore_student %>
           <%= f.hidden_field :absence_justification_student_id, class: 'hidden-justified', value: absence_justification_student_id, disabled: ignore_student %>
+          <input type="hidden"
+                 name="<%= f.object_name %>[original_absence_justification_student_id]"
+                 value="<%= absence_justification_student_id %>"
+                 <%= 'disabled="disabled"' if ignore_student %>>
 
-          <% if absence_justification_student_id %>
-            <label title="Falta Justificada" class="checkbox checkbox-frequency justified">
-              <input type="checkbox" disabled data-status="justified"><i></i>
-            </label>
-
-          <% else %>
-            <label class="checkbox checkbox-frequency <%= ignore_student ? 'state-disabled' : '' %> <%= is_aee_classroom && !f.object.id ? 'blank' : '' %>">
-              <%= f.check_box :present,
-                  disabled: ignore_student,
-                  data: { id: 'checkbox-id', status: is_aee_classroom && !f.object.id ? 'blank' : (f.object.present == true ? 'present' : 'absent') },
-                  checked: is_aee_classroom && !f.object.id ? 'blank' : f.object.present %>
-              <i></i>
-            </label>
-          <% end %>
+          <label title="<%= 'Falta Justificada' if justified %>" class="checkbox checkbox-frequency <%= 'justified' if justified %> <%= 'state-disabled' if ignore_student %> <%= 'blank' if frequency_status == 'blank' %>">
+            <%= f.check_box :present,
+                disabled: ignore_student,
+                data: { id: 'checkbox-id', status: frequency_status },
+                checked: frequency_status == 'present' %>
+            <i></i>
+          </label>
 
           <% if @general_configuration.type_of_teaching == true && index != 0 && active && in_active_search.blank? %>
             <span class='hidden'>

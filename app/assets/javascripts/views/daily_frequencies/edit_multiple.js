@@ -70,8 +70,10 @@ $(document).ready(function () {
 
   $("label.checkbox-frequency:not(.checkbox-batch) input[type=checkbox]").click(function () {
     let el = $(this);
+    let hiddenJustified = el.closest('div').find('.hidden-justified');
 
-    el.closest('div').find('.hidden-justified').prop('disabled', true).val(null);
+    // Presente e ausente enviam vazio para desfazer uma FJ já salva.
+    hiddenJustified.prop('disabled', false).val('');
 
     switch (el.data('status')) {
       case 'blank':
@@ -96,10 +98,11 @@ $(document).ready(function () {
       case 'absent':
         // vai para FJ
         el.prop('indeterminate', false);
+        el.prop('checked', false);
         el.data('status', 'justified'); //atualiza somente no jquery
         el.attr('data-status', 'justified'); // atualiza no DOM visível
         el.closest('label').addClass('justified').removeClass('blank');
-        el.closest('div').find('.hidden-justified').prop('disabled', false).val(-1);
+        hiddenJustified.prop('disabled', false).val(-1);
         break;
         
       case 'justified':
@@ -110,7 +113,7 @@ $(document).ready(function () {
         el.prop('indeterminate', true);
         el.prop('checked', false);
         el.closest('label').removeClass('justified').addClass('blank');
-        el.closest('div').find('.hidden-justified').prop('disabled', false).val(-2);
+        hiddenJustified.prop('disabled', false).val(-2);
         break;
     }
   });
