@@ -37,8 +37,14 @@ label.checkbox-frequency.justified input[type="checkbox"] + i {
 label.checkbox-frequency.justified input[type="checkbox"] + i::after {
   content: 'FJ' !important;
   color: #0779fb !important;
-  font: bold 12px/19px Arial, sans-serif !important;
-  letter-spacing: -1px;
+  opacity: 1 !important;
+  top: 1px;
+  left: 0;
+  width: 15px;
+  height: 15px;
+  font: bold 9px/15px Arial, sans-serif !important;
+  letter-spacing: -0.5px;
+  text-align: center;
 }
 
 
