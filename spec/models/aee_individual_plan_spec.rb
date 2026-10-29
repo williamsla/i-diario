@@ -281,4 +281,60 @@ RSpec.describe AeeIndividualPlan do
       expect(pei.cognitive_skills).to eq('Cognição PAEE')
     end
   end
+
+  describe '.differentiated_student_enrolled_for?' do
+    let(:year) { Date.current.year }
+    let(:classrooms_grade) { create(:classrooms_grade, classroom: create(:classroom, year: year)) }
+    let(:classroom) { classrooms_grade.classroom }
+    let(:teacher) { create(:teacher) }
+    let(:user) do
+      instance_double(
+        User,
+        classroom: classroom,
+        current_teacher: teacher,
+        current_school_year: year
+      )
+    end
+
+    def enroll(student)
+      enrollment = create(:student_enrollment, student: student)
+      create(
+        :student_enrollment_classroom,
+        student_enrollment: enrollment,
+        classrooms_grade: classrooms_grade
+      )
+    end
+
+    it 'is true when the teacher is allocated and a differentiated student is enrolled' do
+      create(
+        :teacher_discipline_classroom,
+        classroom: classroom,
+        teacher: teacher,
+        grade: classrooms_grade.grade,
+        year: year
+      )
+      enroll(create(:student, uses_differentiated_exam_rule: true))
+
+      expect(described_class.differentiated_student_enrolled_for?(user)).to eq(true)
+    end
+
+    it 'is false when no enrolled student uses a differentiated exam rule' do
+      create(
+        :teacher_discipline_classroom,
+        classroom: classroom,
+        teacher: teacher,
+        grade: classrooms_grade.grade,
+        year: year
+      )
+      enroll(create(:student, uses_differentiated_exam_rule: false))
+
+      expect(described_class.differentiated_student_enrolled_for?(user)).to eq(false)
+    end
+
+    it 'is false when the teacher is not allocated in the classroom' do
+      enroll(create(:student, uses_differentiated_exam_rule: true))
+
+      expect(described_class.differentiated_student_enrolled_for?(user)).to eq(false)
+    end
+  end
 end

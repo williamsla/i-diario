@@ -269,7 +269,7 @@ class ApplicationController < ActionController::Base
       elsif classroom.aee?
         true
       else
-        AeeIndividualPlan.enrolled_student_ids_for(current_user).any?
+        AeeIndividualPlan.differentiated_student_enrolled_for?(current_user)
       end
   end
   helper_method :pei_available?

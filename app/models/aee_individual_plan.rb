@@ -146,6 +146,21 @@ class AeeIndividualPlan < ApplicationRecord
     )
   end
 
+  # Usado pelo menu em toda página. Só precisa saber se existe aluno com regra
+  # diferenciada; não monta a lista de matrículas de cada disciplina.
+  def self.differentiated_student_enrolled_for?(user)
+    classroom = user&.classroom
+    return false if classroom.blank?
+    return false unless teacher_allocated_in_classroom?(user, classroom)
+
+    StudentEnrollment
+      .active
+      .joins(:student, student_enrollment_classrooms: :classrooms_grade)
+      .where(classrooms_grades: { classroom_id: classroom.id })
+      .where(students: { uses_differentiated_exam_rule: true })
+      .exists?
+  end
+
   def self.enrolled_student_ids_for(user)
     classroom = user&.classroom
     return [] if classroom.blank?
@@ -164,6 +179,17 @@ class AeeIndividualPlan < ApplicationRecord
 
     Student.where(id: student_ids, uses_differentiated_exam_rule: true).pluck(:id)
   end
+
+  def self.teacher_allocated_in_classroom?(user, classroom)
+    teacher = user.current_teacher
+    return false if teacher.blank? || user.current_school_year.blank?
+
+    TeacherDisciplineClassroom.by_teacher_id(teacher.id)
+                              .by_classroom(classroom)
+                              .by_year(user.current_school_year)
+                              .exists?
+  end
+  private_class_method :teacher_allocated_in_classroom?
 
   def self.student_ids_from_enrollments(classroom, discipline)
     StudentEnrollmentsList.new(
