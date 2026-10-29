@@ -45,6 +45,11 @@ Rails.application.routes.draw do
         resources :teaching_plans, only: [:index]
         get 'monthly_absence_by_student_reports/report',
             to: 'monthly_absence_by_student_reports#report'
+        resources :synchronizations, only: [:create] do
+          collection do
+            get :current
+          end
+        end
 
         namespace :educamais do
           resource :context, only: [:show], controller: 'context'

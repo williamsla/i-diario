@@ -48,7 +48,7 @@ class IeducarApiConfiguration < ActiveRecord::Base
 
       Rails.logger.info(
         key: 'IeducarApiConfiguration#start_synchronization',
-        from: "#{binding.of_caller(7).eval('self.class')}##{binding.of_caller(7).eval('__method__')}",
+        from: synchronization_caller,
         sync_id: synchronization.id,
         entity_id: entity_id
       )
@@ -72,6 +72,13 @@ class IeducarApiConfiguration < ActiveRecord::Base
       secret_key: secret_token,
       unity_id: unity_code
     }
+  end
+
+  def synchronization_caller
+    frame = binding.of_caller(8)
+    "#{frame.eval('self.class')}##{frame.eval('__method__')}"
+  rescue StandardError
+    'IeducarApiConfiguration#start_synchronization'
   end
 
   def update_synchronized_at!(synchronization_date)
