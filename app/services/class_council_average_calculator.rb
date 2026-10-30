@@ -48,7 +48,7 @@ class ClassCouncilAverageCalculator
     DailyNoteStudent.by_student_id(student_id).by_classroom_id(classroom_id).where.not(note: nil).exists? ||
       ConceptualExam.by_student_id(student_id).by_classroom_id(classroom_id)
         .joins(:conceptual_exam_values)
-        .where.not(conceptual_exam_values: { value: [nil, ''] })
+        .where.not(conceptual_exam_values: { value: nil })
         .exists? ||
       RecoveryDiaryRecordStudent.joins(:recovery_diary_record)
         .where(student_id: student_id, recovery_diary_records: { classroom_id: classroom_id })
