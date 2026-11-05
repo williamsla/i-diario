@@ -246,7 +246,7 @@ $(function(){
   }
 
   function notesNotRequiredMessage() {
-    return 'Não é obrigatório lançar notas. Este componente é desconsiderado na aprovação/reprovação dos alunos.';
+    return 'Este componente é desconsiderado na aprovação/reprovação dos alunos. Consulte a coordenação da escola/SEMED para verificar se é necessário realizar o lançamento de notas.';
   }
 
   function notesNotRequiredHtml() {
