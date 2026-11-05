@@ -54,7 +54,7 @@ class DisciplineTeachingPlanPdf < BaseReport
     organ_name = @entity_configuration ? @entity_configuration.organ_name : ''
 
     entity_organ_and_unity_cell = make_cell(
-      content: "#{entity_name}\n#{organ_name}\n#{teaching_plan.unity.name}",
+      content: "#{entity_name}\n#{organ_name}\n#{unity_identification}",
       size: 12,
       leading: 1.5,
       align: :center,
@@ -198,7 +198,7 @@ class DisciplineTeachingPlanPdf < BaseReport
       colspan: 7
     )
     @unity_cell = make_cell(
-      content: teaching_plan.unity.name,
+      content: unity_identification,
       size: 10,
       borders: [:bottom, :left, :right],
       padding: [0, 2, 4, 4],
@@ -306,5 +306,11 @@ class DisciplineTeachingPlanPdf < BaseReport
 
   def teaching_plan
     @teaching_plan ||= @discipline_teaching_plan.teaching_plan
+  end
+
+  def unity_identification
+    return I18n.t('enumerations.plans_authors.unificado') if teaching_plan.unificado?
+
+    teaching_plan.unity.name
   end
 end

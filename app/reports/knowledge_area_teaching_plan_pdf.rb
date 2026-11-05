@@ -54,7 +54,7 @@ class KnowledgeAreaTeachingPlanPdf < BaseReport
     organ_name = @entity_configuration ? @entity_configuration.organ_name : ''
 
     entity_organ_and_unity_cell = make_cell(
-      content: "#{entity_name}\n#{organ_name}\n#{teaching_plan.unity.name}",
+      content: "#{entity_name}\n#{organ_name}\n#{unity_identification}",
       size: 12,
       leading: 1.5,
       align: :center,
@@ -116,7 +116,7 @@ class KnowledgeAreaTeachingPlanPdf < BaseReport
     knowledge_area_descriptions = (knowledge_areas.map { |descriptions| descriptions}.join(", "))
 
     @unity_header = make_cell(content: 'Unidade', size: 8, font_style: :bold, borders: [:left, :right, :top], padding: [2, 2, 4, 4], colspan: 7)
-    @unity_cell = make_cell(content: teaching_plan.unity.name, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan: 7)
+    @unity_cell = make_cell(content: unity_identification, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan: 7)
 
     @knowledge_area_header = make_cell(content: 'Áreas de conhecimento', size: 8, font_style: :bold, borders: [:top, :left, :right], padding: [2, 2, 4, 4], colspan: 3)
     @knowledge_area_cell = make_cell(content: knowledge_area_descriptions, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan: 3)
@@ -199,6 +199,12 @@ class KnowledgeAreaTeachingPlanPdf < BaseReport
 
   def teaching_plan
     @teaching_plan ||= @knowledge_area_teaching_plan.teaching_plan
+  end
+
+  def unity_identification
+    return I18n.t('enumerations.plans_authors.unificado') if teaching_plan.unificado?
+
+    teaching_plan.unity.name
   end
 
   def body
