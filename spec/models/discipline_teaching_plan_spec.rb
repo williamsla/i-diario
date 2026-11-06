@@ -231,6 +231,34 @@ RSpec.describe DisciplineTeachingPlan, type: :model do
       expect(described_class.unificado_exists_for_same_step?(candidate, discipline.id)).to eq(false)
     end
 
+    it 'ignores a plan with teacher_id nil when the unificado flag is false' do
+      create_plan(unificado: false)
+
+      expect(described_class.unificado_exists_for_same_step?(candidate, discipline.id)).to eq(false)
+    end
+
+    it 'ignores a plan created by an administrator when the unificado flag is false' do
+      admin = create(:user, :with_user_role_administrator)
+      teacher = create(:teacher)
+      teaching_plan = nil
+
+      Audited.audit_class.as_user(admin) do
+        teaching_plan = create(
+          :teaching_plan,
+          unificado: false,
+          teacher: teacher,
+          unity: unity,
+          grade: grade,
+          year: year,
+          school_term_type: school_term_type,
+          school_term_type_step: school_term_type_step
+        )
+      end
+      create(:discipline_teaching_plan, teaching_plan: teaching_plan, discipline: discipline)
+
+      expect(described_class.unificado_exists_for_same_step?(candidate, discipline.id)).to eq(false)
+    end
+
     it 'ignores a plan that is not unificado' do
       teacher = create(:teacher)
       teacher_user = create(:user, :with_user_role_teacher)

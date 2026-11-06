@@ -79,6 +79,7 @@ RSpec.describe DisciplineTeachingPlansController, type: :controller do
     Audited.audit_class.as_user(admin) do
       plan = create(
         :teaching_plan,
+        :unificado,
         teacher: nil,
         unity: classroom.unity,
         year: classroom.year,
@@ -300,6 +301,35 @@ RSpec.describe DisciplineTeachingPlansController, type: :controller do
         other_step = create(:school_term_type_step, school_term_type: school_term_type)
         unificado_teaching_plan.update!(school_term_type_step: other_step)
 
+        expect { post :create, params: params }.to change(DisciplineTeachingPlan, :count).by(1)
+      end
+    end
+
+    context 'when a plan on the same step is not marked as unificado' do
+      before do
+        user.current_user_role.role.permissions.create!(
+          feature: 'discipline_teaching_plans',
+          permission: Permissions::CHANGE
+        )
+        create(
+          :discipline_teaching_plan,
+          teaching_plan: create(
+            :teaching_plan,
+            unificado: false,
+            teacher: nil,
+            unity: classroom.unity,
+            year: classroom.year,
+            grade: classroom.classrooms_grades.first.grade,
+            school_term_type: school_term_type,
+            school_term_type_step: school_term_type_step
+          ),
+          discipline: discipline
+        )
+        allow(controller).to receive(:fetch_collections).and_return([])
+        allow(controller).to receive(:yearly_term_type_id).and_return(1)
+      end
+
+      it 'creates the plan' do
         expect { post :create, params: params }.to change(DisciplineTeachingPlan, :count).by(1)
       end
     end
