@@ -100,6 +100,13 @@ function runTests() {
   // Test 19b: Ignora o hidden companheiro do checkbox do Rails/simple_form
   assertContains(guardCode, 'isRailsCheckboxHidden', 'Ignora hidden companheiro do checkbox para não marcar o form como alterado');
 
+  // Test 19c: Trocar a data no calendário não pergunta se deseja sair
+  assertContains(guardCode, 'ui-datepicker', 'Ignora cliques do calendário ao trocar a data');
+  assertContains(guardCode, 'a[href]', 'Só intercepta links que têm destino');
+  assertContains(guardCode, 'javascript:', 'Ignora links javascript que não saem da página');
+  assertContains(guardCode, 'withoutTracking', 'Permite atualizar campos sem marcar o formulário');
+  assertContains(guardCode, 'hasUserEdits', 'Distingue edição do usuário de atualização automática');
+
   // Test 20: Detecta mudanças em radio buttons
   assertContains(guardCode, ':radio', 'Detecta mudanças em radio buttons');
 
@@ -154,6 +161,8 @@ function runTests() {
     const formCode = fs.readFileSync(formPath, 'utf8');
     assertContains(formCode, 'listenForModalClose', `${name} responde ao fechamento do modal`);
     assertContains(formCode, 'markContentFormChanged', `${name} marca inclusão de conteúdo como alteração não salva`);
+    assertContains(formCode, 'refreshBaselineIfUntouched', `${name} não trata a carga inicial como alteração ao trocar a data`);
+    assertContains(formCode, 'runWithoutUnsavedTracking', `${name} ignora atualização automática de campos ao trocar a data`);
   });
 
   console.log('\n=== Verificando application.js.erb ===\n');

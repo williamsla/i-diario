@@ -39,7 +39,9 @@
         '[data-no-unsaved-guard]'
       ],
       submitButtonSelector: 'input[type=submit], button[type=submit]',
-      navigationSelectors: 'a:not(.no-confirm):not([href^="#"]):not([target="_blank"]), button:not(.no-confirm):not([type=submit])'
+      // Só links que realmente saem da página. Âncoras sem href (setas do calendário,
+      // editar/remover conteúdo) e href="javascript:..." (Select2) não são navegação.
+      navigationSelectors: 'a[href]:not(.no-confirm):not([href^="#"]):not([href^="javascript:"]):not([target="_blank"]), button:not(.no-confirm):not([type=submit])'
     },
 
     /**
@@ -66,6 +68,8 @@
     _createInstance: function ($form, opts) {
       var self = this;
       var hasUnsavedChanges = false;
+      var userEdited = false;
+      var suppressTracking = false;
       var isSubmitting = false;
       var initialValues = {};
       var formId = $form.attr('id') || 'form_' + Date.now();
@@ -143,12 +147,28 @@
       };
 
       var markAsChanged = function () {
+        if (suppressTracking) {
+          return;
+        }
+
+        userEdited = true;
         hasUnsavedChanges = true;
       };
 
       var markAsSaved = function () {
         hasUnsavedChanges = false;
+        userEdited = false;
         captureInitialValues();
+      };
+
+      var withoutTracking = function (fn) {
+        var previous = suppressTracking;
+        suppressTracking = true;
+        try {
+          return fn();
+        } finally {
+          suppressTracking = previous;
+        }
       };
 
       var shouldBlockNavigation = function () {
@@ -174,6 +194,12 @@
       };
 
       var handleNavigation = function (e) {
+        // Trocar o mês/dia no calendário não é sair da página. As setas são <a> sem href
+        // e, com o formulário já marcado, o clique abria "Sair sem salvar".
+        if ($(e.target).closest('.ui-datepicker').length) {
+          return true;
+        }
+
         if (isSubmitting || !shouldBlockNavigation()) {
           return true;
         }
@@ -193,6 +219,7 @@
           },
           function () {
             hasUnsavedChanges = false;
+            userEdited = false;
             isSubmitting = true;
 
             if (target.tagName === 'A' && target.href) {
@@ -244,6 +271,7 @@
           function () {
             closePromptOpen = false;
             hasUnsavedChanges = false;
+            userEdited = false;
             isSubmitting = true;
             onAllowClose();
           }
@@ -255,9 +283,17 @@
 
         $form.on('change.unsavedGuard input.unsavedGuard', 'input, select, textarea', function (e) {
           var $el = $(e.target);
-          if (!self._shouldIgnore($el, opts) && !isRailsCheckboxHidden($el, checkboxNames())) {
-            markAsChanged();
+          if (self._shouldIgnore($el, opts) || isRailsCheckboxHidden($el, checkboxNames())) {
+            return;
           }
+
+          // change disparado com o mesmo valor (recarga de aulas/disciplina) não é edição.
+          var name = fieldName($el, checkboxNames());
+          if (name && initialValues.hasOwnProperty(name) && initialValues[name] === fieldValue($el)) {
+            return;
+          }
+
+          markAsChanged();
         });
 
         $form.on('summernote.change', function () {
@@ -292,9 +328,14 @@
         markAsChanged: markAsChanged,
         markAsSaved: markAsSaved,
         hasChanges: shouldBlockNavigation,
+        hasUserEdits: function () {
+          return userEdited;
+        },
+        withoutTracking: withoutTracking,
         requestClose: requestClose,
         reset: function () {
           hasUnsavedChanges = false;
+          userEdited = false;
           captureInitialValues();
         },
         destroy: function () {

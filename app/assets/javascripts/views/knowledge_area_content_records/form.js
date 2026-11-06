@@ -17,6 +17,25 @@ $(function () {
     }
   };
 
+  var runWithoutUnsavedTracking = function (fn) {
+    if (unsavedGuard && unsavedGuard.withoutTracking) {
+      unsavedGuard.withoutTracking(fn);
+      return;
+    }
+
+    fn();
+  };
+
+  // A abertura do registro novo recarrega as áreas de conhecimento.
+  // Isso não é edição: se o usuário ainda não mexeu, a base volta ao estado atual.
+  var refreshBaselineIfUntouched = function () {
+    if (!unsavedGuard || unsavedGuard.hasUserEdits()) {
+      return;
+    }
+
+    unsavedGuard.reset();
+  };
+
   // Initialize all checkboxes (for edit mode and new mode)
   $('.list-group.checked-list-box .list-group-item:not(.initialized)').each(initializeListEvents);
 
@@ -306,7 +325,9 @@ $(function () {
 
     toggleKnowledgeAreaFieldVisibility(selectedKnowledgeAreas.length);
 
-    $knowledgeArea.trigger('change');
+    runWithoutUnsavedTracking(function () {
+      $knowledgeArea.trigger('change');
+    });
     toggleRecordDateAlert(payload.message);
     toggleOptionalHolidayMakeupBadge(payload.makeup);
 
@@ -315,6 +336,8 @@ $(function () {
         loadContentsAfterKnowledgeAreasIfNeeded();
       }, 200);
     }
+
+    refreshBaselineIfUntouched();
   };
 
   var countAvailableKnowledgeAreas = function (elements) {
@@ -614,6 +637,8 @@ $(function () {
       if (!$("#contents-list li").length && hasKnowledgeAreaIds) {
         loadContents();
       }
+
+      refreshBaselineIfUntouched();
     }, 500);
   }, 500);
 

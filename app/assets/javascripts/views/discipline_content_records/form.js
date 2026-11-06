@@ -17,6 +17,25 @@ $(function () {
     }
   };
 
+  var runWithoutUnsavedTracking = function (fn) {
+    if (unsavedGuard && unsavedGuard.withoutTracking) {
+      unsavedGuard.withoutTracking(fn);
+      return;
+    }
+
+    fn();
+  };
+
+  // A abertura do registro novo recarrega disciplina e quantidade de aulas.
+  // Isso não é edição: se o usuário ainda não mexeu, a base volta ao estado atual.
+  var refreshBaselineIfUntouched = function () {
+    if (!unsavedGuard || unsavedGuard.hasUserEdits()) {
+      return;
+    }
+
+    unsavedGuard.reset();
+  };
+
   $('.list-group.checked-list-box .list-group-item:not(.initialized)').each(initializeListEvents);
 
   // Regular expression for dd/mm/yyyy date including validation for leap year and more
@@ -289,7 +308,9 @@ $(function () {
       $discipline.select2('val', selectedDisciplines[0].id);
     } else if (!isDisciplineReadonly) {
       $discipline.select2('val', '');
-      $discipline.trigger('change');
+      runWithoutUnsavedTracking(function () {
+        $discipline.trigger('change');
+      });
     }
 
     toggleRecordDateAlert(payload.message);
@@ -525,13 +546,17 @@ $(function () {
   function setClassNumberValue(value) {
     var normalizedValue = value && parseInt(value, 10) > 0 ? String(value) : '';
 
-    try {
-      if ($class_number.data('select2')) {
-        $class_number.select2('val', normalizedValue);
-      }
-    } catch (e) {}
+    runWithoutUnsavedTracking(function () {
+      try {
+        if ($class_number.data('select2')) {
+          $class_number.select2('val', normalizedValue);
+        }
+      } catch (e) {}
 
-    $class_number.val(normalizedValue).trigger('change');
+      $class_number.val(normalizedValue).trigger('change');
+    });
+
+    refreshBaselineIfUntouched();
   }
 
   function countLessons() {
