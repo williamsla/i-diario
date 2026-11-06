@@ -489,6 +489,101 @@ RSpec.describe DailyFrequenciesController, type: :controller do
       expect(discipline_ids).to include(tuesday_discipline.id)
       expect(payload['message']).to be_nil
     end
+
+    it 'considera o quadro arquivado na data de arquivamento e o ativo depois dela' do
+      classrooms_grade = classroom.classrooms_grades.first
+      archive_date = Date.new(school_calendar.year, 7, 27)
+      archive_date -= 1 while archive_date.wday != 1
+      later_monday = archive_date + 7
+      teacher_discipline_classroom = TeacherDisciplineClassroom.find_by(
+        classroom: classroom,
+        teacher: current_teacher,
+        discipline: discipline
+      )
+      other_teacher_link = TeacherDisciplineClassroom.find_by(
+        classroom: classroom,
+        teacher: current_teacher,
+        discipline: other_discipline
+      )
+      outside_discipline = create(:discipline)
+      outside_link = create(
+        :teacher_discipline_classroom,
+        teacher: other_teacher,
+        classroom: classroom,
+        discipline: outside_discipline,
+        grade: grade,
+        year: classroom.year,
+        active: true
+      )
+
+      archived_board = create(:lessons_board, classrooms_grade: classrooms_grade)
+      archived_lesson = create(:lessons_board_lesson, lessons_board: archived_board, lesson_number: 1)
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: archived_lesson,
+        teacher_discipline_classroom: teacher_discipline_classroom,
+        weekday: :monday
+      )
+      archived_board.discard
+      archived_board.update_column(:discarded_at, archive_date.end_of_day)
+
+      active_board = create(:lessons_board, classrooms_grade: classrooms_grade)
+      monday_lesson = create(:lessons_board_lesson, lessons_board: active_board, lesson_number: 1)
+      wednesday_lesson = create(:lessons_board_lesson, lessons_board: active_board, lesson_number: 2)
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: monday_lesson,
+        teacher_discipline_classroom: outside_link,
+        weekday: :monday
+      )
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: wednesday_lesson,
+        teacher_discipline_classroom: teacher_discipline_classroom,
+        weekday: :wednesday
+      )
+      create(
+        :lessons_board_lesson_weekday,
+        lessons_board_lesson: wednesday_lesson,
+        teacher_discipline_classroom: other_teacher_link,
+        weekday: :wednesday
+      )
+      allow(classroom.classrooms_grades.first.exam_rule).to receive(:frequency_type).and_return(FrequencyTypes::BY_DISCIPLINE)
+
+      get :disciplines_for_frequency_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        frequency_date: archive_date.strftime('%Y-%m-%d')
+      }
+
+      payload = JSON.parse(response.body)
+      discipline_ids = payload['disciplines'].map { |item| item['id'] }
+
+      expect(discipline_ids).to include(discipline.id)
+      expect(payload['message']).to be_nil
+
+      get :class_numbers_by_discipline, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        discipline_id: discipline.id,
+        frequency_date: archive_date.strftime('%Y-%m-%d')
+      }
+
+      class_numbers_payload = JSON.parse(response.body)
+      expect(class_numbers_payload['class_numbers']).to eq([1])
+
+      get :disciplines_for_frequency_date, params: {
+        locale: 'pt-BR',
+        classroom_id: classroom.id,
+        frequency_date: later_monday.strftime('%Y-%m-%d')
+      }
+
+      later_payload = JSON.parse(response.body)
+      later_ids = later_payload['disciplines'].map { |item| item['id'] }
+
+      expect(later_ids).not_to include(discipline.id)
+      expect(later_payload['message']).to include('Sua disciplina não consta no quadro de horários')
+    end
   end
 
   describe 'GET #schedule_for_frequency_date' do

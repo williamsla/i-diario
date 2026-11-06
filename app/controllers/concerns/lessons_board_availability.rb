@@ -23,9 +23,7 @@ module LessonsBoardAvailability
   end
 
   def classroom_without_lessons_board?(classroom_id)
-    !LessonsBoard.joins(:classrooms_grade)
-                 .where(classrooms_grades: { classroom_id: classroom_id })
-                 .exists?
+    LessonsBoard.effective_for_classroom(classroom_id).blank?
   end
 
   def lessons_board_weekday_for_date(date)
@@ -60,19 +58,11 @@ module LessonsBoardAvailability
   end
 
   def classroom_has_lessons_on_date?(classroom:, date:)
-    weekday = lessons_board_weekday_for_date(date)
-    LessonsBoardLessonWeekday
-      .by_classroom(classroom.id)
-      .by_weekday(weekday)
-      .exists?
+    lessons_board_allocations_for(classroom_id: classroom.id, date: date).present?
   end
 
   def schedule_unavailable_message_for_knowledge_areas(classroom:, date:, schedule_ids:)
-    weekday = lessons_board_weekday_for_date(date)
-    classroom_has_lessons = LessonsBoardLessonWeekday
-                            .by_classroom(classroom.id)
-                            .by_weekday(weekday)
-                            .exists?
+    classroom_has_lessons = classroom_has_lessons_on_date?(classroom: classroom, date: date)
 
     message_key = if schedule_ids.blank?
                     classroom_has_lessons ? :no_knowledge_areas_on_lessons_board_for_date : :no_lessons_on_lessons_board_for_date
@@ -99,12 +89,21 @@ module LessonsBoardAvailability
   end
 
   def schedule_discipline_ids_for_classroom_weekday(classroom_id:, date:, period: nil)
-    weekday = lessons_board_weekday_for_date(date)
-    scope = LessonsBoardLessonWeekday.by_classroom(classroom_id).by_weekday(weekday)
-    scope = scope.by_period(period) if period.present?
-    scope.includes(:teacher_discipline_classroom)
-         .map { |w| w.teacher_discipline_classroom.discipline_id }
-         .uniq
+    lessons_board_allocations_for(classroom_id: classroom_id, date: date, period: period)
+      .map { |allocation| allocation.teacher_discipline_classroom&.discipline_id }
+      .compact
+      .uniq
+  end
+
+  def lessons_board_allocations_for(classroom_id:, date:, discipline_id: nil, teacher_id: nil, period: nil)
+    LessonsBoard.allocations_on_date(
+      classroom_id: classroom_id,
+      date: date,
+      weekday: lessons_board_weekday_for_date(date),
+      discipline_id: discipline_id,
+      teacher_id: teacher_id,
+      period: period
+    )
   end
 
   def linked_discipline_ids_on_schedule(classroom_id:, date:, discipline_ids:)
@@ -120,11 +119,10 @@ module LessonsBoardAvailability
 
   def discipline_ids_on_classroom_lessons_board(classroom_id)
     @discipline_ids_on_classroom_lessons_board ||= {}
-    @discipline_ids_on_classroom_lessons_board[classroom_id] ||= LessonsBoardLessonWeekday
-      .by_classroom(classroom_id)
-      .joins(:teacher_discipline_classroom)
-      .pluck('teacher_discipline_classrooms.discipline_id')
-      .uniq
+    @discipline_ids_on_classroom_lessons_board[classroom_id] ||= LessonsBoard.discipline_ids_on_boards(
+      classroom_id,
+      LessonsBoard.effective_for_classroom(classroom_id).map(&:id)
+    )
   end
 
   def disciplines_without_lessons_board_allocation(disciplines, classroom)
@@ -237,11 +235,7 @@ module LessonsBoardAvailability
   end
 
   def schedule_unavailable_message(classroom:, date:, schedule_ids:)
-    weekday = lessons_board_weekday_for_date(date)
-    classroom_has_lessons = LessonsBoardLessonWeekday
-                            .by_classroom(classroom.id)
-                            .by_weekday(weekday)
-                            .exists?
+    classroom_has_lessons = classroom_has_lessons_on_date?(classroom: classroom, date: date)
 
     message_key = if schedule_ids.blank?
                     classroom_has_lessons ? :no_teacher_lessons_on_lessons_board_for_date : :no_lessons_on_lessons_board_for_date

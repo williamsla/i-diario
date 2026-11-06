@@ -424,22 +424,14 @@ class DailyFrequenciesInBatchsController < ApplicationController
     allocation_dates = []
     dates.each do |date|
       lesson_numbers = []
-      if @frequency_type == FrequencyTypes::GENERAL
-        allocations =  LessonsBoardLessonWeekday.includes(:lessons_board_lesson)
-                                                .by_classroom(@classroom.id)
-                                                .by_teacher(current_teacher_id)
-                                                .by_weekday(date.strftime("%A").downcase)
-                                                .order('lessons_board_lessons.lesson_number')
-      else
-        allocations =  LessonsBoardLessonWeekday.includes(:lessons_board_lesson)
-                                                .by_classroom(@classroom.id)
-                                                .by_teacher(current_teacher_id)
-                                                .by_discipline(@discipline.id)
-                                                .by_weekday(date.strftime("%A").downcase)
-                                                .order('lessons_board_lessons.lesson_number')
-      end
-
-      allocations.by_period(@period) if @period.present?
+      discipline_id = @discipline.id unless @frequency_type == FrequencyTypes::GENERAL
+      allocations = LessonsBoard.allocations_on_date(
+        classroom_id: @classroom.id,
+        date: date,
+        weekday: date.strftime('%A').downcase,
+        teacher_id: current_teacher_id,
+        discipline_id: discipline_id
+      )
 
       if current_user.current_role_is_admin_or_employee?
         school_calendar = current_school_calendar

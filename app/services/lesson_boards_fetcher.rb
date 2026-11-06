@@ -50,10 +50,7 @@ class LessonBoardsFetcher
         return 0
       end
 
-      total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_semana_nome, true)
-      if total_aulas == 0
-        total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_semana_nome, false)
-      end
+      total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_semana_nome, data)
     end
 
     total_aulas
@@ -88,46 +85,47 @@ class LessonBoardsFetcher
 
   private
 
-  def count_lessons_from_boards(turma_id, disciplina_id, dia_semana_nome, ativo)
-    # Define filtro de ativo/inativo
-    ativo_condicao = if ativo
-      <<~SQL
-        AND lb.discarded_at IS NULL
-      SQL
-    else
-      calendar_start = calendar_first_day_sql(turma_id)
-      purged_filter = if calendar_start
-                        "AND lb.discarded_at >= '#{calendar_start}'"
-                      else
-                        ''
-                      end
-      <<~SQL
-        AND lb.discarded_at IS NOT NULL
-        #{purged_filter}
-      SQL
-    end
+  def count_lessons_from_boards(turma_id, disciplina_id, dia_semana_nome, data)
+    board_ids = LessonsBoard.ids_covering_date(turma_id, data)
+    return 0 if board_ids.blank?
 
-    sql = <<-SQL
-      SELECT COALESCE(MAX(quadros.total_aulas), 0) AS total_aulas
-      FROM (
-        SELECT lb.id, COUNT(lbl.id) AS total_aulas
-        FROM lessons_boards lb
-        INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id
-        INNER JOIN lessons_board_lessons lbl ON lbl.lessons_board_id = lb.id
-        INNER JOIN lessons_board_lesson_weekdays lblw ON lblw.lessons_board_lesson_id = lbl.id
-        INNER JOIN teacher_discipline_classrooms tdc ON tdc.classroom_id = cg.classroom_id
-          AND tdc.id = lblw.teacher_discipline_classroom_id
-          AND tdc.discipline_id = #{disciplina_id}
-          AND tdc.discarded_at IS NULL
-        WHERE cg.classroom_id = #{turma_id}
-          AND lblw.weekday = '#{dia_semana_nome}'
-          #{ativo_condicao}
-        GROUP BY lb.id
-      ) AS quadros
-    SQL
+    sql = ActiveRecord::Base.send(
+      :sanitize_sql_array,
+      [
+        <<-SQL.squish,
+          SELECT COALESCE(MAX(quadros.total_aulas), 0) AS total_aulas
+          FROM (
+            SELECT lb.id, COUNT(lbl.id) AS total_aulas
+            FROM lessons_boards lb
+            INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id
+            INNER JOIN lessons_board_lessons lbl ON lbl.lessons_board_id = lb.id
+            INNER JOIN lessons_board_lesson_weekdays lblw ON lblw.lessons_board_lesson_id = lbl.id
+            INNER JOIN teacher_discipline_classrooms tdc ON tdc.classroom_id = cg.classroom_id
+              AND tdc.id = lblw.teacher_discipline_classroom_id
+              AND tdc.discipline_id = ?
+              AND tdc.discarded_at IS NULL
+            WHERE cg.classroom_id = ?
+              AND lblw.weekday = ?
+              AND lb.id IN (?)
+              AND (
+                (
+                  lb.discarded_at IS NULL
+                  AND lbl.discarded_at IS NULL
+                  AND lblw.discarded_at IS NULL
+                )
+                OR lb.discarded_at IS NOT NULL
+              )
+            GROUP BY lb.id
+          ) AS quadros
+        SQL
+        disciplina_id.to_i,
+        turma_id.to_i,
+        dia_semana_nome,
+        board_ids
+      ]
+    )
 
-    total_aulas = ActiveRecord::Base.connection.exec_query(sql).first&.dig("total_aulas") || 0
-    total_aulas
+    ActiveRecord::Base.connection.exec_query(sql).first&.dig('total_aulas') || 0
   end
 
   def count_lessons_by_saturday(turma_id, disciplina_id, data)
@@ -137,14 +135,7 @@ class LessonBoardsFetcher
     # Se não houver mapeamento configurado, retorna 0
     return 0 if dia_equivalente.blank?
 
-    # Tenta quadros ativos
-    total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_equivalente, true)
-    if total_aulas == 0
-      # Se não houver, tenta inativos
-      total_aulas = count_lessons_from_boards(turma_id, disciplina_id, dia_equivalente, false)
-    end
-    
-    total_aulas
+    count_lessons_from_boards(turma_id, disciplina_id, dia_equivalente, data)
   end
 
   def get_weekday_for_saturday(date, turma_id: nil)
@@ -159,16 +150,6 @@ class LessonBoardsFetcher
     CurrentSchoolCalendarFetcher.new(classroom.unity, classroom, date.year).fetch
   rescue StandardError
     SchoolCalendar.find_by(unity_id: classroom.unity_id, year: date.year)
-  end
-
-  def calendar_first_day_sql(classroom_id)
-    classroom = Classroom.find_by(id: classroom_id)
-    return nil unless classroom
-
-    calendar = CurrentSchoolCalendarFetcher.new(classroom.unity, classroom, classroom.year).fetch
-    calendar&.first_day&.to_date&.beginning_of_day
-  rescue StandardError
-    nil
   end
 
   # Quadros com discarded_at anterior ao início do calendário foram "excluídos"

@@ -46,13 +46,12 @@ class DailyFrequenciesController < ApplicationController
       return
     end
 
-    weekday = lessons_board_weekday_for_date(frequency_date)
-    # Mesma regra do select de disciplinas: aulas do dia no quadro, sem filtrar por turno.
-    allocations = LessonsBoardLessonWeekday.includes(lessons_board_lesson: :lessons_board)
-                                           .by_classroom(classroom_id)
-                                           .by_discipline(discipline_id)
-                                           .by_weekday(weekday)
-                                           .order('lessons_board_lessons.lesson_number')
+    # Mesma regra do select de disciplinas: aulas do quadro vigente na data, sem filtrar por turno.
+    allocations = lessons_board_allocations_for(
+      classroom_id: classroom_id,
+      date: frequency_date,
+      discipline_id: discipline_id
+    )
 
     class_numbers_by_period = class_numbers_grouped_by_period(allocations)
     periods_list = periods_from_allocations(allocations)
@@ -1313,11 +1312,11 @@ class DailyFrequenciesController < ApplicationController
 
     return true if classroom_id.blank? || discipline_id.blank? || frequency_date.blank?
 
-    weekday = lessons_board_weekday_for_date(frequency_date)
-    allocations = LessonsBoardLessonWeekday.includes(lessons_board_lesson: :lessons_board)
-                                           .by_classroom(classroom_id)
-                                           .by_discipline(discipline_id)
-                                           .by_weekday(weekday)
+    allocations = lessons_board_allocations_for(
+      classroom_id: classroom_id,
+      date: frequency_date,
+      discipline_id: discipline_id
+    )
 
     return true unless requires_period_selection?(class_numbers_grouped_by_period(allocations))
 
