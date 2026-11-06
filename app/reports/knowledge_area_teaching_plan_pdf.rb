@@ -1,11 +1,12 @@
 class KnowledgeAreaTeachingPlanPdf < BaseReport
-  def self.build(entity_configuration, knowledge_area_teaching_plan)
-    new.build(entity_configuration, knowledge_area_teaching_plan)
+  def self.build(entity_configuration, knowledge_area_teaching_plan, current_unity = nil)
+    new.build(entity_configuration, knowledge_area_teaching_plan, current_unity)
   end
 
-  def build(entity_configuration, knowledge_area_teaching_plan)
+  def build(entity_configuration, knowledge_area_teaching_plan, current_unity = nil)
     @entity_configuration = entity_configuration
     @knowledge_area_teaching_plan = knowledge_area_teaching_plan
+    @current_unity = current_unity
     attributes
 
     if @display_header_on_all_reports_pages
@@ -54,7 +55,7 @@ class KnowledgeAreaTeachingPlanPdf < BaseReport
     organ_name = @entity_configuration ? @entity_configuration.organ_name : ''
 
     entity_organ_and_unity_cell = make_cell(
-      content: "#{entity_name}\n#{organ_name}\n#{unity_identification}",
+      content: "#{entity_name}\n#{organ_name}\n#{header_unity_name}",
       size: 12,
       leading: 1.5,
       align: :center,
@@ -199,6 +200,10 @@ class KnowledgeAreaTeachingPlanPdf < BaseReport
 
   def teaching_plan
     @teaching_plan ||= @knowledge_area_teaching_plan.teaching_plan
+  end
+
+  def header_unity_name
+    (@current_unity.presence || teaching_plan.unity)&.name.to_s
   end
 
   def unity_identification

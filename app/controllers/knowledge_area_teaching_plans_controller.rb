@@ -41,7 +41,7 @@ class KnowledgeAreaTeachingPlansController < ApplicationController
       format.pdf do
         knowledge_area_teaching_plan_pdf = teaching_plan_pdf_for(
           @knowledge_area_teaching_plan.teaching_plan,
-          KnowledgeAreaTeachingPlanPdf.build(current_entity_configuration, @knowledge_area_teaching_plan)
+          KnowledgeAreaTeachingPlanPdf.build(current_entity_configuration, @knowledge_area_teaching_plan, current_unity)
         )
         send_pdf(t('routes.knowledge_area_teaching_plans'), knowledge_area_teaching_plan_pdf.render)
       end

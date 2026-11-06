@@ -43,7 +43,7 @@ class DisciplineTeachingPlansController < ApplicationController
       format.pdf do
         discipline_teaching_plan_pdf = teaching_plan_pdf_for(
           @discipline_teaching_plan.teaching_plan,
-          DisciplineTeachingPlanPdf.build(current_entity_configuration, @discipline_teaching_plan)
+          DisciplineTeachingPlanPdf.build(current_entity_configuration, @discipline_teaching_plan, current_unity)
         )
         send_pdf(t("routes.discipline_teaching_plans"), discipline_teaching_plan_pdf.render)
       end
