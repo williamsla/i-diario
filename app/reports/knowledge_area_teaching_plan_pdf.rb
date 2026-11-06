@@ -126,7 +126,7 @@ class KnowledgeAreaTeachingPlanPdf < BaseReport
     @classroom_cell = make_cell(content: teaching_plan.grade.description, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan: 4)
 
     @teacher_header = make_cell(content: 'Professor', size: 8, font_style: :bold, borders: [:left, :right, :top], padding: [2, 2, 4, 4], colspan: 3)
-    @teacher_cell = make_cell(content: teaching_plan.teacher.name, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan: 3)
+    @teacher_cell = make_cell(content: teaching_plan.teacher&.name || '-', size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan: 3)
 
     @year_header = make_cell(content: 'Ano', size: 8, font_style: :bold, borders: [:left, :right, :top], padding: [2, 2, 4, 4], colspan: 2)
     @year_cell = make_cell(content: teaching_plan.year.to_s, size: 10, borders: [:bottom, :left, :right], padding: [0, 2, 4, 4], colspan: 2)
