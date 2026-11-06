@@ -1,5 +1,10 @@
 class DashboardController < ApplicationController
   def index
+    if student_portal_user?
+      @report_card = StudentReportCard.build(current_user.student, classroom_id: params[:classroom_id])
+      return
+    end
+
     fill_in_school_calendar_select_options
     fetch_current_school_calendar_step if @school_calendar_steps_options.any?
   end

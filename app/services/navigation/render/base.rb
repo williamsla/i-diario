@@ -87,6 +87,8 @@ module Navigation
       end
 
       def menu_text(menu_type)
+        return 'Boletim' if menu_type.to_s == 'dashboard' && student_portal_user?
+
         if menu_type.to_s == 'educamais'
           TermsDictionary.educamais_display_name
         elsif menu_type == 'school_term_recovery_diary_records'
@@ -106,6 +108,22 @@ module Navigation
 
         i18n_key = "aee.navigation.#{menu_type}"
         return I18n.t(i18n_key) if I18n.exists?(i18n_key)
+
+        nil
+      end
+
+      def student_portal_user?
+        return @student_portal_user unless @student_portal_user.nil?
+
+        user = navigation_portal_user
+        @student_portal_user = user.present? && (
+          user.current_access_level == AccessLevel::STUDENT || user.only_student?
+        )
+      end
+
+      def navigation_portal_user
+        return current_user if current_user.respond_to?(:only_student?)
+        return current_user.current_user if current_user.respond_to?(:current_user)
 
         nil
       end

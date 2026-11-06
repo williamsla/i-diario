@@ -1,0 +1,61 @@
+<table class="student-report-card__table">
+  <thead>
+    <tr>
+      <th>Matéria</th>
+      <th>Nota</th>
+      <th>Média</th>
+      <% if show_absences %>
+        <th>Faltas</th>
+      <% end %>
+      <th>Situação</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% if disciplines.blank? %>
+      <tr>
+        <td colspan="<%= show_absences ? 5 : 4 %>">O professor ainda não lançou as notas deste período.</td>
+      </tr>
+    <% else %>
+      <% disciplines.each do |discipline| %>
+        <tr>
+          <td>
+            <%= discipline[:name] %>
+            <% if discipline[:details].present? || discipline[:opinion].present? %>
+              <details>
+                <summary>Ver detalhes</summary>
+                <% if discipline[:details].present? %>
+                  <ul class="student-report-card__detail">
+                    <% discipline[:details].each do |detail| %>
+                      <li>
+                        <%= detail[:date] %> — <%= detail[:label] %>
+                        <% if detail[:score].present? %>
+                          — <%= detail[:score] %>
+                        <% end %>
+                      </li>
+                    <% end %>
+                  </ul>
+                <% end %>
+                <% if discipline[:opinion].present? %>
+                  <div class="student-report-card__opinion">
+                    <strong>O que o professor escreveu</strong>
+                    <p><%= discipline[:opinion] %></p>
+                  </div>
+                <% end %>
+              </details>
+            <% end %>
+          </td>
+          <td><%= discipline[:score_label] %></td>
+          <td><strong><%= discipline[:average_label] %></strong></td>
+          <% if show_absences %>
+            <td><%= discipline[:absences] %></td>
+          <% end %>
+          <td>
+            <span class="student-report-card__status student-report-card__status--<%= discipline[:situation_key] %>">
+              <%= discipline[:situation] %>
+            </span>
+          </td>
+        </tr>
+      <% end %>
+    <% end %>
+  </tbody>
+</table>

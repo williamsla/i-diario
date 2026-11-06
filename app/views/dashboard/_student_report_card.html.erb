@@ -1,0 +1,406 @@
+<% report = report_card %>
+<% sheet = report[:sheet] || {} %>
+
+<style>
+  body.dashboard #main,
+  body.dashboard #content,
+  body.dashboard #content-page,
+  body.dashboard #widget-grid,
+  body.dashboard #widget-grid > .row,
+  body.dashboard #widget-grid article,
+  body.dashboard .jarviswidget,
+  body.dashboard .jarviswidget > div {
+    max-width: 100%;
+    min-width: 0;
+  }
+  .boletim { color: #1a1a1a; font-size: 14px; max-width: 100%; min-width: 0; }
+  .boletim-topo { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .boletim-kicker { margin: 0; font-size: 13px; color: #4b5563; font-weight: 700; letter-spacing: 0.02em; }
+  .boletim-nome-aluno { margin: 2px 0 0; font-size: 24px; font-weight: 700; line-height: 1.2; }
+  .boletim-ano { margin: 4px 0 0; color: #4b5563; font-size: 13px; }
+  .boletim-impressao-topo { display: none; }
+  .boletim-turma { margin: 0 0 12px; }
+  .boletim-turma label { display: block; margin-bottom: 4px; font-size: 13px; }
+  .boletim-turma select { width: 100%; min-height: 44px; }
+  .boletim-identidade { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+  .boletim-identidade th,
+  .boletim-identidade td { border: 1px solid #222; padding: 6px 8px; text-align: left; background: #fff; }
+  .boletim-identidade th { font-size: 12px; font-weight: 700; }
+  .boletim-identidade td { font-size: 15px; font-weight: 700; }
+  .boletim-scroll {
+    display: none;
+    width: 100%;
+    max-width: 100%;
+    max-height: max(240px, calc(100vh - 340px));
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    border: 1px solid #222;
+    touch-action: pan-x pan-y;
+  }
+  .boletim-scroll::-webkit-scrollbar { width: 12px; height: 12px; }
+  .boletim-scroll::-webkit-scrollbar-thumb { background: #8b95a1; border-radius: 8px; }
+  .boletim-scroll::-webkit-scrollbar-track { background: #eef1f4; }
+  .boletim-planilha { border-collapse: collapse; width: max-content; min-width: 100%; font-size: 12px; }
+  .boletim-planilha th,
+  .boletim-planilha td { border: 1px solid #222; padding: 6px 8px; text-align: center; background: #fff; vertical-align: middle; white-space: nowrap; }
+  .boletim-planilha th { background: #f3f4f6; font-size: 11px; font-weight: 700; line-height: 1.2; position: sticky; z-index: 2; }
+  .boletim-planilha thead tr:first-child th { top: 0; }
+  .boletim-planilha thead tr:nth-child(2) th { top: 32px; }
+  .boletim-planilha .largo,
+  .boletim-planilha td:first-child { text-align: left; min-width: 160px; max-width: 220px; white-space: normal; position: sticky; left: 0; z-index: 3; }
+  .boletim-planilha th.largo { z-index: 4; background: #f3f4f6; top: 0; }
+  .boletim-planilha td:first-child { background: #fff; font-weight: 600; }
+  .boletim-dica { margin: 8px 0 0; color: #4b5563; font-size: 13px; }
+  .boletim-dica-horizontal { display: none; }
+  .boletim-vertical { display: grid; gap: 12px; margin-top: 12px; }
+  .boletim-disciplina { border: 1px solid #d5dbe3; border-radius: 12px; background: #fff; }
+  .boletim-disciplina h4 { margin: 0; padding: 12px 14px; background: #f4f7fb; font-size: 16px; }
+  .boletim-disciplina dl { margin: 0; }
+  .boletim-disciplina dl > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 14px; border-top: 1px solid #eef2f6; min-height: 44px; }
+  .boletim-disciplina dt { margin: 0; color: #526173; font-weight: 600; }
+  .boletim-disciplina dd { margin: 0; font-weight: 700; text-align: right; }
+  .boletim-vazio { margin: 12px 0 0; font-size: 16px; }
+  .boletim-pdf { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; margin: 0; padding: 10px 14px; border: 1px solid #17693c; border-radius: 8px; background: #fff; color: #17693c; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .boletim-pdf svg { width: 18px; height: 18px; }
+  .boletim-nota { border: 0; background: transparent; color: #0b6e99; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 6px 4px; min-width: 44px; min-height: 36px; }
+  .boletim-modal[hidden] { display: none; }
+  .boletim-modal { position: fixed; inset: 0; z-index: 3000; display: flex; align-items: flex-end; justify-content: center; }
+  .boletim-modal-fundo { position: absolute; inset: 0; background: rgba(17, 24, 39, 0.45); }
+  .boletim-modal-caixa { position: relative; width: 100%; max-height: 85vh; overflow: auto; background: #fff; border-radius: 16px 16px 0 0; padding: 16px 16px 24px; }
+  .boletim-modal-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .boletim-modal-caixa h4 { margin: 0; font-size: 18px; }
+  .boletim-modal-etapa { margin: 4px 0 12px; color: #4b5563; }
+  .boletim-modal-fechar { border: 0; background: #f3f4f6; border-radius: 8px; min-height: 44px; padding: 8px 12px; font-weight: 700; cursor: pointer; }
+  .boletim-modal-lista { margin: 0; padding: 0; list-style: none; }
+  .boletim-modal-lista li { padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
+  .boletim-modal-lista strong { display: block; }
+  .boletim-parecer { margin: 12px 0 0; padding: 10px 12px; background: #f7f9fb; border-radius: 8px; }
+  @media (max-width: 767px) {
+    html,
+    body.dashboard {
+      height: auto !important;
+      overflow-x: hidden !important;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch;
+    }
+    body.dashboard #main,
+    body.dashboard #content,
+    body.dashboard #content-page,
+    body.dashboard #widget-grid,
+    body.dashboard .jarviswidget,
+    body.dashboard .jarviswidget > div {
+      overflow: visible !important;
+      height: auto !important;
+      max-height: none !important;
+    }
+    .boletim-vertical {
+      max-height: calc(100vh - 210px);
+      max-height: calc(100dvh - 210px);
+      overflow-x: hidden;
+      overflow-y: scroll;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      touch-action: pan-y;
+      padding-right: 2px;
+    }
+  }
+  @media (min-width: 768px) {
+    .boletim-nome-aluno { font-size: 28px; }
+    .boletim-turma select { width: 280px; }
+    .boletim-pdf { width: auto; }
+    .boletim-scroll { display: block; }
+    .boletim-vertical { display: none; }
+    .boletim-dica-vertical { display: none; }
+    .boletim-dica-horizontal { display: block; }
+    .boletim-planilha { font-size: 13px; }
+    .boletim-modal { align-items: center; }
+    .boletim-modal-caixa { width: 520px; max-width: 92vw; border-radius: 16px; max-height: 80vh; }
+  }
+  @media print {
+    @page { size: A4 portrait; margin: 10mm; }
+    html, body { background: #fff !important; height: auto !important; overflow: visible !important; }
+    #header, #left-panel, #ribbon, .page-footer, nav, aside,
+    .jarviswidget > header, #flash-messages, .boletim-topo, .boletim-turma,
+    .boletim-dica, .boletim-pdf, .boletim-modal, .boletim-vertical { display: none !important; }
+    .boletim-scroll { display: block !important; }
+    .boletim-impressao-topo { display: block !important; margin-bottom: 8px; }
+    .boletim-impressao-topo h1 { margin: 0 0 2px; font-size: 14px; }
+    .boletim-impressao-topo .boletim-impressao-nome { margin: 0; font-size: 13px; font-weight: 700; }
+    .boletim-impressao-topo p { margin: 0; font-size: 10px; }
+    #main, #content, #content-page, #widget-grid, #widget-grid > .row,
+    #widget-grid article, .jarviswidget, .jarviswidget > div, .boletim, .boletim-para-impressao {
+      display: block !important;
+      position: static !important;
+      float: none !important;
+      width: auto !important;
+      max-width: none !important;
+      min-height: 0 !important;
+      height: auto !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: visible !important;
+      border: 0 !important;
+      box-shadow: none !important;
+      background: #fff !important;
+    }
+    #main { margin-left: 0 !important; }
+    .boletim-scroll { overflow: visible !important; max-height: none !important; border: 0 !important; }
+    .boletim-planilha, .boletim-identidade { width: 100% !important; min-width: 0 !important; table-layout: fixed !important; }
+    .boletim-planilha th, .boletim-planilha td,
+    .boletim-identidade th, .boletim-identidade td {
+      position: static !important;
+      white-space: normal !important;
+      font-size: 7.5px !important;
+      line-height: 1.2 !important;
+      padding: 2px !important;
+    }
+    .boletim-planilha td:first-child, .boletim-planilha th.largo { width: 22% !important; }
+    .boletim-planilha thead { display: table-header-group; }
+    .boletim-planilha tr, .boletim-identidade tr { break-inside: avoid; }
+  }
+</style>
+
+<section class="boletim">
+  <% if report[:blank] %>
+    <p class="boletim-vazio"><%= report[:message] %></p>
+  <% else %>
+    <div class="boletim-topo">
+      <div>
+        <p class="boletim-kicker">Boletim Escolar</p>
+        <h3 class="boletim-nome-aluno"><%= report[:student_name] %></h3>
+        <p class="boletim-ano">Ano letivo <%= report[:year] %> • <%= report[:classroom_name] %></p>
+      </div>
+      <% unless sheet[:rows].blank? %>
+        <button type="button" class="boletim-pdf" onclick="imprimirBoletim();">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 3v12"></path>
+            <path d="M7 11l5 5 5-5"></path>
+            <path d="M5 21h14"></path>
+          </svg>
+          Baixar boletim completo em PDF
+        </button>
+      <% end %>
+    </div>
+
+    <% if report[:enrollments].size > 1 %>
+      <div class="boletim-turma">
+        <%= form_tag root_path, method: :get do %>
+          <label for="classroom_id">Turma</label>
+          <%= select_tag :classroom_id,
+                          options_for_select(report[:enrollments].map { |item| [item[:label], item[:id]] }, report[:selected_classroom_id]),
+                          onchange: "this.form.submit()" %>
+        <% end %>
+      </div>
+    <% end %>
+
+    <div class="boletim-para-impressao">
+    <div class="boletim-impressao-topo">
+      <h1>Boletim Escolar</h1>
+      <p class="boletim-impressao-nome"><%= report[:student_name] %></p>
+      <p>Ano letivo <%= report[:year] %> • <%= report[:classroom_name] %></p>
+    </div>
+    <table class="boletim-identidade">
+      <tr>
+        <th>ALUNO</th>
+        <th>SITUAÇÃO</th>
+      </tr>
+      <tr>
+        <td><%= report[:student_name] %></td>
+        <td><%= sheet[:status] %></td>
+      </tr>
+    </table>
+
+    <% if sheet[:rows].blank? %>
+      <p class="boletim-vazio">O professor ainda não lançou as notas deste ano.</p>
+    <% else %>
+      <div class="boletim-scroll">
+        <table class="boletim-planilha" style="min-width: <%= [(sheet[:rows].first[:values].size + 1) * 72, 320].max %>px;">
+          <thead>
+            <% sheet[:header].each do |header_row| %>
+              <tr>
+                <% header_row.each do |cell| %>
+                  <th colspan="<%= cell[:colspan] %>" rowspan="<%= cell[:rowspan] %>" class="<%= cell[:css] %>"><%= cell[:text] %></th>
+                <% end %>
+              </tr>
+            <% end %>
+          </thead>
+          <tbody>
+            <% sheet[:rows].each_with_index do |row, row_index| %>
+              <tr>
+                <td><%= row[:name] %></td>
+                <% row[:values].each_with_index do |value, col_index| %>
+                  <td>
+                    <% if value.is_a?(Hash) && value[:grade] && (value[:text].present? || value[:details].present? || value[:opinion].present? || value[:year_opinion].present?) %>
+                      <button type="button" class="boletim-nota" data-avaliacao="<%= row_index %>-<%= col_index %>">
+                        <%= value[:text].presence || '—' %>
+                      </button>
+                    <% else %>
+                      <%= value.is_a?(Hash) ? value[:text] : value %>
+                    <% end %>
+                  </td>
+                <% end %>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+    </div>
+    <% unless sheet[:rows].blank? %>
+      <div class="boletim-vertical">
+        <% sheet[:rows].each_with_index do |row, row_index| %>
+          <article class="boletim-disciplina">
+            <h4><%= row[:name] %></h4>
+            <dl>
+              <% row[:values].each_with_index do |value, col_index| %>
+                <% next if sheet[:labels][col_index] == 'F' %>
+                <div>
+                  <dt><%= sheet[:labels][col_index] %></dt>
+                  <dd>
+                    <% if value.is_a?(Hash) && value[:grade] && (value[:text].present? || value[:details].present? || value[:opinion].present? || value[:year_opinion].present?) %>
+                      <button type="button" class="boletim-nota" data-avaliacao="<%= row_index %>-<%= col_index %>">
+                        <%= value[:text].presence || '—' %>
+                      </button>
+                    <% else %>
+                      <%= value.is_a?(Hash) ? value[:text].presence || '—' : value.presence || '—' %>
+                    <% end %>
+                  </dd>
+                </div>
+              <% end %>
+            </dl>
+          </article>
+        <% end %>
+      </div>
+    <% end %>
+    <% unless sheet[:rows].blank? %>
+      <% avaliacoes = {} %>
+      <% sheet[:rows].each_with_index do |row, row_index| %>
+        <% row[:values].each_with_index do |value, col_index| %>
+          <% next unless value.is_a?(Hash) && value[:grade] %>
+          <% avaliacoes["#{row_index}-#{col_index}"] = value.slice(:discipline, :step, :score, :details, :opinion, :year_opinion) %>
+        <% end %>
+      <% end %>
+      <p class="boletim-dica boletim-dica-vertical">Toque na nota para ver as avaliações do bimestre.</p>
+      <p class="boletim-dica boletim-dica-horizontal">Deslize a tabela para ver todas as colunas. Toque na nota para ver as avaliações do bimestre.</p>
+
+      <div class="boletim-modal" id="boletim-modal" hidden>
+        <div class="boletim-modal-fundo" data-fechar="true"></div>
+        <div class="boletim-modal-caixa" role="dialog" aria-modal="true" aria-labelledby="boletim-modal-titulo">
+          <div class="boletim-modal-topo">
+            <h4 id="boletim-modal-titulo"></h4>
+            <button type="button" class="boletim-modal-fechar" data-fechar="true">Fechar</button>
+          </div>
+          <p class="boletim-modal-etapa" id="boletim-modal-etapa"></p>
+          <div id="boletim-modal-corpo"></div>
+        </div>
+      </div>
+
+      <script type="application/json" id="boletim-avaliacoes-dados"><%= raw json_escape(avaliacoes.to_json) %></script>
+      <script>
+        function imprimirBoletim() {
+          var bloco = document.querySelector('.boletim-para-impressao');
+          if (!bloco) return;
+
+          var estilo = ''
+            + '@page { size: A4 portrait; margin: 10mm; }'
+            + 'html, body { margin: 0; padding: 0; background: #fff; color: #000; font-family: Arial, Helvetica, sans-serif; }'
+            + '.boletim-impressao-topo { display: block; margin-bottom: 8px; }'
+            + '.boletim-impressao-topo h1 { margin: 0 0 2px; font-size: 16px; }'
+            + '.boletim-impressao-nome { margin: 0 0 2px; font-size: 14px; font-weight: 700; }'
+            + '.boletim-impressao-topo p { margin: 0; font-size: 11px; }'
+            + 'table { border-collapse: collapse; width: 100%; table-layout: fixed; }'
+            + 'th, td { border: 1px solid #000; padding: 2px; text-align: center; font-size: 7.5px; line-height: 1.2; vertical-align: middle; background: #fff; word-wrap: break-word; }'
+            + 'th { background: #f2f2f2; font-weight: 700; }'
+            + '.boletim-identidade { margin: 0 0 8px; }'
+            + '.boletim-identidade th, .boletim-identidade td { text-align: left; font-size: 11px; padding: 4px 6px; }'
+            + '.boletim-identidade td { font-weight: 700; }'
+            + '.boletim-planilha td:first-child, .boletim-planilha th.largo { text-align: left; width: 22%; }'
+            + '.boletim-scroll { overflow: visible; max-height: none; border: 0; }'
+            + '.boletim-planilha { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }'
+            + '.boletim-nota { border: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit; text-decoration: none; padding: 0; min-width: 0; min-height: 0; }'
+            + 'thead { display: table-header-group; }'
+            + 'tr { break-inside: avoid; page-break-inside: avoid; }';
+
+          var janela = window.open('', '_blank');
+          if (!janela) {
+            window.print();
+            return;
+          }
+
+          janela.document.open();
+          janela.document.write('<!DOCTYPE html><html lang="pt-br"><head><meta charset="utf-8"><title>Boletim</title><style>' + estilo + '</style></head><body>' + bloco.innerHTML + '</body></html>');
+          janela.document.close();
+          janela.focus();
+          janela.onafterprint = function() { janela.close(); };
+          setTimeout(function() { janela.print(); }, 200);
+        }
+
+        (function() {
+          var origem = document.getElementById('boletim-avaliacoes-dados');
+          var modal = document.getElementById('boletim-modal');
+          if (!origem || !modal) return;
+
+          var dados = JSON.parse(origem.textContent || '{}');
+          var titulo = document.getElementById('boletim-modal-titulo');
+          var etapa = document.getElementById('boletim-modal-etapa');
+          var corpo = document.getElementById('boletim-modal-corpo');
+
+          function escapar(texto) {
+            return String(texto || '').replace(/[&<>"']/g, function(caractere) {
+              return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[caractere];
+            });
+          }
+
+          function fechar() {
+            modal.hidden = true;
+          }
+
+          function abrir(chave) {
+            var item = dados[chave];
+            if (!item) return;
+
+            titulo.textContent = item.discipline || 'Disciplina';
+            etapa.textContent = (item.step || 'Etapa') + (item.score ? ' • Nota ' + item.score : '');
+
+            var html = '';
+            if (item.details && item.details.length) {
+              html += '<ul class="boletim-modal-lista">';
+              item.details.forEach(function(detalhe) {
+                html += '<li><strong>' + escapar(detalhe.label) + '</strong>';
+                html += escapar(detalhe.date);
+                if (detalhe.score) html += ' — ' + escapar(detalhe.score);
+                html += '</li>';
+              });
+              html += '</ul>';
+            } else {
+              html += '<p>Ainda não há avaliações lançadas neste bimestre.</p>';
+            }
+            if (item.opinion) {
+              html += '<div class="boletim-parecer"><strong>O que o professor escreveu</strong><p>' + escapar(item.opinion) + '</p></div>';
+            }
+            if (item.year_opinion) {
+              html += '<div class="boletim-parecer"><strong>Parecer do ano</strong><p>' + escapar(item.year_opinion) + '</p></div>';
+            }
+            corpo.innerHTML = html;
+            modal.hidden = false;
+          }
+
+          document.querySelector('.boletim').addEventListener('click', function(evento) {
+            var botao = evento.target.closest('.boletim-nota');
+            if (!botao) return;
+            abrir(botao.getAttribute('data-avaliacao'));
+          });
+
+          modal.addEventListener('click', function(evento) {
+            if (evento.target.getAttribute('data-fechar') === 'true') fechar();
+          });
+
+          document.addEventListener('keydown', function(evento) {
+            if (evento.key === 'Escape') fechar();
+          });
+        })();
+      </script>
+    <% end %>
+  <% end %>
+</section>

@@ -19,7 +19,6 @@ class StudentsSynchronizer < BaseSynchronizer
 
   def update_students(students)
     allow_create_users_for_students = GeneralConfiguration.current.create_users_for_students_when_synchronize
-    @student_users ||= User.joins(:students).where(students: { api_code: students.map(&:aluno_id) }) if allow_create_users_for_students
 
     students.each do |student_record|
       next if student_record.nome_aluno.blank?
@@ -33,7 +32,7 @@ class StudentsSynchronizer < BaseSynchronizer
 
         student.uses_differentiated_exam_rule = false if student.uses_differentiated_exam_rule.nil?
         student.save! if student.changed?
-        create_users(student.id) if allow_create_users_for_students && student_user_new?(student)
+        sync_student_user(student, student_record) if allow_create_users_for_students
 
         discarded = student_record.deleted_at.present?
 
@@ -52,11 +51,29 @@ class StudentsSynchronizer < BaseSynchronizer
     end
   end
 
-  def create_users(student_id)
-    UserForStudentCreatorWorker.perform_in(1.second, entity_id, student_id)
+  def sync_student_user(student, student_record)
+    UserForStudentCreatorWorker.perform_in(
+      1.second,
+      entity_id,
+      student.id,
+      student_document(student_record)
+    )
   end
 
-  def student_user_new?(student)
-    true unless @student_users.map(&:student_id).include?(student.id)
+  def student_document(student_record)
+    [student_record.try(:cpf), student_record.try(:cpf_aluno)].each do |value|
+      digits = normalized_document(value)
+      return digits if digits.present?
+    end
+
+    nil
+  end
+
+  def normalized_document(value)
+    return if value.blank? || value.is_a?(Array) || value.is_a?(Hash)
+
+    digits = value.to_s.gsub(/\D/, '')
+    digits = digits.rjust(11, '0') if value.is_a?(Numeric) && digits.length < 11
+    digits.presence
   end
 end

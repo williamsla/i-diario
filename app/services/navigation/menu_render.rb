@@ -15,6 +15,8 @@ module Navigation
     end
 
     def render_menu(menu)
+      return '' if hidden_from_student_portal?(menu)
+
       has_submenus = menu[:subnodes].any?
 
       can_show = if menu[:visible]
@@ -54,6 +56,12 @@ module Navigation
       else
         ''
       end
+    end
+
+    def hidden_from_student_portal?(menu)
+      return false unless student_portal_user?
+
+      %w[dashboard accounts].exclude?(menu[:type].to_s)
     end
 
     def visible_submenus?(subnodes)
