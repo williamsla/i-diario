@@ -28,6 +28,7 @@ Rails.application.routes.draw do
         resources :teacher_disciplines, only: [:index]
         resources :school_calendars, only: [:index]
         resources :daily_frequencies, only: [:create, :index]
+        get 'attendance_summaries', to: 'attendance_summaries#show'
         resources :daily_frequency_students, only: [:update] do
           collection do
             post :update_or_create
