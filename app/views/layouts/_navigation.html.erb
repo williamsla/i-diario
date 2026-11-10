@@ -1,6 +1,6 @@
 <% content_for :js do %>
   <%= javascript_include_tag 'views/layouts/role_bar' %>
-  <% if params[:modal] != 'true' %>
+  <% if params[:modal] != 'true' && !student_portal_user? %>
     <% support_number = support_whatsapp_number %>
     <script type="text/javascript">
       document.addEventListener('DOMContentLoaded', function() {

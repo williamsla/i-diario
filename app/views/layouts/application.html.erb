@@ -25,7 +25,7 @@
           ), root_path %>
       </div>
 
-      <%= render "layouts/profile_selection" %>
+      <%= render "layouts/profile_selection" unless student_portal_user? %>
 
       <div class="pull-right" style="margin-top: 15px;">
         <% if user_signed_in? %>

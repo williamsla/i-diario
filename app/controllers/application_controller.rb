@@ -71,6 +71,7 @@ class ApplicationController < ActionController::Base
   helper_method :can_change_school_year?
   helper_method :can_launch_in_step?
   helper_method :step_launch_blocked_title
+  helper_method :student_portal_user?
 
   def page
     params[:page] || 1
@@ -146,6 +147,8 @@ class ApplicationController < ActionController::Base
   end
 
   def check_for_current_user_role
+    return if student_portal_user?
+
     flash.now[:warning] = t('current_role.check.warning') unless valid_current_role?
   end
 
@@ -788,9 +791,15 @@ class ApplicationController < ActionController::Base
     redirect_to edit_account_path
   end
 
+  def student_portal_user?
+    return false unless current_user
+
+    current_user.current_access_level == AccessLevel::STUDENT || current_user.only_student?
+  end
+
   def check_password_expired
     days_to_expire_password = GeneralConfiguration.current.days_to_expire_password || 0
-    return if current_user.admin? || days_to_expire_password.zero? || target_path?
+    return if current_user.admin? || current_user.only_student? || days_to_expire_password.zero? || target_path?
 
     days_after_last_password_change = (Date.current - current_user.last_password_change.to_date).to_i
     return if days_after_last_password_change <= days_to_expire_password

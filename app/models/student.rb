@@ -67,7 +67,7 @@ class Student < ApplicationRecord
   end
 
   def display_name
-    @display_name ||= social_name || name
+    @display_name ||= social_name.presence || name
   end
 
   def first_name

@@ -436,6 +436,10 @@ class User < ApplicationRecord
     email.eql?(Rails.application.secrets.admin_email)
   end
 
+  def only_student?
+    student? && roles.count == 1
+  end
+
   protected
 
   def teacher_access_level?
@@ -486,10 +490,6 @@ class User < ApplicationRecord
     return unless login =~ /\A([^@\s]+)@((?:[-a-z0-9]+\.)+[a-z]{2,})\z/i
 
     errors.add(:login, :can_not_be_an_email)
-  end
-
-  def only_student?
-    student? && roles.count == 1
   end
 
   def update_fullname_tokens
