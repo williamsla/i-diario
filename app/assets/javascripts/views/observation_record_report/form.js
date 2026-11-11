@@ -57,10 +57,12 @@ $(function () {
     classrooms.unshift({ id: 'all', name: '<option>Todas</option>', text: 'Todas' });
 
     var currentValue = $classroom.val();
+    var hasCurrent = _.some(classrooms, function(classroom) {
+      return String(classroom.id) === String(currentValue);
+    });
+
     $classroom.select2({ data: classrooms });
-    if (!_.isEmpty(currentValue)) {
-      $classroom.select2('val', currentValue);
-    }
+    $classroom.select2('val', hasCurrent ? currentValue : 'all');
     getDisciplines();
     getStudents();
     toggleSubmit();

@@ -154,7 +154,7 @@ class ObservationRecordReport < BaseReportOld
     author = record.teacher&.to_s
     return content if author.blank?
 
-    "#{content}\n<font size='8'><color rgb='777777'><i>#{escape_inline(author)}</i></color></font>"
+    "#{content}\n<font size='8'><color rgb='777777'><i>#{escape_inline(t(:author, name: author))}</i></color></font>"
   end
 
   def escape_inline(text)

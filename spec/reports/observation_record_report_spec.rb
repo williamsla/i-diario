@@ -30,7 +30,7 @@ RSpec.describe ObservationRecordReport, type: :report do
     expect(text_analysis.strings).to include(unity.to_s)
     expect(text_analysis.strings).to include(classroom.to_s)
     expect(text_analysis.strings).to include(discipline.to_s)
-    expect(text_analysis.strings).to include(teacher.to_s)
+    expect(text_analysis.strings.join).to include("Autor: #{teacher}")
     expect(text_analysis.strings).to include(observation_diary_record.date)
     expect(text_analysis.strings).to include(observation_diary_record_note.description)
   end

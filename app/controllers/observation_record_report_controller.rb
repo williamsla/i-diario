@@ -5,7 +5,7 @@ class ObservationRecordReportController < ApplicationController
     @observation_record_report_form = ObservationRecordReportForm.new(
       teacher_id: current_teacher.id,
       unity_id: current_unity.id,
-      classroom_id: 'all',
+      classroom_id: current_user_classroom.try(:id) || 'all',
       discipline_id: 'all',
       student_id: 'all',
       start_at: Time.zone.today.beginning_of_year,

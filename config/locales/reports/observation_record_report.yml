@@ -15,6 +15,7 @@ pt-BR:
       students: 'Alunos'
       student: 'Aluno'
       observation: 'Observação'
+      author: 'Autor: %{name}'
       active_search: 'Busca ativa'
       teacher_signature: |
         ______________________________________________
