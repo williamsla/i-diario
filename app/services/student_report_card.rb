@@ -39,6 +39,7 @@ class StudentReportCard
       year_rows: year_rows,
       year_opinions: year_opinions,
       year_note: unfinished_note,
+      pdf_header: pdf_header,
       sheet: grade_sheet
     }
   end
@@ -46,6 +47,25 @@ class StudentReportCard
   private
 
   attr_reader :student, :classroom_id
+
+  def pdf_header
+    configuration = EntityConfiguration.current
+    logo = configuration.logo if configuration.logo.present? && configuration.logo.file.present?
+
+    {
+      logo_url: logo ? logo.url : nil,
+      entity_name: configuration.entity_name.to_s,
+      organ_name: configuration.organ_name.to_s,
+      school_name: classroom.unity.to_s
+    }
+  rescue StandardError
+    {
+      logo_url: nil,
+      entity_name: '',
+      organ_name: '',
+      school_name: classroom.try(:unity).to_s
+    }
+  end
 
   def blank_card(message)
     { blank: true, message: message, enrollments: [] }
@@ -523,11 +543,32 @@ class StudentReportCard
 
   def evaluation_line(daily_note_student)
     avaliation = daily_note_student.avaliation
+    score = evaluation_score(daily_note_student)
+    shown, own_scale, step_scale = score_with_maximum(score, avaliation)
     {
       label: avaliation.to_s,
-      date: I18n.l(avaliation.test_date),
-      score: evaluation_score(daily_note_student)
+      date: '',
+      score: shown,
+      own_scale: own_scale,
+      step_scale: step_scale
     }
+  end
+
+  def score_with_maximum(score, avaliation)
+    return [score, false, nil] unless score.to_s.match?(/\A-?\d/)
+
+    maximum = MaximumScoreFetcher.new(avaliation).maximum_score
+    return [score, false, nil] if maximum.blank?
+
+    formatted_max = format_number(maximum)
+    shown = "#{score} de #{formatted_max}"
+    shown = "#{shown} (nota máxima)" if score == formatted_max
+    step_maximum = avaliation.test_setting&.maximum_score
+    step_scale = step_maximum.present? ? format_number(step_maximum) : nil
+    own_scale = step_scale.present? && formatted_max != step_scale
+    [shown, own_scale, step_scale]
+  rescue StandardError
+    [score, false, nil]
   end
 
   def evaluation_score(daily_note_student)
@@ -554,7 +595,7 @@ class StudentReportCard
       sentence = "Fez recuperação e tirou #{format_number(student_score)}."
       sentence = "#{sentence} A nota desta etapa ficou #{score_label(step_score)}." if step_score.present?
 
-      { label: sentence, date: I18n.l(record.recorded_at.to_date), score: nil }
+      { label: sentence, date: '', score: nil }
     end.compact
   end
 
@@ -562,7 +603,7 @@ class StudentReportCard
     @daily_note_students ||= DailyNoteStudent.by_student_id(student.id)
                                              .by_classroom_id(classroom.id)
                                              .active
-                                             .includes(daily_note: { avaliation: :discipline })
+                                             .includes(daily_note: { avaliation: [:discipline, :test_setting, :test_setting_test] })
                                              .to_a
   end
 
@@ -992,11 +1033,13 @@ class StudentReportCard
 
   def grade_cell(row, step)
     text = display_score(row)
-    details = Array(row && row[:details]).map do |item|
+    raw_details = Array(row && row[:details])
+    details = raw_details.map do |item|
       { date: item[:date].to_s, label: item[:label].to_s, score: item[:score].to_s }
     end
     opinion = row && row[:opinion].to_s
     discipline = row ? row[:name].to_s : ''
+    step_scale = raw_details.map { |item| item[:step_scale] }.find(&:present?)
 
     {
       text: text,
@@ -1005,9 +1048,16 @@ class StudentReportCard
       step: step_heading(step),
       score: text,
       details: details,
+      scale_note: scale_note_for(raw_details, step_scale),
       opinion: opinion.to_s,
       year_opinion: year_opinion_for(discipline)
     }
+  end
+
+  def scale_note_for(details, step_scale)
+    return '' unless step_scale.present? && details.any? { |item| item[:own_scale] }
+
+    "Cada prova tem uma nota máxima própria. A nota do bimestre vai de 0 a #{step_scale}."
   end
 
   def year_opinion_for(discipline_name)

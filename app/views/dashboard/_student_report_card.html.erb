@@ -1,5 +1,13 @@
 <% report = report_card %>
 <% sheet = report[:sheet] || {} %>
+<% texto_situacao = sheet[:status].to_s %>
+<% classe_situacao = if texto_situacao.casecmp('Cursando').zero?
+  'boletim-situacao-cursando'
+elsif texto_situacao.match?(/\Aaprov/i) || texto_situacao.match?(/\Aapr\./i)
+  'boletim-situacao-aprovado'
+elsif texto_situacao.match?(/\Areprov/i) || texto_situacao.match?(/\Arep\./i)
+  'boletim-situacao-reprovado'
+end %>
 
 <style>
   body.dashboard #main,
@@ -15,11 +23,23 @@
   }
   .boletim { color: #1a1a1a; font-size: 14px; max-width: 100%; min-width: 0; }
   .boletim-topo { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .boletim-identificacao { min-width: 0; }
   .boletim-kicker { margin: 0; font-size: 13px; color: #4b5563; font-weight: 700; letter-spacing: 0.02em; }
-  .boletim-nome-aluno { margin: 2px 0 0; font-size: 24px; font-weight: 700; line-height: 1.2; }
+  .boletim-nome-aluno { margin: 2px 0 0; font-size: 18px; font-weight: 700; line-height: 1.2; }
   .boletim-ano { margin: 4px 0 0; color: #4b5563; font-size: 13px; }
   .boletim-situacao { color: #1a1a1a; font-weight: 700; white-space: nowrap; padding-bottom: 12px; }
+  .boletim-situacao-cursando { color: #0b6e99; }
+  .boletim-situacao-aprovado { color: #17693c; }
+  .boletim-situacao-reprovado { color: #6b7280; }
+  .boletim-situacao-rotulo { display: none; }
+  .boletim-turma-rotulo { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .boletim-turma-rotulo label { margin-bottom: 0; }
+  .boletim-disciplina summary::marker { content: ''; }
   .boletim-impressao-topo { display: none; }
+  .boletim-cabecalho-instituicao { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; }
+  .boletim-logo { width: 52px; height: 52px; object-fit: contain; }
+  .boletim-cabecalho-instituicao p { margin: 0; font-size: 11px; line-height: 1.3; }
+  .boletim-cabecalho-entidade { font-size: 13px; font-weight: 700; }
   .boletim-turma { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 16px; margin: 12px 0; }
   .boletim-turma form { flex: 1 1 200px; max-width: 280px; min-width: 0; margin: 0; }
   .boletim-turma label { display: block; margin-bottom: 4px; font-size: 13px; }
@@ -50,13 +70,22 @@
   .boletim-planilha td:first-child { background: #fff; font-weight: 600; }
   .boletim-dica { margin: 8px 0 0; color: #4b5563; font-size: 13px; }
   .boletim-dica-horizontal { display: none; }
-  .boletim-vertical { display: grid; gap: 12px; margin-top: 12px; }
-  .boletim-disciplina { border: 1px solid #d5dbe3; border-radius: 12px; background: #fff; }
-  .boletim-disciplina h4 { margin: 0; padding: 12px 14px; background: #f4f7fb; font-size: 16px; }
-  .boletim-disciplina dl { margin: 0; }
-  .boletim-disciplina dl > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 14px; border-top: 1px solid #eef2f6; min-height: 44px; }
-  .boletim-disciplina dt { margin: 0; color: #526173; font-weight: 600; }
-  .boletim-disciplina dd { margin: 0; font-weight: 700; text-align: right; }
+  .boletim-vertical { display: grid; gap: 8px; margin-top: 12px; }
+  .boletim-disciplina details { border: 1px solid #d5dbe3; border-radius: 12px; background: #fff; }
+  .boletim-disciplina summary { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 10px 14px; background: #f4f7fb; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; list-style: none; }
+  .boletim-disciplina summary::-webkit-details-marker { display: none; }
+  .boletim-disciplina details[open] summary { border-radius: 12px 12px 0 0; }
+  .boletim-disciplina summary::after { content: ''; width: 8px; height: 8px; margin-top: -4px; border-right: 2px solid #526173; border-bottom: 2px solid #526173; transform: rotate(45deg); flex: 0 0 auto; }
+  .boletim-disciplina details[open] summary::after { margin-top: 4px; transform: rotate(-135deg); }
+  .boletim-disciplina-nome { flex: 1 1 auto; min-width: 0; }
+  .boletim-etapas { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px 4px; }
+  .boletim-etapa { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 64px; min-height: 56px; padding: 4px 8px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; }
+  .boletim-etapa small { color: #526173; font-size: 12px; font-weight: 700; }
+  .boletim-etapa-valor { min-height: 32px; padding: 2px 4px; font-weight: 700; }
+  .boletim-resumo-linha { display: flex; flex-wrap: wrap; gap: 10px 16px; margin: 0; padding: 8px 14px 12px; }
+  .boletim-resumo-linha span { display: flex; flex-direction: column; min-width: 72px; }
+  .boletim-resumo-linha small { color: #526173; font-size: 12px; font-weight: 600; }
+  .boletim-resumo-linha strong { font-size: 15px; }
   .boletim-vazio { margin: 12px 0 0; font-size: 16px; }
   .boletim-pareceres { display: grid; gap: 18px; margin-top: 4px; }
   .boletim-parecer-grupo h4 { margin: 0; font-size: 16px; }
@@ -64,7 +93,7 @@
   .boletim-parecer-item h5 { margin: 0 0 4px; font-size: 15px; }
   .boletim-parecer-item p { margin: 0; white-space: pre-wrap; line-height: 1.5; }
   .boletim-parecer-frequencia { margin: 0; font-weight: 700; }
-  .boletim-pdf { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; margin: 0; padding: 10px 14px; border: 1px solid #17693c; border-radius: 8px; background: #fff; color: #17693c; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .boletim-pdf { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; margin: 0; padding: 10px 14px; border: 1px solid #17693c; border-radius: 8px; background: #fff; color: #17693c; font-size: 15px; font-weight: 700; cursor: pointer; }
   .boletim-pdf svg { width: 18px; height: 18px; }
   .boletim-nota { border: 0; background: transparent; color: #0b6e99; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 6px 4px; min-width: 44px; min-height: 36px; }
   .boletim-modal[hidden] { display: none; }
@@ -78,6 +107,8 @@
   .boletim-modal-lista { margin: 0; padding: 0; list-style: none; }
   .boletim-modal-lista li { padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
   .boletim-modal-lista strong { display: block; }
+  .boletim-modal-nota { display: block; margin-top: 2px; font-weight: 700; }
+  .boletim-modal-escala { margin: 0 0 12px; color: #526173; font-size: 14px; line-height: 1.4; }
   .boletim-parecer { margin: 12px 0 0; padding: 10px 12px; background: #f7f9fb; border-radius: 8px; }
   @media (max-width: 767px) {
     html,
@@ -97,19 +128,26 @@
       height: auto !important;
       max-height: none !important;
     }
-    .boletim-vertical {
-      max-height: calc(100vh - 210px);
-      max-height: calc(100dvh - 210px);
-      overflow-x: hidden;
-      overflow-y: scroll;
-      -webkit-overflow-scrolling: touch;
-      overscroll-behavior: contain;
-      touch-action: pan-y;
-      padding-right: 2px;
-    }
+    .boletim-topo { flex-wrap: nowrap; gap: 8px; }
+    .boletim-identificacao { flex: 1 1 auto; }
+    .boletim-nome-aluno { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .boletim-pdf { width: 44px; min-width: 44px; height: 44px; padding: 0; flex: 0 0 44px; }
+    .boletim-pdf-texto { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
+    .boletim-turma { display: block; }
+    .boletim-turma form { max-width: none; width: 100%; }
+    .boletim, .boletim * { box-sizing: border-box; }
+    .boletim-turma > .boletim-situacao.boletim-situacao-campo { display: none; }
+    .boletim-situacao-rotulo,
+    .boletim-turma > .boletim-situacao:not(.boletim-situacao-campo) { display: inline-flex; align-items: center; min-height: 28px; padding: 2px 10px; border-radius: 999px; background: #f3f4f6; color: #1a1a1a; font-size: 13px; }
+    .boletim-situacao-rotulo.boletim-situacao-cursando,
+    .boletim-turma > .boletim-situacao-cursando:not(.boletim-situacao-campo) { background: #e7f3fa; color: #0b6e99; }
+    .boletim-situacao-rotulo.boletim-situacao-aprovado,
+    .boletim-turma > .boletim-situacao-aprovado:not(.boletim-situacao-campo) { background: #eef6f1; color: #17693c; }
+    .boletim-situacao-rotulo.boletim-situacao-reprovado,
+    .boletim-turma > .boletim-situacao-reprovado:not(.boletim-situacao-campo) { background: #f3f4f6; color: #6b7280; }
+    .boletim-vertical { max-height: none; overflow: visible; }
   }
   @media (min-width: 768px) {
-    .boletim-nome-aluno { font-size: 28px; }
     .boletim-turma form { flex: 0 1 280px; }
     .boletim-pdf { width: auto; }
     .boletim-scroll { display: block; }
@@ -168,19 +206,18 @@
     <p class="boletim-vazio"><%= report[:message] %></p>
   <% else %>
     <div class="boletim-topo">
-      <div>
-        <p class="boletim-kicker">Boletim Escolar</p>
+      <div class="boletim-identificacao">
         <h3 class="boletim-nome-aluno"><%= report[:student_name] %></h3>
         <p class="boletim-ano">Ano letivo <%= report[:year] %> • <%= report[:classroom_name] %></p>
       </div>
       <% if sheet[:rows].present? || sheet[:opinions].present? %>
-        <button type="button" class="boletim-pdf" onclick="abrirPdfBoletim();">
+        <button type="button" class="boletim-pdf" onclick="abrirPdfBoletim();" aria-label="Baixar boletim completo em PDF">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path d="M12 3v12"></path>
             <path d="M7 11l5 5 5-5"></path>
             <path d="M5 21h14"></path>
           </svg>
-          Baixar boletim completo em PDF
+          <span class="boletim-pdf-texto">Baixar boletim completo em PDF</span>
         </button>
       <% end %>
     </div>
@@ -189,23 +226,47 @@
       <div class="boletim-turma">
         <% if report[:enrollments].size > 1 %>
           <%= form_tag root_path, method: :get do %>
-            <label for="classroom_id">Turma</label>
+            <div class="boletim-turma-rotulo">
+              <label for="classroom_id">Turma</label>
+              <% if sheet[:status].present? %>
+                <span class="boletim-situacao boletim-situacao-rotulo <%= classe_situacao %>"><%= sheet[:status] %></span>
+              <% end %>
+            </div>
             <%= select_tag :classroom_id,
                             options_for_select(report[:enrollments].map { |item| [item[:label], item[:id]] }, report[:selected_classroom_id]),
                             onchange: "this.form.submit()" %>
           <% end %>
-        <% end %>
-        <% if sheet[:status].present? %>
-          <span class="boletim-situacao"><%= sheet[:status] %></span>
+          <% if sheet[:status].present? %>
+            <span class="boletim-situacao boletim-situacao-campo <%= classe_situacao %>"><%= sheet[:status] %></span>
+          <% end %>
+        <% elsif sheet[:status].present? %>
+          <span class="boletim-situacao <%= classe_situacao %>"><%= sheet[:status] %></span>
         <% end %>
       </div>
     <% end %>
 
     <div class="boletim-para-impressao">
     <div class="boletim-impressao-topo">
+      <% cabecalho_pdf = report[:pdf_header] || {} %>
+      <div class="boletim-cabecalho-instituicao">
+        <% if cabecalho_pdf[:logo_url].present? %>
+          <img class="boletim-logo" src="<%= cabecalho_pdf[:logo_url] %>" alt="">
+        <% end %>
+        <div>
+          <% if cabecalho_pdf[:entity_name].present? %>
+            <p class="boletim-cabecalho-entidade"><%= cabecalho_pdf[:entity_name] %></p>
+          <% end %>
+          <% if cabecalho_pdf[:organ_name].present? %>
+            <p class="boletim-cabecalho-orgao"><%= cabecalho_pdf[:organ_name] %></p>
+          <% end %>
+          <% if cabecalho_pdf[:school_name].present? %>
+            <p class="boletim-cabecalho-escola"><%= cabecalho_pdf[:school_name] %></p>
+          <% end %>
+        </div>
+      </div>
       <h1>Boletim Escolar</h1>
       <p class="boletim-impressao-nome"><%= report[:student_name] %></p>
-      <p>Ano letivo <%= report[:year] %> • <%= report[:classroom_name] %><% if sheet[:status].present? %> • <%= sheet[:status] %><% end %></p>
+      <p class="boletim-impressao-meta">Ano letivo <%= report[:year] %> • <%= report[:classroom_name] %><% if sheet[:status].present? %> • <%= sheet[:status] %><% end %></p>
     </div>
 
     <% if sheet[:opinions].present? %>
@@ -266,30 +327,95 @@
     <% end %>
     </div>
     <% unless sheet[:rows].blank? %>
+      <% etapa_curta = lambda do |rotulo|
+        partes = rotulo.to_s.split('·').map(&:strip)
+        base = partes.last.to_s
+        base = partes.first.to_s if base.blank? || base.casecmp('NOTA').zero?
+        base.split(/\s+/).first
+      end %>
+      <% resumo_curto = lambda do |rotulo|
+        texto = rotulo.to_s
+        if texto =~ /freq/i
+          'Frequência'
+        elsif texto =~ /falta/i
+          'Faltas'
+        elsif texto =~ /exame/i
+          'Exame'
+        elsif texto =~ /rec\.?\s*final/i
+          'Rec. final'
+        elsif texto =~ /\Arec/i
+          'Recuperação'
+        elsif texto =~ /m[eé]dia final 1/i
+          'Média 1º'
+        elsif texto =~ /m[eé]dia final 2/i
+          'Média 2º'
+        elsif texto =~ /m[eé]dia/i
+          'Média'
+        else
+          texto
+        end
+      end %>
       <div class="boletim-vertical">
         <% sheet[:rows].each_with_index do |row, row_index| %>
+          <% etapas = [] %>
+          <% complementos = [] %>
+          <% row[:values].each_with_index do |value, col_index| %>
+            <% rotulo = sheet[:labels][col_index].to_s %>
+            <% next if rotulo == 'F' %>
+            <% texto = value.is_a?(Hash) ? value[:text].to_s : value.to_s %>
+            <% if value.is_a?(Hash) && value[:grade] %>
+              <% etapas << { rotulo: rotulo, value: value, col_index: col_index, texto: texto } %>
+            <% else %>
+              <% complementos << { rotulo: rotulo, texto: texto } %>
+            <% end %>
+          <% end %>
           <article class="boletim-disciplina">
-            <h4><%= row[:name] %></h4>
-            <dl>
-              <% row[:values].each_with_index do |value, col_index| %>
-                <% next if sheet[:labels][col_index] == 'F' %>
-                <div>
-                  <dt><%= sheet[:labels][col_index] %></dt>
-                  <dd>
-                    <% if value.is_a?(Hash) && value[:grade] && (value[:text].present? || value[:details].present? || value[:opinion].present? || value[:year_opinion].present?) %>
-                      <button type="button" class="boletim-nota" data-avaliacao="<%= row_index %>-<%= col_index %>">
-                        <%= value[:text].presence || '—' %>
-                      </button>
-                    <% else %>
-                      <%= value.is_a?(Hash) ? value[:text].presence || '—' : value.presence || '—' %>
-                    <% end %>
-                  </dd>
+            <details>
+              <summary>
+                <span class="boletim-disciplina-nome"><%= row[:name] %></span>
+              </summary>
+              <% if etapas.any? %>
+                <div class="boletim-etapas">
+                  <% etapas.each do |etapa| %>
+                    <% valor = etapa[:value] %>
+                    <% clicavel = valor[:text].present? || valor[:details].present? || valor[:opinion].present? || valor[:year_opinion].present? %>
+                    <div class="boletim-etapa">
+                      <small><%= etapa_curta.call(etapa[:rotulo]) %></small>
+                      <% if clicavel %>
+                        <button type="button" class="boletim-nota" data-avaliacao="<%= row_index %>-<%= etapa[:col_index] %>">
+                          <%= etapa[:texto].presence || '—' %>
+                        </button>
+                      <% else %>
+                        <span class="boletim-etapa-valor"><%= etapa[:texto].presence || '—' %></span>
+                      <% end %>
+                    </div>
+                  <% end %>
                 </div>
               <% end %>
-            </dl>
+              <% if complementos.any? %>
+                <div class="boletim-resumo-linha">
+                  <% complementos.each do |item| %>
+                    <span>
+                      <small><%= resumo_curto.call(item[:rotulo]) %></small>
+                      <strong><%= item[:texto].presence || '—' %></strong>
+                    </span>
+                  <% end %>
+                </div>
+              <% end %>
+            </details>
           </article>
         <% end %>
       </div>
+      <script>
+        document.querySelectorAll('.boletim-disciplina details').forEach(function(item) {
+          item.addEventListener('toggle', function() {
+            if (!item.open) return;
+            document.querySelectorAll('.boletim-disciplina details[open]').forEach(function(outro) {
+              if (outro !== item) outro.removeAttribute('open');
+            });
+          });
+        });
+      </script>
     <% end %>
     <% if sheet[:rows].present? || sheet[:opinions].present? %>
       <% if sheet[:rows].present? %>
@@ -297,10 +423,10 @@
       <% sheet[:rows].each_with_index do |row, row_index| %>
         <% row[:values].each_with_index do |value, col_index| %>
           <% next unless value.is_a?(Hash) && value[:grade] %>
-          <% avaliacoes["#{row_index}-#{col_index}"] = value.slice(:discipline, :step, :score, :details, :opinion, :year_opinion) %>
+          <% avaliacoes["#{row_index}-#{col_index}"] = value.slice(:discipline, :step, :score, :details, :scale_note, :opinion, :year_opinion) %>
         <% end %>
       <% end %>
-      <p class="boletim-dica boletim-dica-vertical">Toque na nota para ver as avaliações do bimestre.</p>
+      <p class="boletim-dica boletim-dica-vertical">Toque na matéria para ver as etapas. Toque na nota para ver as avaliações.</p>
       <p class="boletim-dica boletim-dica-horizontal">Deslize a tabela para ver todas as colunas. Toque na nota para ver as avaliações do bimestre.</p>
 
       <div class="boletim-modal" id="boletim-modal" hidden>
@@ -323,7 +449,13 @@
           if (!bloco) return;
 
           var topo = bloco.querySelector('.boletim-impressao-topo');
-          var metas = topo ? topo.querySelectorAll('p') : [];
+          var metaEl = topo ? topo.querySelector('.boletim-impressao-meta') : null;
+          var instituicaoEl = bloco.querySelector('.boletim-cabecalho-instituicao');
+          var instituicao = {
+            entidade: textoPdf(instituicaoEl && instituicaoEl.querySelector('.boletim-cabecalho-entidade') ? instituicaoEl.querySelector('.boletim-cabecalho-entidade').textContent : ''),
+            orgao: textoPdf(instituicaoEl && instituicaoEl.querySelector('.boletim-cabecalho-orgao') ? instituicaoEl.querySelector('.boletim-cabecalho-orgao').textContent : ''),
+            escola: textoPdf(instituicaoEl && instituicaoEl.querySelector('.boletim-cabecalho-escola') ? instituicaoEl.querySelector('.boletim-cabecalho-escola').textContent : '')
+          };
           var tabela = bloco.querySelector('table');
           var linhas = [];
           var cabecalho = tabela && tabela.tHead ? tabela.tHead.rows.length : 0;
@@ -358,27 +490,45 @@
             pareceres.push({ titulo: titulo ? textoParecer(titulo.textContent) : '', itens: itens });
           });
           var frequencia = bloco.querySelector('.boletim-parecer-frequencia');
-
-          var arquivo = new File([construirPdfBoletim({
+          var modelo = {
             titulo: textoPdf(topo ? topo.querySelector('h1').textContent : 'Boletim Escolar'),
             nome: textoPdf(topo ? topo.querySelector('.boletim-impressao-nome').textContent : ''),
-            meta: textoPdf(metas.length ? metas[metas.length - 1].textContent : ''),
+            meta: textoPdf(metaEl ? metaEl.textContent : ''),
             linhas: linhas,
             cabecalho: cabecalho,
             pareceres: pareceres,
-            frequencia: frequencia ? textoParecer(frequencia.textContent) : ''
-          })], 'boletim.pdf', { type: 'application/pdf' });
-          var url = URL.createObjectURL(arquivo);
-          var janela = window.open(url, '_blank');
-          if (!janela) {
-            var link = document.createElement('a');
-            link.href = url;
-            link.target = '_blank';
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
+            frequencia: frequencia ? textoParecer(frequencia.textContent) : '',
+            instituicao: instituicao
+          };
+
+          function publicar(logo) {
+            modelo.logo = logo;
+            var arquivo = new File([construirPdfBoletim(modelo)], 'boletim.pdf', { type: 'application/pdf' });
+            var url = URL.createObjectURL(arquivo);
+            var janela = window.open(url, '_blank');
+            if (!janela) {
+              var link = document.createElement('a');
+              link.href = url;
+              link.target = '_blank';
+              document.body.appendChild(link);
+              link.click();
+              link.remove();
+            }
+            setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
           }
-          setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+
+          var img = instituicaoEl ? instituicaoEl.querySelector('.boletim-logo') : null;
+          if (!img || !img.getAttribute('src')) {
+            publicar(null);
+            return;
+          }
+          function converter() { publicar(logoJpeg(img)); }
+          if (img.complete) {
+            converter();
+          } else {
+            img.addEventListener('load', converter);
+            img.addEventListener('error', function() { publicar(null); });
+          }
         }
 
         function textoPdf(valor) {
@@ -387,6 +537,33 @@
 
         function textoParecer(valor) {
           return String(valor || '').replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+        }
+
+        function logoJpeg(img) {
+          try {
+            if (!img || !img.naturalWidth) return null;
+            var limite = 160;
+            var escala = Math.min(limite / img.naturalWidth, limite / img.naturalHeight, 1);
+            var largura = Math.max(1, Math.round(img.naturalWidth * escala));
+            var altura = Math.max(1, Math.round(img.naturalHeight * escala));
+            var canvas = document.createElement('canvas');
+            canvas.width = largura;
+            canvas.height = altura;
+            var contexto = canvas.getContext('2d');
+            contexto.fillStyle = '#ffffff';
+            contexto.fillRect(0, 0, largura, altura);
+            contexto.drawImage(img, 0, 0, largura, altura);
+            var base64 = canvas.toDataURL('image/jpeg', 0.86).split(',')[1];
+            var binario = atob(base64);
+            var hex = '';
+            for (var i = 0; i < binario.length; i++) {
+              var byte = binario.charCodeAt(i).toString(16).toUpperCase();
+              hex += byte.length < 2 ? '0' + byte : byte;
+            }
+            return { width: largura, height: altura, hex: hex + '>' };
+          } catch (erro) {
+            return null;
+          }
         }
 
         function construirPdfBoletim(modelo) {
@@ -601,8 +778,40 @@
             });
           }
 
+          function desenharInstituicao() {
+            var info = modelo.instituicao || {};
+            if (!info.entidade && !info.orgao && !info.escola && !modelo.logo) return;
+
+            var logoLargura = 0;
+            var logoAltura = 0;
+            if (modelo.logo) {
+              var escalaLogo = Math.min(46 / modelo.logo.width, 46 / modelo.logo.height);
+              logoLargura = modelo.logo.width * escalaLogo;
+              logoAltura = modelo.logo.height * escalaLogo;
+              comandos.push('q ' + numero(logoLargura) + ' 0 0 ' + numero(logoAltura) + ' ' + numero(margem) + ' ' + numero(cursor - logoAltura) + ' cm /Im1 Do Q');
+            }
+
+            var xTexto = margem + (logoLargura ? logoLargura + 8 : 0);
+            var larguraTexto = Math.max(80, larguraUtil - (xTexto - margem));
+            var yTexto = cursor;
+            function escreverLinha(texto, tamanho, fonte, negrito) {
+              if (!texto) return;
+              quebrar(texto, tamanho, larguraTexto, negrito).forEach(function(linha) {
+                comandos.push(comandoTexto(xTexto, yTexto - tamanho, fonte, tamanho, linha));
+                yTexto -= tamanho + 2;
+              });
+            }
+            escreverLinha(info.entidade, 11, '/F2', true);
+            escreverLinha(info.orgao, 9, '/F1', false);
+            escreverLinha(info.escola, 9, '/F1', false);
+            cursor -= Math.max(logoAltura, cursor - yTexto) + 6;
+            comandos.push('0.6 w 0 0 0 RG ' + numero(margem) + ' ' + numero(cursor) + ' m ' + numero(paginaLargura - margem) + ' ' + numero(cursor) + ' l S');
+            cursor -= 10;
+          }
+
           function desenharFaixa(inicio, fim, incluirTopo) {
             if (incluirTopo) {
+              desenharInstituicao();
               desenharParagrafo(modelo.titulo || 'Boletim Escolar', 13, '/F2', true);
               if (modelo.nome) {
                 cursor -= 1;
@@ -652,6 +861,7 @@
               });
             }
 
+            desenharInstituicao();
             escrever(modelo.titulo || 'Boletim Escolar', 13, '/F2', true);
             if (modelo.nome) {
               cursor -= 1;
@@ -676,7 +886,7 @@
               escrever(modelo.frequencia, 10, '/F2', true);
             }
             paginas.push(comandos.join('\n'));
-            return montarArquivoPdf(paginas);
+            return montarArquivoPdf(paginas, modelo.logo);
           }
 
           novaPagina(true);
@@ -691,10 +901,10 @@
           }
           paginas.push(comandos.join('\n'));
 
-          return montarArquivoPdf(paginas);
+          return montarArquivoPdf(paginas, modelo.logo);
         }
 
-        function montarArquivoPdf(streams) {
+        function montarArquivoPdf(streams, logo) {
           var objetos = [];
           function adicionar(corpo) {
             objetos.push(corpo);
@@ -704,11 +914,16 @@
           var idFonte = adicionar('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
           var idFonteNegrito = adicionar('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
           var idInfo = adicionar('<< /Title (Boletim Escolar) /Producer (i-Diario) >>');
+          var idImagem = null;
+          if (logo && logo.hex) {
+            idImagem = adicionar('<< /Type /XObject /Subtype /Image /Width ' + logo.width + ' /Height ' + logo.height + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length ' + logo.hex.length + ' >>\nstream\n' + logo.hex + '\nendstream');
+          }
+          var recursosImagem = idImagem ? ' /XObject << /Im1 ' + idImagem + ' 0 R >>' : '';
           var idsConteudo = streams.map(function(stream) {
             return adicionar('<< /Length ' + stream.length + ' >>\nstream\n' + stream + '\nendstream');
           });
           var idsPagina = idsConteudo.map(function(idConteudo) {
-            return adicionar('<< /Type /Page /Parent PAGINAS /MediaBox [0 0 595.28 841.89] /Contents ' + idConteudo + ' 0 R /Resources << /Font << /F1 ' + idFonte + ' 0 R /F2 ' + idFonteNegrito + ' 0 R >> >> >>');
+            return adicionar('<< /Type /Page /Parent PAGINAS /MediaBox [0 0 595.28 841.89] /Contents ' + idConteudo + ' 0 R /Resources << /Font << /F1 ' + idFonte + ' 0 R /F2 ' + idFonteNegrito + ' 0 R >>' + recursosImagem + ' >> >>');
           });
           var idPaginas = adicionar('<< /Type /Pages /Count ' + idsPagina.length + ' /Kids [' + idsPagina.map(function(id) { return id + ' 0 R'; }).join(' ') + '] >>');
           var idCatalogo = adicionar('<< /Type /Catalog /Pages ' + idPaginas + ' 0 R >>');
@@ -765,12 +980,14 @@
             etapa.textContent = (item.step || 'Etapa') + (item.score ? ' • Nota ' + item.score : '');
 
             var html = '';
+            if (item.scale_note) {
+              html += '<p class="boletim-modal-escala">' + escapar(item.scale_note) + '</p>';
+            }
             if (item.details && item.details.length) {
               html += '<ul class="boletim-modal-lista">';
               item.details.forEach(function(detalhe) {
                 html += '<li><strong>' + escapar(detalhe.label) + '</strong>';
-                html += escapar(detalhe.date);
-                if (detalhe.score) html += ' — ' + escapar(detalhe.score);
+                if (detalhe.score) html += '<span class="boletim-modal-nota">' + escapar(detalhe.score) + '</span>';
                 html += '</li>';
               });
               html += '</ul>';
