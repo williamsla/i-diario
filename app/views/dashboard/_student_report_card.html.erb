@@ -18,15 +18,12 @@
   .boletim-kicker { margin: 0; font-size: 13px; color: #4b5563; font-weight: 700; letter-spacing: 0.02em; }
   .boletim-nome-aluno { margin: 2px 0 0; font-size: 24px; font-weight: 700; line-height: 1.2; }
   .boletim-ano { margin: 4px 0 0; color: #4b5563; font-size: 13px; }
+  .boletim-situacao { color: #1a1a1a; font-weight: 700; white-space: nowrap; padding-bottom: 12px; }
   .boletim-impressao-topo { display: none; }
-  .boletim-turma { margin: 0 0 12px; }
+  .boletim-turma { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 16px; margin: 12px 0; }
+  .boletim-turma form { flex: 1 1 200px; max-width: 280px; min-width: 0; margin: 0; }
   .boletim-turma label { display: block; margin-bottom: 4px; font-size: 13px; }
   .boletim-turma select { width: 100%; min-height: 44px; }
-  .boletim-identidade { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-  .boletim-identidade th,
-  .boletim-identidade td { border: 1px solid #222; padding: 6px 8px; text-align: left; background: #fff; }
-  .boletim-identidade th { font-size: 12px; font-weight: 700; }
-  .boletim-identidade td { font-size: 15px; font-weight: 700; }
   .boletim-scroll {
     display: none;
     width: 100%;
@@ -35,7 +32,7 @@
     overflow: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
-    border: 1px solid #222;
+    border: 0;
     touch-action: pan-x pan-y;
   }
   .boletim-scroll::-webkit-scrollbar { width: 12px; height: 12px; }
@@ -107,7 +104,7 @@
   }
   @media (min-width: 768px) {
     .boletim-nome-aluno { font-size: 28px; }
-    .boletim-turma select { width: 280px; }
+    .boletim-turma form { flex: 0 1 280px; }
     .boletim-pdf { width: auto; }
     .boletim-scroll { display: block; }
     .boletim-vertical { display: none; }
@@ -146,9 +143,8 @@
     }
     #main { margin-left: 0 !important; }
     .boletim-scroll { overflow: visible !important; max-height: none !important; border: 0 !important; }
-    .boletim-planilha, .boletim-identidade { width: 100% !important; min-width: 0 !important; table-layout: fixed !important; }
-    .boletim-planilha th, .boletim-planilha td,
-    .boletim-identidade th, .boletim-identidade td {
+    .boletim-planilha { width: 100% !important; min-width: 0 !important; table-layout: fixed !important; }
+    .boletim-planilha th, .boletim-planilha td {
       position: static !important;
       white-space: normal !important;
       font-size: 7.5px !important;
@@ -157,7 +153,7 @@
     }
     .boletim-planilha td:first-child, .boletim-planilha th.largo { width: 22% !important; }
     .boletim-planilha thead { display: table-header-group; }
-    .boletim-planilha tr, .boletim-identidade tr { break-inside: avoid; }
+    .boletim-planilha tr { break-inside: avoid; }
   }
 </style>
 
@@ -172,7 +168,7 @@
         <p class="boletim-ano">Ano letivo <%= report[:year] %> • <%= report[:classroom_name] %></p>
       </div>
       <% unless sheet[:rows].blank? %>
-        <button type="button" class="boletim-pdf" onclick="imprimirBoletim();">
+        <button type="button" class="boletim-pdf" onclick="abrirPdfBoletim();">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path d="M12 3v12"></path>
             <path d="M7 11l5 5 5-5"></path>
@@ -183,13 +179,18 @@
       <% end %>
     </div>
 
-    <% if report[:enrollments].size > 1 %>
+    <% if report[:enrollments].size > 1 || sheet[:status].present? %>
       <div class="boletim-turma">
-        <%= form_tag root_path, method: :get do %>
-          <label for="classroom_id">Turma</label>
-          <%= select_tag :classroom_id,
-                          options_for_select(report[:enrollments].map { |item| [item[:label], item[:id]] }, report[:selected_classroom_id]),
-                          onchange: "this.form.submit()" %>
+        <% if report[:enrollments].size > 1 %>
+          <%= form_tag root_path, method: :get do %>
+            <label for="classroom_id">Turma</label>
+            <%= select_tag :classroom_id,
+                            options_for_select(report[:enrollments].map { |item| [item[:label], item[:id]] }, report[:selected_classroom_id]),
+                            onchange: "this.form.submit()" %>
+          <% end %>
+        <% end %>
+        <% if sheet[:status].present? %>
+          <span class="boletim-situacao"><%= sheet[:status] %></span>
         <% end %>
       </div>
     <% end %>
@@ -198,18 +199,8 @@
     <div class="boletim-impressao-topo">
       <h1>Boletim Escolar</h1>
       <p class="boletim-impressao-nome"><%= report[:student_name] %></p>
-      <p>Ano letivo <%= report[:year] %> • <%= report[:classroom_name] %></p>
+      <p>Ano letivo <%= report[:year] %> • <%= report[:classroom_name] %><% if sheet[:status].present? %> • <%= sheet[:status] %><% end %></p>
     </div>
-    <table class="boletim-identidade">
-      <tr>
-        <th>ALUNO</th>
-        <th>SITUAÇÃO</th>
-      </tr>
-      <tr>
-        <td><%= report[:student_name] %></td>
-        <td><%= sheet[:status] %></td>
-      </tr>
-    </table>
 
     <% if sheet[:rows].blank? %>
       <p class="boletim-vazio">O professor ainda não lançou as notas deste ano.</p>
@@ -298,42 +289,350 @@
 
       <script type="application/json" id="boletim-avaliacoes-dados"><%= raw json_escape(avaliacoes.to_json) %></script>
       <script>
-        function imprimirBoletim() {
+        function abrirPdfBoletim() {
           var bloco = document.querySelector('.boletim-para-impressao');
           if (!bloco) return;
 
-          var estilo = ''
-            + '@page { size: A4 portrait; margin: 10mm; }'
-            + 'html, body { margin: 0; padding: 0; background: #fff; color: #000; font-family: Arial, Helvetica, sans-serif; }'
-            + '.boletim-impressao-topo { display: block; margin-bottom: 8px; }'
-            + '.boletim-impressao-topo h1 { margin: 0 0 2px; font-size: 16px; }'
-            + '.boletim-impressao-nome { margin: 0 0 2px; font-size: 14px; font-weight: 700; }'
-            + '.boletim-impressao-topo p { margin: 0; font-size: 11px; }'
-            + 'table { border-collapse: collapse; width: 100%; table-layout: fixed; }'
-            + 'th, td { border: 1px solid #000; padding: 2px; text-align: center; font-size: 7.5px; line-height: 1.2; vertical-align: middle; background: #fff; word-wrap: break-word; }'
-            + 'th { background: #f2f2f2; font-weight: 700; }'
-            + '.boletim-identidade { margin: 0 0 8px; }'
-            + '.boletim-identidade th, .boletim-identidade td { text-align: left; font-size: 11px; padding: 4px 6px; }'
-            + '.boletim-identidade td { font-weight: 700; }'
-            + '.boletim-planilha td:first-child, .boletim-planilha th.largo { text-align: left; width: 22%; }'
-            + '.boletim-scroll { overflow: visible; max-height: none; border: 0; }'
-            + '.boletim-planilha { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }'
-            + '.boletim-nota { border: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit; text-decoration: none; padding: 0; min-width: 0; min-height: 0; }'
-            + 'thead { display: table-header-group; }'
-            + 'tr { break-inside: avoid; page-break-inside: avoid; }';
+          var topo = bloco.querySelector('.boletim-impressao-topo');
+          var metas = topo ? topo.querySelectorAll('p') : [];
+          var tabela = bloco.querySelector('table');
+          var linhas = [];
+          var cabecalho = tabela && tabela.tHead ? tabela.tHead.rows.length : 0;
 
-          var janela = window.open('', '_blank');
-          if (!janela) {
-            window.print();
-            return;
+          if (tabela) {
+            Array.prototype.forEach.call(tabela.rows, function(tr) {
+              var celulas = [];
+              Array.prototype.forEach.call(tr.cells, function(cell) {
+                celulas.push({
+                  texto: textoPdf(cell.textContent),
+                  colspan: cell.colSpan || 1,
+                  rowspan: cell.rowSpan || 1,
+                  cabecalho: cell.tagName === 'TH'
+                });
+              });
+              linhas.push(celulas);
+            });
           }
 
-          janela.document.open();
-          janela.document.write('<!DOCTYPE html><html lang="pt-br"><head><meta charset="utf-8"><title>Boletim</title><style>' + estilo + '</style></head><body>' + bloco.innerHTML + '</body></html>');
-          janela.document.close();
-          janela.focus();
-          janela.onafterprint = function() { janela.close(); };
-          setTimeout(function() { janela.print(); }, 200);
+          var arquivo = new File([construirPdfBoletim({
+            titulo: textoPdf(topo ? topo.querySelector('h1').textContent : 'Boletim Escolar'),
+            nome: textoPdf(topo ? topo.querySelector('.boletim-impressao-nome').textContent : ''),
+            meta: textoPdf(metas.length ? metas[metas.length - 1].textContent : ''),
+            linhas: linhas,
+            cabecalho: cabecalho
+          })], 'boletim.pdf', { type: 'application/pdf' });
+          var url = URL.createObjectURL(arquivo);
+          var janela = window.open(url, '_blank');
+          if (!janela) {
+            var link = document.createElement('a');
+            link.href = url;
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+          }
+          setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+        }
+
+        function textoPdf(valor) {
+          return String(valor || '').replace(/\s+/g, ' ').trim();
+        }
+
+        function construirPdfBoletim(modelo) {
+          var paginaLargura = 595.28;
+          var paginaAltura = 841.89;
+          var margem = 28;
+          var larguraUtil = paginaLargura - margem * 2;
+          var largurasLetra = {
+            ' ': 278, 'i': 222, 'l': 222, 'I': 278, 'j': 222, 'f': 278, 't': 278, 'r': 333,
+            'a': 556, 'b': 556, 'c': 500, 'd': 556, 'e': 556, 'g': 556, 'h': 556, 'k': 500,
+            'n': 556, 'o': 556, 'p': 556, 'q': 556, 's': 500, 'u': 556, 'v': 500, 'x': 500,
+            'y': 500, 'z': 500, 'm': 833, 'w': 722,
+            'A': 667, 'B': 667, 'C': 722, 'D': 722, 'E': 667, 'F': 611, 'G': 778, 'H': 722,
+            'J': 500, 'K': 667, 'L': 556, 'M': 833, 'N': 722, 'O': 778, 'P': 667, 'Q': 778,
+            'R': 722, 'S': 667, 'T': 611, 'U': 722, 'V': 667, 'W': 944, 'X': 667, 'Y': 667, 'Z': 611
+          };
+          var troca = {
+            '\u2022': '\u00B7', '\u2013': '-', '\u2014': '-', '\u2018': "'", '\u2019': "'",
+            '\u201C': '"', '\u201D': '"', '\u00A0': ' ', '\u2026': '...'
+          };
+          var semAcento = {
+            '\u00E1': 'a', '\u00E0': 'a', '\u00E2': 'a', '\u00E3': 'a', '\u00E4': 'a',
+            '\u00E9': 'e', '\u00EA': 'e', '\u00ED': 'i', '\u00F3': 'o', '\u00F4': 'o', '\u00F5': 'o',
+            '\u00FA': 'u', '\u00E7': 'c', '\u00C1': 'A', '\u00C0': 'A', '\u00C2': 'A', '\u00C3': 'A',
+            '\u00C9': 'E', '\u00CA': 'E', '\u00CD': 'I', '\u00D3': 'O', '\u00D4': 'O', '\u00D5': 'O',
+            '\u00DA': 'U', '\u00C7': 'C', '\u00BA': 'o', '\u00AA': 'a'
+          };
+
+          function normalizar(texto) {
+            var origem = textoPdf(texto);
+            var saida = '';
+            for (var i = 0; i < origem.length; i++) {
+              var ch = origem.charAt(i);
+              if (troca[ch]) saida += troca[ch];
+              else if (origem.charCodeAt(i) > 255) saida += '?';
+              else saida += ch;
+            }
+            return saida;
+          }
+
+          function medir(texto, tamanho, negrito) {
+            var fator = negrito ? 1.08 : 1;
+            var soma = 0;
+            for (var i = 0; i < texto.length; i++) {
+              var ch = texto.charAt(i);
+              var base = semAcento[ch] || ch;
+              var unidade = largurasLetra[base];
+              if (!unidade) unidade = /[0-9]/.test(base) ? 556 : 500;
+              soma += unidade / 1000 * tamanho * fator;
+            }
+            return soma;
+          }
+
+          function quebrar(texto, tamanho, larguraMax, negrito) {
+            var palavras = normalizar(texto).split(' ');
+            var linhas = [];
+            var atual = '';
+
+            function quebrarPalavra(palavra) {
+              var pedaco = '';
+              for (var i = 0; i < palavra.length; i++) {
+                var tentativa = pedaco + palavra.charAt(i);
+                if (medir(tentativa, tamanho, negrito) <= larguraMax || !pedaco) pedaco = tentativa;
+                else {
+                  linhas.push(pedaco);
+                  pedaco = palavra.charAt(i);
+                }
+              }
+              return pedaco;
+            }
+
+            palavras.forEach(function(palavra) {
+              if (!palavra) return;
+              if (medir(palavra, tamanho, negrito) > larguraMax) {
+                if (atual) linhas.push(atual);
+                atual = quebrarPalavra(palavra);
+                return;
+              }
+              var tentativa = atual ? atual + ' ' + palavra : palavra;
+              if (medir(tentativa, tamanho, negrito) <= larguraMax) atual = tentativa;
+              else {
+                if (atual) linhas.push(atual);
+                atual = palavra;
+              }
+            });
+            if (atual) linhas.push(atual);
+            return linhas.length ? linhas : [''];
+          }
+
+          function escapar(texto) {
+            var saida = '';
+            var valor = normalizar(texto);
+            for (var i = 0; i < valor.length; i++) {
+              var ch = valor.charAt(i);
+              var codigo = valor.charCodeAt(i);
+              if (ch === '\\' || ch === '(' || ch === ')') saida += '\\' + ch;
+              else if (codigo >= 32 && codigo <= 126) saida += ch;
+              else if (codigo >= 160 && codigo <= 255) saida += '\\' + ('000' + codigo.toString(8)).slice(-3);
+              else saida += '?';
+            }
+            return saida;
+          }
+
+          function numero(valor) {
+            return String(Math.round(valor * 100) / 100);
+          }
+
+          var colunas = 0;
+          modelo.linhas.forEach(function(celulas) {
+            var coluna = 0;
+            celulas.forEach(function(celula) {
+              colunas = Math.max(colunas, coluna + celula.colspan);
+              coluna += celula.colspan;
+            });
+          });
+
+          var larguras = [];
+          if (colunas <= 1) {
+            larguras = [larguraUtil];
+          } else {
+            var primeira = Math.round(larguraUtil * 0.22 * 100) / 100;
+            var restante = larguraUtil - primeira;
+            var comum = restante / (colunas - 1);
+            larguras = [primeira];
+            for (var coluna = 1; coluna < colunas; coluna++) larguras.push(comum);
+            var soma = 0;
+            larguras.forEach(function(largura) { soma += largura; });
+            larguras[larguras.length - 1] += larguraUtil - soma;
+          }
+
+          var posicoes = [margem];
+          larguras.forEach(function(largura) {
+            posicoes.push(posicoes[posicoes.length - 1] + largura);
+          });
+
+          var alturas = modelo.linhas.map(function() { return 14; });
+          var ocupado = [];
+          modelo.linhas.forEach(function(celulas, linha) {
+            var coluna = 0;
+            celulas.forEach(function(celula) {
+              while (ocupado[linha] && ocupado[linha][coluna]) coluna += 1;
+              celula.coluna = coluna;
+              celula.linha = linha;
+              for (var profundidade = 0; profundidade < celula.rowspan; profundidade++) {
+                ocupado[linha + profundidade] = ocupado[linha + profundidade] || [];
+                for (var deslocamento = 0; deslocamento < celula.colspan; deslocamento++) {
+                  ocupado[linha + profundidade][coluna + deslocamento] = true;
+                }
+              }
+              var largura = posicoes[coluna + celula.colspan] - posicoes[coluna] - 4;
+              var tamanho = celula.cabecalho ? 6 : 7;
+              var negrito = !!celula.cabecalho || coluna === 0;
+              celula.tamanho = tamanho;
+              celula.negrito = negrito;
+              celula.linhasTexto = quebrar(celula.texto, tamanho, Math.max(8, largura), negrito);
+              var precisa = celula.linhasTexto.length * (tamanho + 1.6) + 4;
+              if (celula.rowspan <= 1) alturas[linha] = Math.max(alturas[linha], precisa);
+              else celula.alturaNecessaria = precisa;
+              coluna += celula.colspan;
+            });
+          });
+          modelo.linhas.forEach(function(celulas, linha) {
+            celulas.forEach(function(celula) {
+              if (!celula.alturaNecessaria) return;
+              var soma = 0;
+              for (var i = 0; i < celula.rowspan; i++) soma += alturas[linha + i] || 0;
+              if (celula.alturaNecessaria > soma && alturas[linha + celula.rowspan - 1] !== undefined) {
+                alturas[linha + celula.rowspan - 1] += celula.alturaNecessaria - soma;
+              }
+            });
+          });
+
+          function comandoTexto(x, y, fonte, tamanho, texto) {
+            return 'BT ' + fonte + ' ' + numero(tamanho) + ' Tf ' + numero(x) + ' ' + numero(y) + ' Td (' + escapar(texto) + ') Tj ET';
+          }
+
+          function desenharCelula(comandos, celula, topo) {
+            var x = posicoes[celula.coluna];
+            var largura = posicoes[celula.coluna + celula.colspan] - x;
+            var altura = 0;
+            for (var i = 0; i < celula.rowspan; i++) altura += alturas[celula.linha + i] || 0;
+            var base = topo - altura;
+            if (celula.cabecalho) {
+              comandos.push('0.94 g');
+              comandos.push(numero(x) + ' ' + numero(base) + ' ' + numero(largura) + ' ' + numero(altura) + ' re f');
+              comandos.push('0 g');
+            }
+            comandos.push('0.15 w');
+            comandos.push('0 0 0 RG');
+            comandos.push(numero(x) + ' ' + numero(base) + ' ' + numero(largura) + ' ' + numero(altura) + ' re S');
+            var entrelinha = celula.tamanho + 1.6;
+            var bloco = celula.linhasTexto.length * entrelinha;
+            var baseline = base + (altura - bloco) / 2 + (celula.linhasTexto.length - 1) * entrelinha + celula.tamanho * 0.25;
+            celula.linhasTexto.forEach(function(linhaTexto, indice) {
+              if (!linhaTexto) return;
+              var larguraTexto = medir(linhaTexto, celula.tamanho, celula.negrito);
+              var xTexto = celula.coluna === 0 ? x + 2 : x + (largura - larguraTexto) / 2;
+              if (xTexto < x + 1) xTexto = x + 1;
+              comandos.push(comandoTexto(xTexto, baseline - indice * entrelinha, celula.negrito ? '/F2' : '/F1', celula.tamanho, linhaTexto));
+            });
+          }
+
+          var paginas = [];
+          var comandos = [];
+          var cursor = paginaAltura - margem;
+          var cabecalho = Math.min(modelo.cabecalho || 0, modelo.linhas.length);
+
+          function desenharParagrafo(texto, tamanho, fonte, negrito) {
+            quebrar(texto, tamanho, larguraUtil, negrito).forEach(function(linha) {
+              comandos.push(comandoTexto(margem, cursor - tamanho, fonte, tamanho, linha));
+              cursor -= tamanho + 3;
+            });
+          }
+
+          function desenharFaixa(inicio, fim, incluirTopo) {
+            if (incluirTopo) {
+              desenharParagrafo(modelo.titulo || 'Boletim Escolar', 13, '/F2', true);
+              if (modelo.nome) {
+                cursor -= 1;
+                desenharParagrafo(modelo.nome, 11, '/F2', true);
+              }
+              if (modelo.meta) {
+                cursor -= 1;
+                desenharParagrafo(modelo.meta, 9, '/F1', false);
+              }
+              cursor -= 8;
+            }
+            for (var linha = inicio; linha < fim; linha++) {
+              var topo = cursor;
+              modelo.linhas[linha].forEach(function(celula) { desenharCelula(comandos, celula, topo); });
+              cursor -= alturas[linha] || 0;
+            }
+          }
+
+          function novaPagina(incluirTopo) {
+            if (comandos.length) paginas.push(comandos.join('\n'));
+            comandos = [];
+            cursor = paginaAltura - margem;
+            desenharFaixa(0, cabecalho, incluirTopo);
+          }
+
+          novaPagina(true);
+          for (var linha = cabecalho; linha < modelo.linhas.length; linha++) {
+            if (cursor - (alturas[linha] || 0) < margem) novaPagina(false);
+            var topo = cursor;
+            modelo.linhas[linha].forEach(function(celula) { desenharCelula(comandos, celula, topo); });
+            cursor -= alturas[linha] || 0;
+          }
+          if (!modelo.linhas.length) {
+            comandos.push(comandoTexto(margem, cursor - 12, '/F1', 11, 'O professor ainda não lançou as notas deste ano.'));
+          }
+          paginas.push(comandos.join('\n'));
+
+          return montarArquivoPdf(paginas);
+        }
+
+        function montarArquivoPdf(streams) {
+          var objetos = [];
+          function adicionar(corpo) {
+            objetos.push(corpo);
+            return objetos.length;
+          }
+
+          var idFonte = adicionar('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+          var idFonteNegrito = adicionar('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+          var idInfo = adicionar('<< /Title (Boletim Escolar) /Producer (i-Diario) >>');
+          var idsConteudo = streams.map(function(stream) {
+            return adicionar('<< /Length ' + stream.length + ' >>\nstream\n' + stream + '\nendstream');
+          });
+          var idsPagina = idsConteudo.map(function(idConteudo) {
+            return adicionar('<< /Type /Page /Parent PAGINAS /MediaBox [0 0 595.28 841.89] /Contents ' + idConteudo + ' 0 R /Resources << /Font << /F1 ' + idFonte + ' 0 R /F2 ' + idFonteNegrito + ' 0 R >> >> >>');
+          });
+          var idPaginas = adicionar('<< /Type /Pages /Count ' + idsPagina.length + ' /Kids [' + idsPagina.map(function(id) { return id + ' 0 R'; }).join(' ') + '] >>');
+          var idCatalogo = adicionar('<< /Type /Catalog /Pages ' + idPaginas + ' 0 R >>');
+          idsPagina.forEach(function(id) {
+            objetos[id - 1] = objetos[id - 1].replace('PAGINAS', idPaginas + ' 0 R');
+          });
+
+          var saida = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n';
+          var offsets = [0];
+          objetos.forEach(function(corpo, indice) {
+            offsets.push(saida.length);
+            saida += (indice + 1) + ' 0 obj\n' + corpo + '\nendobj\n';
+          });
+          var xref = saida.length;
+          saida += 'xref\n0 ' + (objetos.length + 1) + '\n';
+          saida += '0000000000 65535 f \n';
+          for (var i = 1; i <= objetos.length; i++) {
+            var posicao = String(offsets[i]);
+            saida += '0000000000'.substring(posicao.length) + posicao + ' 00000 n \n';
+          }
+          saida += 'trailer << /Size ' + (objetos.length + 1) + ' /Root ' + idCatalogo + ' 0 R /Info ' + idInfo + ' 0 R >>\n';
+          saida += 'startxref\n' + xref + '\n%%EOF';
+
+          var bytes = new Uint8Array(saida.length);
+          for (var j = 0; j < saida.length; j++) bytes[j] = saida.charCodeAt(j) & 255;
+          return bytes;
         }
 
         (function() {

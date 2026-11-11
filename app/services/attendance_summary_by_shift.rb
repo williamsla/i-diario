@@ -74,27 +74,35 @@ class AttendanceSummaryByShift
   end
 
   def count_sql
-    ActiveRecord::Base.sanitize_sql_array([<<~SQL.squish, unity.id, parsed_date, classroom_periods])
-      SELECT
-        COUNT(*) FILTER (WHERE esteve_presente) AS presentes,
-        COUNT(*) FILTER (WHERE NOT esteve_presente) AS faltosos
-      FROM (
-        SELECT daily_frequency_students.student_id,
-               BOOL_OR(COALESCE(daily_frequency_students.present, FALSE)) AS esteve_presente
-        FROM daily_frequency_students
-        INNER JOIN daily_frequencies
-          ON daily_frequencies.id = daily_frequency_students.daily_frequency_id
-        INNER JOIN classrooms
-          ON classrooms.id = daily_frequencies.classroom_id
-        WHERE daily_frequencies.unity_id = ?
-          AND daily_frequencies.frequency_date = ?
-          AND classrooms.period::text IN (?)
-          AND daily_frequency_students.active = TRUE
-          AND daily_frequency_students.discarded_at IS NULL
-          AND classrooms.discarded_at IS NULL
-        GROUP BY daily_frequency_students.student_id
-      ) alunos
-    SQL
+    ActiveRecord::Base.send(
+      :sanitize_sql_array,
+      [
+        <<~SQL.squish,
+          SELECT
+            COUNT(*) FILTER (WHERE esteve_presente) AS presentes,
+            COUNT(*) FILTER (WHERE NOT esteve_presente) AS faltosos
+          FROM (
+            SELECT daily_frequency_students.student_id,
+                   BOOL_OR(COALESCE(daily_frequency_students.present, FALSE)) AS esteve_presente
+            FROM daily_frequency_students
+            INNER JOIN daily_frequencies
+              ON daily_frequencies.id = daily_frequency_students.daily_frequency_id
+            INNER JOIN classrooms
+              ON classrooms.id = daily_frequencies.classroom_id
+            WHERE daily_frequencies.unity_id = ?
+              AND daily_frequencies.frequency_date = ?
+              AND classrooms.period::text IN (?)
+              AND daily_frequency_students.active = TRUE
+              AND daily_frequency_students.discarded_at IS NULL
+              AND classrooms.discarded_at IS NULL
+            GROUP BY daily_frequency_students.student_id
+          ) alunos
+        SQL
+        unity.id,
+        parsed_date,
+        classroom_periods
+      ]
+    )
   end
 
   def frequency_count
