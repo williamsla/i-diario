@@ -1,5 +1,5 @@
 class ObservationRecordReportQuery
-  def initialize(unity_id, teacher_id, classroom_id, discipline_id, start_at, end_at, current_user_id, student_id = nil)
+  def initialize(unity_id, teacher_id, classroom_id, discipline_id, start_at, end_at, current_user_id, student_id = nil, observation_diary_record_id = nil)
     @unity_id = unity_id
     @teacher_id = teacher_id
     @classroom_id = classroom_id
@@ -8,6 +8,7 @@ class ObservationRecordReportQuery
     @end_at = end_at.to_date
     @current_user_id = current_user_id
     @student_id = student_id
+    @observation_diary_record_id = observation_diary_record_id
   end
 
   def observation_diary_records
@@ -20,7 +21,7 @@ class ObservationRecordReportQuery
                       end
     end
 
-    relation = ObservationDiaryRecord.includes(notes: :students)
+    relation = ObservationDiaryRecord.includes(:classroom, :teacher, notes: :students)
                                      .by_classroom(classroom_id)
                                      .where(date: start_at..end_at)
                                      .order(:date)
@@ -33,10 +34,27 @@ class ObservationRecordReportQuery
       relation = relation.by_student_id(@student_id).distinct
     end
 
-    relation
+    if @observation_diary_record_id.present?
+      return relation.where(id: @observation_diary_record_id)
+    end
+
+    from_teachers_of_the_classroom(relation)
   end
 
   private
 
-  attr_accessor :unity_id, :teacher_id, :classroom_id, :discipline_id, :start_at, :end_at, :current_user_id, :student_id
+  attr_accessor :unity_id, :teacher_id, :classroom_id, :discipline_id, :start_at, :end_at,
+                :current_user_id, :student_id, :observation_diary_record_id
+
+  def from_teachers_of_the_classroom(relation)
+    allocation_sql = TeacherDisciplineClassroom
+      .where('teacher_discipline_classrooms.teacher_id = observation_diary_records.teacher_id')
+      .where('teacher_discipline_classrooms.classroom_id = observation_diary_records.classroom_id')
+      .select('1')
+      .to_sql
+
+    relation.where(
+      "observation_diary_records.discipline_id IS NULL OR EXISTS (#{allocation_sql})"
+    )
+  end
 end

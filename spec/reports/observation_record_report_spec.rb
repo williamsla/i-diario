@@ -40,6 +40,7 @@ RSpec.describe ObservationRecordReport, type: :report do
     allow(form).to receive(:classroom).and_return(classroom)
     allow(form).to receive(:discipline).and_return(discipline)
     allow(form).to receive(:teacher).and_return(teacher)
+    allow(form).to receive(:student).and_return(nil)
     allow(form).to receive(:start_at).and_return('01/04/2016')
     allow(form).to receive(:end_at).and_return('30/04/2016')
     allow(form).to receive(:observation_diary_records).and_return([observation_diary_record])
@@ -49,6 +50,8 @@ RSpec.describe ObservationRecordReport, type: :report do
     allow(observation_diary_record).to receive(:notes).and_return([observation_diary_record_note])
     allow(observation_diary_record).to receive(:localized).and_return(observation_diary_record)
     allow(observation_diary_record).to receive(:date).and_return('01/04/2016')
+    allow(observation_diary_record).to receive(:active_search?).and_return(false)
+    allow(observation_diary_record).to receive(:teacher).and_return(teacher)
     allow(observation_diary_record_note).to receive(:students).and_return([])
     allow(observation_diary_record_note).to receive(:description).and_return('Note description example')
   end

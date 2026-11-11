@@ -42,13 +42,45 @@ RSpec.describe ObservationRecordReportQuery, type: :query do
   end
 
   describe '#observation_diary_records' do
-    it 'should filter by teacher_id' do
-      skip "Teacher id is not used anymore, it uses current user teacher id"
+    it 'includes every teacher allocated to the classroom' do
       observation_diary_record_one = create_observation_diary_record
       observation_diary_record_two = create_observation_diary_record_with_different(:teacher)
 
       expect(subject.observation_diary_records).to include(observation_diary_record_one)
-      expect(subject.observation_diary_records).not_to include(observation_diary_record_two)
+      expect(subject.observation_diary_records).to include(observation_diary_record_two)
+    end
+
+    it 'excludes observations from teachers who are not allocated to the classroom' do
+      included_record = create_observation_diary_record
+      outsider = create(
+        :observation_diary_record,
+        :with_notes,
+        classroom: classroom_one,
+        discipline: discipline
+      )
+
+      expect(subject.observation_diary_records).to include(included_record)
+      expect(subject.observation_diary_records).not_to include(outsider)
+    end
+
+    it 'keeps general observations when the author is not allocated to the classroom' do
+      query = ObservationRecordReportQuery.new(
+        classroom_one.unity.id,
+        teacher.id,
+        classroom_one.id,
+        'all',
+        start_at,
+        end_at,
+        1
+      )
+      general_record = create(
+        :observation_diary_record,
+        :with_notes,
+        classroom: classroom_one,
+        discipline: nil
+      )
+
+      expect(query.observation_diary_records).to include(general_record)
     end
 
     it 'should filter by classroom_id' do
