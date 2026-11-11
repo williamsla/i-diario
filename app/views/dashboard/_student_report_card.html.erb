@@ -58,6 +58,12 @@
   .boletim-disciplina dt { margin: 0; color: #526173; font-weight: 600; }
   .boletim-disciplina dd { margin: 0; font-weight: 700; text-align: right; }
   .boletim-vazio { margin: 12px 0 0; font-size: 16px; }
+  .boletim-pareceres { display: grid; gap: 18px; margin-top: 4px; }
+  .boletim-parecer-grupo h4 { margin: 0; font-size: 16px; }
+  .boletim-parecer-item { padding: 10px 0; border-top: 1px solid #e5e7eb; }
+  .boletim-parecer-item h5 { margin: 0 0 4px; font-size: 15px; }
+  .boletim-parecer-item p { margin: 0; white-space: pre-wrap; line-height: 1.5; }
+  .boletim-parecer-frequencia { margin: 0; font-weight: 700; }
   .boletim-pdf { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; margin: 0; padding: 10px 14px; border: 1px solid #17693c; border-radius: 8px; background: #fff; color: #17693c; font-size: 15px; font-weight: 700; cursor: pointer; }
   .boletim-pdf svg { width: 18px; height: 18px; }
   .boletim-nota { border: 0; background: transparent; color: #0b6e99; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 6px 4px; min-width: 44px; min-height: 36px; }
@@ -167,7 +173,7 @@
         <h3 class="boletim-nome-aluno"><%= report[:student_name] %></h3>
         <p class="boletim-ano">Ano letivo <%= report[:year] %> • <%= report[:classroom_name] %></p>
       </div>
-      <% unless sheet[:rows].blank? %>
+      <% if sheet[:rows].present? || sheet[:opinions].present? %>
         <button type="button" class="boletim-pdf" onclick="abrirPdfBoletim();">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path d="M12 3v12"></path>
@@ -202,7 +208,28 @@
       <p>Ano letivo <%= report[:year] %> • <%= report[:classroom_name] %><% if sheet[:status].present? %> • <%= sheet[:status] %><% end %></p>
     </div>
 
-    <% if sheet[:rows].blank? %>
+    <% if sheet[:opinions].present? %>
+      <div class="boletim-pareceres">
+        <% sheet[:opinions].each do |grupo| %>
+          <section class="boletim-parecer-grupo">
+            <% if grupo[:title].present? %>
+              <h4><%= grupo[:title] %></h4>
+            <% end %>
+            <% grupo[:items].each do |item| %>
+              <article class="boletim-parecer-item">
+                <% if item[:name].present? %>
+                  <h5><%= item[:name] %></h5>
+                <% end %>
+                <p><%= item[:text] %></p>
+              </article>
+            <% end %>
+          </section>
+        <% end %>
+        <% if sheet[:frequency_label].present? %>
+          <p class="boletim-parecer-frequencia"><%= sheet[:frequency_label] %></p>
+        <% end %>
+      </div>
+    <% elsif sheet[:rows].blank? %>
       <p class="boletim-vazio">O professor ainda não lançou as notas deste ano.</p>
     <% else %>
       <div class="boletim-scroll">
@@ -264,7 +291,8 @@
         <% end %>
       </div>
     <% end %>
-    <% unless sheet[:rows].blank? %>
+    <% if sheet[:rows].present? || sheet[:opinions].present? %>
+      <% if sheet[:rows].present? %>
       <% avaliacoes = {} %>
       <% sheet[:rows].each_with_index do |row, row_index| %>
         <% row[:values].each_with_index do |value, col_index| %>
@@ -288,6 +316,7 @@
       </div>
 
       <script type="application/json" id="boletim-avaliacoes-dados"><%= raw json_escape(avaliacoes.to_json) %></script>
+      <% end %>
       <script>
         function abrirPdfBoletim() {
           var bloco = document.querySelector('.boletim-para-impressao');
@@ -314,12 +343,30 @@
             });
           }
 
+          var pareceres = [];
+          bloco.querySelectorAll('.boletim-parecer-grupo').forEach(function(grupo) {
+            var titulo = grupo.querySelector('h4');
+            var itens = [];
+            grupo.querySelectorAll('.boletim-parecer-item').forEach(function(item) {
+              var nome = item.querySelector('h5');
+              var texto = item.querySelector('p');
+              itens.push({
+                nome: nome ? textoParecer(nome.textContent) : '',
+                texto: texto ? textoParecer(texto.textContent) : ''
+              });
+            });
+            pareceres.push({ titulo: titulo ? textoParecer(titulo.textContent) : '', itens: itens });
+          });
+          var frequencia = bloco.querySelector('.boletim-parecer-frequencia');
+
           var arquivo = new File([construirPdfBoletim({
             titulo: textoPdf(topo ? topo.querySelector('h1').textContent : 'Boletim Escolar'),
             nome: textoPdf(topo ? topo.querySelector('.boletim-impressao-nome').textContent : ''),
             meta: textoPdf(metas.length ? metas[metas.length - 1].textContent : ''),
             linhas: linhas,
-            cabecalho: cabecalho
+            cabecalho: cabecalho,
+            pareceres: pareceres,
+            frequencia: frequencia ? textoParecer(frequencia.textContent) : ''
           })], 'boletim.pdf', { type: 'application/pdf' });
           var url = URL.createObjectURL(arquivo);
           var janela = window.open(url, '_blank');
@@ -336,6 +383,10 @@
 
         function textoPdf(valor) {
           return String(valor || '').replace(/\s+/g, ' ').trim();
+        }
+
+        function textoParecer(valor) {
+          return String(valor || '').replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
         }
 
         function construirPdfBoletim(modelo) {
@@ -575,6 +626,57 @@
             comandos = [];
             cursor = paginaAltura - margem;
             desenharFaixa(0, cabecalho, incluirTopo);
+          }
+
+          if (modelo.pareceres && modelo.pareceres.length) {
+            var garantirEspaco = function(altura) {
+              if (cursor - altura >= margem) return;
+              if (comandos.length) paginas.push(comandos.join('\n'));
+              comandos = [];
+              cursor = paginaAltura - margem;
+            };
+
+            var escrever = function(texto, tamanho, fonte, negrito) {
+              String(texto || '').split('\n').forEach(function(paragrafo) {
+                if (!paragrafo.trim()) {
+                  garantirEspaco(8);
+                  cursor -= 6;
+                  return;
+                }
+                quebrar(paragrafo, tamanho, larguraUtil, negrito).forEach(function(linha) {
+                  if (!linha) return;
+                  garantirEspaco(tamanho + 4);
+                  comandos.push(comandoTexto(margem, cursor - tamanho, fonte, tamanho, linha));
+                  cursor -= tamanho + 3;
+                });
+              });
+            }
+
+            escrever(modelo.titulo || 'Boletim Escolar', 13, '/F2', true);
+            if (modelo.nome) {
+              cursor -= 1;
+              escrever(modelo.nome, 11, '/F2', true);
+            }
+            if (modelo.meta) {
+              cursor -= 1;
+              escrever(modelo.meta, 9, '/F1', false);
+            }
+            cursor -= 8;
+            modelo.pareceres.forEach(function(grupo) {
+              cursor -= 4;
+              if (grupo.titulo) escrever(grupo.titulo, 12, '/F2', true);
+              (grupo.itens || []).forEach(function(item) {
+                if (item.nome) escrever(item.nome, 10, '/F2', true);
+                escrever(item.texto, 10, '/F1', false);
+                cursor -= 6;
+              });
+            });
+            if (modelo.frequencia) {
+              cursor -= 4;
+              escrever(modelo.frequencia, 10, '/F2', true);
+            }
+            paginas.push(comandos.join('\n'));
+            return montarArquivoPdf(paginas);
           }
 
           novaPagina(true);

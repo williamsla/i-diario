@@ -149,6 +149,11 @@ class StudentReportCard
     exam_rule&.score_type.to_s == ScoreTypes::CONCEPT
   end
 
+  def parecer_only?
+    exam_rule&.score_type.to_s == ScoreTypes::DONT_USE &&
+      exam_rule&.opinion_type.to_s != OpinionTypes::DONT_USE
+  end
+
   def disciplines
     @disciplines ||= Discipline.by_classroom(classroom)
                                .not_grouper
@@ -647,7 +652,113 @@ class StudentReportCard
     stats[:percentage].present? && stats[:school_days] >= 20 && stats[:percentage] < 75
   end
 
+  def opinion_sheet
+    {
+      kind: 'opinion',
+      status: enrollment_status_label,
+      header: [],
+      rows: [],
+      labels: [],
+      opinions: opinion_groups,
+      frequency_label: opinion_frequency_label
+    }
+  end
+
+  def opinion_groups
+    groups = case exam_rule&.opinion_type.to_s
+             when OpinionTypes::BY_YEAR
+               [opinion_group('Parecer do ano', [opinion_item(nil, year_opinion_text)])]
+             when OpinionTypes::BY_YEAR_AND_DISCIPLINE
+               [opinion_group('Parecer do ano', opinion_disciplines.map { |discipline|
+                 opinion_item(discipline.description, discipline_opinion_text(discipline.id))
+               })]
+             when OpinionTypes::BY_STEP
+               steps.map { |step| opinion_group(step.school_term, [opinion_item(nil, step_opinion_text(step, nil))]) }
+             else
+               steps.map { |step|
+                 opinion_group(step.school_term, opinion_disciplines.map { |discipline|
+                   opinion_item(discipline.description, step_opinion_text(step, discipline.id))
+                 })
+               }
+             end
+    groups.present? ? groups : [opinion_group('Parecer', [opinion_item(nil, nil)])]
+  end
+
+  def opinion_group(title, items)
+    items = [opinion_item(nil, nil)] if items.blank?
+    { title: title, items: items }
+  end
+
+  def opinion_item(name, text)
+    { name: name, text: text.presence || 'Ainda não há parecer.' }
+  end
+
+  def year_opinion_text
+    rows = descriptive_rows.select { |row| opinion_by_year?(row.descriptive_exam) && row.descriptive_exam.discipline_id.nil? }
+    rows = descriptive_rows.select { |row| opinion_by_year?(row.descriptive_exam) } if rows.blank?
+    join_opinions(rows)
+  end
+
+  def discipline_opinion_text(discipline_id)
+    rows = descriptive_rows.select do |row|
+      exam = row.descriptive_exam
+      opinion_by_year?(exam) && exam.discipline_id == discipline_id
+    end
+    join_opinions(rows)
+  end
+
+  def step_opinion_text(step, discipline_id)
+    rows = descriptive_rows.select do |row|
+      exam = row.descriptive_exam
+      next false if exam.blank? || opinion_by_year?(exam)
+      next false unless exam.step_number.to_i == step.step_number.to_i
+
+      discipline_id.nil? ? exam.discipline_id.nil? : exam.discipline_id == discipline_id
+    end
+    if discipline_id.nil? && rows.blank?
+      rows = descriptive_rows.select do |row|
+        exam = row.descriptive_exam
+        exam.present? && !opinion_by_year?(exam) && exam.step_number.to_i == step.step_number.to_i
+      end
+    end
+    join_opinions(rows)
+  end
+
+  def opinion_by_year?(exam)
+    return false if exam.blank?
+
+    [OpinionTypes::BY_YEAR, OpinionTypes::BY_YEAR_AND_DISCIPLINE].include?(exam.opinion_type.to_s)
+  end
+
+  def join_opinions(rows)
+    rows.map { |row| opinion_text(row.value) }.select(&:present?).uniq.join("\n\n")
+  end
+
+  def opinion_text(value)
+    html = value.to_s.gsub(/<br\s*\/?>/i, "\n").gsub(/<\/p>/i, "\n")
+    text = ActionController::Base.helpers.strip_tags(html).gsub(/\r\n?/, "\n")
+    text.gsub(/[ \t]+\n/, "\n").gsub(/\n{3,}/, "\n\n").strip.presence
+  end
+
+  def opinion_disciplines
+    listed = disciplines
+    return listed if listed.any?
+
+    descriptive_rows.map { |row| row.descriptive_exam&.discipline }.compact.uniq(&:id)
+  end
+
+  def opinion_frequency_label
+    stats = frequency_stats
+    return if stats[:school_days].to_i.zero? && stats[:absences].to_i.zero?
+
+    parts = ["Faltas: #{stats[:absences].to_i}"]
+    parts << "Frequência: #{format_percent(stats[:percentage_exact])}" if stats[:percentage_exact]
+    parts.join(' · ')
+  end
+
   def grade_sheet
+    return opinion_sheet if parecer_only?
+
     payloads = step_payloads
     base = { status: enrollment_status_label, header: [], rows: [] }
     return base.merge(kind: 'steps') if payloads.blank? || payloads.first[:disciplines].blank?
@@ -712,8 +823,10 @@ class StudentReportCard
       second << header_cell(frequency_by_discipline? ? '' : general_absences[index].to_i.to_s)
     end
 
-    header[0] << header_cell('Exame final', rowspan: 2)
-    header[0] << header_cell('Média final', rowspan: 2)
+    unless only_conceptual?
+      header[0] << header_cell('Exame final', rowspan: 2)
+      header[0] << header_cell('Média final', rowspan: 2)
+    end
     header[0] << header_cell('Faltas')
     header[0] << header_cell('Freq. %')
     second << header_cell(frequency_by_discipline? ? '' : general_absences.sum.to_s)
@@ -761,9 +874,11 @@ class StudentReportCard
       values << (frequency_by_discipline? && row ? row[:absences].to_i.to_s : '')
     end
 
-    final_recovery = final_recovery_by_discipline[rows.first[:discipline_id]]
-    values << (final_recovery.present? ? score_label(final_recovery) : '')
-    values << official_average_label(rows)
+    unless only_conceptual?
+      final_recovery = final_recovery_by_discipline[rows.first[:discipline_id]]
+      values << (final_recovery.present? ? score_label(final_recovery) : '')
+      values << official_average_label(rows)
+    end
     values << (frequency_by_discipline? ? rows.sum { |row| row[:absences].to_i }.to_s : '')
     values << discipline_frequency_label(rows.first[:discipline_id])
 
