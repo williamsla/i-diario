@@ -9,20 +9,34 @@ RSpec.describe UserForStudentCreator, type: :service do
     user = described_class.sync!(student.id, '529.982.247-25')
 
     expect(user).to be_persisted
+    expect(user.login).to eq('52998224725')
     expect(user.cpf).to eq('529.982.247-25')
     expect(user.valid_password?('maria@529')).to be(true)
     expect(user.student_id).to eq(student.id)
-    expect(user.reload.roles.pluck(:access_level)).to include(AccessLevel::STUDENT)
+    expect(user.reload.roles.pluck(:access_level)).to eq([AccessLevel::STUDENT])
+    expect(user.current_user_role.role).to eq(student_role)
+  end
+
+  it 'vincula a permissão de aluno quando o usuário já existia sem ela' do
+    user = described_class.sync!(student.id, '52998224725')
+    user.user_roles.delete_all
+    user.update_column(:current_user_role_id, nil)
+
+    described_class.sync!(student.id, '52998224725')
+
+    expect(user.reload.roles).to eq([student_role])
   end
 
   it 'troca a senha antiga quando o CPF chega na sincronização' do
     user = described_class.sync!(student.id, nil)
 
+    expect(user.login).to eq('portal9001')
     expect(user.valid_password?('estudanteportal9001')).to be(true)
 
     described_class.sync!(student.id, '52998224725')
 
-    expect(user.reload.cpf).to eq('529.982.247-25')
+    expect(user.reload.login).to eq('52998224725')
+    expect(user.cpf).to eq('529.982.247-25')
     expect(user.valid_password?('maria@529')).to be(true)
   end
 

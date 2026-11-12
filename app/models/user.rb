@@ -481,6 +481,7 @@ class User < ApplicationRecord
   end
 
   def can_not_be_a_cpf
+    return if kind == RoleKind::STUDENT && student_id.present?
     return unless CPF.valid?(login)
 
     errors.add(:login, :can_not_be_a_cpf)
