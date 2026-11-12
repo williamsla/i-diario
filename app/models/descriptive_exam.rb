@@ -63,6 +63,10 @@ class DescriptiveExam < ApplicationRecord
     step.try(:end_at)
   end
 
+  def opinion_type_by_year?
+    [OpinionTypes::BY_YEAR, OpinionTypes::BY_YEAR_AND_DISCIPLINE].include?(opinion_type)
+  end
+
   private
 
   def should_validate_presence_of_discipline
@@ -79,10 +83,6 @@ class DescriptiveExam < ApplicationRecord
     return true if checker.check
 
     errors.add(:step_id, checker.not_allowed_message)
-  end
-
-  def opinion_type_by_year?
-    [OpinionTypes::BY_YEAR, OpinionTypes::BY_YEAR_AND_DISCIPLINE].include?(opinion_type)
   end
 
   def ignore_date_validates
