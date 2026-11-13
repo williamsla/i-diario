@@ -18,6 +18,15 @@ class Users::SessionsController < Devise::SessionsController
     user.present?
   end
 
+  def create
+    request.env['devise.skip_trackable'] = true if warden.authenticated?(resource_name)
+    self.resource = warden.authenticate!(auth_options)
+    request.env['devise.skip_trackable'] = true
+    set_flash_message!(:notice, :signed_in)
+    sign_in(resource_name, resource)
+    redirect_to after_sign_in_path_for(resource)
+  end
+
   def valid_failed_attempts
     credentials = params.dig(:user, :credentials)
     credentials_hash = credentials_discriminator(credentials)

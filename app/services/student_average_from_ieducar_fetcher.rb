@@ -35,19 +35,35 @@ class StudentAverageFromIeducarFetcher
   def score_for_enrollment(student_enrollment, discipline_api_code, step_number)
     return nil if student_enrollment.blank? || student_enrollment.api_code.blank?
 
-    result = api.fetch(
-      registration_id: student_enrollment.api_code,
-      discipline_id: discipline_api_code,
-      stage: step_number
-    )
+    records = discipline_records(student_enrollment, discipline_api_code)
+    if records.nil?
+      result = api.fetch(
+        registration_id: student_enrollment.api_code,
+        discipline_id: discipline_api_code,
+        stage: step_number
+      )
+      logger.info "Result: #{result.inspect}"
+      return nil unless result.is_a?(Hash) && result['data'].present?
 
-    logger.info "Result: #{result.inspect}"
+      records = result['data'].is_a?(Array) ? result['data'] : [result['data']]
+    end
 
-    # A API retorna: {"message"=>"...", "data"=>{"stage"=>1, "score"=>"7.5", ...}}
-    # ou {"message"=>"...", "data"=>[{"stage"=>1, "score"=>"7.5", ...}]} (array)
-    return nil unless result.is_a?(Hash) && result['data'].present?
+    score_from(stage_record_for(records, step_number))
+  rescue IeducarApi::Base::ApiError, StandardError => error
+    logger.error "Erro ao buscar média da matrícula #{student_enrollment.api_code}: #{error.message}"
+    nil
+  end
 
-    stage_data = stage_record_for(result['data'], step_number)
+  def discipline_records(student_enrollment, discipline_api_code)
+    ReportQueryCache.fetch([:ieducar_student_scores, student_enrollment.api_code, discipline_api_code]) do
+      api.fetch_by_discipline(
+        registration_id: student_enrollment.api_code,
+        discipline_id: discipline_api_code
+      )
+    end
+  end
+
+  def score_from(stage_data)
     return nil unless stage_data.present?
 
     # Prioridade: recovery_specific_score > recovery_parallel_score > score
@@ -58,9 +74,6 @@ class StudentAverageFromIeducarFetcher
     return nil if score.blank?
 
     score.to_f
-  rescue IeducarApi::Base::ApiError, StandardError => error
-    logger.error "Erro ao buscar média da matrícula #{student_enrollment.api_code}: #{error.message}"
-    nil
   end
 
   def stage_record_for(data, step_number)

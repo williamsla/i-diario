@@ -33,6 +33,13 @@ class AeeIndividualPlan < ApplicationRecord
   before_validation :clear_disciplines_unless_regular
   before_validation :apply_defaults!, on: :create
 
+  CURRENT_CLASSROOM_ENROLLMENT_SQL = <<~SQL.squish.freeze
+    CASE
+      WHEN COALESCE(student_enrollment_classrooms.left_at, '') = '' THEN TRUE
+      ELSE CAST(student_enrollment_classrooms.left_at AS date) > ?
+    END
+  SQL
+
   scope :ordered, -> { order(start_on: :desc, created_at: :desc) }
   scope :by_unity, ->(unity_id) { where(unity_id: unity_id) }
   scope :by_classroom, ->(classroom_id) { where(classroom_id: classroom_id) }
@@ -146,11 +153,11 @@ class AeeIndividualPlan < ApplicationRecord
     )
   end
 
-  # Usado pelo menu em toda página. Só precisa saber se existe aluno com regra
-  # diferenciada; não monta a lista de matrículas de cada disciplina.
+  # Usado pelo menu em toda página. No ensino regular, só abre o PEI se houver
+  # aluno com regra diferenciada e matrícula ativa em turma de AEE no ano.
   def self.differentiated_student_enrolled_for?(user)
     classroom = user&.classroom
-    return false if classroom.blank?
+    return false if classroom.blank? || user.current_school_year.blank?
     return false unless teacher_allocated_in_classroom?(user, classroom)
 
     StudentEnrollment
@@ -158,6 +165,7 @@ class AeeIndividualPlan < ApplicationRecord
       .joins(:student, student_enrollment_classrooms: :classrooms_grade)
       .where(classrooms_grades: { classroom_id: classroom.id })
       .where(students: { uses_differentiated_exam_rule: true })
+      .where(student_id: aee_enrolled_student_ids(user.current_school_year))
       .exists?
   end
 
@@ -177,8 +185,30 @@ class AeeIndividualPlan < ApplicationRecord
 
     return student_ids if classroom.aee?
 
-    Student.where(id: student_ids, uses_differentiated_exam_rule: true).pluck(:id)
+    differentiated_ids = Student.where(id: student_ids, uses_differentiated_exam_rule: true).pluck(:id)
+    return [] if differentiated_ids.blank?
+
+    aee_enrolled_student_ids(user.current_school_year)
+      .where(student_id: differentiated_ids)
+      .distinct
+      .pluck(:student_id)
   end
+
+  # Matrícula ainda vigente em turma cuja série é AEE, no ano letivo informado.
+  def self.aee_enrolled_student_ids(year)
+    return StudentEnrollment.none if year.blank?
+
+    StudentEnrollment
+      .active
+      .joins(student_enrollment_classrooms: { classrooms_grade: [:classroom, :grade] })
+      .where(classrooms: { year: year, discarded_at: nil })
+      .where(classrooms_grades: { discarded_at: nil })
+      .where(student_enrollment_classrooms: { discarded_at: nil })
+      .where('grades.description ~* ?', 'aee')
+      .where(CURRENT_CLASSROOM_ENROLLMENT_SQL, Date.current)
+      .select(:student_id)
+  end
+  private_class_method :aee_enrolled_student_ids
 
   def self.teacher_allocated_in_classroom?(user, classroom)
     teacher = user.current_teacher

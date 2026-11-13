@@ -12,7 +12,9 @@ RSpec.describe StudentAverageFromIeducarFetcher, type: :service do
     allow(Discipline).to receive(:find).with(3).and_return(double(:discipline, api_code: '30'))
     allow(StudentClassroomEnrollments).to receive(:for_student).with(1, 2).and_return([enrollment])
     allow(IeducarApi::StudentAverages).to receive(:new).and_return(api)
+    allow(api).to receive(:fetch_by_discipline).and_return(nil)
     allow(fetcher).to receive(:logger).and_return(Logger.new('/dev/null'))
+    ReportQueryCache.clear!
   end
 
   it 'uses the score when the single object belongs to the requested stage' do
@@ -52,6 +54,20 @@ RSpec.describe StudentAverageFromIeducarFetcher, type: :service do
     )
 
     expect(fetcher.fetch(1, 2, 3, 2)).to eq(10.0)
+  end
+
+  it 'reuses one discipline response for every stage' do
+    allow(api).to receive(:fetch_by_discipline).with(
+      registration_id: '99',
+      discipline_id: '30'
+    ).and_return([
+      { 'stage' => 1, 'score' => '9.5' },
+      { 'stage' => 2, 'score' => '8.0' }
+    ])
+    expect(api).not_to receive(:fetch)
+
+    expect(fetcher.fetch(1, 2, 3, 1)).to eq(9.5)
+    expect(fetcher.fetch(1, 2, 3, 2)).to eq(8.0)
   end
 
   it 'returns nil when the list has no record for the requested stage' do

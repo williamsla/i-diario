@@ -234,5 +234,31 @@ RSpec.describe ClassCouncilAverageCalculator, type: :service do
 
       expect(calculator.calculate).to eq(9.5)
     end
+
+    it 'fills a blank student report card step from i-Educar' do
+      student = double(:student, id: 1)
+      classroom = double(:classroom, id: 2)
+      discipline = double(:discipline)
+      step = double(:step)
+      report_calculator = instance_double(StudentAverageCalculator)
+      calculator = described_class.new(
+        student: student,
+        classroom: classroom,
+        discipline: discipline,
+        step: step,
+        student_only: true
+      )
+
+      allow(StudentAverageCalculator).to receive(:new).with(student).and_return(report_calculator)
+      expect(report_calculator).to receive(:calculate)
+        .with(classroom, discipline, step, ieducar_fallback: false, student_only: true)
+        .and_return(nil)
+      expect(report_calculator).to receive(:calculate)
+        .with(classroom, discipline, step, student_only: true)
+        .and_return(8.0)
+      expect(calculator).not_to receive(:diary_in_classroom?)
+
+      expect(calculator.calculate(fill_blank_from_ieducar: true)).to eq(8.0)
+    end
   end
 end

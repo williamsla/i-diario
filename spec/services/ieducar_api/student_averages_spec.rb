@@ -94,6 +94,20 @@ RSpec.describe IeducarApi::StudentAverages, type: :service do
       expect(logged_error).not_to include(secret_key)
     end
 
+    it 'loads every stage of a discipline in one request' do
+      body = '{"data":[{"stage":1,"score":"9.5"},{"stage":2,"score":"8.0"}]}'
+      expect(RestClient::Request).to receive(:execute).once.with(
+        hash_including(url: include('/api/student-scores', "registration_id=19", "discipline_id=3"))
+      ).and_return(body)
+
+      result = subject.fetch_by_discipline(registration_id: 19, discipline_id: 3)
+
+      expect(result).to eq([
+        { 'stage' => 1, 'score' => '9.5' },
+        { 'stage' => 2, 'score' => '8.0' }
+      ])
+    end
+
     it 'requires registration, discipline and stage' do
       expect { subject.fetch(discipline_id: 2, stage: 1) }.to raise_error(IeducarApi::Base::ApiError, /registration_id/)
       expect { subject.fetch(registration_id: 1, stage: 1) }.to raise_error(IeducarApi::Base::ApiError, /discipline_id/)

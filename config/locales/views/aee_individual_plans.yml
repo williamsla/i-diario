@@ -45,7 +45,7 @@ pt-BR:
     edit:
       title: "Editar PEI"
     errors:
-      require_special_needs_students: "O PEI no ensino regular está disponível quando a turma tem alunos com necessidade especial."
+      require_special_needs_students: "O PEI no ensino regular está disponível quando a turma tem alunos com necessidade especial matriculados também em turma de AEE."
       require_linked_disciplines: "O PEI do ensino regular exige vínculo com ao menos uma disciplina nesta turma."
     notices:
       already_exists: "Já existe um PEI deste contexto para o aluno. O registro foi aberto para consulta ou edição."

@@ -503,8 +503,9 @@ class StudentReportCard
       student: student,
       classroom: classroom,
       discipline: discipline,
-      step: step
-    ).calculate
+      step: step,
+      student_only: true
+    ).calculate(fill_blank_from_ieducar: true)
   rescue StandardError => error
     Rails.logger.warn("Boletim do aluno #{student.id}: #{error.class} #{error.message}")
     nil
@@ -668,7 +669,11 @@ class StudentReportCard
   def absence_count(start_at, end_at, discipline = nil)
     return 0 if start_at.blank? || end_at.blank? || end_at < start_at
 
-    absence_counter.count(student, classroom, start_at, end_at, discipline)
+    key = [start_at.to_date, end_at.to_date, discipline&.id]
+    @absence_counts ||= {}
+    return @absence_counts[key] if @absence_counts.key?(key)
+
+    @absence_counts[key] = absence_counter.count(student, classroom, start_at, end_at, discipline)
   end
 
   def frequency_stats

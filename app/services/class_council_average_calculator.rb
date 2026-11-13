@@ -3,24 +3,22 @@
 # o tipo e o divisor vêm da configuração da etapa (TestSetting), não de uma
 # quantidade fixa de avaliações.
 class ClassCouncilAverageCalculator
-  def initialize(student:, classroom:, discipline:, step:)
+  def initialize(student:, classroom:, discipline:, step:, student_only: false)
     @student = student
     @classroom = classroom
     @discipline = discipline
     @step = step
+    @student_only = student_only
   end
 
-  def calculate
-    average = StudentAverageCalculator.new(@student).calculate(
-      @classroom,
-      @discipline,
-      @step,
-      ieducar_fallback: false
-    )
+  def calculate(allow_remote: true, fill_blank_from_ieducar: false)
+    average = local_average
     return average unless average.nil?
+    return remote_average if fill_blank_from_ieducar
+    return unless allow_remote
     return if diary_in_classroom?
 
-    StudentAverageCalculator.new(@student).calculate(@classroom, @discipline, @step)
+    remote_average
   end
 
   def self.average_for(test_setting:, score_sum:, scores_count:, weight_sum:)
@@ -38,6 +36,29 @@ class ClassCouncilAverageCalculator
   end
 
   private
+
+  def local_average
+    StudentAverageCalculator.new(@student).calculate(
+      @classroom,
+      @discipline,
+      @step,
+      **calculator_options(ieducar_fallback: false)
+    )
+  end
+
+  def remote_average
+    StudentAverageCalculator.new(@student).calculate(
+      @classroom,
+      @discipline,
+      @step,
+      **calculator_options
+    )
+  end
+
+  def calculator_options(extra = {})
+    extra[:student_only] = true if @student_only
+    extra
+  end
 
   # Aluno que já tem diário nesta turma não recebe nota de outra origem
   # numa etapa que o professor deixou sem avaliação.

@@ -680,8 +680,11 @@ class ApplicationController < ActionController::Base
     return if request.xhr?
     return if current_user.current_user_role_id?
 
-    current_user.current_user_role_id = current_user.user_roles.first&.id || return
-    current_user.save
+    role_id = current_user.user_roles.first&.id
+    return if role_id.blank?
+
+    current_user.current_user_role_id = role_id
+    current_user.save(validate: false)
   end
 
   def set_current_unity_id
@@ -810,8 +813,9 @@ class ApplicationController < ActionController::Base
   end
 
   def last_activity_at
-    current_user.last_activity_at = Date.current
-    current_user.save
+    return if current_user.last_activity_at&.to_date == Date.current
+
+    current_user.update_columns(last_activity_at: Date.current)
   end
 
   def target_path?

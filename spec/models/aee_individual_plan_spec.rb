@@ -195,6 +195,7 @@ RSpec.describe AeeIndividualPlan do
           student_enrollments: [instance_double(StudentEnrollment, student_id: student.id)]
         )
       )
+      create_aee_enrollment(student, year)
     end
 
     it 'lists the regular PEIs of the classroom and the AEE PEI of the student' do
@@ -305,7 +306,22 @@ RSpec.describe AeeIndividualPlan do
       )
     end
 
-    it 'is true when the teacher is allocated and a differentiated student is enrolled' do
+    it 'is true when a differentiated student is also enrolled in an AEE classroom' do
+      create(
+        :teacher_discipline_classroom,
+        classroom: classroom,
+        teacher: teacher,
+        grade: classrooms_grade.grade,
+        year: year
+      )
+      student = create(:student, uses_differentiated_exam_rule: true)
+      enroll(student)
+      create_aee_enrollment(student, year)
+
+      expect(described_class.differentiated_student_enrolled_for?(user)).to eq(true)
+    end
+
+    it 'is false when the differentiated student has no AEE enrollment' do
       create(
         :teacher_discipline_classroom,
         classroom: classroom,
@@ -315,7 +331,7 @@ RSpec.describe AeeIndividualPlan do
       )
       enroll(create(:student, uses_differentiated_exam_rule: true))
 
-      expect(described_class.differentiated_student_enrolled_for?(user)).to eq(true)
+      expect(described_class.differentiated_student_enrolled_for?(user)).to eq(false)
     end
 
     it 'is false when no enrolled student uses a differentiated exam rule' do
@@ -336,5 +352,63 @@ RSpec.describe AeeIndividualPlan do
 
       expect(described_class.differentiated_student_enrolled_for?(user)).to eq(false)
     end
+  end
+
+  describe '.enrolled_student_ids_for' do
+    let(:year) { Date.current.year }
+    let(:unity) { create(:unity) }
+    let(:classroom) { create(:classroom, unity: unity, year: year) }
+    let(:discipline) { create(:discipline) }
+    let(:teacher) { create(:teacher) }
+    let(:user) do
+      instance_double(
+        User,
+        classroom: classroom,
+        discipline: discipline,
+        current_school_year: year,
+        current_unity_id: unity.id,
+        current_teacher: teacher
+      )
+    end
+    let(:with_aee) { create(:student, uses_differentiated_exam_rule: true) }
+    let(:without_aee) { create(:student, uses_differentiated_exam_rule: true) }
+
+    before do
+      allow(classroom).to receive(:aee?).and_return(false)
+      allow(described_class).to receive(:linked_disciplines_for).and_return([discipline])
+      allow(StudentEnrollmentsList).to receive(:new).and_return(
+        instance_double(
+          StudentEnrollmentsList,
+          student_enrollments: [
+            instance_double(StudentEnrollment, student_id: with_aee.id),
+            instance_double(StudentEnrollment, student_id: without_aee.id)
+          ]
+        )
+      )
+      create_aee_enrollment(with_aee, year)
+    end
+
+    it 'keeps only differentiated students who also have an active AEE enrollment' do
+      expect(described_class.enrolled_student_ids_for(user)).to eq([with_aee.id])
+    end
+
+    it 'ignores an AEE enrollment that already ended' do
+      create_aee_enrollment(without_aee, year, left_at: "#{year}-01-15")
+
+      expect(described_class.enrolled_student_ids_for(user)).to eq([with_aee.id])
+    end
+  end
+
+  def create_aee_enrollment(student, year, left_at: '')
+    aee_grade = create(:grade, description: 'AEE')
+    aee_classroom = create(:classroom, year: year, description: 'Turma AEE')
+    classrooms_grade = create(:classrooms_grade, classroom: aee_classroom, grade: aee_grade)
+    enrollment = create(:student_enrollment, student: student)
+    create(
+      :student_enrollment_classroom,
+      student_enrollment: enrollment,
+      classrooms_grade: classrooms_grade,
+      left_at: left_at
+    )
   end
 end

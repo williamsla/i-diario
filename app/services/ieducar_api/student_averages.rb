@@ -61,12 +61,70 @@ module IeducarApi
       result
     end
 
+    # Todas as etapas da disciplina, para o boletim não repetir uma chamada por etapa.
+    # nil quando o endpoint ainda não existe nesta instalação do i-Educar.
+    def fetch_by_discipline(params = {})
+      registration_id = params[:registration_id]
+      discipline_id = params[:discipline_id]
+
+      raise ApiError, 'É necessário informar o registration_id' if registration_id.blank?
+      raise ApiError, 'É necessário informar o discipline_id' if discipline_id.blank?
+
+      cache_key = scores_cache_key(registration_id, discipline_id)
+      cached = Rails.cache.read(cache_key)
+      return cached unless cached.nil?
+
+      endpoint = "#{url}/api/student-scores"
+      query_params = {
+        access_key: access_key,
+        secret_key: secret_key,
+        registration_id: registration_id,
+        discipline_id: discipline_id
+      }
+      request_url = "#{endpoint}?#{query_params.to_query}"
+
+      log_request(endpoint, registration_id, discipline_id, 'todas')
+
+      records = score_records(request_score(endpoint, request_url))
+      Rails.cache.write(cache_key, records, expires_in: CACHE_TTL)
+      records
+    rescue ApiError => error
+      return nil if missing_scores_endpoint?(error)
+
+      raise
+    end
+
     private
 
     def log_request(endpoint, registration_id, discipline_id, stage)
       message = "GET #{endpoint} registration_id=#{registration_id} discipline_id=#{discipline_id} stage=#{stage}"
       Rails.logger.info(message)
       Sidekiq.logger.info(message)
+    end
+
+    def scores_cache_key(registration_id, discipline_id)
+      [
+        'ieducar-student-scores',
+        Entity.current&.id,
+        url,
+        registration_id.to_s,
+        discipline_id.to_s
+      ]
+    end
+
+    def score_records(result)
+      return [] unless result.is_a?(Hash)
+
+      data = result['data']
+      return data if data.is_a?(Array)
+      return [data] if data.is_a?(Hash)
+
+      []
+    end
+
+    def missing_scores_endpoint?(error)
+      message = error.message.to_s
+      message.include?('404') || message.include?('não encontrado')
     end
 
     def score_cache_key(registration_id, discipline_id, stage)

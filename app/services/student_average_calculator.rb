@@ -3,8 +3,15 @@ class StudentAverageCalculator
     @student = student
   end
 
-  def calculate(classroom, discipline, step, ieducar_fallback: true)
-    student_notes_query = StudentNotesQuery.new(student, discipline, classroom, step.start_at, step.end_at)
+  def calculate(classroom, discipline, step, ieducar_fallback: true, student_only: false)
+    student_notes_query = StudentNotesQuery.new(
+      student,
+      discipline,
+      classroom,
+      step.start_at,
+      step.end_at,
+      student_only: student_only
+    )
     @daily_note_students = student_notes_query.daily_note_students + student_notes_query.transfer_notes +
       student_notes_query.previous_enrollments_daily_note_students
     test_setting = test_setting(classroom, step)

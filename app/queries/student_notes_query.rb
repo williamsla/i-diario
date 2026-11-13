@@ -1,10 +1,11 @@
 class StudentNotesQuery
-  def initialize(student, discipline, classroom, step_start_at, step_end_at)
+  def initialize(student, discipline, classroom, step_start_at, step_end_at, student_only: false)
     @student = student
     @discipline = discipline
     @classroom = classroom
     @step_start_at = step_start_at.to_date
     @step_end_at = step_end_at.to_date
+    @student_only = student_only
   end
 
   def daily_note_students_query(student, discipline, classroom, start_date, end_date)
@@ -64,10 +65,25 @@ class StudentNotesQuery
   private
 
   attr_accessor :student, :discipline, :classroom, :step_start_at, :step_end_at
+  attr_reader :student_only
+
+  def notes_cache_key(name, extra = nil)
+    key = [name, discipline.id, classroom.id]
+    key << student.id if student_only
+    key << extra if extra
+    key
+  end
+
+  def restrict_to_student(relation)
+    return relation unless student_only
+
+    relation.where(student_id: student.id)
+  end
 
   def batched_daily_note_students
-    ReportQueryCache.fetch([:daily_note_students, discipline.id, classroom.id, step_start_at, step_end_at]) do
-      DailyNoteStudent.by_discipline_id(discipline)
+    ReportQueryCache.fetch(notes_cache_key(:daily_note_students, [step_start_at, step_end_at])) do
+      restrict_to_student(
+        DailyNoteStudent.by_discipline_id(discipline)
                       .by_classroom_id(classroom)
                       .by_test_date_between(step_start_at, step_end_at)
                       .includes(
@@ -82,13 +98,14 @@ class StudentNotesQuery
                       )
                       .where.not(note: nil)
                       .where(transfer_note: nil)
-                      .group_by(&:student_id)
+      ).group_by(&:student_id)
     end
   end
 
   def batched_transfer_notes
-    ReportQueryCache.fetch([:transfer_notes, discipline.id, classroom.id, step_start_at, step_end_at]) do
-      DailyNoteStudent.by_discipline_id(discipline)
+    ReportQueryCache.fetch(notes_cache_key(:transfer_notes, [step_start_at, step_end_at])) do
+      restrict_to_student(
+        DailyNoteStudent.by_discipline_id(discipline)
                       .by_classroom_id(classroom)
                       .joins(:transfer_note)
                       .merge(
@@ -98,12 +115,12 @@ class StudentNotesQuery
                         )
                       )
                       .where.not(transfer_note: nil)
-                      .group_by(&:student_id)
+      ).group_by(&:student_id)
     end
   end
 
   def batched_recovery_diary_records
-    ReportQueryCache.fetch([:recovery_diary_records, discipline.id, classroom.id, step_start_at, step_end_at]) do
+    ReportQueryCache.fetch(notes_cache_key(:recovery_diary_records, [step_start_at, step_end_at])) do
       records = RecoveryDiaryRecord.by_discipline_id(discipline)
                                    .by_classroom_id(classroom)
                                    .joins(:students, avaliation_recovery_diary_record: [:avaliation])
@@ -113,9 +130,10 @@ class StudentNotesQuery
                                      )
                                    )
                                    .where.not(recovery_diary_record_students: { score: nil })
-                                   .includes(:students, avaliation_recovery_diary_record: :avaliation)
-                                   .distinct
-                                   .to_a
+      records = records.where(recovery_diary_record_students: { student_id: student.id }) if student_only
+      records = records.includes(:students, avaliation_recovery_diary_record: :avaliation)
+                       .distinct
+                       .to_a
 
       grouped = Hash.new { |hash, key| hash[key] = [] }
       records.each do |record|
@@ -130,8 +148,8 @@ class StudentNotesQuery
   end
 
   def batched_recovery_lowest_notes(step)
-    ReportQueryCache.fetch([:recovery_lowest_notes, discipline.id, classroom.id, step.id]) do
-      RecoveryDiaryRecordStudent
+    ReportQueryCache.fetch(notes_cache_key(:recovery_lowest_notes, step.id)) do
+      relation = RecoveryDiaryRecordStudent
         .joins(:recovery_diary_record)
         .merge(
           RecoveryDiaryRecord.by_discipline_id(discipline)
@@ -141,8 +159,8 @@ class StudentNotesQuery
                                AvaliationRecoveryLowestNote.by_step_id(classroom, step.id)
                              )
         )
-        .includes(:recovery_diary_record)
-        .index_by(&:student_id)
+      relation = relation.where(recovery_diary_record_students: { student_id: student.id }) if student_only
+      relation.includes(:recovery_diary_record).index_by(&:student_id)
     end
   end
 
