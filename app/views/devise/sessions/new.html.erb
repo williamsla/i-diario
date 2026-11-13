@@ -2,17 +2,17 @@
   <%= simple_form_for(resource, as: resource_name, url: session_path(resource_name), html: { class: "smart-form client-form login-form" }) do |f| %>
     <fieldset>
       <section>
-        <%= f.label :credentials, "CPF, usuário ou e-mail", class: "label" %>
+        <%= f.label :credentials, "CPF", class: "label" %>
         <label class="input">
-          <%= f.input_field :credentials, required: false, autofocus: true, autocomplete: "username", placeholder: "Digite seu CPF, usuário ou e-mail" %>
+          <%= f.input_field :credentials, required: false, autofocus: true, autocomplete: "username", placeholder: "Digite o CPF" %>
         </label>
       </section>
 
       <section>
         <%= f.label :password, "Senha", class: "label" %>
         <label class="input">
+          <%= f.input_field :password, required: false, autocomplete: "current-password", placeholder: "Digite sua senha", class: "login-password" %>
           <i class="icon-append fa fa-eye login-toggle-password" id="eye" role="button" tabindex="0" aria-label="Mostrar senha" aria-pressed="false" onclick="return showPassword();" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showPassword();}"></i>
-          <%= f.input_field :password, required: false, autocomplete: "current-password", placeholder: "Digite sua senha" %>
         </label>
 
         <div class="login-forgot">

@@ -313,6 +313,10 @@ body.login-screen .login-form .input input:focus {
   border-color: #188ad1;
 }
 
+body.login-screen .login-form .input input.login-password {
+  padding-right: 37px;
+}
+
 body.login-screen .login-form .icon-append {
   top: 12px;
   border-left: 0;
