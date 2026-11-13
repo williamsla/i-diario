@@ -115,6 +115,7 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
           has_numeric_avaliation: show_avaliations_summary,
           last_step: last_step,
           show_final_recovery: last_step && PendingRecordsFinalRecoverySummary.available_for?(current_user_classroom),
+          show_optional_discipline_note_message: GeneralConfiguration.show_optional_discipline_note_message?,
           pending_records: pending_records
         }
       end

@@ -8,22 +8,23 @@ class PendingRecordsAvaliationsSummary
 
   def apply!
     optional_ids = optional_discipline_ids
+    show_message = GeneralConfiguration.show_optional_discipline_note_message?
 
     @pending_records.each do |record|
       record[:notes_required] = !optional_ids.include?(record[:discipline_id])
     end
 
-    required_ids = @pending_records.select { |record| record[:notes_required] && record[:discipline_id].present? }
-                                   .map { |record| record[:discipline_id] }
-                                   .uniq
-    return @pending_records if required_ids.blank?
+    countable_ids = @pending_records.select { |record| count_notes?(record, show_message) }
+                                    .map { |record| record[:discipline_id] }
+                                    .uniq
+    return @pending_records if countable_ids.blank?
 
-    students_without_note_by_discipline = count_students_without_note_by_discipline(required_ids)
-    created_avaliations_by_discipline = count_created_avaliations_by_discipline(required_ids)
+    students_without_note_by_discipline = count_students_without_note_by_discipline(countable_ids)
+    created_avaliations_by_discipline = count_created_avaliations_by_discipline(countable_ids)
     classroom_students_count = count_classroom_students
 
     @pending_records.each do |record|
-      next unless record[:notes_required] && record[:discipline_id].present?
+      next unless count_notes?(record, show_message)
 
       discipline_id = record[:discipline_id]
       created_count = created_avaliations_by_discipline[discipline_id] || 0
@@ -43,7 +44,15 @@ class PendingRecordsAvaliationsSummary
   private
 
   # Componente com "Desconsiderar o componente na aprovação/reprovação dos alunos?"
-  # no i-Educar não gera pendência de nota numérica nem de recuperação final.
+  # no i-Educar não entra na aprovação. O ícone do dashboard é opcional: com o
+  # aviso desligado, a célula confere o lançamento como nas demais disciplinas.
+  def count_notes?(record, show_message)
+    return false if record[:discipline_id].blank?
+    return true if record[:notes_required]
+
+    !show_message
+  end
+
   def optional_discipline_ids
     ids = @pending_records.map { |record| record[:discipline_id] }.compact.uniq
     return Set.new if ids.blank?

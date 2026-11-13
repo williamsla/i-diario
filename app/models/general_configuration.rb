@@ -57,6 +57,14 @@ class GeneralConfiguration < ActiveRecord::Base
     ActiveRecord::Type::Boolean.new.cast(current.block_modifications_after_last_step_ended)
   end
 
+  # Ícone e mensagem do dashboard para componentes desconsiderados na aprovação.
+  # Sem a coluna (antes da migration), mantém o comportamento atual de exibir.
+  def self.show_optional_discipline_note_message?
+    return true unless current.has_attribute?(:show_optional_discipline_note_message)
+
+    ActiveRecord::Type::Boolean.new.cast(current.show_optional_discipline_note_message)
+  end
+
 
   # Preferência: general_configurations (por município). Fallback: secrets.yml se a coluna ainda não existir.
   def self.flag_enabled?(attribute)

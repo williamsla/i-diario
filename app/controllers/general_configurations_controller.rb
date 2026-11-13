@@ -68,7 +68,8 @@ class GeneralConfigurationsController < ApplicationController
       :show_objectives,
       :semestral_recovery,
       :conceptual_exam_batch_layout,
-      :block_modifications_after_last_step_ended
+      :block_modifications_after_last_step_ended,
+      :show_optional_discipline_note_message
     )
 
     parameters[:types_of_teaching] = parameters[:types_of_teaching].split(',')

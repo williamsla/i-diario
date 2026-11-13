@@ -40,4 +40,19 @@ RSpec.describe PendingRecordsAvaliationsSummary, type: :service do
     expect(record[:notes_required]).to eq(true)
     expect(record).not_to have_key(:students_without_note_count)
   end
+
+  context 'quando o município oculta o aviso' do
+    before do
+      allow(GeneralConfiguration).to receive(:show_optional_discipline_note_message?).and_return(false)
+    end
+
+    it 'confere o lançamento da disciplina não obrigatória como nas obrigatórias' do
+      optional_record = records.find { |item| item[:discipline_id] == optional_discipline.id }
+      required_record = records.find { |item| item[:discipline_id] == required_discipline.id }
+
+      expect(optional_record[:notes_required]).to eq(false)
+      expect(optional_record[:students_without_note_count]).to eq(required_record[:students_without_note_count])
+      expect(optional_record[:students_without_note_from_classroom_total]).to eq(true)
+    end
+  end
 end

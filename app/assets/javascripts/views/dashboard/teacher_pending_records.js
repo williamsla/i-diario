@@ -249,6 +249,10 @@ $(function(){
     return 'Este componente é desconsiderado na aprovação/reprovação dos alunos. Consulte a coordenação da escola/SEMED para verificar se é necessário realizar o lançamento de notas.';
   }
 
+  function showOptionalDisciplineNoteMessage(stepData) {
+    return !stepData || stepData.show_optional_discipline_note_message !== false;
+  }
+
   function notesNotRequiredHtml() {
     var message = _.escape(notesNotRequiredMessage());
 
@@ -323,7 +327,7 @@ $(function(){
     }
 
     var disciplineId = record.final_recovery_discipline_id;
-    if (record.notes_required === false && disciplineId) {
+    if (record.notes_required === false && disciplineId && showOptionalDisciplineNoteMessage(stepData)) {
       return '<td style="text-align: center;">' + notesNotRequiredHtml() + '</td>';
     }
 
@@ -494,7 +498,7 @@ $(function(){
         var showingClassroomTotal = record.students_without_note_from_classroom_total === true;
         var studentsWithoutNoteBadge;
 
-        if (record.notes_required === false) {
+        if (record.notes_required === false && showOptionalDisciplineNoteMessage(stepData)) {
           studentsWithoutNoteBadge = notesNotRequiredHtml();
         } else if (showingClassroomTotal) {
           studentsWithoutNoteBadge = '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; background-color: #ff9800; color: white;" title="Nenhuma avaliação criada na etapa. Total de alunos da turma com nota numérica.">' +
