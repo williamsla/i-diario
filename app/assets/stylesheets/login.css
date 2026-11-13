@@ -330,22 +330,60 @@ body.login-screen .login-forgot {
 
 body.login-screen .login-family-hint {
   margin: 14px 0 0;
-  color: #526173;
-  font-size: 13px;
-  line-height: 1.45;
   text-align: left;
 }
 
-body.login-screen .login-forgot a,
-body.login-screen .login-unlock a {
+body.login-screen .login-family-hint summary {
+  display: inline-block;
+  color: #005495;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+body.login-screen .login-family-hint summary:hover,
+body.login-screen .login-family-hint summary:focus {
+  color: #003e70;
+}
+
+body.login-screen .login-family-hint p {
+  margin: 8px 0 0;
+  color: #526173;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+body.login-screen .login-family-example {
+  display: inline-block;
+  margin-left: 2px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: #e8f3fb;
+  color: #005495;
+  font-weight: 700;
+}
+
+body.login-screen .login-forgot a {
+  color: #6b7c8a;
+  font-size: 13px;
+  font-weight: 400;
+  text-decoration: none;
+}
+
+body.login-screen .login-forgot a:hover,
+body.login-screen .login-forgot a:focus {
+  color: #005495;
+  text-decoration: underline;
+}
+
+body.login-screen .password-unlock a {
   color: #005495;
   font-size: 13px;
   font-weight: 600;
 }
 
-body.login-screen .login-unlock {
-  margin: 14px 0 0;
-  text-align: center;
+body.login-screen .password-unlock {
+  margin: 12px 0 0;
 }
 
 body.login-screen .login-form footer {

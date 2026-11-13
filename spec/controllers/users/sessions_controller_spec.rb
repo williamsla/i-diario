@@ -30,6 +30,36 @@ RSpec.describe Users::SessionsController, type: :controller do
     @request.env['devise.mapping'] = Devise.mappings[:user]
   end
 
+  describe 'GET #new' do
+    render_views
+
+    def stub_create_users_for_students(enabled)
+      configuration = GeneralConfiguration.current
+      allow(configuration).to receive(:create_users_for_students_when_synchronize).and_return(enabled)
+      allow(GeneralConfiguration).to receive(:current).and_return(configuration)
+    end
+
+    it 'oculta a dica da família quando a criação de usuários de alunos está desligada' do
+      stub_create_users_for_students(false)
+
+      get :new, params: { locale: 'pt-BR' }
+
+      expect(response.body).not_to include('login-family-hint')
+      expect(response.body).not_to include('Sou responsável: como entrar?')
+    end
+
+    it 'mostra a dica da família quando a criação de usuários de alunos está ligada' do
+      stub_create_users_for_students(true)
+
+      get :new, params: { locale: 'pt-BR' }
+
+      expect(response.body).to include('Sou responsável: como entrar?')
+      expect(response.body).to include('login-family-example')
+      expect(response.body).to include('joao@123')
+      expect(response.body).not_to include('Reenviar instruções de desbloqueio')
+    end
+  end
+
   it 'entra no sistema mesmo com o e-mail de aluno inválido' do
     expect(user).not_to be_valid
     expect(user.errors[:email]).to be_present

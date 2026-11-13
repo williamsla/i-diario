@@ -19,22 +19,22 @@
           <%= link_to "Esqueceu sua senha?", new_password_path(resource_name) %>
         </div>
 
-        <!-- <p class="login-family-hint">
-          Família: entre com o CPF do aluno. A senha é o primeiro nome, minúsculo e sem acento,
-          seguido de @ e os três primeiros números do CPF. Exemplo: joao@123.
-        </p> -->
+        <% if GeneralConfiguration.current.create_users_for_students_when_synchronize %>
+          <details class="login-family-hint">
+            <summary>Primeiro acesso de pais e responsáveis +</summary>
+            <p>
+              Entre com o CPF do aluno. A senha é o primeiro nome, sem acento,
+              seguido de @ e os três primeiros dígitos do CPF.
+              Exemplo: <strong class="login-family-example">joao@123</strong>.
+            </p>
+          </details>
+        <% end %>
       </section>
     </fieldset>
 
     <footer>
       <%= f.button :submit, "Acessar", class: "btn btn-primary", id: "btn-login" %>
     </footer>
-
-    <% if devise_mapping.lockable? && resource_class.unlock_strategy_enabled?(:email) %>
-      <p class="login-unlock">
-        <%= link_to "Reenviar instruções de desbloqueio da conta", new_unlock_path(resource_name) %>
-      </p>
-    <% end %>
   <% end %>
 </div>
 

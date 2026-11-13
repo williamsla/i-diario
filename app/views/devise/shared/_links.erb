@@ -14,10 +14,6 @@
   <%= link_to "Reenviar instruções de confirmação", new_confirmation_path(resource_name) %><br />
 <% end -%>
 
-<%- if devise_mapping.lockable? && resource_class.unlock_strategy_enabled?(:email) && controller_name != 'unlocks' %>
-  <%= link_to "Reenviar instruções de desbloqueio da conta", new_unlock_path(resource_name) %><br />
-<% end -%>
-
 <%- if devise_mapping.omniauthable? %>
   <%- resource_class.omniauth_providers.each do |provider| %>
     <%= link_to "Cadastrar com #{provider.to_s.titleize}", omniauth_authorize_path(resource_name, provider) %><br />
