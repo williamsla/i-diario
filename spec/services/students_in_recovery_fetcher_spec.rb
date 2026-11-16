@@ -85,6 +85,98 @@ RSpec.describe StudentsInRecoveryFetcher, type: :service do
       end
     end
 
+    context 'when the classroom has series without numeric score' do
+      let!(:concept_exam_rule) {
+        create(
+          :exam_rule,
+          :score_type_concept,
+          recovery_type: RecoveryTypes::PARALLEL,
+          parallel_recovery_average: 6
+        )
+      }
+      let!(:concept_grade) { create(:classrooms_grade, classroom: classroom, exam_rule: concept_exam_rule) }
+      let!(:concept_enrollment) {
+        create(
+          :student_enrollment_classroom,
+          classrooms_grade: concept_grade,
+          joined_at: '2017-01-02',
+          left_at: ''
+        )
+      }
+      let!(:parecer_exam_rule) {
+        create(
+          :exam_rule,
+          score_type: ScoreTypes::DONT_USE,
+          opinion_type: OpinionTypes::BY_STEP,
+          recovery_type: RecoveryTypes::PARALLEL,
+          parallel_recovery_average: 6
+        )
+      }
+      let!(:parecer_grade) { create(:classrooms_grade, classroom: classroom, exam_rule: parecer_exam_rule) }
+      let!(:parecer_enrollment) {
+        create(
+          :student_enrollment_classroom,
+          classrooms_grade: parecer_grade,
+          joined_at: '2017-01-02',
+          left_at: ''
+        )
+      }
+      let!(:numeric_and_concept_exam_rule) {
+        create(
+          :exam_rule,
+          :score_type_numeric_and_concept,
+          recovery_type: RecoveryTypes::PARALLEL,
+          parallel_recovery_average: 6
+        )
+      }
+      let!(:numeric_and_concept_grade) {
+        create(:classrooms_grade, classroom: classroom, exam_rule: numeric_and_concept_exam_rule)
+      }
+      let!(:numeric_and_concept_enrollment) {
+        create(
+          :student_enrollment_classroom,
+          classrooms_grade: numeric_and_concept_grade,
+          joined_at: '2017-01-02',
+          left_at: ''
+        )
+      }
+
+      it 'returns only students from series with numeric score' do
+        result = subject.fetch
+
+        expect(result).to include(student)
+        expect(result).to include(numeric_and_concept_enrollment.student_enrollment.student)
+        expect(result).not_to include(concept_enrollment.student_enrollment.student)
+        expect(result).not_to include(parecer_enrollment.student_enrollment.student)
+      end
+
+      it 'uses the differentiated exam rule score type' do
+        differentiated_numeric = create(
+          :exam_rule,
+          score_type: ScoreTypes::NUMERIC,
+          recovery_type: RecoveryTypes::PARALLEL,
+          parallel_recovery_average: 6
+        )
+        concept_exam_rule.update!(differentiated_exam_rule: differentiated_numeric)
+        concept_enrollment.student_enrollment.student.update!(uses_differentiated_exam_rule: true)
+
+        expect(subject.fetch).to include(concept_enrollment.student_enrollment.student)
+      end
+
+      it 'excludes a numeric series student who uses a conceptual differentiated rule' do
+        differentiated_concept = create(
+          :exam_rule,
+          :score_type_concept,
+          recovery_type: RecoveryTypes::PARALLEL,
+          parallel_recovery_average: 6
+        )
+        exam_rule.update!(differentiated_exam_rule: differentiated_concept)
+        student.update!(uses_differentiated_exam_rule: true)
+
+        expect(subject.fetch).not_to include(student)
+      end
+    end
+
   end
 
 end

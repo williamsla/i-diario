@@ -62,6 +62,25 @@ RSpec.describe User, type: :model do
     end
   end
 
+  describe '#valid_password?' do
+    it 'não aceita o CPF como senha de quem não é estudante' do
+      user = build(
+        :user,
+        kind: RoleKind::EMPLOYEE,
+        first_name: 'Maria',
+        last_name: 'Souza',
+        fullname: 'Maria Souza',
+        cpf: '529.982.247-25',
+        password: 'maria@529',
+        password_confirmation: 'maria@529'
+      )
+      user.save!(validate: false)
+
+      expect(user.valid_password?('maria@529')).to be(true)
+      expect(user.valid_password?('52998224725')).to be(false)
+    end
+  end
+
   describe '#authorize_email_and_sms' do
     it 'have false as default value' do
       expect(subject.authorize_email_and_sms).to eq(false)

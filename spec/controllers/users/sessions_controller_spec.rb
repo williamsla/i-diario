@@ -53,8 +53,9 @@ RSpec.describe Users::SessionsController, type: :controller do
 
       get :new, params: { locale: 'pt-BR' }
 
-      expect(response.body).to include('Sou responsável: como entrar?')
+      expect(response.body).to include('Primeiro acesso de pais e responsáveis')
       expect(response.body).to include('login-family-example')
+      expect(response.body).to include('52998224725')
       expect(response.body).to include('joao@123')
       expect(response.body).not_to include('Reenviar instruções de desbloqueio')
     end

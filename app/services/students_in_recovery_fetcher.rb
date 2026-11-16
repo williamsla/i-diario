@@ -5,6 +5,10 @@
 # carregamento e o custi de infra, o ideal seria refatorar essa classe e delegar
 # mais filtros ao postgres antes de transformar os dados em memoria
 class StudentsInRecoveryFetcher
+  # Mesma regra de StudentEnrollmentsList#numeric_exam_score_type_permitted?:
+  # só série com nota numérica (ou numérica e conceitual) lança recuperação.
+  NUMERIC_SCORE_TYPES = [ScoreTypes::NUMERIC, ScoreTypes::NUMERIC_AND_CONCEPT].freeze
+
   def initialize(ieducar_api_configuration, classroom_id, discipline_id, step_id, date)
     @ieducar_api_configuration = ieducar_api_configuration
     @classroom_id = classroom_id
@@ -53,17 +57,32 @@ class StudentsInRecoveryFetcher
 
     @classroom_grade = []
 
-    classroom_grades&.each { |classroom_grade| @classroom_grade << classroom_grade unless classroom_grade.exam_rule.recovery_type.eql?(0) }
+    classroom_grades&.each do |classroom_grade|
+      next unless grade_has_numeric_score?(classroom_grade)
+
+      @classroom_grade << classroom_grade unless classroom_grade.exam_rule.recovery_type.eql?(0)
+    end
 
     if @classroom_grade.empty?
-      classroom_grades
+      classroom_grades.select { |classroom_grade| grade_has_numeric_score?(classroom_grade) }.presence || classroom_grades
     else
       @classroom_grade
     end
   end
 
+  def grade_has_numeric_score?(classroom_grade)
+    exam_rule = classroom_grade.exam_rule
+    return false if exam_rule.blank?
+
+    numeric_rule?(exam_rule) || numeric_rule?(exam_rule.differentiated_exam_rule)
+  end
+
+  def numeric_rule?(exam_rule)
+    exam_rule.present? && NUMERIC_SCORE_TYPES.include?(exam_rule.score_type)
+  end
+
   def classroom_grades
-    classroom.classrooms_grades.includes(:exam_rule)
+    classroom.classrooms_grades.includes(exam_rule: :differentiated_exam_rule)
   end
 
   def discipline
@@ -94,7 +113,10 @@ class StudentsInRecoveryFetcher
       search_type: :by_date_range,
       left_at: true
     )
-    StudentEnrollment.includes(:student).where(id: student_enrollments.map(&:id)).order('students.name ASC')
+    StudentEnrollment.includes(
+      :student,
+      student_enrollment_classrooms: { classrooms_grade: { exam_rule: :differentiated_exam_rule } }
+    ).where(id: student_enrollments.map(&:id)).order('students.name ASC')
   end
 
   def fetch_students_in_parallel_recovery(differentiated = nil)
@@ -114,7 +136,46 @@ class StudentsInRecoveryFetcher
     classroom_grade_ids = classroom_grades_with_recovery_rule.map(&:id)
     student_enrollments_in_recovery = student_enrollments(classroom_grade_ids)
 
-    student_enrollments_in_recovery.map(&:student)
+    student_enrollments_in_recovery.select { |enrollment| numeric_score_type?(enrollment) }.map(&:student)
+  end
+
+  # Série conceitual ou parecer (não usa nota) não recebe lançamento numérico.
+  # Regra diferenciada do aluno prevalece sobre a regra da série.
+  def numeric_score_type?(enrollment)
+    student = enrollment.student
+    exam_rule = exam_rule_for(enrollment, student)
+    return false if exam_rule.blank?
+
+    NUMERIC_SCORE_TYPES.include?(exam_rule.score_type)
+  end
+
+  def exam_rule_for(enrollment, student)
+    classroom_grade = classroom_grade_on_date(enrollment)
+    return if classroom_grade.blank?
+
+    exam_rule = classroom_grade.exam_rule
+    return exam_rule unless student&.uses_differentiated_exam_rule
+
+    exam_rule&.differentiated_exam_rule || exam_rule
+  end
+
+  def classroom_grade_on_date(enrollment)
+    reference_date = @date.to_date
+    enrollment_classrooms = enrollment.student_enrollment_classrooms.select { |enrollment_classroom|
+      enrollment_classroom.classrooms_grade&.classroom_id == classroom.id
+    }
+    current = enrollment_classrooms.find { |enrollment_classroom| enrolled_on?(enrollment_classroom, reference_date) }
+
+    (current || enrollment_classrooms.last)&.classrooms_grade
+  end
+
+  def enrolled_on?(enrollment_classroom, date)
+    joined_at = enrollment_classroom.joined_at.presence
+    left_at = enrollment_classroom.left_at.presence
+    return false if joined_at && joined_at.to_date > date
+    return false if left_at && left_at.to_date < date
+
+    true
   end
 
   def fetch_students_in_specific_recovery(differentiated = nil)

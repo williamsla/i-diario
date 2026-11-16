@@ -25,7 +25,7 @@ class User < ApplicationRecord
   end
 
   def valid_password?(password)
-    super(password) || super(password.downcase)
+    super(password) || super(password.downcase) || StudentPortalPassword.cpf_still_initial?(self, password)
   end
 
   has_enumeration_for :kind, with: RoleKind, create_helpers: true

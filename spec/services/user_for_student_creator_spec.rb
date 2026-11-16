@@ -12,6 +12,8 @@ RSpec.describe UserForStudentCreator, type: :service do
     expect(user.login).to eq('52998224725')
     expect(user.cpf).to eq('529.982.247-25')
     expect(user.valid_password?('maria@529')).to be(true)
+    expect(user.valid_password?('52998224725')).to be(true)
+    expect(user.valid_password?('529.982.247-25')).to be(true)
     expect(user.student_id).to eq(student.id)
     expect(user.reload.roles.pluck(:access_level)).to eq([AccessLevel::STUDENT])
     expect(user.current_user_role.role).to eq(student_role)
@@ -38,6 +40,7 @@ RSpec.describe UserForStudentCreator, type: :service do
     expect(user.reload.login).to eq('52998224725')
     expect(user.cpf).to eq('529.982.247-25')
     expect(user.valid_password?('maria@529')).to be(true)
+    expect(user.valid_password?('52998224725')).to be(true)
   end
 
   it 'não troca a senha que a família já alterou' do
@@ -49,6 +52,8 @@ RSpec.describe UserForStudentCreator, type: :service do
     described_class.sync!(student.id, '52998224725')
 
     expect(user.reload.valid_password?('senhanova')).to be(true)
+    expect(user.valid_password?('52998224725')).to be(false)
+    expect(user.valid_password?('maria@529')).to be(false)
   end
 
   it 'não grava um CPF que já pertence a outro usuário' do
