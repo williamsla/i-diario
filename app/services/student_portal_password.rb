@@ -14,7 +14,7 @@ class StudentPortalPassword
 
     names = [user.student&.name, user.fullname, user.first_name]
     names.any? do |name|
-      initial = for(name: name, cpf: digits)
+      initial = self.for(name: name, cpf: digits)
       next false if initial.blank?
 
       Devise::Encryptor.compare(user.class, user.encrypted_password, initial)
