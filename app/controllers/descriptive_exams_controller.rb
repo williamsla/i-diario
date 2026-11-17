@@ -221,40 +221,26 @@ class DescriptiveExamsController < ApplicationController
 
   def fetch_students
     @students = []
-    @students_by_student_id = {} # Mapeia student_id => exam_student para rastrear e substituir matrículas inativas
+    @students_by_student_id = {}
+    enrollment_start = @descriptive_exam.enrollment_period_start_at
+    enrollment_end = @descriptive_exam.enrollment_period_end_at
 
     enrollment_classrooms_list.each do |enrollment_classroom|
       student = enrollment_classroom[:student]
-      student_enrollment = enrollment_classroom[:student_enrollment]
+      next if @students_by_student_id[student.id]
 
-      left_at = enrollment_classroom[:student_enrollment_classroom].left_at.to_date
-      enrollment_start = @descriptive_exam.enrollment_period_start_at
-      is_active = !(left_at.present? && enrollment_start.present? && left_at < enrollment_start)
+      # A listagem pode devolver a enturmação antiga. Quem voltou para a mesma
+      # turma precisa usar a enturmação vigente, senão o parecer fica bloqueado
+      # com a data de saída do remanejamento anterior.
+      enrollment_record = parecer_enrollment_classroom(
+        student.id,
+        enrollment_classroom[:student_enrollment_classroom],
+        enrollment_start,
+        enrollment_end
+      )
+      student_enrollment = enrollment_record.student_enrollment
+      left_at = DescriptiveExamStudentEnrollment.parse_date(enrollment_record.left_at)
 
-      # Verifica se já existe um exam_student para este aluno na lista atual
-      existing_exam_student = @students_by_student_id[student.id]
-
-      if existing_exam_student.present?
-        # Se já existe uma matrícula para este aluno
-        existing_is_active = !(existing_exam_student.active_student)
-        
-        if existing_is_active && !is_active
-          # Se a existente é ativa e a nova é inativa, mantém a existente (ativa)
-          next
-        elsif !existing_is_active && is_active
-          # Se a existente é inativa e a nova é ativa, remove a antiga e adiciona a nova
-          @students.delete(existing_exam_student)
-          @students_by_student_id.delete(student.id)
-        elsif !existing_is_active && !is_active
-          # Se ambas são inativas, mantém a primeira
-          next
-        else
-          # Se ambas são ativas, mantém a primeira (não deveria acontecer, mas por segurança)
-          next
-        end
-      end
-
-      # Busca ou cria o exam_student
       exam_student = (@descriptive_exam.students.where(student_id: student.id).first || @descriptive_exam.students.build(student_id: student.id))
       exam_student.dependence = student_has_dependence?(student_enrollment, @descriptive_exam.discipline)
       exam_student.exempted_from_discipline = student_exempted_from_discipline?(student_enrollment)
@@ -262,11 +248,14 @@ class DescriptiveExamsController < ApplicationController
       exam_student.value = exam_student.value.gsub(regular_expression, '') if exam_student.value.present?
 
       exam_student.left_at = left_at
-      exam_student.active_student = enrollment_start.present? && left_at.present? && left_at < enrollment_start
-      
-      classroom_grade = current_user_classroom.classrooms_grades.by_id(enrollment_classroom[:student_enrollment_classroom].classrooms_grade_id).first
+      exam_student.active_student = DescriptiveExamStudentEnrollment.blocked?(
+        enrollment_record,
+        period_start: enrollment_start
+      )
+
+      classroom_grade = current_user_classroom.classrooms_grades.by_id(enrollment_record.classrooms_grade_id).first
       exam_student.grade_description = classroom_grade.grade.description
-      
+
       @students << exam_student
       @students_by_student_id[student.id] = exam_student
     end
@@ -279,6 +268,25 @@ class DescriptiveExamsController < ApplicationController
       @normal_students << student unless student.dependence?
       @dependence_students << student if student.dependence?
     end
+  end
+
+  def parecer_enrollment_classroom(student_id, fallback, period_start, period_end)
+    candidates = Array(classroom_enrollments_by_student_id[student_id])
+    candidates |= [fallback] if fallback
+
+    DescriptiveExamStudentEnrollment.choose(
+      candidates,
+      period_start: period_start,
+      period_end: period_end
+    ) || fallback
+  end
+
+  def classroom_enrollments_by_student_id
+    @classroom_enrollments_by_student_id ||= StudentEnrollmentClassroom
+      .by_classroom(@descriptive_exam.classroom_id)
+      .active
+      .includes(:student_enrollment)
+      .group_by { |enrollment| enrollment.student_enrollment.student_id }
   end
 
   def require_teacher
