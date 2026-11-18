@@ -175,8 +175,10 @@ class StudentReportCard
   end
 
   def disciplines
+    # Descritores são as linhas da ficha conceitual e não entram no boletim.
     @disciplines ||= Discipline.by_classroom(classroom)
                                .not_grouper
+                               .not_descriptor
                                .joins(:knowledge_area)
                                .where(knowledge_areas: { group_descriptors: false })
                                .order_by_sequence
