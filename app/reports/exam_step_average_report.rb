@@ -419,7 +419,7 @@ class ExamStepAverageReport < BaseReport
 
     headers << make_cell(content: "Rec.\nFinal", size: 7, font_style: :bold, background_color: 'D0D0D0', align: :center, valign: :center, width: 30)
     headers << make_cell(content: "Média\nFinal", size: 7, font_style: :bold, background_color: 'B0B0B0', align: :center, valign: :center, width: 30)
-    headers << make_cell(content: 'Situação', size: 7, font_style: :bold, background_color: 'FFFFFF', align: :center, width: 46)
+    headers << make_cell(content: "Situação\ndisciplina", size: 7, font_style: :bold, background_color: 'FFFFFF', align: :center, valign: :center, width: 46)
     headers
   end
 
@@ -512,7 +512,7 @@ class ExamStepAverageReport < BaseReport
 
     final_recovery_header = make_cell(content: 'Rec. Final', size: 7, font_style: :bold, background_color: 'D0D0D0', align: :center, width: 32)
     average_header = make_cell(content: 'Média Final', size: 7, font_style: :bold, background_color: 'B0B0B0', align: :center, width: 32)
-    status_header = make_cell(content: 'Situação', size: 7, font_style: :bold, background_color: 'FFFFFF', align: :center, width: 48)
+    status_header = make_cell(content: "Situação\ndisciplina", size: 7, font_style: :bold, background_color: 'FFFFFF', align: :center, valign: :center, width: 48)
 
     [sequential_number_header, student_name_header] + step_headers + [final_recovery_header, average_header, status_header]
   end
