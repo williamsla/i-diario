@@ -156,6 +156,11 @@ function runTests() {
     }
   });
 
+  const caseStudyModalPath = path.join(__dirname, '../../app/views/aee_individual_plans/_case_study_modal.html.erb');
+  const caseStudyModal = fs.readFileSync(caseStudyModalPath, 'utf8');
+  assertContains(caseStudyModal, 'class="close no-confirm"', 'Fechar o estudo de caso (X) não sai da tela do PEI');
+  assertContains(caseStudyModal, 'class="btn btn-default no-confirm"', 'Fechar o estudo de caso não sai da tela do PEI');
+
   ['discipline_content_records', 'knowledge_area_content_records'].forEach((name) => {
     const formPath = path.join(__dirname, `../../app/assets/javascripts/views/${name}/form.js`);
     const formCode = fs.readFileSync(formPath, 'utf8');
