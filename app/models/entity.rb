@@ -19,6 +19,7 @@ class Entity < ApplicationRecord
   def using_connection(&block)
     Entity.current = self
     Honeybadger.context(entity: { name: name, id: id })
+    ReportQueryCache.clear! if defined?(ReportQueryCache)
 
     ActiveRecord::Base.using_connection(id, connection_spec, &block)
   end

@@ -30,7 +30,7 @@ class GeneralConfiguration < ActiveRecord::Base
   belongs_to :employees_default_role, class_name: 'Role', foreign_key: 'employees_default_role_id'
 
   def self.current
-    ReportQueryCache.fetch(:general_configuration_current) do
+    ReportQueryCache.fetch([:general_configuration_current, Entity.current&.id]) do
       self.first.presence || new
     end
   end

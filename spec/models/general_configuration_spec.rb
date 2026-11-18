@@ -17,6 +17,19 @@ RSpec.describe GeneralConfiguration, :type => :model do
         expect(GeneralConfiguration.current).to eq general_configuration
       end
     end
+
+    it "não reaproveita a configuração em cache de outro município" do
+      first_configuration = general_configurations(:general_configuration)
+      other_configuration = GeneralConfiguration.new
+
+      allow(Entity).to receive(:current).and_return(instance_double(Entity, id: 1))
+      allow(GeneralConfiguration).to receive(:first).and_return(first_configuration)
+      expect(GeneralConfiguration.current).to eq first_configuration
+
+      allow(Entity).to receive(:current).and_return(instance_double(Entity, id: 2))
+      allow(GeneralConfiguration).to receive(:first).and_return(other_configuration)
+      expect(GeneralConfiguration.current).to eq other_configuration
+    end
   end
 
   describe "#mark_with_error" do
