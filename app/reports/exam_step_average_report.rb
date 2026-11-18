@@ -633,7 +633,7 @@ class ExamStepAverageReport < BaseReport
       cell_style: { borders: [], valign: :center }
     )
 
-    { content: inner, width: column_width, valign: :center }
+    { content: inner, width: column_width }
   end
 
   def score_cell(score, school_calendar_step, uses_conceptual, recovery_average)
