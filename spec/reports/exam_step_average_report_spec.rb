@@ -84,4 +84,126 @@ RSpec.describe ExamStepAverageReport, type: :report do
       expect(text).to include('4,6')
     end
   end
+
+  describe 'série na turma multisseriada' do
+    let(:discipline) { create(:discipline) }
+
+    def classroom_with_steps
+      create(:classroom, :with_classroom_semester_steps, year: Date.current.year)
+    end
+
+    def enroll_student(classrooms_grade, name)
+      student = create(:student, name: name)
+      enrollment = create(:student_enrollment, student: student)
+      create(
+        :student_enrollment_classroom,
+        classrooms_grade: classrooms_grade,
+        student_enrollment: enrollment
+      )
+      enrollment
+    end
+
+    before do
+      allow(GeneralConfiguration).to receive(:semestral_recovery?).and_return(false)
+      allow_any_instance_of(StudentAverageCalculator).to receive(:calculate).and_return(7.0)
+    end
+
+    it 'mostra a série do aluno no canto do nome' do
+      classroom = classroom_with_steps
+      sexta = create(:grade, description: '6 Ano Multisseriada')
+      setima = create(:grade, description: '7 Ano Multisseriada')
+      sexta_grade = create(:classrooms_grade, classroom: classroom, grade: sexta)
+      create(:classrooms_grade, classroom: classroom, grade: setima)
+      enrollment = enroll_student(sexta_grade, 'Aluno Da Sexta')
+
+      text = pdf_text(build_report(classroom, discipline, [enrollment]))
+
+      expect(text).to include('Aluno Da Sexta')
+      expect(text).to include('6 Ano Multisseriada')
+      expect(text).not_to include('7 Ano Multisseriada')
+    end
+
+    it 'mostra a série também na folha com recuperação semestral' do
+      allow(GeneralConfiguration).to receive(:semestral_recovery?).and_return(true)
+      classroom = classroom_with_steps
+      sexta = create(:grade, description: '6 Ano Multisseriada')
+      setima = create(:grade, description: '7 Ano Multisseriada')
+      sexta_grade = create(:classrooms_grade, classroom: classroom, grade: sexta)
+      create(:classrooms_grade, classroom: classroom, grade: setima)
+      enrollment = enroll_student(sexta_grade, 'Aluno Da Sexta')
+
+      text = pdf_text(build_report(classroom, discipline, [enrollment]))
+
+      expect(text).to include('Semestre')
+      expect(text).to include('6 Ano Multisseriada')
+    end
+
+    it 'omite a série quando a turma tem uma série só' do
+      classroom = classroom_with_steps
+      grade = create(:grade, description: 'Serie Unica Oculta')
+      classrooms_grade = create(:classrooms_grade, classroom: classroom, grade: grade)
+      enrollment = enroll_student(classrooms_grade, 'Aluno Serie Unica')
+
+      text = pdf_text(build_report(classroom, discipline, [enrollment]))
+
+      expect(text).to include('Aluno Serie Unica')
+      expect(text).not_to include('Serie Unica Oculta')
+    end
+  end
+
+  describe 'situação da disciplina' do
+    let(:discipline) { create(:discipline) }
+
+    def classroom_with_steps
+      create(:classroom, :with_classroom_semester_steps, year: Date.current.year)
+    end
+
+    def enroll(classroom, status)
+      classrooms_grade = create(:classrooms_grade, classroom: classroom)
+      student = create(:student, name: 'Aluno Da Disciplina')
+      enrollment = create(:student_enrollment, student: student, status: status)
+      create(
+        :student_enrollment_classroom,
+        classrooms_grade: classrooms_grade,
+        student_enrollment: enrollment
+      )
+      enrollment
+    end
+
+    before do
+      allow(GeneralConfiguration).to receive(:semestral_recovery?).and_return(false)
+    end
+
+    it 'mostra aprovado pela média da disciplina quando a matrícula está reprovada' do
+      allow_any_instance_of(StudentAverageCalculator).to receive(:calculate).and_return(8.0)
+      classroom = classroom_with_steps
+      enrollment = enroll(classroom, StudentEnrollmentStatus::REPPROVED)
+
+      text = pdf_text(build_report(classroom, discipline, [enrollment]))
+
+      expect(text).to include('Aprovado')
+      expect(text).not_to include('Reprovado')
+    end
+
+    it 'mostra reprovado pela média da disciplina quando a matrícula está aprovada' do
+      allow_any_instance_of(StudentAverageCalculator).to receive(:calculate).and_return(3.0)
+      classroom = classroom_with_steps
+      enrollment = enroll(classroom, StudentEnrollmentStatus::APPROVED)
+
+      text = pdf_text(build_report(classroom, discipline, [enrollment]))
+
+      expect(text).to include('Reprovado')
+    end
+
+    it 'mantém cursando enquanto a matrícula segue em andamento' do
+      allow_any_instance_of(StudentAverageCalculator).to receive(:calculate).and_return(8.0)
+      classroom = classroom_with_steps
+      enrollment = enroll(classroom, StudentEnrollmentStatus::STUDYING)
+
+      text = pdf_text(build_report(classroom, discipline, [enrollment]))
+
+      expect(text).to include('Cursando')
+      expect(text).not_to include('Aprovado')
+    end
+  end
 end

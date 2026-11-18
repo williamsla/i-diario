@@ -53,13 +53,14 @@ class DailyNoteStudent < ApplicationRecord
   end
 
   def recovery_note
-    if has_recovery?
-      recovery_diary_record_id = daily_note.avaliation.recovery_diary_record.id
-      RecoveryDiaryRecordStudent.
-        find_by(recovery_diary_record_id: recovery_diary_record_id, student_id: student.id).try(:score)
-    else
-      0.0
-    end
+    return 0.0 unless has_recovery?
+
+    # A coleção já vem pré-carregada na impressão do diário. find_by aqui
+    # repetia uma consulta por aluno e por avaliação.
+    recovery_record = daily_note.avaliation.recovery_diary_record
+    recovery_record.students.detect { |recovery_student|
+      recovery_student.student_id == student_id
+    }.try(:score)
   end
 
   def has_recovery?

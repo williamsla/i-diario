@@ -5,6 +5,7 @@ class ExamStepAverageReport < BaseReport
 
   STUDENT_BY_PAGE_COUNT = 45
   SOCIAL_NAME_REDUCTION_FACTOR = 3
+  GRADE_LABEL_WIDTH = 52
 
   STATUS_LABELS = {
     StudentEnrollmentStatus::APPROVED => 'Aprovado',
@@ -113,6 +114,7 @@ class ExamStepAverageReport < BaseReport
         name: student.to_s,
         social_name: student.social_name,
         student_id: student.id,
+        grade_name: grade_name_by_enrollment_id[student_enrollment.id],
         dependence: false,
         uses_conceptual: uses_conceptual,
         status_code: student_enrollment.status,
@@ -157,10 +159,10 @@ class ExamStepAverageReport < BaseReport
                                                           )
                                                         end
       students[student_enrollment.id][:status] = enrollment_status_label(
-        students[student_enrollment.id][:status_code],
+        student_enrollment,
         students[student_enrollment.id][:final_average],
-        recovery_average,
-        final_recovery
+        final_recovery,
+        uses_conceptual
       )
     end
 
@@ -199,7 +201,7 @@ class ExamStepAverageReport < BaseReport
                        'Rec = Recuperação parcial da etapa'
                      end
 
-    "Legendas: #{recovery_label} | Situação conforme matrícula no i-Educar"
+    "Legendas: #{recovery_label} | Situação da disciplina pela média final"
   end
 
   # Recuperação semestral: a nota da recuperação compõe a média das etapas do semestre,
@@ -236,14 +238,16 @@ class ExamStepAverageReport < BaseReport
       students[student_enrollment.id] = {
         name: student.to_s,
         social_name: student.social_name,
+        student_id: student.id,
+        grade_name: grade_name_by_enrollment_id[student_enrollment.id],
         dependence: false,
         cells: semestral_score_cells(step_scores, summary, groups, uses_conceptual, promotion_average) + [
           make_cell(
             content: enrollment_status_label(
-              student_enrollment.status,
+              student_enrollment,
               summary[:final_average],
-              promotion_average,
-              final_recovery
+              final_recovery,
+              uses_conceptual
             ).to_s,
             align: :center,
             size: 6
@@ -252,7 +256,7 @@ class ExamStepAverageReport < BaseReport
       }
     end
 
-    render_score_table(semestral_headers(groups), build_semestral_rows(students), students)
+    render_score_table(semestral_headers(groups), build_semestral_rows(students, groups), students)
   end
 
   def semestral_step_groups
@@ -396,7 +400,7 @@ class ExamStepAverageReport < BaseReport
   def semestral_headers(groups)
     headers = [
       make_cell(content: 'Nº', size: 7, font_style: :bold, background_color: 'FFFFFF', align: :center, width: 15),
-      make_cell(content: 'Nome do aluno', size: 7, font_style: :bold, background_color: 'FFFFFF', align: :center)
+      student_name_header_cell(name_column_width(semestral_sheet_fixed_width(groups)))
     ]
 
     groups.each do |group|
@@ -443,13 +447,17 @@ class ExamStepAverageReport < BaseReport
     end
   end
 
-  def build_semestral_rows(students)
+  def build_semestral_rows(students, groups)
     rows = []
     sequence = 1
+    column_width = name_column_width(semestral_sheet_fixed_width(groups))
 
     students.each_value do |value|
       name_content = (value[:dependence] ? '* ' : '') + value[:name]
-      rows << [make_cell(content: sequence.to_s, align: :center), { content: name_content }].concat(value[:cells])
+      rows << [
+        make_cell(content: sequence.to_s, align: :center),
+        student_name_cell(name_content, value[:grade_name], column_width)
+      ].concat(value[:cells])
       sequence += 1
     end
 
@@ -480,7 +488,7 @@ class ExamStepAverageReport < BaseReport
 
   def build_table_headers
     sequential_number_header = make_cell(content: 'Nº', size: 7, font_style: :bold, background_color: 'FFFFFF', align: :center, width: 15)
-    student_name_header = make_cell(content: 'Nome do aluno', size: 7, font_style: :bold, background_color: 'FFFFFF', align: :center)
+    student_name_header = student_name_header_cell(name_column_width(step_sheet_fixed_width))
 
     step_headers = []
     @steps.each do |school_calendar_step|
@@ -514,6 +522,7 @@ class ExamStepAverageReport < BaseReport
     ordered_students = students.sort_by { |(_key, value)| value[:dependence] ? 1 : 0 }
     sequence = 1
     sequence_reseted = false
+    column_width = name_column_width(step_sheet_fixed_width)
 
     ordered_students.each do |_key, value|
       if !sequence_reseted && value[:dependence]
@@ -523,7 +532,10 @@ class ExamStepAverageReport < BaseReport
 
       sequence_cell = make_cell(content: sequence.to_s, align: :center)
       name_content = (value[:dependence] ? '* ' : '') + value[:name]
-      student_cells = [sequence_cell, { content: name_content }].concat(value[:scores])
+      student_cells = [
+        sequence_cell,
+        student_name_cell(name_content, value[:grade_name], column_width)
+      ].concat(value[:scores])
       student_cells << make_cell(content: localize_score(value[:final_recovery]), align: :center, background_color: 'D0D0D0')
       student_cells << make_cell(content: localize_score(value[:final_average]), align: :center, font_style: :bold, background_color: 'B0B0B0')
       student_cells << make_cell(content: value[:status].to_s, align: :center, size: 6)
@@ -533,6 +545,95 @@ class ExamStepAverageReport < BaseReport
     end
 
     students_cells
+  end
+
+  def multi_grade_classroom?
+    return @multi_grade_classroom if defined?(@multi_grade_classroom)
+
+    @multi_grade_classroom = classroom.multi_grade?
+  end
+
+  def grade_name_by_enrollment_id
+    return @grade_name_by_enrollment_id if defined?(@grade_name_by_enrollment_id)
+    return @grade_name_by_enrollment_id = {} unless multi_grade_classroom?
+
+    enrollment_ids = @students_enrollments.map(&:id)
+    @grade_name_by_enrollment_id = StudentEnrollmentClassroom
+      .joins(classrooms_grade: :grade)
+      .where(student_enrollment_id: enrollment_ids, classrooms_grades: { classroom_id: classroom.id })
+      .order('student_enrollment_classrooms.joined_at DESC')
+      .pluck(:student_enrollment_id, 'grades.description')
+      .each_with_object({}) do |(enrollment_id, description), names|
+        names[enrollment_id] ||= description.presence
+      end
+  end
+
+  def step_sheet_fixed_width
+    15 + (@steps.size * (32 + 28)) + 32 + 32 + 48
+  end
+
+  def semestral_sheet_fixed_width(groups)
+    15 + (@steps.size * 28) + (groups.size * 96) + 30 + 30 + 46
+  end
+
+  def name_column_width(fixed_width)
+    return nil unless multi_grade_classroom?
+
+    bounds.width - fixed_width
+  end
+
+  def student_name_header_cell(column_width)
+    options = {
+      content: 'Nome do aluno',
+      size: 7,
+      font_style: :bold,
+      background_color: 'FFFFFF',
+      align: :center
+    }
+    options[:width] = column_width if column_width
+    make_cell(options)
+  end
+
+  # cell_style da tabela aplica padding horizontal 1+1. A tabela interna ocupa o miolo
+  # e encosta a série no canto direito.
+  def student_name_cell(name, grade_name, column_width)
+    text = name.to_s
+    plain = { content: text }
+    plain[:width] = column_width if column_width
+    return plain if grade_name.blank? || column_width.blank?
+
+    inner_width = column_width - 2
+    label_width = [[GRADE_LABEL_WIDTH, (inner_width * 0.42).floor].min, 28].max
+    return plain if label_width >= inner_width - 40
+
+    name_width = inner_width - label_width
+    inner = make_table(
+      [[
+        {
+          content: text,
+          size: 7,
+          align: :left,
+          valign: :center,
+          borders: [],
+          padding: [0, 2, 0, 0],
+          width: name_width
+        },
+        {
+          content: grade_name.to_s,
+          size: 6,
+          align: :right,
+          valign: :center,
+          text_color: '4B5563',
+          borders: [],
+          padding: [0, 0, 0, 1],
+          width: label_width
+        }
+      ]],
+      width: inner_width,
+      cell_style: { borders: [], valign: :center }
+    )
+
+    { content: inner, width: column_width, valign: :center }
   end
 
   def score_cell(score, school_calendar_step, uses_conceptual, recovery_average)
@@ -633,18 +734,70 @@ class ExamStepAverageReport < BaseReport
     end
   end
 
-  def enrollment_status_label(status, final_average, recovery_average, final_recovery)
-    status_code = status.to_i
+  # Situação da disciplina. Transferência, abandono, óbito, conselho e falta
+  # continuam os da matrícula. Com a matrícula encerrada, Aprovado e Reprovado
+  # saem da média final desta disciplina.
+  def enrollment_status_label(student_enrollment, final_average, final_recovery, uses_conceptual)
+    status_code = student_enrollment.status.to_i
+    return enrollment_label(status_code) if enrollment_status_stands?(status_code)
+    return 'Dependência' if dependence_enrollment_ids.include?(student_enrollment.id)
+    return enrollment_label(status_code) if uses_conceptual || !final_average.is_a?(Numeric)
 
-    if status_code == StudentEnrollmentStatus::STUDYING &&
-       recovery_average.to_f > 0 &&
-       final_average.is_a?(Numeric) &&
-       final_average < recovery_average.to_f &&
-       final_recovery.blank?
-      return 'Em exame'
+    threshold = promotion_average_for(student_enrollment.student)
+    return enrollment_label(status_code) if threshold.blank?
+
+    if status_code == StudentEnrollmentStatus::STUDYING
+      return 'Em exame' if below_promotion?(final_average, threshold) &&
+                           final_recovery.blank? &&
+                           specific_recovery_for?(student_enrollment.student)
+
+      return 'Cursando'
     end
 
-    STATUS_LABELS[status_code] || status.to_s.presence || 'Cursando'
+    return 'Aprovado' unless below_promotion?(final_average, threshold)
+    return 'Em exame' if final_recovery.blank? && specific_recovery_for?(student_enrollment.student)
+
+    'Reprovado'
+  end
+
+  def enrollment_label(status_code)
+    STATUS_LABELS[status_code] || status_code.to_s.presence || 'Cursando'
+  end
+
+  def enrollment_status_stands?(status_code)
+    [
+      StudentEnrollmentStatus::TRANSFERRED,
+      StudentEnrollmentStatus::RECLASSIFIED,
+      StudentEnrollmentStatus::ABANDONMENT,
+      StudentEnrollmentStatus::DECEASED,
+      StudentEnrollmentStatus::APPROVE_BY_COUNCIL,
+      StudentEnrollmentStatus::DISAPPROVED_BY_FAULTS
+    ].include?(status_code)
+  end
+
+  def below_promotion?(final_average, threshold)
+    final_average.to_f < threshold.to_f
+  end
+
+  def promotion_average_for(student)
+    rule = ExamRuleFetcher.fetch(classroom, student) || classroom.first_exam_rule
+    average = rule&.average_for_promotion
+    return average.to_f if average.present? && average.to_f.positive?
+
+    fallback = recovery_rule_average
+    fallback.to_f.positive? ? fallback.to_f : nil
+  end
+
+  def specific_recovery_for?(student)
+    rule = ExamRuleFetcher.fetch(classroom, student) || classroom.first_exam_rule_with_recovery
+    rule&.recovery_type.to_i == RecoveryTypes::SPECIFIC
+  end
+
+  def dependence_enrollment_ids
+    @dependence_enrollment_ids ||= StudentEnrollmentDependence
+      .where(student_enrollment_id: @students_enrollments.map(&:id), discipline_id: discipline.id)
+      .pluck(:student_enrollment_id)
+      .to_set
   end
 
   def calculate_recovery_score(student_id, score, step)

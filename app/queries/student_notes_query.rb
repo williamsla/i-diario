@@ -13,16 +13,8 @@ class StudentNotesQuery
                     .by_discipline_id(discipline)
                     .by_classroom_id(classroom)
                     .by_test_date_between(start_date, end_date)
-                    .includes(
-                      daily_note: [
-                        avaliation: [
-                          :recovery_diary_record,
-                          :test_setting_test,
-                          :discipline,
-                          :school_calendar
-                        ]
-                      ]
-                    ).where.not(note: nil)
+                    .includes(daily_note_note_includes)
+                    .where.not(note: nil)
   end
 
   def daily_note_students
@@ -67,6 +59,19 @@ class StudentNotesQuery
   attr_accessor :student, :discipline, :classroom, :step_start_at, :step_end_at
   attr_reader :student_only
 
+  def daily_note_note_includes
+    {
+      daily_note: [
+        avaliation: [
+          { recovery_diary_record: :students },
+          :test_setting_test,
+          :discipline,
+          :school_calendar
+        ]
+      ]
+    }
+  end
+
   def notes_cache_key(name, extra = nil)
     key = [name, discipline.id, classroom.id]
     key << student.id if student_only
@@ -86,16 +91,7 @@ class StudentNotesQuery
         DailyNoteStudent.by_discipline_id(discipline)
                       .by_classroom_id(classroom)
                       .by_test_date_between(step_start_at, step_end_at)
-                      .includes(
-                        daily_note: [
-                          avaliation: [
-                            :recovery_diary_record,
-                            :test_setting_test,
-                            :discipline,
-                            :school_calendar
-                          ]
-                        ]
-                      )
+                      .includes(daily_note_note_includes)
                       .where.not(note: nil)
                       .where(transfer_note: nil)
       ).group_by(&:student_id)
@@ -115,6 +111,7 @@ class StudentNotesQuery
                         )
                       )
                       .where.not(transfer_note: nil)
+                      .includes(daily_note_note_includes)
       ).group_by(&:student_id)
     end
   end
