@@ -77,90 +77,156 @@ class ConceptualExam < ActiveRecord::Base
   end
 
   def self.by_status(classroom_id, teacher_id, status)
-    discipline_ids = TeacherDisciplineClassroom.by_classroom(classroom_id)
-                                               .by_teacher_id(teacher_id)
-                                               .pluck(:discipline_id)
+    classroom = Classroom.find_by(id: classroom_id)
+    return none if classroom.blank? || teacher_id.blank?
 
-    return none if discipline_ids.blank?
-
-    classroom = Classroom.find(classroom_id)
-    school_calendar = StepsFetcher.new(classroom).school_calendar
-
-    return none unless school_calendar.present?
-
-    # Busca conceptual_exams incompletos considerando a série de cada aluno
-    # Para turmas multisseriadas, apenas as disciplinas da série do aluno são consideradas
-    incomplete_conceptual_exams_ids = ConceptualExamValue
-      .joins(:conceptual_exam)
-      .active(false)
-      .where(value: nil)
-      .where(conceptual_exams: { classroom_id: classroom_id })
-      .where(conceptual_exam_values: { discipline_id: discipline_ids })
-      .where(
-        "EXISTS (
-          SELECT 1
-          FROM classrooms_grades
-          INNER JOIN student_enrollment_classrooms ON student_enrollment_classrooms.classrooms_grade_id = classrooms_grades.id
-          INNER JOIN student_enrollments ON student_enrollments.id = student_enrollment_classrooms.student_enrollment_id
-          INNER JOIN school_calendar_discipline_grades ON school_calendar_discipline_grades.school_calendar_id = #{school_calendar.id}
-                                                       AND school_calendar_discipline_grades.grade_id = classrooms_grades.grade_id
-                                                       AND school_calendar_discipline_grades.discipline_id = conceptual_exam_values.discipline_id
-          WHERE classrooms_grades.classroom_id = conceptual_exams.classroom_id
-          AND student_enrollments.student_id = conceptual_exams.student_id
-        )"
-      )
-      .where(
-        "NOT EXISTS (
-          SELECT 1 FROM specific_steps
-          WHERE specific_steps.classroom_id = conceptual_exams.classroom_id
-          AND specific_steps.discipline_id = conceptual_exam_values.discipline_id
-          AND specific_steps.used_steps != ''
-          AND NOT (conceptual_exams.step_number = ANY(string_to_array(specific_steps.used_steps, ',')::integer[]))
-        )"
-      )
-      .group(:conceptual_exam_id)
+    incomplete_ids = pending_conceptual_values_for(classroom, teacher_id)
+      .distinct
       .pluck(:conceptual_exam_id)
 
     case status
     when ConceptualExamStatus::INCOMPLETE
-      where(arel_table[:id].in(incomplete_conceptual_exams_ids))
+      incomplete_ids.empty? ? none : where(id: incomplete_ids)
     when ConceptualExamStatus::COMPLETE
-      where.not(arel_table[:id].in(incomplete_conceptual_exams_ids))
+      incomplete_ids.empty? ? all : where.not(id: incomplete_ids)
+    else
+      none
     end
   end
 
+  # Conceito vazio conta só para a disciplina que este professor lança
+  # na série vigente do aluno. Valor em branco de outro professor fica de fora.
+  def self.pending_conceptual_values_for(classroom, teacher_id)
+    school_calendar = StepsFetcher.new(classroom).school_calendar
+    return ConceptualExamValue.none if school_calendar.blank? || teacher_id.blank?
 
-  def status
-    discipline_ids = TeacherDisciplineClassroom.joins(:discipline)
-                                               .where(classroom_id: classroom_id, teacher_id: teacher_id)
-                                               .where(disciplines: { descriptor: true })
-                                               .pluck(:discipline_id)
-    
-    # Filtra disciplinas pela série do aluno (para turmas multisseriadas)
-    student_grade = ClassroomsGrade.by_student_id(student_id)
-                                   .by_classroom_id(classroom_id)
-                                   .first
-    
-    if student_grade.present? && school_calendar.present?
-      disciplines_in_grade_ids = SchoolCalendarDisciplineGrade.where(
-        school_calendar_id: school_calendar.id,
-        grade_id: student_grade.grade_id
-      ).pluck(:discipline_id)
-      
-      discipline_ids = discipline_ids & disciplines_in_grade_ids
-    end
-    
-    exempted_discipline_ids = ExemptedDisciplinesInStep.discipline_ids(
-      classroom.id,
-      step_number
-    )
+    discipline_ids = launch_discipline_ids_for(classroom, teacher_id)
+    return ConceptualExamValue.none if discipline_ids.blank?
 
-    values = ConceptualExamValue.joins(:conceptual_exam).active.where(conceptual_exam_id: id, value: nil)
-      .where(conceptual_exams: { classroom_id: classroom_id })
-      .where.not(discipline_id: exempted_discipline_ids)
-      .by_discipline_id(discipline_ids)
+    ConceptualExamValue
+      .joins(:conceptual_exam)
+      .where(value: nil)
+      .where('conceptual_exam_values.exempted_discipline IS NOT TRUE')
+      .where(conceptual_exams: { classroom_id: classroom.id })
+      .where(discipline_id: discipline_ids)
+      .where(student_grade_concept_sql(school_calendar.id, teacher_id, classroom.year))
+      .where(outside_specific_step_sql)
+      .where(student_not_exempted_from_discipline_sql)
+  end
 
-    values.blank? ? ConceptualExamStatus::COMPLETE : ConceptualExamStatus::INCOMPLETE
+  def self.launch_discipline_ids_for(classroom, teacher_id)
+    TeacherDisciplineClassroom
+      .by_classroom(classroom.id)
+      .by_teacher_id(teacher_id)
+      .by_year(classroom.year)
+      .joins(:discipline)
+      .merge(Discipline.descriptor.not_grouper)
+      .distinct
+      .pluck(:discipline_id)
+  end
+
+  def self.student_grade_concept_sql(school_calendar_id, teacher_id, year)
+    sanitize_sql_array([<<-SQL.squish, school_calendar_id.to_i, ScoreTypes::CONCEPT, ScoreTypes::NUMERIC_AND_CONCEPT, teacher_id.to_i, year.to_i, ScoreTypes::CONCEPT, ScoreTypes::CONCEPT])
+      EXISTS (
+        SELECT 1
+        FROM classrooms_grades
+        INNER JOIN exam_rules
+          ON exam_rules.id = classrooms_grades.exam_rule_id
+        LEFT JOIN exam_rules differentiated_exam_rules
+          ON differentiated_exam_rules.id = exam_rules.differentiated_exam_rule_id
+        INNER JOIN student_enrollments
+          ON student_enrollments.student_id = conceptual_exams.student_id
+         AND student_enrollments.discarded_at IS NULL
+        INNER JOIN students
+          ON students.id = student_enrollments.student_id
+        INNER JOIN school_calendar_discipline_grades
+          ON school_calendar_discipline_grades.school_calendar_id = ?
+         AND school_calendar_discipline_grades.grade_id = classrooms_grades.grade_id
+         AND school_calendar_discipline_grades.discipline_id = conceptual_exam_values.discipline_id
+        WHERE classrooms_grades.discarded_at IS NULL
+          AND classrooms_grades.id = (
+            SELECT classrooms_grades_current.id
+            FROM student_enrollment_classrooms
+            INNER JOIN student_enrollments enrollments_current
+              ON enrollments_current.id = student_enrollment_classrooms.student_enrollment_id
+             AND enrollments_current.discarded_at IS NULL
+            INNER JOIN classrooms_grades classrooms_grades_current
+              ON classrooms_grades_current.id = student_enrollment_classrooms.classrooms_grade_id
+             AND classrooms_grades_current.discarded_at IS NULL
+            WHERE enrollments_current.student_id = conceptual_exams.student_id
+              AND classrooms_grades_current.classroom_id = conceptual_exams.classroom_id
+              AND student_enrollment_classrooms.discarded_at IS NULL
+              AND student_enrollment_classrooms.joined_at <= conceptual_exams.recorded_at
+            ORDER BY student_enrollment_classrooms.joined_at DESC
+            LIMIT 1
+          )
+          AND (
+            exam_rules.score_type = ?
+            OR (
+              exam_rules.score_type = ?
+              AND EXISTS (
+                SELECT 1
+                FROM teacher_discipline_classrooms
+                WHERE teacher_discipline_classrooms.classroom_id = conceptual_exams.classroom_id
+                  AND teacher_discipline_classrooms.discipline_id = conceptual_exam_values.discipline_id
+                  AND teacher_discipline_classrooms.teacher_id = ?
+                  AND teacher_discipline_classrooms.year = ?
+                  AND teacher_discipline_classrooms.active = TRUE
+                  AND teacher_discipline_classrooms.discarded_at IS NULL
+                  AND teacher_discipline_classrooms.score_type = ?
+              )
+            )
+            OR (
+              students.uses_differentiated_exam_rule = TRUE
+              AND differentiated_exam_rules.score_type = ?
+            )
+          )
+      )
+    SQL
+  end
+
+  def self.outside_specific_step_sql
+    <<-SQL.squish
+      NOT EXISTS (
+        SELECT 1
+        FROM specific_steps
+        WHERE specific_steps.classroom_id = conceptual_exams.classroom_id
+          AND specific_steps.discipline_id = conceptual_exam_values.discipline_id
+          AND specific_steps.discarded_at IS NULL
+          AND specific_steps.used_steps != ''
+          AND NOT (
+            conceptual_exams.step_number = ANY(string_to_array(specific_steps.used_steps, ',')::integer[])
+          )
+      )
+    SQL
+  end
+
+  def self.student_not_exempted_from_discipline_sql
+    <<-SQL.squish
+      NOT EXISTS (
+        SELECT 1
+        FROM student_enrollment_exempted_disciplines
+        INNER JOIN student_enrollments
+          ON student_enrollments.id = student_enrollment_exempted_disciplines.student_enrollment_id
+         AND student_enrollments.discarded_at IS NULL
+        WHERE student_enrollments.student_id = conceptual_exams.student_id
+          AND student_enrollment_exempted_disciplines.discipline_id = conceptual_exam_values.discipline_id
+          AND student_enrollment_exempted_disciplines.discarded_at IS NULL
+          AND conceptual_exams.step_number = ANY(
+            string_to_array(COALESCE(student_enrollment_exempted_disciplines.steps, ''), ',')::integer[]
+          )
+      )
+    SQL
+  end
+
+  def status(viewer_teacher_id = nil)
+    viewer_teacher_id = viewer_teacher_id.presence || teacher_id
+    return ConceptualExamStatus::COMPLETE if classroom.blank? || viewer_teacher_id.blank?
+
+    pending = self.class.pending_conceptual_values_for(classroom, viewer_teacher_id)
+                  .where(conceptual_exam_id: id)
+
+    pending.exists? ? ConceptualExamStatus::INCOMPLETE : ConceptualExamStatus::COMPLETE
   end
 
   def valid_for_destruction?

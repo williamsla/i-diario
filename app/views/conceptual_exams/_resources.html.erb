@@ -11,9 +11,9 @@
         <td><span class="multiline"> <%= conceptual_exam.student %> </span></td>
         <td><%= @only_one_conceptual_avaliation ? 'Anual' : conceptual_exam.step %></td>
         <td>
-          <% conceptual_exam.teacher_id = current_teacher_id %>
-          <span class='<%= conceptual_exam_label(conceptual_exam.status) %>'>
-            <%= ConceptualExamStatus.t(conceptual_exam.status) %>
+          <% exam_status = conceptual_exam.status(current_teacher_id) %>
+          <span class='<%= conceptual_exam_label(exam_status) %>'>
+            <%= ConceptualExamStatus.t(exam_status) %>
           </span>
         </td>
         <td class='actions'>
