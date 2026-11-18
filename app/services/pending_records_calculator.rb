@@ -285,28 +285,44 @@ class PendingRecordsCalculator
       tdcs = tdcs.reject { |tdc| excluded_discipline_for_pending_records?(tdc.discipline) }
       next if tdcs.blank?
 
-      # Buscar weekdays em batch para todas as disciplinas (sempre necessário para conteúdos)
+      # Buscar weekdays em batch para todas as disciplinas (sempre necessário para conteúdos).
+      # O turno do vínculo não filtra as datas pendentes: vale o quadro da turma inteira.
       discipline_ids = tdcs.map { |tdc| tdc.discipline_id }.uniq
-      periods = tdcs.map(&:period).uniq
-      all_weekdays, discarded_weekdays = get_all_disciplines_weekdays(classroom.id, discipline_ids, periods)
-      
-      # Para frequência geral, obter os weekdays de cada professor (todos os dias que ele tem aula na turma)
+      all_weekdays, discarded_weekdays = get_all_disciplines_weekdays(classroom.id, discipline_ids, nil)
+      discipline_ids.each do |discipline_id|
+        next if all_weekdays[discipline_id].present?
+
+        direct_weekdays, direct_discarded = get_all_disciplines_weekdays(classroom.id, [discipline_id], nil)
+        all_weekdays[discipline_id] = direct_weekdays[discipline_id] || []
+        discarded_weekdays[discipline_id] = direct_discarded[discipline_id] || [] if discarded_weekdays[discipline_id].blank?
+      end
+
+      general_frequency_by_discipline = {}
+      general_discipline_ids_by_teacher = Hash.new { |hash, key| hash[key] = [] }
+      tdcs.group_by(&:discipline_id).each do |discipline_id, discipline_tdcs|
+        sample = discipline_tdcs.first
+        general = general_frequency_discipline?(classroom, sample.teacher_id, discipline_id)
+        general_frequency_by_discipline[discipline_id] = general
+        general_discipline_ids_by_teacher[sample.teacher_id] << discipline_id if general
+      end
+      has_general_frequency = general_frequency_by_discipline.value?(true)
+      has_frequency_by_discipline = general_frequency_by_discipline.value?(false)
+
+      # Para frequência geral, os dias são a união das aulas do professor na turma.
       teacher_weekdays_by_teacher = {}
-      if is_general_frequency
-        teacher_ids = tdcs.map { |tdc| tdc.teacher_id }.uniq
-        teacher_ids.each do |teacher_id|
-          teacher_weekdays_by_teacher[teacher_id] = get_teacher_weekdays(classroom.id, [teacher_id], periods)
+      if has_general_frequency
+        general_discipline_ids_by_teacher.each_key do |teacher_id|
+          teacher_weekdays_by_teacher[teacher_id] = get_teacher_weekdays(classroom.id, [teacher_id], nil)
         end
       end
 
       # Buscar frequências e conteúdos em batch para todas as disciplinas (otimização)
       all_frequencies_by_discipline = {}
       all_contents_by_discipline = {}
-      
+
       # Frequências: buscar uma única vez por turma/disciplina (sem filtrar por professor)
       # Isso garante que registros de professores anteriores sejam considerados
-      if is_general_frequency
-        # Frequências gerais: buscar uma vez para todas as disciplinas
+      if has_general_frequency
         general_freq_dates = DailyFrequency
           .by_classroom_id(classroom.id)
           .general_frequency
@@ -315,21 +331,24 @@ class PendingRecordsCalculator
           .pluck(:frequency_date)
           .map(&:to_date)
           .to_set
-        
-        # Para frequências gerais, todas as disciplinas usam o mesmo conjunto
+
         all_frequencies_by_discipline[:general] = general_freq_dates
-      else
-        # Frequências por disciplina: buscar todas de uma vez
+      end
+
+      if has_frequency_by_discipline
+        by_discipline_ids = general_frequency_by_discipline.reject { |_id, general| general }.keys
         frequency_data = DailyFrequency
           .by_classroom_id(classroom.id)
-          .where(discipline_id: discipline_ids)
+          .where(discipline_id: by_discipline_ids)
           .by_frequency_date_between(start_date, end_date)
           .where('frequency_date <= ?', today)
           .pluck(:discipline_id, :frequency_date)
-        
-        all_frequencies_by_discipline = frequency_data
-          .group_by { |d| d[0] }
-          .transform_values { |dates| dates.map { |d| d[1].to_date }.to_set }
+
+        all_frequencies_by_discipline.merge!(
+          frequency_data
+            .group_by { |d| d[0] }
+            .transform_values { |dates| dates.map { |d| d[1].to_date }.to_set }
+        )
       end
       
       # Conteúdos: buscar uma única vez por turma/disciplina (sem filtrar por professor)
@@ -349,6 +368,7 @@ class PendingRecordsCalculator
       # Em turmas multisseriadas, o mesmo professor pode ter a mesma disciplina para diferentes séries
       # Queremos mostrar apenas uma vez por disciplina
       tdcs_by_discipline = tdcs.group_by { |tdc| tdc.discipline_id }
+      shared_general_frequency_by_teacher = {}
       
       tdcs_by_discipline.each do |discipline_id, discipline_tdcs|
         # Usar o primeiro tdc da disciplina (todos têm a mesma disciplina, professor e turma)
@@ -358,25 +378,21 @@ class PendingRecordsCalculator
 
         next if excluded_discipline_for_pending_records?(discipline)
 
-        # Para frequências: se for GENERAL, usar todos os dias letivos (não filtrar por weekdays)
-        # Se for BY_DISCIPLINE, filtrar por weekdays da disciplina
+        # Cada disciplina segue o próprio vínculo. A regra de avaliação por disciplina
+        # continua valendo para todas, porque o definer devolve cedo nesse caso.
+        is_general_frequency = general_frequency_by_discipline[discipline.id] == true
+
+        # Para frequências gerais, os dias são os do professor na turma.
+        # Para frequência por dia, filtrar pelos weekdays da disciplina.
         # Para conteúdos: sempre filtrar por weekdays da disciplina
         discipline_weekdays = all_weekdays[discipline.id] || []
         discipline_discarded_weekdays = discarded_weekdays[discipline.id] || []
         
         # Se não encontrou weekdays na busca em batch, tentar buscar diretamente para esta disciplina
         if discipline_weekdays.empty?
-          # Primeiro tenta com período
-          discipline_weekdays_direct, discipline_discarded_weekdays_direct = get_all_disciplines_weekdays(classroom.id, [discipline.id], periods)
+          discipline_weekdays_direct, discipline_discarded_weekdays_direct = get_all_disciplines_weekdays(classroom.id, [discipline.id], nil)
           discipline_weekdays = discipline_weekdays_direct[discipline.id] || []
           discipline_discarded_weekdays = discipline_discarded_weekdays_direct[discipline.id] || []
-          
-          # Se ainda não encontrou, tenta sem período
-          if discipline_weekdays.empty?
-            discipline_weekdays_direct, discipline_discarded_weekdays_direct = get_all_disciplines_weekdays(classroom.id, [discipline.id], nil)
-            discipline_weekdays = discipline_weekdays_direct[discipline.id] || []
-            discipline_discarded_weekdays = discipline_discarded_weekdays_direct[discipline.id] || []
-          end
         end
         
         # Mapear weekdays para números (0=domingo, 1=segunda, etc)
@@ -687,6 +703,26 @@ class PendingRecordsCalculator
           pending_content_count = pending_content_dates.count
         end
 
+        if is_general_frequency
+          shared_general_frequency = shared_general_frequency_by_teacher[teacher.id] ||= build_shared_general_pending_frequency(
+            classroom: classroom,
+            teacher: teacher,
+            discipline: discipline,
+            teacher_weekdays: (general_discipline_ids_by_teacher[teacher.id] || []).flat_map { |id| all_weekdays[id] || [] }.uniq,
+            discarded_weekday_names: (general_discipline_ids_by_teacher[teacher.id] || []).flat_map { |id| discarded_weekdays[id] || [] }.uniq,
+            all_school_days: all_school_days,
+            general_freq_dates: all_frequencies_by_discipline[:general] || Set.new,
+            general_discipline_ids: general_discipline_ids_by_teacher[teacher.id] || [],
+            start_date: start_date,
+            end_date: end_date,
+            today: today,
+            school_calendar: school_calendar
+          )
+          pending_frequency_dates = shared_general_frequency[:dates].dup
+          optional_holiday_makeup_dates.merge(shared_general_frequency[:makeups])
+          pending_frequency_count = pending_frequency_dates.count
+        end
+
         # Calcular carga horária total (usar school_days_for_content para cálculo)
         # Para turmas multisseriadas, usar o período do primeiro tdc (ou calcular a média se necessário)
         # Mas como estamos agrupando por disciplina, usar o período do primeiro tdc é suficiente
@@ -707,6 +743,7 @@ class PendingRecordsCalculator
           period: period_for_calculation,
           total_workload: total_workload,
           in_lessons_board: discipline_weekdays.any?,
+          frequency_by_discipline: !is_general_frequency,
           pending_frequency_count: pending_frequency_count,
           pending_content_count: pending_content_count
         }
@@ -834,6 +871,127 @@ class PendingRecordsCalculator
       Array(archived_weekdays),
       archive_date
     ).present?
+  end
+
+  def general_frequency_discipline?(classroom, teacher_id, discipline_id)
+    definer = FrequencyTypeDefiner.new(
+      classroom,
+      teacher_id,
+      nil,
+      year: @school_year,
+      discipline_id: discipline_id
+    )
+    definer.define!
+    definer.frequency_type == FrequencyTypes::GENERAL
+  end
+
+  # Uma lista só para todas as disciplinas de frequência geral do professor.
+  # O turno do vínculo não entra: os dias são as aulas dele na turma, comparadas
+  # com a frequência geral (sem disciplina).
+  def build_shared_general_pending_frequency(classroom:, teacher:, discipline:, teacher_weekdays:,
+                                             discarded_weekday_names:, all_school_days:, general_freq_dates:,
+                                             general_discipline_ids:, start_date:, end_date:, today:, school_calendar:)
+    teacher_weekday_numbers = weekday_names_to_numbers(teacher_weekdays)
+    discarded_weekday_numbers = weekday_names_to_numbers(discarded_weekday_names)
+    frequency_dates = general_freq_dates || Set.new
+
+    school_days_for_frequency = if teacher_weekday_numbers.any?
+                                  all_school_days.select { |date| teacher_weekday_numbers.include?(get_equivalent_weekday_number(date)) }
+                                elsif frequency_dates.any?
+                                  all_school_days
+                                else
+                                  []
+                                end
+
+    pending_frequency_dates = school_days_for_frequency.select { |date| date <= today && !frequency_dates.include?(date) }
+    school_days_discarded = all_school_days.select { |date| discarded_weekday_numbers.include?(get_equivalent_weekday_number(date)) }
+    frequency_dates_in_discarded = frequency_dates.select { |date| school_days_discarded.include?(date) }
+
+    if frequency_dates_in_discarded.any? && discarded_weekday_numbers.any?
+      pending_frequency_dates.reject! do |pending_date|
+        has_record_in_same_week_from_discarded_board?(
+          pending_date,
+          frequency_dates_in_discarded.to_a,
+          school_days_discarded,
+          classroom,
+          discipline,
+          true,
+          today,
+          discarded_weekday_numbers
+        )
+      end
+    end
+
+    pending_frequency_dates = filter_saturdays_by_events(pending_frequency_dates, classroom, school_calendar)
+
+    absence_dates = TeacherAbsence.absence_dates_for(
+      classroom_id: classroom.id,
+      discipline_id: nil,
+      teacher_id: teacher.id,
+      start_date: start_date,
+      end_date: end_date,
+      class_number: nil,
+      unity_id: classroom.unity_id
+    )
+    make_up_dates = TeacherAbsence.make_up_dates_for(
+      classroom_id: classroom.id,
+      discipline_id: nil,
+      teacher_id: teacher.id,
+      start_date: start_date,
+      end_date: end_date,
+      class_number: nil,
+      unity_id: classroom.unity_id
+    )
+    Array(general_discipline_ids).each do |discipline_id|
+      absence_dates.merge(
+        TeacherAbsence.absence_dates_for(
+          classroom_id: classroom.id,
+          discipline_id: discipline_id,
+          teacher_id: teacher.id,
+          start_date: start_date,
+          end_date: end_date,
+          class_number: nil,
+          unity_id: classroom.unity_id
+        )
+      )
+      make_up_dates.merge(
+        TeacherAbsence.make_up_dates_for(
+          classroom_id: classroom.id,
+          discipline_id: discipline_id,
+          teacher_id: teacher.id,
+          start_date: start_date,
+          end_date: end_date,
+          class_number: nil,
+          unity_id: classroom.unity_id
+        )
+      )
+    end
+
+    pending_frequency_dates.reject! { |date| absence_dates.include?(date) }
+    make_up_dates.each do |date|
+      next if date > today
+      next if pending_frequency_dates.include?(date) || frequency_dates.include?(date)
+
+      pending_frequency_dates << date
+    end
+    pending_frequency_dates.sort!
+
+    makeup_dates = apply_optional_holidays!(
+      pending_frequency_dates,
+      [],
+      classroom,
+      classroom.period,
+      start_date,
+      end_date,
+      today,
+      frequency_dates_set: frequency_dates,
+      content_dates_set: [],
+      frequency_weekday_numbers: teacher_weekday_numbers,
+      content_weekday_numbers: [],
+      discarded_weekday_numbers: discarded_weekday_numbers
+    )
+
+    { dates: pending_frequency_dates, makeups: makeup_dates }
   end
 
   def weekday_names_to_numbers(weekdays)
@@ -1165,31 +1323,32 @@ class PendingRecordsCalculator
   def get_teacher_weekdays(classroom_id, teacher_ids, periods)
     # Buscar todos os weekdays de todos os professores na turma
     # Retorna um array único de weekdays: ['monday', 'tuesday', etc]
-    
+    # Sem período, usa o quadro inteiro da turma.
+
     result = []
-    
-    # Primeiro tenta com período específico
+    periods = Array(periods).select(&:present?)
+
     weekdays_query = LessonsBoardLessonWeekday
       .joins(lessons_board_lesson: [lessons_board: [classrooms_grade: :classroom]])
       .joins(:teacher_discipline_classroom)
       .where(classrooms: { id: classroom_id })
-      .where(lessons_boards: { period: periods })
       .where(teacher_discipline_classrooms: { teacher_id: teacher_ids })
       .where(teacher_discipline_classrooms: { active: true })
       .where(teacher_discipline_classrooms: { discarded_at: nil })
       .where.not(weekday: nil)
       .where.not(teacher_discipline_classroom_id: nil)
-    
+    weekdays_query = weekdays_query.where(lessons_boards: { period: periods }) if periods.any?
+
     # IMPORTANTE: Filtrar por ano do quadro de aulas para garantir que está buscando do ano correto
     if @school_year.present?
       weekdays_query = weekdays_query.where(classrooms: { year: @school_year })
     end
-    
+
     weekdays_data = weekdays_query.distinct.pluck(:weekday)
     result.concat(weekdays_data)
-    
-    # Se não encontrou nada, tenta sem filtrar por período
-    if result.empty?
+
+    # Se o filtro de período não achou nada, tenta o quadro inteiro da turma
+    if result.empty? && periods.any?
       weekdays_query_fallback = LessonsBoardLessonWeekday
         .joins(lessons_board_lesson: [lessons_board: [classrooms_grade: :classroom]])
         .joins(:teacher_discipline_classroom)
@@ -1956,6 +2115,7 @@ class PendingRecordsCalculator
         period: nil,
         total_workload: total_workload,
         in_lessons_board: area_weekdays.any?,
+        frequency_by_discipline: !is_general_frequency,
         pending_frequency_count: pending_frequency_count,
         pending_content_count: pending_content_count
       }

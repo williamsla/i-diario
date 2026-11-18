@@ -440,10 +440,7 @@ $(function(){
       return;
     }
 
-    var frequencyByDiscipline = stepData.frequency_by_discipline !== false;
     var showAvaliationsColumns = stepData.has_numeric_avaliation === true;
-    var totalRows = stepData.pending_records.length;
-    var firstRecord = stepData.pending_records[0];
     var avaliationsHeaderHtml = showAvaliationsColumns ?
       '<th style="width: 160px; text-align: center;">Alunos sem Nota</th>' :
       '';
@@ -462,33 +459,37 @@ $(function(){
             '</thead>' +
             '<tbody>';
 
-    // Uma linha para cada disciplina
+    // Frequência geral primeiro (linhas já ordenadas), com a coluna agrupada.
+    // Frequência por dia depois, uma célula por disciplina.
+    var generalCount = _.filter(stepData.pending_records, function(record) {
+      return record.frequency_by_discipline !== true;
+    }).length;
     var recordIndex = 0;
+    var generalRendered = 0;
     _.each(stepData.pending_records, function(record) {
       var recordId = 'record-' + stepData.step_id + '-' + recordIndex;
       var mergedFreqId = 'freq-merged-' + stepData.step_id;
+      var isGeneralFrequency = record.frequency_by_discipline !== true;
       var notInLessonsBoard = !hasLessonsBoard || record.in_lessons_board === false;
 
-      // Frequências: laranja quando há pendências; verde quando está ok (0 datas)
       var frequencyButton;
-      if (frequencyByDiscipline) {
-        frequencyButton = notInLessonsBoard ?
-          notInLessonsBoardHtml() :
-          renderPendingDatesButton(record.pending_frequency_count, 'freq', recordId, recordIndex, 'fa-calendar');
-      } else {
-        // Frequência única para todas as disciplinas: só na primeira linha
-        if (recordIndex === 0) {
+      if (isGeneralFrequency) {
+        if (generalRendered === 0) {
           frequencyButton = !hasLessonsBoard ?
             notInLessonsBoardHtml() :
-            firstRecord.pending_frequency_count > 0 ?
+            record.pending_frequency_count > 0 ?
             '<button type="button" class="btn toggle-dates toggle-dates-merged-freq" style="background-color: #ff9800 !important; border-color: #ff9800 !important; color: white !important; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#' + mergedFreqId + '" data-record-index="0">' +
               '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
-              firstRecord.pending_frequency_count + ' datas' +
+              record.pending_frequency_count + ' datas' +
             '</button>' :
             '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: green; font-size: 30px;" title="Tudo certo com a frequência nessa etapa.">' +
               '<i class="fa fa-check-circle"></i>' +
             '</span>';
         }
+      } else {
+        frequencyButton = notInLessonsBoard ?
+          notInLessonsBoardHtml() :
+          renderPendingDatesButton(record.pending_frequency_count, 'freq', recordId, recordIndex, 'fa-calendar');
       }
 
       var avaliationsColumnsHtml = '';
@@ -523,58 +524,38 @@ $(function(){
         notInLessonsBoardHtml() :
         renderPendingDatesButton(record.pending_content_count, 'cont', recordId, recordIndex, 'fa-file-text');
 
-      if (frequencyByDiscipline) {
-        stepHtml += '<tr>' +
-          '<td><strong>' + record.discipline + '</strong></td>' +
-          '<td style="text-align: center;">' +
+      var frequencyCell = '';
+      if (isGeneralFrequency) {
+        if (generalRendered === 0) {
+          frequencyCell = '<td rowspan="' + generalCount + '" style="text-align: center; vertical-align: middle;">' +
             '<div>' + frequencyButton + '</div>' +
-            '<div id="freq-' + recordId + '" class="dates-container" style="display: none; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">' +
+            '<div id="' + mergedFreqId + '" class="dates-container" style="display: none; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">' +
               '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
             '</div>' +
-          '</td>' +
-          '<td style="text-align: center;">' +
-            '<div>' + contentButton + '</div>' +
-            '<div id="cont-' + recordId + '" class="dates-container" style="display: none; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">' +
-              '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
-            '</div>' +
-          '</td>' +
-          avaliationsColumnsHtml +
-          renderFinalRecoveryCell(record, stepData) +
-          '</tr>';
-      } else {
-        // Frequência não por disciplina: coluna de frequência só na primeira linha (rowspan)
-        if (recordIndex === 0) {
-          stepHtml += '<tr>' +
-            '<td><strong>' + record.discipline + '</strong></td>' +
-            '<td rowspan="' + totalRows + '" style="text-align: center; vertical-align: middle;">' +
-              '<div>' + frequencyButton + '</div>' +
-              '<div id="' + mergedFreqId + '" class="dates-container" style="display: none; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">' +
-                '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
-              '</div>' +
-            '</td>' +
-            '<td style="text-align: center;">' +
-              '<div>' + contentButton + '</div>' +
-              '<div id="cont-' + recordId + '" class="dates-container" style="display: none; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">' +
-                '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
-              '</div>' +
-            '</td>' +
-            avaliationsColumnsHtml +
-            renderFinalRecoveryCell(record, stepData) +
-            '</tr>';
-        } else {
-          stepHtml += '<tr>' +
-            '<td><strong>' + record.discipline + '</strong></td>' +
-            '<td style="text-align: center;">' +
-              '<div>' + contentButton + '</div>' +
-              '<div id="cont-' + recordId + '" class="dates-container" style="display: none; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">' +
-                '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
-              '</div>' +
-            '</td>' +
-            avaliationsColumnsHtml +
-            renderFinalRecoveryCell(record, stepData) +
-            '</tr>';
+          '</td>';
         }
+        generalRendered++;
+      } else {
+        frequencyCell = '<td style="text-align: center;">' +
+          '<div>' + frequencyButton + '</div>' +
+          '<div id="freq-' + recordId + '" class="dates-container" style="display: none; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">' +
+            '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
+          '</div>' +
+        '</td>';
       }
+
+      stepHtml += '<tr>' +
+        '<td><strong>' + record.discipline + '</strong></td>' +
+        frequencyCell +
+        '<td style="text-align: center;">' +
+          '<div>' + contentButton + '</div>' +
+          '<div id="cont-' + recordId + '" class="dates-container" style="display: none; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">' +
+            '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
+          '</div>' +
+        '</td>' +
+        avaliationsColumnsHtml +
+        renderFinalRecoveryCell(record, stepData) +
+        '</tr>';
 
       recordIndex++;
     });

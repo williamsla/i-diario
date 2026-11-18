@@ -63,7 +63,7 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
         end
 
         # Formatar os resultados para o dashboard (com datas para exibir sem nova requisição)
-        # Ordenar por nome da disciplina em ordem alfabética
+        # Frequência geral primeiro; dentro de cada bloco, ordem alfabética
         pending_records = results.map do |result|
           record = {
             discipline: result[:discipline_name],
@@ -71,6 +71,7 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
             knowledge_area_id: result[:knowledge_area_id], # Para áreas de conhecimento
             final_recovery_discipline_id: result[:discipline_id],
             in_lessons_board: result[:in_lessons_board] != false,
+            frequency_by_discipline: result[:frequency_by_discipline] == true,
             pending_frequency_count: result[:pending_frequency_count],
             pending_content_count: result[:pending_content_count]
           }
@@ -91,17 +92,10 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
             knowledge_area_id: record[:knowledge_area_id],
             discipline_id: record[:discipline_id]
           )
-        end.sort_by { |record| record[:discipline] }
+        end.sort_by { |record| [record[:frequency_by_discipline] ? 1 : 0, record[:discipline].to_s] }
 
-        # Frequência por disciplina: quando false, a coluna de frequências deve ser mesclada (um único valor para todas as linhas)
-        frequency_type_definer = FrequencyTypeDefiner.new(
-          current_user_classroom,
-          current_teacher.id,
-          nil,
-          year: current_school_year
-        )
-        frequency_type_definer.define!
-        frequency_by_discipline = frequency_type_definer.frequency_type == FrequencyTypes::BY_DISCIPLINE
+        # Frequência geral primeiro, com a coluna agrupada. Frequência por dia depois, uma célula por disciplina.
+        frequency_by_discipline = pending_records.all? { |record| record[:frequency_by_discipline] }
 
         last_step = last_step?(steps, step)
 
