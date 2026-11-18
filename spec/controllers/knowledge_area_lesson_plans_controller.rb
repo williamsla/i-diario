@@ -79,6 +79,36 @@ RSpec.describe KnowledgeAreaLessonPlansController, type: :controller do
       end
     end
 
+    context 'when the teacher has plans in another classroom' do
+      let(:other_classroom) {
+        create(
+          :classroom,
+          :with_teacher_discipline_classroom,
+          teacher: current_teacher,
+          unity: unity,
+          year: classroom.year
+        )
+      }
+
+      let!(:other_classroom_lesson_plan) {
+        create(
+          :knowledge_area_lesson_plan,
+          :with_teacher_discipline_classroom,
+          teacher: current_teacher,
+          classroom: other_classroom
+        )
+      }
+
+      before do
+        get :index, params: { locale: 'pt-BR' }
+      end
+
+      it 'lists only students from the classroom selected in the profile' do
+        expect(assigns(:knowledge_area_lesson_plans)).to include(knowledge_area_lesson_plan)
+        expect(assigns(:knowledge_area_lesson_plans)).not_to include(other_classroom_lesson_plan)
+      end
+    end
+
     context 'with author filter' do
       let(:other_teacher) { create(:teacher) }
       let!(:other_teacher_knowledge_area_lesson_plan) {
