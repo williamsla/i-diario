@@ -59,7 +59,7 @@ $(function () {
     var $sections = $('#aee-case-study-sections').empty();
 
     $.each(caseStudy.sections || [], function (_, section) {
-      $sections.append($('<h5>').text(section.label || ''));
+      $sections.append($('<h2>').text(section.label || ''));
       $sections.append($('<p>').css('white-space', 'pre-wrap').text(section.text || ''));
     });
 
