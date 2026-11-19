@@ -62,34 +62,18 @@ class OptionalHolidayCalendarSynchronizer
   private
 
   def sync_makeup_events(calendars)
-    if @optional_holiday.makeup_scope_municipal?
-      return if @optional_holiday.make_up_date.blank?
-
-      calendars.find_each do |school_calendar|
+    calendars.each do |school_calendar|
+      makeup_slots_for(school_calendar).each do |slot|
         upsert_event(
           school_calendar: school_calendar,
           event_type: MAKEUP_EVENT_TYPE,
-          date: @optional_holiday.make_up_date,
+          date: slot[:date],
           description: makeup_description,
           legend: nil,
-          equivalent_weekday: @optional_holiday.equivalent_weekday,
-          show_in_frequency_record: true
-        )
-      end
-    else
-      @optional_holiday.optional_holiday_unity_makeups.each do |unity_makeup|
-        school_calendar = calendars.detect { |calendar| calendar.unity_id == unity_makeup.unity_id } ||
-                          SchoolCalendar.find_by(year: @optional_holiday.year, unity_id: unity_makeup.unity_id)
-        next if school_calendar.blank?
-
-        upsert_event(
-          school_calendar: school_calendar,
-          event_type: MAKEUP_EVENT_TYPE,
-          date: unity_makeup.make_up_date,
-          description: makeup_description,
-          legend: nil,
-          equivalent_weekday: unity_makeup.equivalent_weekday,
-          show_in_frequency_record: true
+          equivalent_weekday: slot[:equivalent_weekday],
+          show_in_frequency_record: true,
+          course_id: slot[:course_id],
+          coverage: slot[:coverage]
         )
       end
     end
@@ -98,7 +82,7 @@ class OptionalHolidayCalendarSynchronizer
   def destroy_stale_events(calendars)
     expected_ids = expected_event_keys(calendars)
     @optional_holiday.school_calendar_events.find_each do |event|
-      key = [event.school_calendar_id, event.event_type]
+      key = [event.school_calendar_id, event.event_type, event.course_id]
       next if expected_ids.include?(key)
 
       event.keep_teacher_records = true
@@ -107,27 +91,91 @@ class OptionalHolidayCalendarSynchronizer
   end
 
   def expected_event_keys(calendars)
-    keys = calendars.map { |calendar| [calendar.id, HOLIDAY_EVENT_TYPE] }
+    keys = calendars.map { |calendar| [calendar.id, HOLIDAY_EVENT_TYPE, nil] }
 
-    if @optional_holiday.makeup_scope_municipal?
-      if @optional_holiday.make_up_date.present?
-        calendars.each { |calendar| keys << [calendar.id, MAKEUP_EVENT_TYPE] }
-      end
-    else
-      @optional_holiday.optional_holiday_unity_makeups.each do |unity_makeup|
-        school_calendar = calendars.detect { |calendar| calendar.unity_id == unity_makeup.unity_id }
-        keys << [school_calendar.id, MAKEUP_EVENT_TYPE] if school_calendar
+    calendars.each do |calendar|
+      makeup_slots_for(calendar).each do |slot|
+        keys << [calendar.id, MAKEUP_EVENT_TYPE, slot[:course_id]]
       end
     end
 
     keys
   end
 
-  def upsert_event(school_calendar:, event_type:, date:, description:, legend:, equivalent_weekday:, show_in_frequency_record:)
+  def makeup_slots_for(school_calendar)
+    if @optional_holiday.makeup_scope_municipal?
+      slots_from(
+        general_date: @optional_holiday.make_up_date,
+        general_weekday: @optional_holiday.equivalent_weekday,
+        specifics: @optional_holiday.optional_holiday_course_makeups,
+        unity_id: nil
+      )
+    else
+      makeups = @optional_holiday.optional_holiday_unity_makeups.select do |makeup|
+        makeup.unity_id == school_calendar.unity_id
+      end
+      general = makeups.detect { |makeup| makeup.course_id.nil? }
+      slots_from(
+        general_date: general&.make_up_date,
+        general_weekday: general&.equivalent_weekday,
+        specifics: makeups.select { |makeup| makeup.course_id.present? },
+        unity_id: school_calendar.unity_id
+      )
+    end
+  end
+
+  def slots_from(general_date:, general_weekday:, specifics:, unity_id:)
+    specifics = specifics.to_a.select { |makeup| makeup.make_up_date.present? && makeup.course_id.present? }
+    if specifics.empty?
+      return [] if general_date.blank?
+
+      return [{
+        date: general_date,
+        course_id: nil,
+        equivalent_weekday: general_weekday,
+        coverage: EventCoverageType::BY_UNITY
+      }]
+    end
+
+    slots = specifics.map do |makeup|
+      {
+        date: makeup.make_up_date,
+        course_id: makeup.course_id,
+        equivalent_weekday: makeup.equivalent_weekday,
+        coverage: EventCoverageType::BY_COURSE
+      }
+    end
+
+    covered_course_ids = specifics.map(&:course_id)
+    if general_date.present?
+      course_ids_for(unity_id).each do |course_id|
+        next if covered_course_ids.include?(course_id)
+
+        slots << {
+          date: general_date,
+          course_id: course_id,
+          equivalent_weekday: general_weekday,
+          coverage: EventCoverageType::BY_COURSE
+        }
+      end
+    end
+
+    slots
+  end
+
+  def course_ids_for(unity_id)
+    @course_ids_for ||= {}
+    @course_ids_for[unity_id] ||= OptionalHoliday.courses_for_year(@optional_holiday.year, unity_id: unity_id)
+                                                 .unscope(:order)
+                                                 .pluck(:id)
+  end
+
+  def upsert_event(school_calendar:, event_type:, date:, description:, legend:, equivalent_weekday:, show_in_frequency_record:, course_id: nil, coverage: EventCoverageType::BY_UNITY)
     event = SchoolCalendarEvent.find_or_initialize_by(
       school_calendar_id: school_calendar.id,
       optional_holiday_id: @optional_holiday.id,
-      event_type: event_type
+      event_type: event_type,
+      course_id: course_id
     )
 
     event.assign_attributes(
@@ -138,7 +186,8 @@ class OptionalHolidayCalendarSynchronizer
       legend: legend,
       equivalent_weekday: equivalent_weekday,
       show_in_frequency_record: show_in_frequency_record,
-      coverage: EventCoverageType::BY_UNITY
+      coverage: coverage,
+      course_id: course_id
     )
 
     if event.save

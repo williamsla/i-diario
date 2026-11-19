@@ -196,6 +196,80 @@ RSpec.describe OptionalHoliday, type: :model do
 
       expect(dates).to include(make_up_date)
     end
+
+    it 'uses the course makeup date and keeps the general date for the other course' do
+      fundamental = create(:course, description: 'Fundamental')
+      eja = create(:course, description: 'EJA')
+      fundamental_classroom = create(:classroom, unity: unity, period: Periods::VESPERTINE, year: classroom.year)
+      eja_classroom = create(:classroom, unity: unity, period: Periods::VESPERTINE, year: classroom.year)
+      create(:classrooms_grade, classroom: fundamental_classroom, grade: create(:grade, course: fundamental))
+      create(:classrooms_grade, classroom: eja_classroom, grade: create(:grade, course: eja))
+      course_date = make_up_date + 2.days
+      holiday = create(
+        :optional_holiday,
+        year: classroom.year,
+        holiday_date: holiday_date - 1.day,
+        make_up_date: make_up_date,
+        periods: %w[2],
+        makeup_scope: OptionalHolidayMakeupScope::MUNICIPAL
+      )
+      create(
+        :optional_holiday_course_makeup,
+        optional_holiday: holiday,
+        course: fundamental,
+        make_up_date: course_date
+      )
+
+      fundamental_dates = described_class.make_up_dates_for(
+        classroom: fundamental_classroom,
+        start_date: holiday_date - 1.day,
+        end_date: course_date,
+        period: Periods::VESPERTINE
+      )
+      eja_dates = described_class.make_up_dates_for(
+        classroom: eja_classroom,
+        start_date: holiday_date - 1.day,
+        end_date: course_date,
+        period: Periods::VESPERTINE
+      )
+
+      expect(fundamental_dates).to include(course_date)
+      expect(fundamental_dates).not_to include(make_up_date)
+      expect(eja_dates).to include(make_up_date)
+      expect(eja_dates).not_to include(course_date)
+    end
+
+    it 'uses the school course makeup date when the scope is by school' do
+      course = create(:course)
+      course_classroom = create(:classroom, unity: unity, period: Periods::VESPERTINE, year: classroom.year)
+      create(:classrooms_grade, classroom: course_classroom, grade: create(:grade, course: course))
+      course_date = make_up_date + 3.days
+      holiday = create(
+        :optional_holiday,
+        year: classroom.year,
+        holiday_date: holiday_date - 2.days,
+        periods: %w[2],
+        makeup_scope: OptionalHolidayMakeupScope::BY_SCHOOL
+      )
+      create(:optional_holiday_unity_makeup, optional_holiday: holiday, unity: unity, make_up_date: make_up_date)
+      create(
+        :optional_holiday_unity_makeup,
+        optional_holiday: holiday,
+        unity: unity,
+        course: course,
+        make_up_date: course_date
+      )
+
+      dates = described_class.make_up_dates_for(
+        classroom: course_classroom,
+        start_date: holiday_date - 2.days,
+        end_date: course_date,
+        period: Periods::VESPERTINE
+      )
+
+      expect(dates).to include(course_date)
+      expect(dates).not_to include(make_up_date)
+    end
   end
 
   describe '.make_up_entries_for' do

@@ -107,6 +107,8 @@ class SchoolSaturdaysMapping
 
     result = {}
     scope.find_each do |event|
+      next if event.optional_holiday_id.present? && event.course_id.present?
+
       (event.start_date..event.end_date).each do |day|
         next unless day.saturday?
 

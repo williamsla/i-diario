@@ -31,6 +31,33 @@ RSpec.describe SchoolSaturdaysMapping do
 
       expect(mapping.weekday_name_for(monday)).to eq('monday')
     end
+
+    it 'não trata a reposição de um curso como sábado letivo de toda a escola' do
+      course = create(:course)
+      holiday = create(
+        :optional_holiday,
+        year: school_calendar.year,
+        holiday_date: Date.new(2025, 1, 10),
+        make_up_date: saturday
+      )
+      create(
+        :school_calendar_event,
+        school_calendar: school_calendar,
+        coverage: EventCoverageType::BY_COURSE,
+        course: course,
+        optional_holiday: holiday,
+        start_date: saturday,
+        end_date: saturday,
+        event_type: EventTypes::EXTRA_SCHOOL,
+        equivalent_weekday: Workdays::MONDAY,
+        periods: %w[1 2 3],
+        legend: 'R'
+      )
+
+      mapping = described_class.new(school_calendar: school_calendar)
+
+      expect(mapping.weekday_name_for(saturday)).to eq('saturday')
+    end
   end
 
   describe '#saturday_school_day_without_equivalent_weekday?' do

@@ -27,12 +27,15 @@
         </div>
       </div>
 
-      <div class="row" id="optional_holiday_municipal_makeup">
-        <div class="col col-sm-4">
-          <%= f.input :make_up_date, as: :date,
-            hint: t('activerecord.attributes.optional_holiday.make_up_date_hint'),
-            input_html: { id: 'optional_holiday_make_up_date', value: (@optional_holiday.make_up_date.present? ? l(@optional_holiday.make_up_date) : nil) } %>
+      <div id="optional_holiday_municipal_makeup">
+        <div class="row">
+          <div class="col col-sm-4">
+            <%= f.input :make_up_date, as: :date,
+              hint: t('activerecord.attributes.optional_holiday.make_up_date_hint'),
+              input_html: { id: 'optional_holiday_make_up_date', value: (@optional_holiday.make_up_date.present? ? l(@optional_holiday.make_up_date) : nil) } %>
+          </div>
         </div>
+        <%= render 'course_makeups' %>
       </div>
 
       <p class="help-block" id="optional_holiday_scope_hint">
@@ -91,10 +94,10 @@
       <div class="row">
         <div class="col col-sm-4">
           <%= f.input :make_up_date, as: :date, required: true,
-            hint: t('views.optional_holidays.edit.school_make_up_date_hint'),
             input_html: { id: 'optional_holiday_make_up_date', value: (@optional_holiday.make_up_date.present? ? l(@optional_holiday.make_up_date) : nil) } %>
         </div>
       </div>
+      <%= render 'course_makeups' %>
     <% end %>
   </fieldset>
 

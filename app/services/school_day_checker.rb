@@ -197,7 +197,13 @@ class SchoolDayChecker
   end
 
   def grade_course_ids
-    @grade_course_ids ||= Grade.where(id: @grade_id).pluck(:course_id)
+    @grade_course_ids ||= begin
+      ids = Grade.where(id: @grade_id).pluck(:course_id)
+      if ids.blank? && @classroom_id.present?
+        ids = classroom.grades.map(&:course_id)
+      end
+      ids.compact.uniq
+    end
   end
 
   def unities_ids

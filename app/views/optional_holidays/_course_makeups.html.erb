@@ -1,0 +1,30 @@
+<div class="optional-holiday-course-makeups">
+  <div class="optional-holiday-course-makeups__heading">
+    <strong><%= t('views.optional_holidays.form.course_makeups_legend') %></strong>
+    <span><%= t('views.optional_holidays.form.course_makeups_hint') %></span>
+  </div>
+
+  <% if @course_makeup_fields.blank? %>
+    <p class="help-block"><%= t('views.optional_holidays.form.course_makeups_empty') %></p>
+  <% else %>
+    <div class="row">
+      <% @course_makeup_fields.each do |field| %>
+        <% course = field[:course] %>
+        <% makeup = field[:makeup] %>
+        <% input_id = "optional_holiday_course_makeup_#{course.id}" %>
+        <div class="col-sm-6">
+          <div class="optional-holiday-course-makeups__item">
+            <label for="<%= input_id %>"><%= course.description %></label>
+            <%= hidden_field_tag "optional_holiday[course_makeups][#{course.id}][course_id]", course.id %>
+            <%= text_field_tag "optional_holiday[course_makeups][#{course.id}][make_up_date]",
+                  (field[:raw_date].nil? ? optional_holiday_course_makeup_date_value(makeup) : field[:raw_date]),
+                  class: 'string datepicker form-control optional-holiday-course-makeups__date',
+                  id: input_id,
+                  placeholder: 'dd/mm/aaaa',
+                  autocomplete: 'off' %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>

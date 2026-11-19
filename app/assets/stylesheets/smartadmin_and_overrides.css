@@ -154,6 +154,52 @@ nav ul li b.collapse-sign em:before {
   background-color: #eee;
 }
 
+.optional-holiday-course-makeups {
+  margin: 4px 0 16px;
+  max-width: 880px;
+}
+
+.optional-holiday-course-makeups__heading {
+  margin-bottom: 8px;
+}
+
+.optional-holiday-course-makeups__heading strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.optional-holiday-course-makeups__heading span {
+  color: #777;
+  font-size: 12px;
+}
+
+.optional-holiday-course-makeups__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 42px;
+  margin-bottom: 8px;
+  padding: 0 12px;
+  border: 1px solid #e6e6e6;
+  border-radius: 3px;
+  background: #fff;
+}
+
+.optional-holiday-course-makeups__item label {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.smart-form .optional-holiday-course-makeups__date {
+  width: 132px;
+  flex: 0 0 132px;
+  height: 30px;
+  margin: 0;
+  padding: 4px 8px;
+}
+
 #extr-page .hero{
   height: 295px;
   background-image: none;

@@ -21,6 +21,11 @@ pt-BR:
         add_attachment: "Adicionar anexo"
       optional_holiday_unity_makeup:
         unity: "Escola"
+        course: "Curso"
+        make_up_date: "Data da reposição"
+        equivalent_weekday: "Dia da semana de referência"
+      optional_holiday_course_makeup:
+        course: "Curso"
         make_up_date: "Data da reposição"
         equivalent_weekday: "Dia da semana de referência"
 
@@ -41,4 +46,8 @@ pt-BR:
           attributes:
             make_up_date:
               already_informed: "já foi informada para esta escola e não pode ser alterada"
+              must_be_after_holiday_date: "deve ser posterior à data do ponto facultativo"
+        optional_holiday_course_makeup:
+          attributes:
+            make_up_date:
               must_be_after_holiday_date: "deve ser posterior à data do ponto facultativo"

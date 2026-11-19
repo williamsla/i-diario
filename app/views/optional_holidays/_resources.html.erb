@@ -1,5 +1,4 @@
 <% @optional_holidays.each do |optional_holiday| %>
-  <% makeup_date = current_unity ? optional_holiday.make_up_date_for(current_unity.id) : optional_holiday.make_up_date %>
   <% pending = optional_holiday_pending_makeup?(optional_holiday) %>
   <tr>
     <td class="text-center">
@@ -15,7 +14,7 @@
       <%= optional_holiday.effective_periods.map { |period| Periods.translate(Periods.key_for(period.to_s)) }.join(', ') %>
     </td>
     <td><%= optional_holiday.makeup_scope_humanize %></td>
-    <td><%= makeup_date.present? ? l(makeup_date) : '-' %></td>
+    <td><%= optional_holiday_makeup_date_label(optional_holiday) %></td>
     <td class="actions">
       <%= link_to 'Visualizar', optional_holiday_path(optional_holiday), class: 'btn btn-info btn-sm' %>
       <% if policy(optional_holiday).update? %>

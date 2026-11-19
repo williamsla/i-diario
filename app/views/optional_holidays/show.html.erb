@@ -37,6 +37,18 @@
             <td><%= @optional_holiday.equivalent_weekday_humanize %></td>
           </tr>
         <% end %>
+        <% if @optional_holiday.optional_holiday_course_makeups.any? %>
+          <tr>
+            <th><%= t('views.optional_holidays.show.course_makeups') %></th>
+            <td>
+              <ul class="list-unstyled" style="margin-bottom: 0;">
+                <% @optional_holiday.optional_holiday_course_makeups.sort_by { |makeup| makeup.course&.description.to_s }.each do |makeup| %>
+                  <li><%= makeup.course&.description %>: <%= makeup.make_up_date.present? ? l(makeup.make_up_date) : '-' %></li>
+                <% end %>
+              </ul>
+            </td>
+          </tr>
+        <% end %>
       <% else %>
         <tr>
           <th><%= t('views.optional_holidays.show.school_make_up_date') %></th>
@@ -57,13 +69,37 @@
             <td><%= Workdays.translate(Workdays.key_for(school_weekday.to_s)) %></td>
           </tr>
         <% end %>
-        <% if administrator? && @optional_holiday.optional_holiday_unity_makeups.any? %>
+        <% school_course_makeups = @optional_holiday.course_specific_makeups_for(administrator? ? nil : current_unity&.id) %>
+        <% if school_course_makeups.any? && !administrator? %>
+          <tr>
+            <th><%= t('views.optional_holidays.show.course_makeups') %></th>
+            <td>
+              <ul class="list-unstyled" style="margin-bottom: 0;">
+                <% school_course_makeups.sort_by { |makeup| makeup.course&.description.to_s }.each do |makeup| %>
+                  <li><%= makeup.course&.description %>: <%= makeup.make_up_date.present? ? l(makeup.make_up_date) : '-' %></li>
+                <% end %>
+              </ul>
+            </td>
+          </tr>
+        <% end %>
+        <% general_unity_makeups = @optional_holiday.optional_holiday_unity_makeups.select { |makeup| makeup.persisted? && makeup.course_id.nil? } %>
+        <% if administrator? && general_unity_makeups.any? %>
           <tr>
             <th><%= t('views.optional_holidays.show.unity_makeups') %></th>
             <td>
               <ul class="list-unstyled" style="margin-bottom: 0;">
-                <% @optional_holiday.optional_holiday_unity_makeups.includes(:unity).each do |makeup| %>
-                  <li><%= makeup.unity.name %>: <%= l(makeup.make_up_date) %></li>
+                <% general_unity_makeups.each do |makeup| %>
+                  <li>
+                    <%= makeup.unity.name %>: <%= makeup.make_up_date.present? ? l(makeup.make_up_date) : '-' %>
+                    <% course_makeups = @optional_holiday.course_specific_makeups_for(makeup.unity_id) %>
+                    <% if course_makeups.any? %>
+                      <ul>
+                        <% course_makeups.sort_by { |course_makeup| course_makeup.course&.description.to_s }.each do |course_makeup| %>
+                          <li><%= course_makeup.course&.description %>: <%= course_makeup.make_up_date.present? ? l(course_makeup.make_up_date) : '-' %></li>
+                        <% end %>
+                      </ul>
+                    <% end %>
+                  </li>
                 <% end %>
               </ul>
             </td>

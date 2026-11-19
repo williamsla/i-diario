@@ -7,12 +7,13 @@ class OptionalHolidayUnityMakeup < ApplicationRecord
 
   belongs_to :optional_holiday
   belongs_to :unity
+  belongs_to :course, optional: true
   belongs_to :user, optional: true
 
   has_enumeration_for :equivalent_weekday, with: Workdays, skip_validation: true, create_helpers: true
 
   validates :optional_holiday, :unity, :make_up_date, presence: true
-  validates :unity_id, uniqueness: { scope: :optional_holiday_id }
+  validates :unity_id, uniqueness: { scope: [:optional_holiday_id, :course_id] }
   validates :equivalent_weekday, inclusion: { in: Workdays.list, allow_blank: true }
   validate :make_up_date_after_holiday_date
   before_validation :assign_equivalent_weekday_from_holiday

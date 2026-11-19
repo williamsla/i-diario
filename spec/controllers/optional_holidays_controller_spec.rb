@@ -165,6 +165,40 @@ RSpec.describe OptionalHolidaysController, type: :controller do
       expect(holiday.equivalent_weekday).to eq(Workdays::FRIDAY)
     end
 
+    it 'saves a different municipal makeup date for a course' do
+      course = create(:course, description: 'Fundamental')
+      course_classroom = create(:classroom, unity: unity, year: school_calendar.year, period: Periods::VESPERTINE)
+      create(:classrooms_grade, classroom: course_classroom, grade: create(:grade, course: course))
+      holiday = create(
+        :optional_holiday,
+        year: school_calendar.year,
+        user: user,
+        holiday_date: Date.new(school_calendar.year, 4, 2),
+        makeup_scope: OptionalHolidayMakeupScope::MUNICIPAL
+      )
+      allow_any_instance_of(OptionalHolidayCalendarSynchronizer).to receive(:sync)
+      course_date = holiday.holiday_date + 4.days
+
+      patch :update, params: {
+        locale: 'pt-BR',
+        id: holiday.id,
+        optional_holiday: {
+          holiday_date: I18n.l(holiday.holiday_date),
+          description: holiday.description,
+          makeup_scope: OptionalHolidayMakeupScope::MUNICIPAL,
+          make_up_date: I18n.l(holiday.holiday_date + 2.days),
+          periods: holiday.periods,
+          course_makeups: {
+            course.id.to_s => { course_id: course.id, make_up_date: I18n.l(course_date) }
+          }
+        }
+      }
+
+      expect(response).to redirect_to(optional_holidays_path)
+      expect(holiday.reload.make_up_date).to eq(holiday.holiday_date + 2.days)
+      expect(holiday.make_up_date_for(unity.id, course_id: course.id)).to eq(course_date)
+    end
+
     context 'when the user is a school employee' do
       let(:employee) do
         create(:user, :with_user_role_employee, admin: false, current_unity_id: unity.id, current_school_year: school_calendar.year)
@@ -223,6 +257,76 @@ RSpec.describe OptionalHolidaysController, type: :controller do
         expect(holiday.reload.make_up_date_for(unity.id)).to eq(holiday.holiday_date + 5.days)
         expect(response).to redirect_to(optional_holidays_path)
         expect(flash[:notice]).to eq(I18n.t('flash.optional_holidays.update.school_makeup_update_notice'))
+      end
+
+      it 'saves a different makeup date for each course of the school' do
+        fundamental = create(:course, description: 'Fundamental')
+        eja = create(:course, description: 'EJA')
+        fundamental_classroom = create(:classroom, unity: unity, year: school_calendar.year, period: Periods::MATUTINAL)
+        eja_classroom = create(:classroom, unity: unity, year: school_calendar.year, period: Periods::VESPERTINE)
+        create(:classrooms_grade, classroom: fundamental_classroom, grade: create(:grade, course: fundamental))
+        create(:classrooms_grade, classroom: eja_classroom, grade: create(:grade, course: eja))
+        allow_any_instance_of(OptionalHolidayCalendarSynchronizer).to receive(:sync)
+        general_date = holiday.holiday_date + 3.days
+        fundamental_date = holiday.holiday_date + 4.days
+        eja_date = holiday.holiday_date + 6.days
+
+        patch :update, params: {
+          locale: 'pt-BR',
+          id: holiday.id,
+          optional_holiday: {
+            make_up_date: I18n.l(general_date),
+            course_makeups: {
+              fundamental.id.to_s => { course_id: fundamental.id, make_up_date: I18n.l(fundamental_date) },
+              eja.id.to_s => { course_id: eja.id, make_up_date: I18n.l(eja_date) }
+            }
+          }
+        }
+
+        holiday.reload
+        expect(response).to redirect_to(optional_holidays_path)
+        expect(holiday.make_up_date_for(unity.id)).to eq(general_date)
+        expect(holiday.make_up_date_for(unity.id, course_id: fundamental.id)).to eq(fundamental_date)
+        expect(holiday.make_up_date_for(unity.id, course_id: eja.id)).to eq(eja_date)
+        expect(
+          OptionalHoliday.make_up_dates_for(
+            classroom: fundamental_classroom,
+            start_date: holiday.holiday_date,
+            end_date: eja_date,
+            period: Periods::MATUTINAL
+          )
+        ).to include(fundamental_date)
+      end
+
+      it 'drops a course makeup date left blank and falls back to the school date' do
+        course = create(:course, description: 'Fundamental')
+        course_classroom = create(:classroom, unity: unity, year: school_calendar.year, period: Periods::VESPERTINE)
+        create(:classrooms_grade, classroom: course_classroom, grade: create(:grade, course: course))
+        general_date = holiday.holiday_date + 3.days
+        create(:optional_holiday_unity_makeup, optional_holiday: holiday, unity: unity, make_up_date: general_date)
+        create(
+          :optional_holiday_unity_makeup,
+          optional_holiday: holiday,
+          unity: unity,
+          course: course,
+          make_up_date: holiday.holiday_date + 5.days
+        )
+        allow_any_instance_of(OptionalHolidayCalendarSynchronizer).to receive(:sync)
+
+        patch :update, params: {
+          locale: 'pt-BR',
+          id: holiday.id,
+          optional_holiday: {
+            make_up_date: I18n.l(general_date),
+            course_makeups: {
+              course.id.to_s => { course_id: course.id, make_up_date: '' }
+            }
+          }
+        }
+
+        expect(response).to redirect_to(optional_holidays_path)
+        expect(OptionalHolidayUnityMakeup.where(optional_holiday: holiday, unity: unity, course_id: course.id)).to be_empty
+        expect(holiday.reload.make_up_date_for(unity.id, course_id: course.id)).to eq(general_date)
       end
 
       it 'does not save a school makeup when the scope is municipal' do

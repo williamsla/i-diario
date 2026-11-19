@@ -13,6 +13,7 @@ class OptionalHoliday < ApplicationRecord
 
   has_many :optional_holiday_attachments, dependent: :destroy
   has_many :optional_holiday_unity_makeups, dependent: :destroy
+  has_many :optional_holiday_course_makeups, dependent: :destroy
   has_many :school_calendar_events, dependent: :destroy
 
   accepts_nested_attributes_for :optional_holiday_attachments, allow_destroy: true
@@ -69,16 +70,60 @@ class OptionalHoliday < ApplicationRecord
     makeup_scope_municipal? && make_up_date.blank?
   end
 
-  def make_up_date_for(unity_id)
-    return make_up_date if makeup_scope_municipal?
+  def make_up_date_for(unity_id, course_id: nil)
+    if course_id.present?
+      specific = specific_make_up_for(unity_id, course_id)
+      return specific.make_up_date if specific&.make_up_date.present?
+    end
 
-    optional_holiday_unity_makeups.detect { |makeup| makeup.unity_id == unity_id.to_i }&.make_up_date
+    general_make_up_date_for(unity_id)
   end
 
-  def equivalent_weekday_for(unity_id)
+  def general_make_up_date_for(unity_id)
+    return make_up_date if makeup_scope_municipal?
+
+    general_unity_makeup_for(unity_id)&.make_up_date
+  end
+
+  def equivalent_weekday_for(unity_id, course_id: nil)
+    if course_id.present?
+      specific = specific_make_up_for(unity_id, course_id)
+      return specific.equivalent_weekday if specific
+    end
+
     return equivalent_weekday if makeup_scope_municipal?
 
-    optional_holiday_unity_makeups.detect { |makeup| makeup.unity_id == unity_id.to_i }&.equivalent_weekday
+    general_unity_makeup_for(unity_id)&.equivalent_weekday
+  end
+
+  def specific_make_up_for(unity_id, course_id)
+    course_id = course_id.to_i
+    if makeup_scope_municipal?
+      optional_holiday_course_makeups.detect { |makeup| makeup.course_id == course_id }
+    else
+      optional_holiday_unity_makeups.detect do |makeup|
+        makeup.unity_id == unity_id.to_i && makeup.course_id == course_id
+      end
+    end
+  end
+
+  def general_unity_makeup_for(unity_id, build: false)
+    found = optional_holiday_unity_makeups.detect do |makeup|
+      makeup.unity_id == unity_id.to_i && makeup.course_id.nil?
+    end
+    return found if found || !build
+
+    optional_holiday_unity_makeups.build(unity_id: unity_id)
+  end
+
+  def course_specific_makeups_for(unity_id = nil)
+    if makeup_scope_municipal?
+      optional_holiday_course_makeups.to_a
+    else
+      optional_holiday_unity_makeups.select do |makeup|
+        makeup.course_id.present? && (unity_id.blank? || makeup.unity_id == unity_id.to_i)
+      end
+    end
   end
 
   def pending_make_up_for?(unity_id)
@@ -94,8 +139,19 @@ class OptionalHoliday < ApplicationRecord
   end
 
   def unity_makeup_for(unity_id)
-    optional_holiday_unity_makeups.detect { |makeup| makeup.unity_id == unity_id.to_i } ||
-      optional_holiday_unity_makeups.build(unity_id: unity_id)
+    general_unity_makeup_for(unity_id, build: true)
+  end
+
+  def self.courses_for_year(year, unity_id: nil)
+    scope = Course.joins(grades: :classrooms).where(classrooms: { year: year.to_i })
+    scope = scope.where(classrooms: { unity_id: unity_id }) if unity_id.present?
+    scope.distinct.ordered
+  end
+
+  def self.classroom_course_ids(classroom)
+    return [] if classroom.blank?
+
+    classroom.grades.map(&:course_id).compact.uniq
   end
 
   def applies_to_period?(period)
@@ -157,17 +213,17 @@ class OptionalHoliday < ApplicationRecord
     start_at = start_date.to_date
     end_at = end_date.to_date
 
-    by_year(classroom.year.to_i).includes(:optional_holiday_unity_makeups).each_with_object([]) do |holiday, entries|
+    by_year(classroom.year.to_i)
+      .includes(:optional_holiday_unity_makeups, :optional_holiday_course_makeups)
+      .each_with_object([]) do |holiday, entries|
       next unless holiday.applies_to_period?(period_to_match)
       next unless holiday_applies_to_unity?(holiday, unity_id)
 
-      makeup_date = holiday.make_up_date_for(unity_id)
-      next if makeup_date.blank?
+      makeup_dates_for_classroom(holiday, classroom, unity_id).each do |makeup_date|
+        next unless makeup_date.between?(start_at, end_at)
 
-      makeup_date = makeup_date.to_date
-      next unless makeup_date.between?(start_at, end_at)
-
-      entries << { holiday_date: holiday.holiday_date.to_date, make_up_date: makeup_date }
+        entries << { holiday_date: holiday.holiday_date.to_date, make_up_date: makeup_date }
+      end
     end
   end
 
@@ -179,11 +235,13 @@ class OptionalHoliday < ApplicationRecord
     unity_id ||= classroom.unity_id
     date = date.to_date
 
-    by_year(classroom.year.to_i).includes(:optional_holiday_unity_makeups).any? do |holiday|
+    by_year(classroom.year.to_i)
+      .includes(:optional_holiday_unity_makeups, :optional_holiday_course_makeups)
+      .any? do |holiday|
       next false unless holiday.applies_to_period?(period_to_match)
       next false unless holiday_applies_to_unity?(holiday, unity_id)
 
-      holiday.make_up_date_for(unity_id).to_s == date.to_s
+      makeup_dates_for_classroom(holiday, classroom, unity_id).any? { |makeup_date| makeup_date.to_s == date.to_s }
     end
   end
 
@@ -195,10 +253,12 @@ class OptionalHoliday < ApplicationRecord
     unity_id ||= classroom.unity_id
     date = date.to_date
 
-    by_year(classroom.year.to_i).includes(:optional_holiday_unity_makeups).select do |holiday|
+    by_year(classroom.year.to_i)
+      .includes(:optional_holiday_unity_makeups, :optional_holiday_course_makeups)
+      .select do |holiday|
       holiday.applies_to_period?(period_to_match) &&
         holiday_applies_to_unity?(holiday, unity_id) &&
-        holiday.make_up_date_for(unity_id).to_s == date.to_s
+        makeup_dates_for_classroom(holiday, classroom, unity_id).any? { |makeup_date| makeup_date.to_s == date.to_s }
     end
   end
 
@@ -256,6 +316,18 @@ class OptionalHoliday < ApplicationRecord
     true
   end
   private_class_method :holiday_applies_to_unity?
+
+  def self.makeup_dates_for_classroom(holiday, classroom, unity_id)
+    course_ids = classroom_course_ids(classroom)
+    dates = if course_ids.empty?
+              [holiday.make_up_date_for(unity_id)]
+            else
+              course_ids.map { |course_id| holiday.make_up_date_for(unity_id, course_id: course_id) }
+            end
+
+    dates.compact.map(&:to_date).uniq
+  end
+  private_class_method :makeup_dates_for_classroom
 
   private
 

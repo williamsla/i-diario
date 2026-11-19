@@ -43,6 +43,30 @@ module OptionalHolidaysHelper
     t(key)
   end
 
+  def optional_holiday_makeup_date_label(optional_holiday)
+    unity_id = current_unity&.id
+    date = if unity_id && optional_holiday.makeup_scope_by_school?
+             optional_holiday.make_up_date_for(unity_id)
+           else
+             optional_holiday.make_up_date
+           end
+    specifics = optional_holiday.course_specific_makeups_for(administrator? ? nil : unity_id)
+    parts = []
+    parts << l(date) if date.present?
+    parts << t('views.optional_holidays.index.make_up_by_course') if specifics.any?
+    parts.presence&.join(' · ') || '-'
+  end
+
+  def optional_holiday_course_makeup_date_value(makeup)
+    date = makeup.make_up_date
+    return if date.blank?
+    return l(date) if date.respond_to?(:strftime)
+
+    date.to_s
+  rescue ArgumentError, TypeError
+    date.to_s
+  end
+
   def optional_holiday_pending_makeup?(optional_holiday)
     if administrator?
       current_unity ? optional_holiday.pending_make_up_for?(current_unity.id) : optional_holiday.pending_make_up?
