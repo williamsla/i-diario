@@ -156,7 +156,8 @@ class ConceptualExam < ActiveRecord::Base
             WHERE enrollments_current.student_id = conceptual_exams.student_id
               AND classrooms_grades_current.classroom_id = conceptual_exams.classroom_id
               AND student_enrollment_classrooms.discarded_at IS NULL
-              AND student_enrollment_classrooms.joined_at <= conceptual_exams.recorded_at
+              AND COALESCE(student_enrollment_classrooms.joined_at, '') <> ''
+              AND CAST(student_enrollment_classrooms.joined_at AS DATE) <= conceptual_exams.recorded_at
             ORDER BY student_enrollment_classrooms.joined_at DESC
             LIMIT 1
           )
