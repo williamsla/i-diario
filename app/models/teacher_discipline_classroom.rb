@@ -33,19 +33,30 @@ class TeacherDisciplineClassroom < ApplicationRecord
   }
 
   def left_at
-    [end_at, allocation_left_at].compact.min
+    exits = []
+    exits << end_at if end_at.present?
+    exits << allocation_left_at if allocation_exit_applies?
+    exits.min
   end
 
-  def left?
-    left_at.present? && left_at <= Date.current
+  def left?(on: Date.current)
+    exit_on = left_at
+    exit_on.present? && exit_on <= on
   end
 
-  def self.left_at_for(teacher_id:, classroom_id:)
-    where(classroom_id: classroom_id, teacher_id: teacher_id)
-      .where('end_at IS NOT NULL OR allocation_left_at IS NOT NULL')
-      .pluck(:end_at, :allocation_left_at)
-      .map { |end_at, allocation_left_at| [end_at, allocation_left_at].compact.min }
-      .compact
-      .min
+  def current?(on: Date.current)
+    (start_at.blank? || start_at <= on) && !left?(on: on)
+  end
+
+  # A saída da alocação anterior não encerra o vínculo que começou depois dela.
+  def allocation_exit_applies?
+    allocation_left_at.present? && (start_at.blank? || start_at <= allocation_left_at)
+  end
+
+  def self.left_at_for(teacher_id:, classroom_id:, on: Date.current)
+    links = where(classroom_id: classroom_id, teacher_id: teacher_id).to_a
+    return if links.any? { |link| link.current?(on: on) }
+
+    links.map(&:left_at).compact.select { |date| date <= on }.max
   end
 end

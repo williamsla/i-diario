@@ -219,8 +219,49 @@ class PedagogicalTrackingsController < ApplicationController
 		inner join public.unities unity ON unity.id = c.unity_id 
     LEFT JOIN LATERAL (
       SELECT CASE
-        WHEN tdc.end_at IS NOT NULL AND tdc.allocation_left_at IS NOT NULL THEN LEAST(tdc.end_at, tdc.allocation_left_at)
-        ELSE COALESCE(tdc.end_at, tdc.allocation_left_at)
+        WHEN EXISTS (
+          SELECT 1
+          FROM public.teacher_discipline_classrooms aberto
+          WHERE aberto.teacher_id = t.id
+            AND aberto.classroom_id = c.id
+            AND aberto.discipline_id = d.id
+            AND aberto.year = tdc.year
+            AND aberto.discarded_at IS NULL
+            AND aberto.active = true
+            AND (aberto.start_at IS NULL OR aberto.start_at <= CURRENT_DATE)
+            AND (aberto.end_at IS NULL OR aberto.end_at > CURRENT_DATE)
+            AND (
+              aberto.allocation_left_at IS NULL
+              OR aberto.allocation_left_at > CURRENT_DATE
+              OR (aberto.start_at IS NOT NULL AND aberto.start_at > aberto.allocation_left_at)
+            )
+        ) THEN NULL
+        ELSE (
+          SELECT MAX(saida)
+          FROM (
+            SELECT CASE
+              WHEN bonds.end_at IS NOT NULL AND bonds.allocation_exit IS NOT NULL THEN LEAST(bonds.end_at, bonds.allocation_exit)
+              ELSE COALESCE(bonds.end_at, bonds.allocation_exit)
+            END AS saida
+            FROM (
+              SELECT
+                encerrado.end_at,
+                CASE
+                  WHEN encerrado.allocation_left_at IS NOT NULL
+                    AND (encerrado.start_at IS NULL OR encerrado.start_at <= encerrado.allocation_left_at)
+                  THEN encerrado.allocation_left_at
+                END AS allocation_exit
+              FROM public.teacher_discipline_classrooms encerrado
+              WHERE encerrado.teacher_id = t.id
+                AND encerrado.classroom_id = c.id
+                AND encerrado.discipline_id = d.id
+                AND encerrado.year = tdc.year
+                AND encerrado.discarded_at IS NULL
+                AND encerrado.active = true
+            ) bonds
+          ) saidas
+          WHERE saida IS NOT NULL AND saida <= CURRENT_DATE
+        )
       END AS left_at
     ) teacher_left ON true
 		WHERE tdc.year = #{current_user_school_year} 
