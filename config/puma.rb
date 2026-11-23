@@ -57,6 +57,10 @@ end
 workers workers_count
 threads threads_count, threads_count
 
+# No cluster, o SIGTERM do docker stop mata o worker depois desse prazo
+# mesmo com pedido em andamento.
+worker_shutdown_timeout 120
+
 if ENV["PUMA_LOG_CONCURRENCY"] == "1"
   $stderr.puts(
     "[puma] cores=#{cores} DATABASE_POOL=#{pool} " \
