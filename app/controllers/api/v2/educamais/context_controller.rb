@@ -8,8 +8,6 @@ module Api
           unity = current_unity
           return render_unity_required if unity.blank?
 
-          profile = CurrentProfile.new(current_user)
-
           render json: {
             user: {
               id: current_user.id,
@@ -24,8 +22,8 @@ module Api
             },
             unity: unity_json(unity),
             school_year: current_school_year,
-            classroom: profile.classroom_as_json,
-            unities: unities_json(profile)
+            classroom: classroom_json(unity),
+            unities: unities_json
           }
         end
 
@@ -39,10 +37,19 @@ module Api
           }
         end
 
-        def unities_json(profile)
-          profile.unities_as_json
+        def classroom_json(unity)
+          classroom = current_user.current_classroom
+          return if classroom.blank? || classroom.unity_id.to_i != unity.id
+
+          { id: classroom.id, description: classroom.description }
+        end
+
+        # Administrador: todas as escolas. Demais perfis: escolas dos vínculos (user_roles).
+        def unities_json
+          scoped_unities.map { |item| unity_json(item) }
         rescue StandardError
-          [{ id: current_unity.id, name: current_unity.name }]
+          current = current_unity
+          current ? [unity_json(current)] : []
         end
 
         def render_unity_required

@@ -53,11 +53,25 @@ module Api
         end
 
         def resolve_current_unity
-          # Escola do perfil no diário tem prioridade sobre o ID gravado no JWT (pode estar desatualizado)
+          requested = educamais_unity_header
+          if requested.positive?
+            ensure_unity_access!(requested)
+            unity = Unity.find_by(id: requested)
+            return unity if unity.present?
+
+            raise ActiveRecord::RecordNotFound, 'Escola não encontrada'
+          end
+
+          # Sem troca explícita no Educa+, a escola do perfil no diário prevalece
+          # (o unity_id do JWT pode estar desatualizado).
           unity = current_user.current_unity
           return unity if unity.present?
 
           Unity.find_by(id: jwt_claims[:unity_id])
+        end
+
+        def educamais_unity_header
+          request.headers['X-Educamais-Unity'].to_s.strip.to_i
         end
 
         def current_school_year
@@ -118,6 +132,7 @@ module Api
           ids = [jwt_unity_id, current_user.current_unity_id.to_i]
           begin
             ids << current_user.current_user_role.try(:unity_id).to_i
+            ids.concat(current_user.user_roles.filter_map { |user_role| user_role.unity_id.to_i })
             profile ||= CurrentProfile.new(current_user)
             ids.concat(unity_ids_from(profile.unities))
           rescue StandardError => e

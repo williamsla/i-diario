@@ -53,6 +53,7 @@ Rails.application.routes.draw do
         end
 
         namespace :educamais do
+          resource :session, only: [:create], controller: 'sessions'
           resource :context, only: [:show], controller: 'context'
           resources :unities, only: [:index]
           resources :grades, only: [:index]
