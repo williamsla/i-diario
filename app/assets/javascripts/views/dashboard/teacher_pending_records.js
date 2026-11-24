@@ -432,6 +432,37 @@ $(function(){
     });
   }
 
+  function renderStudentsWithoutNoteBadge(record) {
+    var count = record.students_without_note_count || 0;
+    var status = record.students_without_note_status;
+
+    if (!status) {
+      if (record.students_without_note_from_classroom_total === true) {
+        status = 'not_started';
+      } else if (count > 0) {
+        status = 'partial';
+      } else {
+        status = 'complete';
+      }
+    }
+
+    if (status === 'partial') {
+      return '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; background-color: #ff9800; color: white; white-space: normal; line-height: 1.3;" title="Há notas lançadas, mas ainda existem alunos sem nota nesta etapa.">' +
+        'Parcial · ' + count + ' aluno(s)' +
+      '</span>';
+    }
+
+    if (status === 'not_started') {
+      return '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; background-color: #757575; color: white;" title="Nenhuma avaliação cadastrada na etapa, ou todas as notas ainda em branco.">' +
+        'Não iniciou' +
+      '</span>';
+    }
+
+    return '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: green; font-size: 30px;" title="Tudo certo, sem pendências.">' +
+      '<i class="fa fa-check-circle"></i>' +
+    '</span>';
+  }
+
   function handleFetchStepDataSuccess(stepData) {
     var $stepContainer = $('#step-data-container');
     
@@ -442,7 +473,7 @@ $(function(){
 
     var showAvaliationsColumns = stepData.has_numeric_avaliation === true;
     var avaliationsHeaderHtml = showAvaliationsColumns ?
-      '<th style="width: 160px; text-align: center;">Alunos sem Nota</th>' :
+      '<th style="width: 200px; text-align: center;">Alunos sem Nota</th>' :
       '';
 
     var stepHtml = '<div class="pending-records-table-wrap">' +
@@ -495,24 +526,12 @@ $(function(){
       var avaliationsColumnsHtml = '';
 
       if (showAvaliationsColumns) {
-        var studentsWithoutNoteCount = record.students_without_note_count || 0;
-        var showingClassroomTotal = record.students_without_note_from_classroom_total === true;
         var studentsWithoutNoteBadge;
 
         if (record.notes_required === false && showOptionalDisciplineNoteMessage(stepData)) {
           studentsWithoutNoteBadge = notesNotRequiredHtml();
-        } else if (showingClassroomTotal) {
-          studentsWithoutNoteBadge = '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; background-color: #ff9800; color: white;" title="Nenhuma avaliação criada na etapa. Total de alunos da turma com nota numérica.">' +
-            studentsWithoutNoteCount + ' aluno(s)' +
-          '</span>';
-        } else if (studentsWithoutNoteCount > 0) {
-          studentsWithoutNoteBadge = '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; background-color: #ff9800; color: white;" title="Alunos com nota pendente em avaliações numéricas da etapa.">' +
-            studentsWithoutNoteCount + ' aluno(s)' +
-          '</span>';
         } else {
-          studentsWithoutNoteBadge = '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: green; font-size: 30px;" title="Todas as notas lançadas nas avaliações da etapa.">' +
-            '<i class="fa fa-check-circle"></i>' +
-          '</span>';
+          studentsWithoutNoteBadge = renderStudentsWithoutNoteBadge(record);
         }
 
         avaliationsColumnsHtml =

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'set'
+
 # Classifica cada etapa da tela de avaliações numéricas:
 # - not_started: nenhuma avaliação da etapa foi preenchida
 # - partial: há nota lançada, mas ainda falta avaliação ou aluno

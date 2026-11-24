@@ -1,10 +1,9 @@
 require 'rails_helper'
 
 RSpec.describe AvaliationStepFillStatus, type: :service do
-  AvaliationRow = Struct.new(:id, :test_setting_test_id)
-
   def avaliation(id, test_setting_test_id: nil)
-    AvaliationRow.new(id, test_setting_test_id)
+    row = Struct.new(:id, :test_setting_test_id)
+    row.new(id, test_setting_test_id)
   end
 
   describe '.for_step' do
@@ -114,24 +113,121 @@ RSpec.describe AvaliationStepFillStatus, type: :service do
     end
   end
 
+  describe 'Ruby 2.4.10' do
+    it 'executa na versão fixada do projeto' do
+      expect(RUBY_VERSION).to eq('2.4.10')
+    end
+
+    it 'compila o serviço e o controller' do
+      [
+        'app/services/avaliation_step_fill_status.rb',
+        'app/controllers/avaliations_controller.rb'
+      ].each do |relative|
+        source = File.read(Rails.root.join(relative))
+        RubyVM::InstructionSequence.compile(source)
+      end
+    end
+
+    it 'compila a listagem erb' do
+      source = File.read(Rails.root.join('app/views/avaliations/_index_by_step.html.erb'))
+      RubyVM::InstructionSequence.compile(ERB.new(source, nil, nil).src)
+    end
+  end
+
   describe '#by_step_id' do
-    it 'devolve o status de cada etapa' do
-      step = instance_double('SchoolCalendarStep', id: 7)
+    it 'não consulta nada quando a turma não tem etapas' do
       service = described_class.new(
-        classroom: instance_double('Classroom', id: 1),
-        discipline: instance_double('Discipline', id: 2),
-        steps: [step]
+        classroom: avaliation(1),
+        discipline: avaliation(2),
+        steps: []
       )
-      allow(service).to receive(:avaliations_in).with(step).and_return([avaliation(4)])
-      allow(service).to receive(:instrument_test_ids_for).with(step).and_return([])
-      allow(service).to receive(:complete_avaliation_ids).and_return(Set.new)
-      allow(service).to receive(:avaliation_ids_with_note).and_return(Set[4])
 
-      status = service.by_step_id[7]
+      expect(Avaliation).not_to receive(:by_classroom_id)
+      expect(service.by_step_id).to eq({})
+    end
 
-      expect(status.key).to eq(described_class::PARTIAL)
-      expect(status.complete_count).to eq(0)
-      expect(status.total_count).to eq(1)
+    context 'com avaliações gravadas' do
+      let(:classroom) { create(:classroom, :with_classroom_semester_steps) }
+      let(:discipline) { create(:discipline) }
+      let(:other_discipline) { create(:discipline) }
+      let(:student) { create(:student) }
+      let(:steps) { StepsFetcher.new(classroom).steps.order(:step_number).to_a }
+
+      before do
+        allow(TestSettingFetcher).to receive(:current).and_return(
+          double('test_setting', sum_calculation_type?: false)
+        )
+      end
+
+      def persist_avaliation(target_discipline, test_date)
+        record = build(
+          :avaliation,
+          classroom: classroom,
+          discipline: target_discipline,
+          test_date: test_date,
+          school_calendar: classroom.calendar.school_calendar
+        )
+        record.save(validate: false)
+        record
+      end
+
+      def persist_note(target_avaliation, note)
+        daily_note = DailyNote.new(avaliation_id: target_avaliation.id)
+        daily_note.save(validate: false)
+        DailyNoteStudent.new(
+          daily_note_id: daily_note.id,
+          student_id: student.id,
+          note: note,
+          active: true
+        ).save(validate: false)
+        daily_note
+      end
+
+      it 'mantém a etapa sem lançamento e ignora outra disciplina' do
+        filled = persist_avaliation(discipline, Date.new(classroom.year, 3, 15))
+        persist_note(filled, 8)
+        other = persist_avaliation(other_discipline, Date.new(classroom.year, 3, 16))
+        persist_note(other, nil)
+
+        statuses = described_class.new(
+          classroom: classroom,
+          discipline: discipline,
+          steps: steps
+        ).by_step_id
+
+        expect(statuses[steps.first.id].key).to eq(described_class::COMPLETE)
+        expect(statuses[steps.first.id].complete_count).to eq(1)
+        expect(statuses[steps.first.id].total_count).to eq(1)
+        expect(statuses[steps.second.id].key).to eq(described_class::NOT_STARTED)
+        expect(statuses[steps.second.id].total_count).to eq(0)
+      end
+
+      it 'marca a etapa como parcial quando falta nota de aluno enturmado' do
+        grade_link = create(:classrooms_grade, classroom: classroom)
+        enrollment = create(:student_enrollment, student: student)
+        create(
+          :student_enrollment_classroom,
+          classrooms_grade: grade_link,
+          student_enrollment: enrollment,
+          joined_at: Date.new(classroom.year, 1, 1),
+          left_at: ''
+        )
+        filled = persist_avaliation(discipline, Date.new(classroom.year, 3, 15))
+        pending = persist_avaliation(discipline, Date.new(classroom.year, 3, 20))
+        persist_note(filled, 8)
+        persist_note(pending, nil)
+
+        status = described_class.new(
+          classroom: classroom,
+          discipline: discipline,
+          steps: steps
+        ).by_step_id[steps.first.id]
+
+        expect(status.key).to eq(described_class::PARTIAL)
+        expect(status.complete_count).to eq(1)
+        expect(status.total_count).to eq(2)
+        expect(status.label_class).to eq('label-warning')
+      end
     end
   end
 end

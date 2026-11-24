@@ -79,6 +79,9 @@ class Dashboard::TeacherPendingRecordsController < ApplicationController
             record[:notes_required] = result[:notes_required] == true
             record[:students_without_note_count] = result[:students_without_note_count] || 0
             record[:students_without_note_from_classroom_total] = result[:students_without_note_from_classroom_total] == true
+            if result[:students_without_note_status].present?
+              record[:students_without_note_status] = result[:students_without_note_status]
+            end
           end
           if result[:pending_frequency_dates].present? || result[:pending_content_dates].present?
             makeup_dates = result[:optional_holiday_makeup_dates]
