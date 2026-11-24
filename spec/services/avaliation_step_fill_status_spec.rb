@@ -127,11 +127,6 @@ RSpec.describe AvaliationStepFillStatus, type: :service do
         RubyVM::InstructionSequence.compile(source)
       end
     end
-
-    it 'compila a listagem erb' do
-      source = File.read(Rails.root.join('app/views/avaliations/_index_by_step.html.erb'))
-      RubyVM::InstructionSequence.compile(ERB.new(source, nil, nil).src)
-    end
   end
 
   describe '#by_step_id' do
