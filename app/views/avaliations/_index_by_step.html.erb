@@ -17,7 +17,20 @@
         <div class="list-group-item">
           <div class="row">
             <div class="col-sm-8 col-md-9">
-              <h5 class="list-group-item-heading"><%= step.to_s %></h5>              
+              <% status = @step_fill_statuses[step.id] %>
+              <h5 class="list-group-item-heading avaliations-step-heading">
+                <span><%= step.to_s %></span>
+                <% if status %>
+                  <span class="label <%= status.label_class %> avaliations-step-status">
+                    <%= t("avaliations.by_step.fill_status.#{status.key}") %>
+                  </span>
+                <% end %>
+              </h5>
+              <% if status && status.total_count.positive? %>
+                <p class="text-muted avaliations-step-progress">
+                  <%= t('avaliations.by_step.fill_status.progress', complete: status.complete_count, total: status.total_count) %>
+                </p>
+              <% end %>
             </div>
             <div class="col-sm-4 col-md-3">
               <div class="pull-right">

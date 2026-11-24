@@ -42,6 +42,11 @@ pt-BR:
     by_step:
       title: 'Lançamento por etapa'
       subtitle: 'Selecione a etapa para lançar as avaliações numéricas da turma.'
+      fill_status:
+        not_started: 'Não iniciou'
+        partial: 'Parcialmente preenchida'
+        complete: 'Todas preenchidas'
+        progress: '%{complete} de %{total} avaliações completas'
       fill_button: 'Preencher / Editar'
       fill_button_blocked: 'Lançamentos a partir de %{date}'
       no_steps: 'Nenhuma etapa encontrada para esta turma.'

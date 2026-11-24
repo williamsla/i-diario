@@ -21,6 +21,11 @@ class AvaliationsController < ApplicationController
     @classroom = current_user_classroom
     @steps_for_picker = StepsFetcher.new(@classroom).steps.to_a
     @exam_report_use_classroom_step_field = SchoolCalendarClassroomStep.by_classroom(@classroom.id).ordered.any?
+    @step_fill_statuses = AvaliationStepFillStatus.new(
+      classroom: @classroom,
+      discipline: current_user_discipline,
+      steps: @steps_for_picker
+    ).by_step_id
 
     authorize Avaliation.new(classroom: @classroom, discipline: current_user_discipline), :index?
     respond_to do |format|
