@@ -14,7 +14,11 @@
           <%= f.hidden_field :end_at %>
         </div>
         <div class="col col-sm-4">
-          <%= f.input :classroom_id, as: :select2_classroom, user: current_user %>          
+          <%= f.input :classroom_id, as: :select2_classroom, user: current_user %>
+          <%= f.input :period, as: :select2, elements: @frequency_period_elements, hide_empty_element: true,
+                label: 'Turno da frequência',
+                hint: 'Um turno específico mostra cada aula uma vez. Todos os turnos inclui a frequência de cada turno.',
+                input_html: { value: @diary_report_form.period, data: { hide_empty_element: true } } %>
         </div>        
       </div>
       <div class="row">

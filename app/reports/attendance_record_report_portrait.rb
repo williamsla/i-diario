@@ -157,7 +157,11 @@ class AttendanceRecordReportPortrait < BaseReport
     frequencies_and_events = daily_frequencies.to_a
 
     frequencies_and_events = frequencies_and_events.sort_by do |obj|
-      daily_frequency?(obj) ? obj.frequency_date : obj[:date]
+      if daily_frequency?(obj)
+        [obj.frequency_date, obj.period.to_i, obj.class_number.to_i]
+      else
+        [obj[:date], 0, 0]
+      end
     end
 
     student_enrollment_ids = @enrollment_classrooms.map { |student_enrollment|

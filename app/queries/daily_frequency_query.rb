@@ -2,7 +2,7 @@ class DailyFrequencyQuery
   def self.call(filters = {})
     relation = DailyFrequency.all.extending(Scopes)
       .by_classroom_id(filters[:classroom_id])
-      .by_period(filters[:period])
+      .by_period(filters[:period], filters[:exact_period])
       .by_frequency_date_between(filters[:frequency_date])
       .by_discipline_id(filters[:discipline_id], filters[:all_students_frequencies])
       .by_class_number(filters[:class_numbers], filters[:all_students_frequencies])
@@ -19,10 +19,10 @@ class DailyFrequencyQuery
       where(classroom_id: classroom_id)
     end
 
-    def by_period(period)
+    def by_period(period, exact_period = false)
       return self if period.blank?
 
-      if period.eql?(Periods::FULL)
+      if !exact_period && period.eql?(Periods::FULL)
         where(period: [Periods::FULL, Periods::MATUTINAL, Periods::VESPERTINE, Periods::NIGHTLY])
       else
         where(period: period)

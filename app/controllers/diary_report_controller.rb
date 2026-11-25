@@ -18,8 +18,10 @@ class DiaryReportController < ApplicationController
         teacher_id: current_teacher.id,
         start_at: @steps.first.start_at,
         end_at: @steps.last.end_at,
-        receive_email_confirmation: true
+        receive_email_confirmation: true,
+        period: default_frequency_period(current_user_classroom)
       )
+      @frequency_period_elements = frequency_period_elements(current_user_classroom)
     end
 
     def teacher_allow_absence_by_discipline?
@@ -89,7 +91,9 @@ class DiaryReportController < ApplicationController
           classroom_id: current_user_classroom.id,
           discipline_id: discipline.id,
           school_calendar: school_calendar,
-          period: Periods::FULL,
+          period: @diary_report_form.all_periods? ? Periods::FULL : @diary_report_form.period,
+          all_periods: @diary_report_form.all_periods?,
+          exact_period: !@diary_report_form.all_periods?,
           current_teacher_id: current_teacher.id,
           start_at: @diary_report_form.start_at,
           end_at: @diary_report_form.end_at,
@@ -354,7 +358,8 @@ class DiaryReportController < ApplicationController
         :end_at,
         :teacher_id,
         :school_calendar_year,
-        :receive_email_confirmation
+        :receive_email_confirmation,
+        :period
       )
     end
 
@@ -540,6 +545,49 @@ class DiaryReportController < ApplicationController
                                       .by_classroom_id(current_user_classroom.id)
                                       .ordered
 
+    end
+
+    def frequency_period_elements(classroom)
+      values = frequency_period_values(classroom)
+      elements = [{
+        id: DiaryReportForm::ALL_PERIODS,
+        name: 'Todos os turnos',
+        text: 'Todos os turnos'
+      }]
+
+      Periods.to_a.each do |label, value|
+        next unless values.include?(value.to_s)
+
+        elements << { id: value, name: label, text: label }
+      end
+
+      elements.to_json
+    end
+
+    def frequency_period_values(classroom)
+      if classroom.blank? || classroom.period.to_s == Periods::FULL.to_s
+        return [Periods::MATUTINAL, Periods::VESPERTINE, Periods::NIGHTLY, Periods::FULL].map(&:to_s)
+      end
+
+      [classroom.period.to_s]
+    end
+
+    def default_frequency_period(classroom)
+      return DiaryReportForm::ALL_PERIODS if classroom.blank? || current_teacher.blank?
+
+      periods = TeacherDisciplineClassroom.by_classroom(classroom.id)
+                                         .by_teacher_id(current_teacher.id)
+                                         .pluck(:period)
+                                         .map(&:to_s)
+                                         .reject(&:blank?)
+                                         .uniq
+      allowed = frequency_period_values(classroom)
+      teacher_periods = periods & allowed
+      return teacher_periods.first if teacher_periods.one?
+
+      return classroom.period.to_s if classroom.period.to_s != Periods::FULL.to_s
+
+      DiaryReportForm::ALL_PERIODS
     end
 
     def set_school_calendars

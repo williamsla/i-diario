@@ -4,6 +4,7 @@ pt-BR:
       diary_report_form:
         unity_id: "Escola"
         classroom_id: "Turma"
+        period: "Turno da frequência"
 
     errors:
       models:

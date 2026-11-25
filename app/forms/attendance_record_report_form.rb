@@ -12,7 +12,9 @@ class AttendanceRecordReportForm
                 :current_teacher_id,
                 :school_calendar,
                 :second_teacher_signature,
-                :show_only_discipline_days
+                :show_only_discipline_days,
+                :all_periods,
+                :exact_period
 
   validates :start_at, presence: true, date: true, timeliness: {
     on_or_before: :end_at, type: :date, on_or_before_message: I18n.t('errors.messages.on_or_before_message')
@@ -39,6 +41,7 @@ class AttendanceRecordReportForm
     frequencies = DailyFrequencyQuery.call(
       classroom_id: classroom_id,
       period: period_for_frequency_query,
+      exact_period: exact_period?,
       frequency_date: start_at..end_at,
       discipline_id: !global_absence? && discipline_id,
       class_numbers: !global_absence? && normalized_class_numbers,
@@ -83,16 +86,38 @@ class AttendanceRecordReportForm
     class_numbers.to_s
   end
 
+  def all_periods?
+    ActiveRecord::Type::Boolean.new.cast(all_periods)
+  end
+
+  def exact_period?
+    ActiveRecord::Type::Boolean.new.cast(exact_period)
+  end
+
   def collapse_frequencies_for_date(frequencies_aux)
-    return frequencies_aux if frequencies_aux.map(&:class_number).uniq.size > 1
+    if all_periods?
+      return frequencies_aux.sort_by { |frequency|
+        [frequency.period.to_i, frequency.class_number.to_i]
+      }
+    end
+
+    # Um turno específico fica com uma coluna por aula, mesmo se o mesmo número
+    # existir em outro turno.
+    frequencies_aux
+      .group_by { |frequency| frequency.class_number.to_s }
+      .map { |_class_number, same_class| preferred_frequency(same_class) }
+      .sort_by { |frequency| frequency.class_number.to_i }
+  end
+
+  def preferred_frequency(frequencies_aux)
+    return frequencies_aux.first if frequencies_aux.one?
 
     # Com período específico (matutino/vespertino), não preferir registro Integral.
     if period.present? && period.to_s != Periods::FULL.to_s
-      return frequencies_aux.find { |f| f.period.to_s == period.to_s } || frequencies_aux.first
+      return frequencies_aux.find { |frequency| frequency.period.to_s == period.to_s } || frequencies_aux.first
     end
 
-    daily_frequency = frequencies_aux.find { |f| f.period == Periods::FULL.to_i }
-    daily_frequency || frequencies_aux.first
+    frequencies_aux.find { |frequency| frequency.period.to_i == Periods::FULL.to_i } || frequencies_aux.first
   end
 
   def has_lesson_board?
