@@ -18,7 +18,7 @@
     <td style="width: 150px;">
       <%= form.input :type_of_teaching, as: :select2, elements: TypesOfTeaching.to_select_specific_values(false, @general_configuration.types_of_teaching).to_json,
                   label: false, required: false,
-                  input_html: { value: student[:type_of_teaching], data: { without_json_parser: true, id: :type_of_teaching } }  %>
+                  input_html: { value: student[:type_of_teaching], data: { without_json_parser: true, id: :type_of_teaching, no_unsaved_guard: true } }  %>
     </td>
   <% end %>
   <% params[:dates].each do |date| %>
@@ -41,7 +41,7 @@
           </span>
           <label title="<%= tooltip %>" class="checkbox checkbox-frequency checkbox-batch <%= additional_class ? 'state-disabled never-change ' + additional_class : '' %>" style="left: 4px; bottom: 15px;">
             <% student_input_name =  '[' + student[:student][:id].to_s + ']' + '[present]' %>
-            <input type="checkbox" name="<%= student_input_name %>" class="general-checkbox <%= additional_class ? 'never-change ' + additional_class : '' %>" <%= additional_class ? 'disabled="disabled"' : '' %>>
+            <input type="checkbox" name="<%= student_input_name %>" data-no-unsaved-guard class="general-checkbox <%= additional_class ? 'never-change ' + additional_class : '' %>" <%= additional_class ? 'disabled="disabled"' : '' %>>
             <i class="general-checkbox-icon checkbox-frequency-in-batch"></i>
           </label>
           <br>

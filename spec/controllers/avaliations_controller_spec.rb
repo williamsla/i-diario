@@ -3,7 +3,16 @@ require 'rails_helper'
 RSpec.describe AvaliationsController, type: :controller do
   render_views
 
-  let(:entity) { Entity.find_by(domain: 'test.host') }
+  let(:entity) do
+    record = Entity.find_by(domain: 'test.host')
+    # O schema de teste local guarda hstore como texto. No banco com a extensão,
+    # config já chega como Hash e este ramo não roda.
+    if record.config.is_a?(String)
+      parsed = YAML.safe_load(record.config).with_indifferent_access
+      record.define_singleton_method(:config) { parsed }
+    end
+    record
+  end
   let(:unity) { create(:unity) }
   let(:school_calendar) do
     create(:school_calendar, unity: unity, opened_year: true, year: Date.current.year)

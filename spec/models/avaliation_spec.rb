@@ -89,7 +89,7 @@ RSpec.describe Avaliation, type: :model do
       it 'allows updating the same avaliation when calendar_step is set (batch save)' do
         existing = create(
           :avaliation,
-          test_date: step.start_at.to_date,
+          test_date: step.first_school_calendar_date,
           discipline: subject.discipline,
           classroom: subject.classroom,
           test_setting: subject.test_setting,

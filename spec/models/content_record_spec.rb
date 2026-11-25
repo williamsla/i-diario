@@ -70,6 +70,17 @@ RSpec.describe ContentRecord, type: :model do
       end
     end
 
+    context 'when classroom is AEE' do
+      it 'allows the attendance record without a specific student' do
+        allow(AeeDetectable).to receive(:classroom_aee?).and_return(true)
+        subject.student = nil
+
+        subject.valid?
+
+        expect(subject.errors[:student_id]).to be_empty
+      end
+    end
+
     context 'required only for knowledge area content record' do
       before(:each) do
         GeneralConfiguration.current

@@ -87,7 +87,8 @@
         <% if @students&.any? || is_aee %>
           <div class="col col-sm-4">
             <%= content_record.input :student_id, as: :select2, elements: @students || [],
-                  required: is_aee %>
+                  required: false,
+                  hint: (is_aee ? t('aee.fields.student_optional_hint') : nil) %>
           </div>
         <% end %>
         <% if f.object.decorator.show_experience_fields && !is_aee %>

@@ -156,6 +156,16 @@ function runTests() {
     }
   });
 
+  const batchJsPath = path.join(__dirname, '../../app/assets/javascripts/views/daily_frequencies_in_batchs/create_or_update_multiple.js');
+  const batchJs = fs.readFileSync(batchJsPath, 'utf8');
+  assert(!batchJs.includes('markAsChanged'), 'frequência em lote não marca o formulário como alterado sem edição do usuário');
+  assert(batchJs.indexOf('updateCheckboxes($(this), true)') < batchJs.indexOf('UnsavedChangesGuard.watch'), 'frequência em lote observa o formulário depois de montar a grade');
+
+  const batchFieldsPath = path.join(__dirname, '../../app/views/daily_frequencies_in_batchs/_student_fields.html.erb');
+  const batchFields = fs.readFileSync(batchFieldsPath, 'utf8');
+  assertContains(batchFields, 'data-no-unsaved-guard', 'checkbox geral da frequência em lote fica fora do guarda');
+  assertContains(batchFields, 'no_unsaved_guard: true', 'modalidade visível da frequência em lote fica fora do guarda');
+
   const caseStudyModalPath = path.join(__dirname, '../../app/views/aee_individual_plans/_case_study_modal.html.erb');
   const caseStudyModal = fs.readFileSync(caseStudyModalPath, 'utf8');
   assertContains(caseStudyModal, 'class="close no-confirm"', 'Fechar o estudo de caso (X) não sai da tela do PEI');

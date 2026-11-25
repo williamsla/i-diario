@@ -39,7 +39,6 @@ class ContentRecord < ApplicationRecord
   validates :daily_activities_record, presence: true, if: :require_daily_activities_record?
   validates :teacher, presence: true
   validate :at_least_one_content
-  validate :student_required_when_aee
 
   delegate :grades, :grade_ids, :first_grade, to: :classroom
 
@@ -108,13 +107,6 @@ class ContentRecord < ApplicationRecord
     if content_ids.blank?
       errors.add(:contents, :at_least_one_content)
     end
-  end
-
-  def student_required_when_aee
-    return unless AeeDetectable.classroom_aee?(classroom)
-    return if student_id.present?
-
-    errors.add(:student_id, :blank)
   end
 
   def require_daily_activities_record?

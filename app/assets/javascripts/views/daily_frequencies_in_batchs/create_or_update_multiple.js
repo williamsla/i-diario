@@ -35,21 +35,6 @@ $(document).ready( function() {
 })
 
 $(function () {
-  var $formElement = $('form.daily_frequency');
-  var unsavedGuard = null;
-
-  if ($formElement.length && typeof UnsavedChangesGuard !== 'undefined') {
-    unsavedGuard = UnsavedChangesGuard.watch($formElement, {
-      title: 'Deseja salvar este lançamento antes de sair?',
-      message: 'É necessário apertar o botão "Salvar" ' +
-        'ao fim do lançamento de frequência em lote para que seja lançado com sucesso.'
-    });
-
-    if ($('#new_record').val() == 'true' && unsavedGuard) {
-      unsavedGuard.markAsChanged();
-    }
-  }
-
   setTimeout(function() {
     $('.alert-success').hide();
   }, 10000);
@@ -136,6 +121,19 @@ $(document).ready(function () {
   $("label.checkbox-frequency:not(.checkbox-batch) input[type=checkbox]").each(function () {
     updateCheckboxes($(this), true);
   });
+
+  // A grade recalcula os checkboxes gerais e copia a modalidade na abertura.
+  // Dia ainda não salvo (#new_record) também não é edição: a confirmação só
+  // aparece depois que o usuário muda presença, justificativa ou modalidade.
+  var $formElement = $('form.daily_frequency');
+
+  if ($formElement.length && typeof UnsavedChangesGuard !== 'undefined') {
+    UnsavedChangesGuard.watch($formElement, {
+      title: 'Deseja salvar este lançamento antes de sair?',
+      message: 'É necessário apertar o botão "Salvar" ' +
+        'ao fim do lançamento de frequência em lote para que seja lançado com sucesso.'
+    });
+  }
 
   $("label.checkbox-frequency:not(.checkbox-batch) input[type=checkbox]").click(function() {
     let el = $(this);
