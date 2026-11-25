@@ -39,6 +39,7 @@ class ContentRecord < ApplicationRecord
   validates :daily_activities_record, presence: true, if: :require_daily_activities_record?
   validates :teacher, presence: true
   validate :at_least_one_content
+  before_validation :nullify_blank_student_id
 
   delegate :grades, :grade_ids, :first_grade, to: :classroom
 
@@ -107,6 +108,11 @@ class ContentRecord < ApplicationRecord
     if content_ids.blank?
       errors.add(:contents, :at_least_one_content)
     end
+  end
+
+  def nullify_blank_student_id
+    raw = read_attribute_before_type_cast('student_id')
+    self.student_id = nil if raw.blank? || raw.to_s == 'empty' || raw.to_i <= 0
   end
 
   def require_daily_activities_record?

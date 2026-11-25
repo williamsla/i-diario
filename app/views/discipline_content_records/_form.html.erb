@@ -99,9 +99,12 @@
 
       <% if @students&.any? || is_aee %>
         <div class="row">
-          <div class="col col-sm-4">
+          <div class="col col-sm-4 js-optional-student-field">
+            <%= content_record.label :student_id, ContentRecord.human_attribute_name(:student_id), class: 'select2 optional control-label' %>
             <%= content_record.input :student_id, as: :select2, elements: @students || [],
+                  label: false,
                   required: false,
+                  input_html: { required: false },
                   hint: (is_aee ? t('aee.fields.student_optional_hint') : nil) %>
           </div>
         </div>
