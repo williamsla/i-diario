@@ -30,9 +30,9 @@ class RolePermission < ApplicationRecord
   end
 
   def access_level_has_feature?(access_level)
-    return unless feature
+    return false if feature.blank? || access_level.blank?
 
-    features = FeaturesAccessLevels.send("#{access_level}_features").map(&:to_sym)
-    features.include?(feature.to_sym)
+    features = FeaturesAccessLevels.send("#{access_level}_features").map(&:to_s)
+    features.include?(feature.to_s)
   end
 end

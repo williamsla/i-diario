@@ -501,6 +501,8 @@ Rails.application.routes.draw do
       to: 'attendance_record_report_by_students#report',
       as: 'attendance_record_report_by_students_report'
 
+    get '/reports/user_access_reports', to: 'user_access_reports#index', as: 'user_access_reports'
+
     get '/reports/record_audit_trails', to: 'record_audit_trails#form', as: 'record_audit_trails'
     post '/reports/record_audit_trails', to: 'record_audit_trails#report', as: 'record_audit_trails_report'
     get '/reports/record_audit_trails/classroom_teachers', to: 'record_audit_trails#classroom_teachers', as: 'record_audit_trails_classroom_teachers'

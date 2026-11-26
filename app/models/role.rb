@@ -13,7 +13,7 @@ class Role < ActiveRecord::Base
   has_many :user_roles, dependent: :restrict_with_error
   has_many :employees_default_roles, class_name: 'GeneralConfiguration', foreign_key: 'employees_default_role_id'
 
-  accepts_nested_attributes_for :permissions
+  accepts_nested_attributes_for :permissions, reject_if: :blank_new_permission?
   accepts_nested_attributes_for :user_roles, reject_if: :all_blank, allow_destroy: true
 
   before_validation :remove_not_unique_user_unity
@@ -67,12 +67,31 @@ class Role < ActiveRecord::Base
 
   protected
 
+  def blank_new_permission?(attributes)
+    attributes = attributes.with_indifferent_access
+    attributes[:id].blank? && attributes[:feature].blank?
+  end
+
   def permissions_must_match_access_level
     return unless access_level
+
+    known_features = Features.list.map(&:to_s)
+
     permissions.each do |permission|
       next if permission.permission == Permissions::DENIED
+      next if permission.feature.blank?
+      next unless known_features.include?(permission.feature.to_s)
+
       unless permission.access_level_has_feature?(access_level)
-        errors.add(:permissions, I18n.t('roles.errors.permission_must_match_access_level', feature: permission.feature_humanize, access_level: access_level_humanize))
+        feature_name = permission.feature_humanize.presence || permission.feature
+        errors.add(
+          :permissions,
+          I18n.t(
+            'roles.errors.permission_must_match_access_level',
+            feature: feature_name,
+            access_level: access_level_humanize
+          )
+        )
       end
     end
   end

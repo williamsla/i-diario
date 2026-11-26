@@ -279,6 +279,9 @@ navigation:
         - menu:
             type: "record_audit_trails"
             path: "record_audit_trails_path"
+        - menu:
+            type: "user_access_reports"
+            path: "user_access_reports_path"
 
   - menu:
       type: "ieducar_api_exam_postings"

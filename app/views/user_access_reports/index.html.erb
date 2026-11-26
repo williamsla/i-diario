@@ -1,0 +1,105 @@
+<div class="widget-body no-padding">
+  <div class="alert alert-info" style="margin: 15px;">
+    <%= t('.help') %>
+  </div>
+
+  <%= form_tag user_access_reports_path, method: :get, class: 'smart-form' do %>
+    <fieldset>
+      <div class="row">
+        <section class="col col-sm-6">
+          <label class="label" for="role_id"><%= t('.role') %></label>
+          <label class="select">
+            <%= select_tag :role_id,
+                  options_from_collection_for_select(@roles, :id, :name, @report.role&.id),
+                  include_blank: t('.role_prompt') %>
+            <i></i>
+          </label>
+        </section>
+      </div>
+    </fieldset>
+    <footer>
+      <button type="submit" class="btn btn-primary"><%= t('.submit') %></button>
+    </footer>
+  <% end %>
+
+  <% if @report.role %>
+    <div class="table-responsive" style="padding: 0 15px 15px;">
+      <table class="table table-striped table-bordered table-condensed">
+        <thead>
+          <tr>
+            <th><%= t('.school') %></th>
+            <th><%= t('.users') %></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if @report.rows.empty? %>
+            <tr>
+              <td colspan="2"><%= t('.empty') %></td>
+            </tr>
+          <% else %>
+            <% @report.rows.each do |row| %>
+              <tr class="<%= 'info' if @report.chart_for?(row) %>">
+                <td>
+                  <%= link_to row.name, user_access_reports_path(role_id: @report.role.id, unity_id: row.unity_id || 'none') %>
+                </td>
+                <td><%= number_with_delimiter(row.count) %></td>
+              </tr>
+            <% end %>
+          <% end %>
+          <tr>
+            <th><%= t('.total') %></th>
+            <th><%= number_with_delimiter(@report.total) %></th>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <% if @report.chart_school_name %>
+      <div style="padding: 0 15px 20px;">
+        <h4 style="margin-top: 0;"><%= t('.chart_title', school: @report.chart_school_name) %></h4>
+        <p class="text-muted"><%= t('.chart_help') %></p>
+        <% accesses = @report.monthly_accesses %>
+        <% if accesses.any? %>
+          <canvas id="user-access-chart" height="90"></canvas>
+          <% content_for :js do %>
+            <script>
+              new Chart(document.getElementById('user-access-chart').getContext('2d'), {
+                type: 'line',
+                data: {
+                  labels: <%= raw accesses.map(&:label).to_json %>,
+                  datasets: [{
+                    label: '<%= j t('.chart_series') %>',
+                    data: <%= raw accesses.map(&:count).to_json %>,
+                    borderColor: '#3276b1',
+                    backgroundColor: 'rgba(50, 118, 177, 0.15)',
+                    fill: true,
+                    lineTension: 0.15,
+                    pointRadius: 3
+                  }]
+                },
+                options: {
+                  legend: { display: false },
+                  scales: {
+                    yAxes: [{
+                      ticks: { beginAtZero: true, precision: 0 }
+                    }]
+                  }
+                }
+              });
+            </script>
+          <% end %>
+        <% else %>
+          <p><%= t('.chart_empty') %></p>
+        <% end %>
+      </div>
+    <% end %>
+  <% elsif params[:role_id].present? %>
+    <div class="alert alert-warning" style="margin: 15px;">
+      <%= t('.missing_role') %>
+    </div>
+  <% else %>
+    <div class="alert alert-info" style="margin: 15px;">
+      <%= t('.choose_role') %>
+    </div>
+  <% end %>
+</div>

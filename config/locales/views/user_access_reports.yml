@@ -1,0 +1,18 @@
+pt-BR:
+  user_access_reports:
+    index:
+      help: "Escolha um perfil cadastrado. A tabela mostra quantos usuários desse perfil já entraram no sistema, por escola e no total. Clique no nome da escola para ver os acessos de cada mês."
+      role: "Perfil"
+      role_prompt: "Selecione um perfil"
+      submit: "Consultar"
+      missing_role: "Perfil não encontrado."
+      choose_role: "Selecione um perfil para ver os acessos."
+      school: "Escola"
+      users: "Usuários que acessaram"
+      without_unity: "Sem escola"
+      empty: "Nenhum usuário deste perfil acessou o sistema."
+      total: "Geral"
+      chart_title: "Acessos por mês — %{school}"
+      chart_help: "Cada ponto é a quantidade de entradas no sistema naquele mês."
+      chart_series: "Acessos"
+      chart_empty: "Não há acessos registrados para esta escola."

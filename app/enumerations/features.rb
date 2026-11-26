@@ -61,6 +61,7 @@ class Features < EnumerateIt::Base
                    :conceptual_exam_report,
                    :teacher_absences,
                    :record_audit_trails,
+                   :user_access_reports,
                    :aee_case_studies,
                    :aee_individual_plans,
                    :aee_attendance_records

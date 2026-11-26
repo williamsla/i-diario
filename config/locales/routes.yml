@@ -93,6 +93,7 @@ pt-BR:
     diary_report: 'imprimir-diario'
     conceptual_exam_report: 'avaliacoes-conceituais'
     record_audit_trails: 'trilha-de-auditoria-de-lancamentos'
+    user_access_reports: 'acessos-por-perfil'
     record_audit_trails_report: 'trilha-de-auditoria-de-lancamentos-relatorio'
     record_audit_trails_classroom_teachers: 'trilha-de-auditoria-de-lancamentos-professores'
     record_audit_trails_classroom_disciplines: 'trilha-de-auditoria-de-lancamentos-disciplinas'

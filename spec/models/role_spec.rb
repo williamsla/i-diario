@@ -20,6 +20,25 @@ RSpec.describe Role, :type => :model do
 
       expect(subject.errors[:permissions]).to eq ["Funcionalidade Usuários não pertence ao nível de acesso Professor."]
     end
+
+    it "accepts the student access report for administrators" do
+      subject.access_level = AccessLevel::ADMINISTRATOR
+      subject.permissions.build(feature: "user_access_reports", permission: Permissions::READ)
+
+      subject.valid?
+
+      expect(subject.errors[:permissions]).to eq []
+    end
+
+    it "ignores a permission whose feature is no longer registered" do
+      subject.access_level = AccessLevel::ADMINISTRATOR
+      subject.permissions.build(feature: "", permission: Permissions::CHANGE)
+      subject.permissions.build(feature: "removed_feature", permission: Permissions::CHANGE)
+
+      subject.valid?
+
+      expect(subject.errors[:permissions]).to eq []
+    end
   end
 
   describe "#to_s" do

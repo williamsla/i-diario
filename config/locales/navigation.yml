@@ -94,6 +94,7 @@ pt-BR:
     conceptual_exam_report: "Avaliações conceituais"
     diary_report: "Imprimir diário"
     record_audit_trails: "Trilha de auditoria de lançamentos"
+    user_access_reports: "Acessos por perfil"
 
   enumerations:
     features:
