@@ -15,12 +15,6 @@ $(function () {
   var isPersistedRecord = !!$('[id$="_content_record_attributes_id"]').val();
   var requestSeq = 0;
 
-  if ($student.length) {
-    $student.prop('required', false).removeAttr('required').removeAttr('aria-required');
-    $student.closest('.js-optional-student-field').find('label abbr').remove();
-    $student.closest('.js-optional-student-field').find('label').removeClass('required').addClass('optional');
-  }
-
   if (!$student.length || !studentDataUrl) {
     return;
   }

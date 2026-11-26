@@ -85,13 +85,9 @@
           </div>
         <% end %>
         <% if @students&.any? || is_aee %>
-          <div class="col col-sm-4 js-optional-student-field">
-            <%= content_record.label :student_id, ContentRecord.human_attribute_name(:student_id), class: 'select2 optional control-label' %>
+          <div class="col col-sm-4">
             <%= content_record.input :student_id, as: :select2, elements: @students || [],
-                  label: false,
-                  required: false,
-                  input_html: { required: false },
-                  hint: (is_aee ? t('aee.fields.student_optional_hint') : nil) %>
+                  required: is_aee %>
           </div>
         <% end %>
         <% if f.object.decorator.show_experience_fields && !is_aee %>

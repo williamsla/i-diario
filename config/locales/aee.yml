@@ -40,8 +40,6 @@ pt-BR:
       opinion: "Parecer"
       daily_activities_record: "Registro do atendimento"
       daily_activities_hint: "Descreva o que aconteceu nesta sessão. Objetivos e estratégias do PEI aparecem acima para consulta."
-      student_optional_hint: "Opcional. Deixe em branco para registrar o atendimento da turma, sem um aluno específico."
-      general_attendance: "Atendimento da turma"
       validated_teaching_plan: "Plano de AEE validado"
       validated_lesson_plan: "Plano de aula / atendimento AEE validado"
       copy_from_teaching_plan: "plano de AEE (PAEE)"
