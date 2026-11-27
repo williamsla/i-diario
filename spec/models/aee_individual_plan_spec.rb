@@ -306,7 +306,7 @@ RSpec.describe AeeIndividualPlan do
       )
     end
 
-    it 'is true when a differentiated student is also enrolled in an AEE classroom' do
+    it 'is true when a student of the classroom is also enrolled in an AEE classroom' do
       create(
         :teacher_discipline_classroom,
         classroom: classroom,
@@ -314,7 +314,7 @@ RSpec.describe AeeIndividualPlan do
         grade: classrooms_grade.grade,
         year: year
       )
-      student = create(:student, uses_differentiated_exam_rule: true)
+      student = create(:student, uses_differentiated_exam_rule: false)
       enroll(student)
       create_aee_enrollment(student, year)
 
@@ -334,7 +334,7 @@ RSpec.describe AeeIndividualPlan do
       expect(described_class.differentiated_student_enrolled_for?(user)).to eq(false)
     end
 
-    it 'is false when no enrolled student uses a differentiated exam rule' do
+    it 'is false when the student without a disability is not enrolled in an AEE classroom' do
       create(
         :teacher_discipline_classroom,
         classroom: classroom,
@@ -371,7 +371,8 @@ RSpec.describe AeeIndividualPlan do
       )
     end
     let(:with_aee) { create(:student, uses_differentiated_exam_rule: true) }
-    let(:without_aee) { create(:student, uses_differentiated_exam_rule: true) }
+    let(:without_disability) { create(:student, uses_differentiated_exam_rule: false) }
+    let(:without_aee) { create(:student, uses_differentiated_exam_rule: false) }
 
     before do
       allow(classroom).to receive(:aee?).and_return(false)
@@ -381,21 +382,23 @@ RSpec.describe AeeIndividualPlan do
           StudentEnrollmentsList,
           student_enrollments: [
             instance_double(StudentEnrollment, student_id: with_aee.id),
+            instance_double(StudentEnrollment, student_id: without_disability.id),
             instance_double(StudentEnrollment, student_id: without_aee.id)
           ]
         )
       )
       create_aee_enrollment(with_aee, year)
+      create_aee_enrollment(without_disability, year)
     end
 
-    it 'keeps only differentiated students who also have an active AEE enrollment' do
-      expect(described_class.enrolled_student_ids_for(user)).to eq([with_aee.id])
+    it 'lists students enrolled in an AEE classroom even without a disability' do
+      expect(described_class.enrolled_student_ids_for(user)).to match_array([with_aee.id, without_disability.id])
     end
 
     it 'ignores an AEE enrollment that already ended' do
       create_aee_enrollment(without_aee, year, left_at: "#{year}-01-15")
 
-      expect(described_class.enrolled_student_ids_for(user)).to eq([with_aee.id])
+      expect(described_class.enrolled_student_ids_for(user)).to match_array([with_aee.id, without_disability.id])
     end
   end
 

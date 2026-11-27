@@ -153,8 +153,8 @@ class AeeIndividualPlan < ApplicationRecord
     )
   end
 
-  # Usado pelo menu em toda página. No ensino regular, só abre o PEI se houver
-  # aluno com regra diferenciada e matrícula ativa em turma de AEE no ano.
+  # Usado pelo menu em toda página. No ensino regular, abre o PEI se houver
+  # aluno da turma com matrícula ativa em turma de AEE no ano, com ou sem deficiência.
   def self.differentiated_student_enrolled_for?(user)
     classroom = user&.classroom
     return false if classroom.blank? || user.current_school_year.blank?
@@ -162,9 +162,8 @@ class AeeIndividualPlan < ApplicationRecord
 
     StudentEnrollment
       .active
-      .joins(:student, student_enrollment_classrooms: :classrooms_grade)
+      .joins(student_enrollment_classrooms: :classrooms_grade)
       .where(classrooms_grades: { classroom_id: classroom.id })
-      .where(students: { uses_differentiated_exam_rule: true })
       .where(student_id: aee_enrolled_student_ids(user.current_school_year))
       .exists?
   end
@@ -184,12 +183,10 @@ class AeeIndividualPlan < ApplicationRecord
       end
 
     return student_ids if classroom.aee?
-
-    differentiated_ids = Student.where(id: student_ids, uses_differentiated_exam_rule: true).pluck(:id)
-    return [] if differentiated_ids.blank?
+    return [] if student_ids.blank?
 
     aee_enrolled_student_ids(user.current_school_year)
-      .where(student_id: differentiated_ids)
+      .where(student_id: student_ids)
       .distinct
       .pluck(:student_id)
   end
