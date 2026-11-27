@@ -37,6 +37,10 @@ RSpec.describe PendingRecordsCalculator, type: :service do
     end
 
     def add_monday(teacher_discipline_classroom, period)
+      add_weekday(teacher_discipline_classroom, period, 'monday')
+    end
+
+    def add_weekday(teacher_discipline_classroom, period, weekday)
       board = LessonsBoard.find_by(classrooms_grade_id: classrooms_grade.id, period: period.to_i)
       board ||= create(:lessons_board, classrooms_grade: classrooms_grade, period: period.to_i)
       lesson = board.lessons_board_lessons.first
@@ -45,7 +49,7 @@ RSpec.describe PendingRecordsCalculator, type: :service do
         :lessons_board_lesson_weekday,
         lessons_board_lesson: lesson,
         teacher_discipline_classroom: teacher_discipline_classroom,
-        weekday: 'monday'
+        weekday: weekday
       )
     end
 
@@ -76,16 +80,16 @@ RSpec.describe PendingRecordsCalculator, type: :service do
       ).tap { |frequency| frequency.save!(validate: false) }
     end
 
-    def pending_for(teacher)
+    def pending_for(teacher, school_days = [last_monday, today])
       calculator.send(
         :process_infantil_classroom,
         classroom,
         [knowledge_area.id],
         nil,
-        last_monday,
-        today,
+        school_days.min,
+        school_days.max,
         true,
-        [last_monday, today],
+        school_days,
         today,
         grade.id,
         teacher.id
@@ -152,6 +156,83 @@ RSpec.describe PendingRecordsCalculator, type: :service do
 
         expect(pending[:pending_content_dates]).to eq([last_monday])
         expect(pending[:pending_frequency_dates]).to eq([last_monday])
+      end
+    end
+
+    context 'quando cada professora tem um dia diferente no mesmo turno' do
+      let(:last_wednesday) { last_monday + 2.days }
+      let(:school_days) { [last_monday, last_wednesday, today] }
+      let(:classroom) do
+        create(:classroom, year: Date.current.year, period: Periods::MATUTINAL)
+      end
+      let!(:morning_link) { link_teacher(morning_teacher, Periods::MATUTINAL) }
+      let!(:wednesday_link) { link_teacher(afternoon_teacher, Periods::MATUTINAL) }
+
+      before do
+        add_weekday(morning_link, Periods::MATUTINAL, 'monday')
+        add_weekday(wednesday_link, Periods::MATUTINAL, 'wednesday')
+        create_area_content(afternoon_teacher, last_wednesday)
+        create_general_frequency(afternoon_teacher, last_wednesday, Periods::MATUTINAL)
+      end
+
+      it 'cobra só o dia de cada uma no quadro' do
+        monday_teacher = pending_for(morning_teacher, school_days)
+        wednesday_teacher = pending_for(afternoon_teacher, school_days)
+
+        expect(monday_teacher[:pending_content_dates]).to eq([last_monday, today])
+        expect(monday_teacher[:pending_frequency_dates]).to eq([last_monday, today])
+        expect(wednesday_teacher[:pending_content_dates]).to eq([])
+        expect(wednesday_teacher[:pending_frequency_dates]).to eq([])
+      end
+    end
+
+    context 'quando a professora não está no quadro do turno' do
+      let(:last_wednesday) { last_monday + 2.days }
+      let(:school_days) { [last_monday, last_wednesday, today] }
+      let(:classroom) do
+        create(:classroom, year: Date.current.year, period: Periods::MATUTINAL)
+      end
+      let!(:teacher_link) { link_teacher(morning_teacher, Periods::MATUTINAL) }
+      let!(:board_link) { link_teacher(afternoon_teacher, Periods::MATUTINAL) }
+
+      before do
+        add_weekday(board_link, Periods::MATUTINAL, 'wednesday')
+      end
+
+      it 'olha a frequência nos dias da disciplina dela no quadro' do
+        pending = pending_for(morning_teacher, school_days)
+
+        expect(pending[:pending_frequency_dates]).to eq([last_wednesday])
+        expect(pending[:pending_content_dates]).to eq([last_wednesday])
+      end
+    end
+
+    context 'quando a substituta do integral assume o dia de quem saiu' do
+      let(:predecessor) { create(:teacher) }
+      let(:classroom) do
+        create(:classroom, year: Date.current.year, period: Periods::FULL)
+      end
+      let!(:predecessor_link) { link_teacher(predecessor, Periods::FULL, active: false) }
+      let!(:successor_link) { link_teacher(morning_teacher, Periods::FULL) }
+      let!(:other_link) { link_teacher(afternoon_teacher, Periods::FULL) }
+      let(:last_wednesday) { last_monday + 2.days }
+      let(:school_days) { [last_monday, last_wednesday, today] }
+
+      before do
+        add_weekday(successor_link, Periods::FULL, 'monday')
+        add_weekday(other_link, Periods::FULL, 'wednesday')
+        create_area_content(predecessor, last_monday)
+        create_general_frequency(predecessor, last_monday, Periods::FULL)
+      end
+
+      it 'não cobra de novo o conteúdo da professora substituída e não puxa o dia da colega' do
+        successor = pending_for(morning_teacher, school_days)
+        colleague = pending_for(afternoon_teacher, school_days)
+
+        expect(successor[:pending_content_dates]).to eq([today])
+        expect(successor[:pending_frequency_dates]).to eq([today])
+        expect(colleague[:pending_content_dates]).to eq([last_wednesday])
+        expect(colleague[:pending_frequency_dates]).to eq([last_wednesday])
       end
     end
   end

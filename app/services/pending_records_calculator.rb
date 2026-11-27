@@ -1911,7 +1911,7 @@ class PendingRecordsCalculator
   end
 
   # Turnos do professor na área (matutino, vespertino ou noturno).
-  # Integral não separa o quadro: nesse caso vale só o próprio professor.
+  # Integral não entra: cada professora responde pelos próprios dias do quadro.
   def infantil_specific_periods(classroom, teacher_id, knowledge_area_ids)
     discipline_ids = TeacherDisciplineClassroom
       .where(classroom_id: classroom.id, teacher_id: teacher_id)
@@ -1932,37 +1932,56 @@ class PendingRecordsCalculator
     Array(periods).map(&:to_i).select { |period| period.positive? && period != Periods::FULL.to_i }.uniq
   end
 
-  # Professores do mesmo turno, inclusive vínculo inativo (substituição), e o professor atual.
-  def infantil_shift_teacher_ids(classroom, teacher_id, periods)
+  # Quem pode encerrar conteúdo e frequência da área: o próprio professor,
+  # quem divide o mesmo turno e quem foi substituído nesse turno.
+  # No integral, outro professor ativo não encerra a pendência; só o vínculo inativo.
+  def infantil_shift_teacher_ids(classroom, teacher_id, periods, knowledge_area_ids)
     ids = [teacher_id]
-    period_values = infantil_period_values(periods)
-    return ids.compact.uniq if period_values.blank?
-
     year = @school_year.presence || classroom.year
     scope = TeacherDisciplineClassroom.unscoped.where(classroom_id: classroom.id)
+    scope = scope.joins(:discipline).where(disciplines: { knowledge_area_id: knowledge_area_ids }) if knowledge_area_ids.present?
     scope = scope.where(year: [year, year.to_s]) if year.present?
+
+    period_values = infantil_period_values(periods)
+    if period_values.blank?
+      replaced_ids = scope.where(period: [nil, 0, Periods::FULL.to_i])
+                          .where('teacher_discipline_classrooms.active = ? OR teacher_discipline_classrooms.discarded_at IS NOT NULL', false)
+                          .distinct
+                          .pluck(:teacher_id)
+      still_active_ids = TeacherDisciplineClassroom.where(classroom_id: classroom.id, teacher_id: replaced_ids)
+                                                   .joins(:discipline)
+                                                   .where(disciplines: { knowledge_area_id: knowledge_area_ids })
+                                                   .distinct
+                                                   .pluck(:teacher_id)
+      ids.concat(replaced_ids - still_active_ids)
+      return ids.compact.uniq
+    end
+
     ids.concat(scope.where(period: period_values).distinct.pluck(:teacher_id))
-    ids.concat(teacher_ids_from_shift_boards(classroom, period_values))
+    ids.concat(teacher_ids_from_shift_boards(classroom, period_values, knowledge_area_ids))
     ids.compact.uniq
   end
 
-  def teacher_ids_from_shift_boards(classroom, period_values)
-    LessonsBoardLessonWeekday.unscoped
+  def teacher_ids_from_shift_boards(classroom, period_values, knowledge_area_ids = nil)
+    query = LessonsBoardLessonWeekday.unscoped
       .joins('INNER JOIN lessons_board_lessons lbl ON lbl.id = lessons_board_lesson_weekdays.lessons_board_lesson_id')
       .joins('INNER JOIN lessons_boards lb ON lb.id = lbl.lessons_board_id')
       .joins('INNER JOIN classrooms_grades cg ON cg.id = lb.classrooms_grade_id')
       .joins('INNER JOIN teacher_discipline_classrooms tdc ON tdc.id = lessons_board_lesson_weekdays.teacher_discipline_classroom_id')
       .where('cg.classroom_id = ?', classroom.id)
       .where(lb: { period: period_values })
-      .distinct
-      .pluck('tdc.teacher_id')
+    if knowledge_area_ids.present?
+      query = query.joins('INNER JOIN disciplines d ON d.id = tdc.discipline_id')
+                   .where('d.knowledge_area_id IN (?)', knowledge_area_ids)
+    end
+    query.distinct.pluck('tdc.teacher_id')
   end
 
   def infantil_pending_record_scope(classroom, teacher_id, knowledge_area_ids)
     periods = infantil_specific_periods(classroom, teacher_id, knowledge_area_ids)
     {
       periods: periods,
-      teacher_ids: infantil_shift_teacher_ids(classroom, teacher_id, periods)
+      teacher_ids: infantil_shift_teacher_ids(classroom, teacher_id, periods, knowledge_area_ids)
     }
   end
 
@@ -1992,9 +2011,47 @@ class PendingRecordsCalculator
       .map(&:to_date)
   end
 
-  # Dias de aula da área só dos professores do turno. O quadro das disciplinas
-  # continua compartilhado entre professores da mesma disciplina.
-  def infantil_knowledge_area_weekdays(classroom_id, knowledge_area_ids, teacher_ids, periods)
+  # Frequência geral por área: o nome no quadro do turno limita os dias.
+  # Sem o nome nesse turno, valem os dias das disciplinas dela no quadro.
+  def infantil_general_pending_weekdays(classroom_id, knowledge_area_ids, teacher_id, periods)
+    named, named_discarded = infantil_knowledge_area_weekdays(
+      classroom_id, knowledge_area_ids, [teacher_id], periods, allow_other_periods: false
+    )
+    return [named, named_discarded] if named.values.any?(&:present?)
+
+    infantil_discipline_board_weekdays(classroom_id, knowledge_area_ids, teacher_id, periods)
+  end
+
+  def infantil_discipline_board_weekdays(classroom_id, knowledge_area_ids, teacher_id, periods)
+    active_result = {}
+    discarded_result = {}
+    discipline_ids = TeacherDisciplineClassroom
+      .where(classroom_id: classroom_id, teacher_id: teacher_id)
+      .joins(:discipline)
+      .where(disciplines: { knowledge_area_id: knowledge_area_ids })
+      .pluck(:discipline_id)
+      .uniq
+    return [active_result, discarded_result] if discipline_ids.blank?
+
+    period_values = infantil_period_values(periods)
+    active_rows = infantil_board_weekdays(classroom_id, discipline_ids, nil, period_values, discarded: false)
+    if active_rows.blank?
+      active_rows = infantil_board_weekdays(classroom_id, discipline_ids, nil, [], discarded: false)
+    end
+    discarded_rows = infantil_board_weekdays(classroom_id, discipline_ids, nil, period_values, discarded: true)
+    if discarded_rows.blank? && period_values.present?
+      discarded_rows = infantil_board_weekdays(classroom_id, discipline_ids, nil, [], discarded: true)
+    end
+
+    knowledge_area_by_discipline = Discipline.where(id: discipline_ids).pluck(:id, :knowledge_area_id).to_h
+    group_weekdays_by_knowledge_area(active_rows, knowledge_area_by_discipline, active_result)
+    group_weekdays_by_knowledge_area(discarded_rows, knowledge_area_by_discipline, discarded_result)
+
+    [active_result, discarded_result]
+  end
+
+  # Dias de aula da área deste professor. O colega de outro dia do quadro não entra.
+  def infantil_knowledge_area_weekdays(classroom_id, knowledge_area_ids, teacher_ids, periods, allow_other_periods: true)
     active_result = {}
     discarded_result = {}
     return [active_result, discarded_result] if knowledge_area_ids.blank? || teacher_ids.blank?
@@ -2009,12 +2066,8 @@ class PendingRecordsCalculator
 
     period_values = infantil_period_values(periods)
     active_rows = infantil_board_weekdays(classroom_id, discipline_ids, teacher_ids, period_values, discarded: false)
-    if active_rows.blank? && period_values.present?
+    if active_rows.blank? && period_values.present? && allow_other_periods
       active_rows = infantil_board_weekdays(classroom_id, discipline_ids, teacher_ids, [], discarded: false)
-    end
-    # Turno integral não tem período próprio no quadro: usa os dias da área na turma.
-    if active_rows.blank? && period_values.blank?
-      active_rows = infantil_board_weekdays(classroom_id, discipline_ids, nil, [], discarded: false)
     end
     discarded_rows = infantil_board_weekdays(classroom_id, discipline_ids, teacher_ids, period_values, discarded: true)
 
@@ -2085,10 +2138,14 @@ class PendingRecordsCalculator
     record_teacher_ids = record_scope[:teacher_ids]
     record_periods = record_scope[:periods]
 
-    # Dias do quadro do turno. Registro do outro turno não entra nesse quadro.
-    knowledge_area_weekdays, knowledge_area_discarded_weekdays = infantil_knowledge_area_weekdays(
-      classroom.id, knowledge_area_ids, record_teacher_ids, record_periods
-    )
+    # Frequência geral: nome no quadro do turno limita os dias da pendência.
+    # Sem o nome nesse turno, usa os dias das disciplinas dela no quadro.
+    knowledge_area_weekdays, knowledge_area_discarded_weekdays =
+      if is_general_frequency
+        infantil_general_pending_weekdays(classroom.id, knowledge_area_ids, teacher_id, record_periods)
+      else
+        infantil_knowledge_area_weekdays(classroom.id, knowledge_area_ids, [teacher_id], record_periods)
+      end
 
     # Frequência do turno, ou lançada por um professor desse turno (inclusive o substituído).
     general_freq_dates = Set.new
@@ -2098,10 +2155,10 @@ class PendingRecordsCalculator
       ).to_set
     end
 
-    # Verificar se o professor iniciou preenchimento por disciplina
-    # Se sim, também verificar registros por disciplina ao invés de apenas por área de conhecimento
+    # Conteúdo antigo da área pode estar gravado por disciplina.
+    # Vale o lançamento de quem ocupa o turno, inclusive de quem foi substituído.
     started_as_discipline = DisciplineContentRecord
-      .by_teacher_id(teacher_id)
+      .by_teacher_id(record_teacher_ids)
       .by_classroom_id(classroom.id)
       .exists?
     
