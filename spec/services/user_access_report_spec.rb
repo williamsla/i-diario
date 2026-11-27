@@ -101,6 +101,64 @@ RSpec.describe UserAccessReport, type: :service do
     expect(counts.map { |month| [month.label, month.count] }).to include(['Mar/2026', 2], ['Abr/2026', 1])
   end
 
+  it 'compares the same months of the previous year' do
+    teacher = create(:user)
+    create(:user_role, user: teacher, role: teacher_role, unity: school_a)
+    UserLogin.create!(user: teacher, sign_in_ip: '10.0.0.1').update_column(
+      :created_at,
+      Time.zone.local(2026, 3, 10, 8)
+    )
+    UserLogin.create!(user: teacher, sign_in_ip: '10.0.0.2').update_column(
+      :created_at,
+      Time.zone.local(2025, 3, 4, 8)
+    )
+    UserLogin.create!(user: teacher, sign_in_ip: '10.0.0.3').update_column(
+      :created_at,
+      Time.zone.local(2025, 3, 18, 8)
+    )
+
+    report = described_class.new(teacher_role.id, chart_unity_id: school_a.id, year: 2026)
+    previous = report.previous_monthly_accesses
+
+    expect(report.month_labels).to eq(%w[Jan Fev Mar Abr Mai Jun Jul Ago Set Out Nov Dez])
+    expect(previous.size).to eq(12)
+    expect(previous.map { |month| [month.label, month.count] }).to include(['Mar/2025', 2], ['Abr/2025', 0])
+    expect(report.rows.map { |row| [row.name, row.count] }).to eq([['Escola A', 1]])
+  end
+
+  it 'counts each login once when the chart includes every school' do
+    teacher = create(:user)
+    create(:user_role, user: teacher, role: teacher_role, unity: school_a)
+    create(:user_role, user: teacher, role: teacher_role, unity: school_b)
+    UserLogin.create!(user: teacher, sign_in_ip: '10.0.0.1').update_column(
+      :created_at,
+      Time.zone.local(2026, 3, 10, 8)
+    )
+
+    other = create(:user)
+    create(:user_role, user: other, role: teacher_role, unity: school_b)
+    UserLogin.create!(user: other, sign_in_ip: '10.0.0.2').update_column(
+      :created_at,
+      Time.zone.local(2026, 3, 12, 8)
+    )
+
+    report = described_class.new(teacher_role.id, chart_unity_id: 'all', year: 2026)
+    march = report.monthly_accesses.find { |month| month.label == 'Mar/2026' }
+
+    expect(report.chart_school_name).to eq('Geral')
+    expect(report.chart_for_all?).to eq(true)
+    expect(march.count).to eq(2)
+
+    scoped = described_class.new(
+      teacher_role.id,
+      chart_unity_id: 'all',
+      school_id: school_a.id,
+      year: 2026
+    )
+
+    expect(scoped.monthly_accesses.find { |month| month.label == 'Mar/2026' }.count).to eq(1)
+  end
+
   it 'uses the enrollment of the selected year as the student school' do
     student_user = create(:user, student: create(:student))
     create(:user_role, user: student_user, role: student_role, unity: nil)

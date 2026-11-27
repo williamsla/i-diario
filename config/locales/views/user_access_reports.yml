@@ -1,7 +1,7 @@
 pt-BR:
   user_access_reports:
     index:
-      help: "Escolha um perfil cadastrado. Os números são do ano letivo %{year}, selecionado no perfil. A tabela mostra quantos usuários desse perfil entraram no sistema nesse ano, por escola e no total. No perfil estudante, a escola é a da matrícula desse ano. Clique no nome da escola para ver os acessos de cada mês."
+      help: "Escolha um perfil cadastrado. Os números são do ano letivo %{year}, selecionado no perfil. A tabela mostra quantos usuários desse perfil entraram no sistema nesse ano, por escola e no total. No perfil estudante, a escola é a da matrícula desse ano. Clique em uma escola ou em Geral para abrir o gráfico de acessos por mês."
       role: "Perfil"
       role_prompt: "Selecione um perfil"
       submit: "Consultar"
@@ -13,6 +13,8 @@ pt-BR:
       empty: "Nenhum usuário deste perfil acessou o sistema."
       total: "Geral"
       chart_title: "Acessos por mês — %{school}"
-      chart_help: "Cada ponto é a quantidade de entradas no sistema naquele mês, dentro do ano letivo selecionado no perfil."
-      chart_series: "Acessos"
+      chart_help: "A linha contínua é o ano %{year}. A linha tracejada compara o mesmo mês em %{previous_year}."
+      chart_series: "Ano %{year}"
+      previous_chart_series: "Ano %{year}"
       chart_empty: "Não há acessos registrados para esta escola."
+      close: "Fechar"

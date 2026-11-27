@@ -46,8 +46,10 @@
               </tr>
             <% end %>
           <% end %>
-          <tr>
-            <th><%= t('.total') %></th>
+          <tr class="<%= 'info' if @report.chart_for_all? %>">
+            <th>
+              <%= link_to t('.total'), user_access_reports_path(role_id: @report.role.id, unity_id: 'all') %>
+            </th>
             <th><%= number_with_delimiter(@report.total) %></th>
           </tr>
         </tbody>
@@ -55,30 +57,68 @@
     </div>
 
     <% if @report.chart_school_name %>
-      <div style="padding: 0 15px 20px;">
-        <h4 style="margin-top: 0;"><%= t('.chart_title', school: @report.chart_school_name) %></h4>
-        <p class="text-muted"><%= t('.chart_help') %></p>
-        <% accesses = @report.monthly_accesses %>
-        <% if accesses.any? %>
-          <canvas id="user-access-chart" height="90"></canvas>
-          <% content_for :js do %>
-            <script>
+      <div class="modal fade" id="user-access-chart-modal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <button type="button" class="close" data-dismiss="modal">
+                <span aria-hidden="true">&times;</span>
+                <span class="sr-only"><%= t('.close') %></span>
+              </button>
+              <h4 class="modal-title"><%= t('.chart_title', school: @report.chart_school_name) %></h4>
+            </div>
+            <div class="modal-body">
+              <p class="text-muted"><%= t('.chart_help', year: @report.year, previous_year: @report.year - 1) %></p>
+              <% accesses = @report.monthly_accesses %>
+              <% previous = @report.previous_monthly_accesses %>
+              <% if accesses.any? %>
+                <div style="position: relative; height: 320px;">
+                  <canvas id="user-access-chart"></canvas>
+                </div>
+              <% else %>
+                <p><%= t('.chart_empty') %></p>
+              <% end %>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-default" data-dismiss="modal"><%= t('.close') %></button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <% if accesses&.any? %>
+        <% content_for :js do %>
+          <script>
+            var userAccessChartModal = $('#user-access-chart-modal');
+            userAccessChartModal.on('shown.bs.modal', function () {
+              if (userAccessChartModal.data('chart-ready')) return;
+              userAccessChartModal.data('chart-ready', true);
               new Chart(document.getElementById('user-access-chart').getContext('2d'), {
                 type: 'line',
                 data: {
-                  labels: <%= raw accesses.map(&:label).to_json %>,
+                  labels: <%= raw @report.month_labels.to_json %>,
                   datasets: [{
-                    label: '<%= j t('.chart_series') %>',
+                    label: '<%= j t('.chart_series', year: @report.year) %>',
                     data: <%= raw accesses.map(&:count).to_json %>,
                     borderColor: '#3276b1',
                     backgroundColor: 'rgba(50, 118, 177, 0.15)',
                     fill: true,
                     lineTension: 0.15,
                     pointRadius: 3
+                  }, {
+                    label: '<%= j t('.previous_chart_series', year: @report.year - 1) %>',
+                    data: <%= raw previous.map(&:count).to_json %>,
+                    borderColor: '#f0ad4e',
+                    backgroundColor: 'transparent',
+                    borderDash: [6, 4],
+                    fill: false,
+                    lineTension: 0.15,
+                    pointRadius: 3
                   }]
                 },
                 options: {
-                  legend: { display: false },
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  legend: { display: true },
                   scales: {
                     yAxes: [{
                       ticks: { beginAtZero: true, precision: 0 }
@@ -86,12 +126,17 @@
                   }
                 }
               });
-            </script>
-          <% end %>
-        <% else %>
-          <p><%= t('.chart_empty') %></p>
+            });
+            userAccessChartModal.modal('show');
+          </script>
         <% end %>
-      </div>
+      <% else %>
+        <% content_for :js do %>
+          <script>
+            $('#user-access-chart-modal').modal('show');
+          </script>
+        <% end %>
+      <% end %>
     <% end %>
   <% elsif params[:role_id].present? %>
     <div class="alert alert-warning" style="margin: 15px;">
