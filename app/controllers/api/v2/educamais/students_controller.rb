@@ -16,10 +16,6 @@ module Api
 
         private
 
-        def enrollment_date
-          params[:date].presence ? Date.parse(params[:date].to_s) : Date.current
-        end
-
         def students_of_classroom(classroom_id)
           classroom = Classroom.find(classroom_id)
           ensure_unity_access!(classroom.unity_id)
@@ -44,41 +40,30 @@ module Api
           end
         end
 
+        # Matrícula ativa na turma, mesmo com enturmação anterior ao início do ano.
+        # by_date compara joined_at/left_at como texto e tira essa data.
         def enrollments_for(classroom_id)
-          today = enrollment_date
-          classrooms = StudentEnrollmentClassroom.by_classroom(classroom_id)
-                                                 .active
-                                                 .includes(student_enrollment: :student)
-                                                 .to_a
-                                                 .select { |enrollment_classroom| enrolled_on?(enrollment_classroom, today) }
-
-          classrooms
-            .group_by { |enrollment_classroom| enrollment_classroom.student_enrollment&.student_id }
-            .map { |_student_id, group|
-              group.max_by { |enrollment_classroom|
-                parse_enrollment_date(enrollment_classroom.joined_at) || Date.new(1, 1, 1)
-              }
-            }
-            .compact
-            .select { |enrollment_classroom| enrollment_classroom.student_enrollment&.student }
-            .sort_by { |enrollment_classroom|
-              [
-                enrollment_classroom.sequence.to_i,
-                enrollment_classroom.student_enrollment.student.to_s
-              ]
-            }
-            .map(&:student_enrollment)
-        end
-
-        # joined_at e left_at são texto. by_date compara com a data de hoje como
-        # texto e deixa de fora enturmação anterior ou posterior ao início do ano.
-        def enrolled_on?(enrollment_classroom, date)
-          joined_at = parse_enrollment_date(enrollment_classroom.joined_at)
-          left_at = parse_enrollment_date(enrollment_classroom.left_at)
-          return false if joined_at && joined_at > date
-          return true if left_at.nil?
-
-          left_at >= date
+          StudentEnrollmentClassroom.by_classroom(classroom_id)
+                                    .active
+                                    .includes(student_enrollment: :student, classrooms_grade: :grade)
+                                    .to_a
+                                    .select { |enrollment_classroom| enrollment_classroom.student_enrollment&.student }
+                                    .group_by { |enrollment_classroom| enrollment_classroom.student_enrollment.student_id }
+                                    .map { |_student_id, group|
+                                      group.max_by { |enrollment_classroom|
+                                        [
+                                          parse_enrollment_date(enrollment_classroom.joined_at) || Date.new(1, 1, 1),
+                                          enrollment_classroom.index.to_i,
+                                          enrollment_classroom.id.to_i
+                                        ]
+                                      }
+                                    }
+                                    .sort_by { |enrollment_classroom|
+                                      [
+                                        enrollment_classroom.sequence.to_i,
+                                        enrollment_classroom.student_enrollment.student.to_s
+                                      ]
+                                    }
         end
 
         def parse_enrollment_date(value)
@@ -89,10 +74,12 @@ module Api
           nil
         end
 
-        def serialize_enrollments(classroom, enrollments)
-          grades = classroom.grades.map(&:description)
-          enrollments.map do |enrollment|
+        def serialize_enrollments(classroom, enrollment_classrooms)
+          enrollment_classrooms.map do |enrollment_classroom|
+            enrollment = enrollment_classroom.student_enrollment
             student = enrollment.student
+            grade_name = enrollment_classroom.classrooms_grade&.grade&.description.to_s
+            grades = grade_name.present? ? [grade_name] : classroom.grades.map(&:description)
             {
               id: student.id,
               name: student.to_s,
@@ -100,6 +87,8 @@ module Api
               classroom_id: classroom.id,
               classroom: classroom.description,
               classroom_api_code: classroom.api_code,
+              grade_id: enrollment_classroom.classrooms_grade&.grade_id,
+              grade_description: grade_name,
               grade_descriptions: grades
             }
           end
