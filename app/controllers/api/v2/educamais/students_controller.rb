@@ -45,14 +45,48 @@ module Api
         end
 
         def enrollments_for(classroom_id)
-          StudentEnrollment.by_classroom(classroom_id)
-                           .joins(:student)
-                           .includes(:student)
-                           .by_date(enrollment_date)
-                           .active
-                           .ordered
-                           .to_a
-                           .uniq(&:student_id)
+          today = enrollment_date
+          classrooms = StudentEnrollmentClassroom.by_classroom(classroom_id)
+                                                 .active
+                                                 .includes(student_enrollment: :student)
+                                                 .to_a
+                                                 .select { |enrollment_classroom| enrolled_on?(enrollment_classroom, today) }
+
+          classrooms
+            .group_by { |enrollment_classroom| enrollment_classroom.student_enrollment&.student_id }
+            .map { |_student_id, group|
+              group.max_by { |enrollment_classroom|
+                parse_enrollment_date(enrollment_classroom.joined_at) || Date.new(1, 1, 1)
+              }
+            }
+            .compact
+            .select { |enrollment_classroom| enrollment_classroom.student_enrollment&.student }
+            .sort_by { |enrollment_classroom|
+              [
+                enrollment_classroom.sequence.to_i,
+                enrollment_classroom.student_enrollment.student.to_s
+              ]
+            }
+            .map(&:student_enrollment)
+        end
+
+        # joined_at e left_at são texto. by_date compara com a data de hoje como
+        # texto e deixa de fora enturmação anterior ou posterior ao início do ano.
+        def enrolled_on?(enrollment_classroom, date)
+          joined_at = parse_enrollment_date(enrollment_classroom.joined_at)
+          left_at = parse_enrollment_date(enrollment_classroom.left_at)
+          return false if joined_at && joined_at > date
+          return true if left_at.nil?
+
+          left_at >= date
+        end
+
+        def parse_enrollment_date(value)
+          return if value.blank?
+
+          value.to_date
+        rescue ArgumentError, TypeError
+          nil
         end
 
         def serialize_enrollments(classroom, enrollments)

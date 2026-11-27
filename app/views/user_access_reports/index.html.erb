@@ -1,6 +1,6 @@
 <div class="widget-body no-padding">
   <div class="alert alert-info" style="margin: 15px;">
-    <%= t('.help') %>
+    <%= t('.help', year: @report.year) %>
   </div>
 
   <%= form_tag user_access_reports_path, method: :get, class: 'smart-form' do %>

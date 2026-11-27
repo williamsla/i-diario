@@ -5,11 +5,12 @@ class UserAccessReport
   Month = Struct.new(:label, :count)
   WITHOUT_UNITY = 'none'.freeze
 
-  def initialize(role_id, chart_unity_id: nil, allowed_role_ids: nil, school_id: :all)
+  def initialize(role_id, chart_unity_id: nil, allowed_role_ids: nil, school_id: :all, year: nil)
     @role_id = role_id
     @chart_unity_id = chart_unity_id
     @allowed_role_ids = allowed_role_ids
     @school_id = school_id
+    @year = (year.presence || Date.current.year).to_i
   end
 
   def role
@@ -34,8 +35,8 @@ class UserAccessReport
     return 0 unless role
     return 0 if restricted_to_school? && school_id.blank?
 
-    scope = UserRole.where(role_id: role.id).where(user_id: UserLogin.select(:user_id))
-    scope = scope.where(unity_id: school_id) if restricted_to_school?
+    scope = UserRole.where(role_id: role.id).where(user_id: logins_in_year.select(:user_id))
+    scope = scope_for_school(scope) if restricted_to_school?
     User.where(id: scope.select(:user_id)).count
   end
 
@@ -64,7 +65,7 @@ class UserAccessReport
 
   private
 
-  attr_reader :role_id, :chart_unity_id, :allowed_role_ids, :school_id
+  attr_reader :role_id, :chart_unity_id, :allowed_role_ids, :school_id, :year
 
   def lookup_role
     return if role_id.blank?
@@ -94,13 +95,63 @@ class UserAccessReport
     I18n.t('user_access_reports.index.without_unity')
   end
 
+  def scope_for_school(scope)
+    if role.student?
+      scope.where(user_id: enrolled_users.where(classrooms: { unity_id: school_id }).select('users.id'))
+    else
+      scope.where(unity_id: school_id)
+    end
+  end
+
   def grouped_counts
+    return student_grouped_counts if role.student?
+
     UserRole.where(role_id: role.id)
-            .where(user_id: UserLogin.select(:user_id))
+            .where(user_id: logins_in_year.select(:user_id))
             .left_joins(:unity)
             .group('unities.id', 'unities.name')
             .order('unities.name ASC NULLS LAST, unities.id ASC')
             .count('DISTINCT user_roles.user_id')
+  end
+
+  def student_grouped_counts
+    relation = enrolled_users
+    relation = relation.where(classrooms: { unity_id: school_id }) if restricted_to_school?
+
+    counts = relation.group('unities.id', 'unities.name').count('DISTINCT users.id')
+    counts = counts.sort_by { |(unity_id, unity_name), _count| [unity_name.to_s, unity_id.to_i] }.to_h
+    return counts if restricted_to_school?
+
+    missing = users_without_enrollment.count('DISTINCT user_roles.user_id')
+    counts[[nil, nil]] = missing if missing.positive?
+    counts
+  end
+
+  def enrolled_users
+    start_on = format('%04d-01-01', year)
+    finish_on = format('%04d-12-31', year)
+
+    @enrolled_users ||= User.joins(:user_roles)
+                            .where(user_roles: { role_id: role.id })
+                            .where(id: logins_in_year.select(:user_id))
+                            .joins(student: {
+                              student_enrollments: {
+                                student_enrollment_classrooms: { classrooms_grade: { classroom: :unity } }
+                              }
+                            })
+                            .where(student_enrollments: { active: 1 })
+                            .where(classrooms: { year: year })
+                            .where('student_enrollment_classrooms.joined_at <= ?', finish_on)
+                            .where(
+                              "COALESCE(student_enrollment_classrooms.left_at, '') = '' OR student_enrollment_classrooms.left_at >= ?",
+                              start_on
+                            )
+  end
+
+  def users_without_enrollment
+    UserRole.where(role_id: role.id)
+            .where(user_id: logins_in_year.select(:user_id))
+            .where.not(user_id: enrolled_users.select('users.id'))
   end
 
   def chart_target
@@ -125,9 +176,18 @@ class UserAccessReport
     Unity.find_by(id: raw) if raw.match?(/\A\d+\z/)
   end
 
+  def logins_in_year
+    UserLogin.where(year_sql, year)
+  end
+
+  def year_sql
+    "EXTRACT(YEAR FROM user_logins.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo') = ?"
+  end
+
   def logins_for_chart
-    scope = UserLogin.joins('INNER JOIN user_roles ON user_roles.user_id = user_logins.user_id')
-                     .where('user_roles.role_id = ?', role.id)
+    scope = logins_in_year.joins('INNER JOIN user_roles ON user_roles.user_id = user_logins.user_id')
+                          .where('user_roles.role_id = ?', role.id)
+    return student_logins_for_chart(scope) if role.student?
 
     if chart_target == WITHOUT_UNITY
       scope.where('user_roles.unity_id IS NULL')
@@ -136,24 +196,23 @@ class UserAccessReport
     end
   end
 
+  def student_logins_for_chart(scope)
+    if chart_target == WITHOUT_UNITY
+      scope.where(user_id: users_without_enrollment.select(:user_id))
+    else
+      scope.where(user_id: enrolled_users.where(classrooms: { unity_id: chart_target.id }).select('users.id'))
+    end
+  end
+
   def month_sql
     "to_char(user_logins.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM')"
   end
 
   def build_series(counts_by_month)
-    return [] if counts_by_month.blank?
-
-    start_month = Date.strptime(counts_by_month.keys.min, '%Y-%m')
-    finish = Date.current.beginning_of_month
-    cursor = start_month
-    series = []
-
-    while cursor <= finish
-      key = cursor.strftime('%Y-%m')
-      series << Month.new(I18n.l(cursor, format: '%b/%Y'), counts_by_month[key].to_i)
-      cursor = cursor.next_month
+    (1..12).map do |month|
+      date = Date.new(year, month, 1)
+      key = date.strftime('%Y-%m')
+      Month.new(I18n.l(date, format: '%b/%Y'), counts_by_month[key].to_i)
     end
-
-    series
   end
 end

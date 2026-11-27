@@ -9,7 +9,8 @@ class UserAccessReportsController < ApplicationController
       params[:role_id],
       chart_unity_id: params[:unity_id],
       allowed_role_ids: current_user.administrator? ? nil : @roles.map(&:id),
-      school_id: current_user.administrator? ? :all : current_unity&.id
+      school_id: current_user.administrator? ? :all : current_unity&.id,
+      year: current_school_year
     )
   end
 

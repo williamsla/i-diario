@@ -93,10 +93,68 @@ RSpec.describe UserAccessReport, type: :service do
       Time.zone.local(2026, 3, 20, 8)
     )
 
-    report = described_class.new(teacher_role.id, chart_unity_id: school_a.id)
-    counts = report.monthly_accesses.map { |month| [month.label, month.count] }
+    report = described_class.new(teacher_role.id, chart_unity_id: school_a.id, year: 2026)
+    counts = report.monthly_accesses
 
     expect(report.chart_school_name).to eq('Escola A')
-    expect(counts).to include(['Mar/2026', 2], ['Abr/2026', 1])
+    expect(counts.size).to eq(12)
+    expect(counts.map { |month| [month.label, month.count] }).to include(['Mar/2026', 2], ['Abr/2026', 1])
+  end
+
+  it 'uses the enrollment of the selected year as the student school' do
+    student_user = create(:user, student: create(:student))
+    create(:user_role, user: student_user, role: student_role, unity: nil)
+    enroll_student(student_user, school_a, 2026)
+    enroll_student(student_user, school_b, 2026)
+    sign_in_record(student_user).update_column(:created_at, Time.zone.local(2026, 5, 2, 8))
+
+    previous_year = create(:user, student: create(:student))
+    create(:user_role, user: previous_year, role: student_role, unity: nil)
+    enroll_student(previous_year, school_a, 2025)
+    sign_in_record(previous_year).update_column(:created_at, Time.zone.local(2026, 5, 3, 8))
+
+    report = described_class.new(student_role.id, year: 2026)
+
+    expect(report.rows.map { |row| [row.name, row.count] }).to eq(
+      [['Escola A', 1], ['Escola B', 1], ['Sem escola', 1]]
+    )
+    expect(report.total).to eq(2)
+
+    chart = described_class.new(student_role.id, chart_unity_id: school_a.id, year: 2026)
+    may = chart.monthly_accesses.find { |month| month.label == 'Mai/2026' }
+
+    expect(may.count).to eq(1)
+
+    scoped = described_class.new(
+      student_role.id,
+      allowed_role_ids: [student_role.id],
+      school_id: school_a.id,
+      year: 2026
+    )
+
+    expect(scoped.rows.map { |row| [row.name, row.count] }).to eq([['Escola A', 1]])
+    expect(scoped.total).to eq(1)
+  end
+
+  def enroll_student(user, unity, year)
+    classroom = create(:classroom, unity: unity, year: year)
+    classrooms_grade = create(:classrooms_grade, classroom: classroom)
+    enrollment = create(:student_enrollment, student: user.student)
+    create(
+      :student_enrollment_classroom,
+      student_enrollment: enrollment,
+      classrooms_grade: classrooms_grade
+    )
+  end
+
+  it 'ignores logins from another school year' do
+    teacher = create(:user)
+    create(:user_role, user: teacher, role: teacher_role, unity: school_a)
+    sign_in_record(teacher).update_column(:created_at, Time.zone.local(2025, 11, 2, 8))
+
+    report = described_class.new(teacher_role.id, year: 2026)
+
+    expect(report.rows).to eq([])
+    expect(report.total).to eq(0)
   end
 end
