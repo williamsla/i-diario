@@ -490,38 +490,13 @@ $(function(){
             '</thead>' +
             '<tbody>';
 
-    // Frequência geral primeiro (linhas já ordenadas), com a coluna agrupada.
-    // Frequência por dia depois, uma célula por disciplina.
-    var generalCount = _.filter(stepData.pending_records, function(record) {
-      return record.frequency_by_discipline !== true;
-    }).length;
+    // Frequência geral das disciplinas que estão no quadro: uma célula agrupada.
+    // Fora do quadro, o aviso vale também na frequência geral, uma célula por linha.
     var recordIndex = 0;
-    var generalRendered = 0;
     _.each(stepData.pending_records, function(record) {
       var recordId = 'record-' + stepData.step_id + '-' + recordIndex;
-      var mergedFreqId = 'freq-merged-' + stepData.step_id;
       var isGeneralFrequency = record.frequency_by_discipline !== true;
       var notInLessonsBoard = !hasLessonsBoard || record.in_lessons_board === false;
-
-      var frequencyButton;
-      if (isGeneralFrequency) {
-        if (generalRendered === 0) {
-          frequencyButton = !hasLessonsBoard ?
-            notInLessonsBoardHtml() :
-            record.pending_frequency_count > 0 ?
-            '<button type="button" class="btn toggle-dates toggle-dates-merged-freq" style="background-color: #ff9800 !important; border-color: #ff9800 !important; color: white !important; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#' + mergedFreqId + '" data-record-index="0">' +
-              '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
-              record.pending_frequency_count + ' datas' +
-            '</button>' :
-            '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: green; font-size: 30px;" title="Tudo certo com a frequência nessa etapa.">' +
-              '<i class="fa fa-check-circle"></i>' +
-            '</span>';
-        }
-      } else {
-        frequencyButton = notInLessonsBoard ?
-          notInLessonsBoardHtml() :
-          renderPendingDatesButton(record.pending_frequency_count, 'freq', recordId, recordIndex, 'fa-calendar');
-      }
 
       var avaliationsColumnsHtml = '';
 
@@ -544,19 +519,49 @@ $(function(){
         renderPendingDatesButton(record.pending_content_count, 'cont', recordId, recordIndex, 'fa-file-text');
 
       var frequencyCell = '';
-      if (isGeneralFrequency) {
-        if (generalRendered === 0) {
-          frequencyCell = '<td rowspan="' + generalCount + '" style="text-align: center; vertical-align: middle;">' +
+      if (notInLessonsBoard) {
+        frequencyCell = '<td style="text-align: center;">' +
+          '<div>' + notInLessonsBoardHtml() + '</div>' +
+        '</td>';
+      } else if (isGeneralFrequency) {
+        var previous = recordIndex > 0 ? stepData.pending_records[recordIndex - 1] : null;
+        var previousSharesFrequency = previous &&
+          previous.frequency_by_discipline !== true &&
+          hasLessonsBoard &&
+          previous.in_lessons_board !== false;
+
+        if (!previousSharesFrequency) {
+          var groupCount = 1;
+          var nextIndex = recordIndex + 1;
+          while (nextIndex < stepData.pending_records.length) {
+            var nextRecord = stepData.pending_records[nextIndex];
+            if (nextRecord.frequency_by_discipline === true || !hasLessonsBoard || nextRecord.in_lessons_board === false) {
+              break;
+            }
+            groupCount++;
+            nextIndex++;
+          }
+
+          var mergedFreqId = 'freq-merged-' + stepData.step_id + '-' + recordIndex;
+          var frequencyButton = record.pending_frequency_count > 0 ?
+            '<button type="button" class="btn toggle-dates toggle-dates-merged-freq" style="background-color: #ff9800 !important; border-color: #ff9800 !important; color: white !important; border: none; cursor: pointer; border-radius: 20px; padding: 6px 15px;" data-target="#' + mergedFreqId + '" data-record-index="' + recordIndex + '">' +
+              '<i class="fa fa-calendar" style="margin-right: 5px;"></i>' +
+              record.pending_frequency_count + ' datas' +
+            '</button>' :
+            '<span class="btn" style="border-radius: 20px; padding: 6px 15px; cursor: default; color: green; font-size: 30px;" title="Tudo certo com a frequência nessa etapa.">' +
+              '<i class="fa fa-check-circle"></i>' +
+            '</span>';
+
+          frequencyCell = '<td rowspan="' + groupCount + '" style="text-align: center; vertical-align: middle;">' +
             '<div>' + frequencyButton + '</div>' +
             '<div id="' + mergedFreqId + '" class="dates-container" style="display: none; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">' +
               '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
             '</div>' +
           '</td>';
         }
-        generalRendered++;
       } else {
         frequencyCell = '<td style="text-align: center;">' +
-          '<div>' + frequencyButton + '</div>' +
+          '<div>' + renderPendingDatesButton(record.pending_frequency_count, 'freq', recordId, recordIndex, 'fa-calendar') + '</div>' +
           '<div id="freq-' + recordId + '" class="dates-container" style="display: none; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">' +
             '<div class="loading-dates"><i class="fa fa-spinner fa-spin"></i> Carregando datas...</div>' +
           '</div>' +
@@ -612,7 +617,12 @@ $(function(){
         if (recordIndex === undefined) {
           var recordId = targetId.replace('#freq-', '').replace('#cont-', '');
           var parts = recordId.split('-');
-          recordIndex = recordId.indexOf('merged') !== -1 ? 0 : parseInt(parts[parts.length - 1], 10);
+          var parsedIndex = parseInt(parts[parts.length - 1], 10);
+          if (recordId.indexOf('merged') !== -1) {
+            recordIndex = parts.length > 2 && !isNaN(parsedIndex) ? parsedIndex : 0;
+          } else {
+            recordIndex = parsedIndex;
+          }
         }
         var record = stepData.pending_records[recordIndex];
         var isFrequency = targetId.indexOf('freq-') !== -1;

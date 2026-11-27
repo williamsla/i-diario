@@ -54,6 +54,30 @@ RSpec.describe PendingRecordsCalculator, type: :service do
     end
   end
 
+  describe 'conteúdo do mesmo turno' do
+    let(:monday) { Date.new(2026, 3, 2) }
+
+    it 'não usa o conteúdo de outro professor quando o turno é integral' do
+      dates = calculator.send(
+        :content_dates_for_teachers,
+        { 10 => Set.new([monday]), 20 => Set.new },
+        [20]
+      )
+
+      expect(dates).not_to include(monday)
+    end
+
+    it 'usa o conteúdo de outro professor do mesmo turno' do
+      dates = calculator.send(
+        :content_dates_for_teachers,
+        { 10 => Set.new([monday]), 20 => Set.new },
+        [10, 20]
+      )
+
+      expect(dates).to include(monday)
+    end
+  end
+
   describe '#build_shared_general_pending_frequency' do
     let(:monday) { Date.current.beginning_of_week(:monday) }
     let(:next_monday) { monday + 7.days }
@@ -68,7 +92,7 @@ RSpec.describe PendingRecordsCalculator, type: :service do
       allow(TeacherAbsence).to receive(:make_up_dates_for).and_return(Set.new)
     end
 
-    def shared_dates(general_freq_dates: Set.new)
+    def shared_dates(general_freq_dates: Set.new, general_freq_periods: nil)
       calculator.send(
         :build_shared_general_pending_frequency,
         classroom: classroom,
@@ -78,6 +102,7 @@ RSpec.describe PendingRecordsCalculator, type: :service do
         discarded_weekday_names: [],
         all_school_days: [monday, next_monday, monday + 1.day],
         general_freq_dates: general_freq_dates,
+        general_freq_periods: general_freq_periods,
         general_discipline_ids: [general_discipline.id],
         start_date: monday,
         end_date: today,
@@ -92,6 +117,14 @@ RSpec.describe PendingRecordsCalculator, type: :service do
 
     it 'tira da lista o dia que já tem frequência geral' do
       expect(shared_dates(general_freq_dates: Set.new([monday]))).to eq([next_monday])
+    end
+
+    it 'mantém o dia pendente quando a frequência gravada é de outro turno' do
+      allow(calculator).to receive(:teacher_frequency_periods).and_return(by_weekday: { 1 => [2] }, fallback: [2])
+
+      expect(
+        shared_dates(general_freq_dates: Set.new([monday]), general_freq_periods: { monday => [1] })
+      ).to eq([monday, next_monday])
     end
   end
 end
