@@ -207,6 +207,35 @@ RSpec.describe PendingRecordsCalculator, type: :service do
       end
     end
 
+    context 'quando a substituída continua com vínculo ativo, mas saiu do quadro' do
+      let(:predecessor) { create(:teacher) }
+      let(:classroom) do
+        create(:classroom, year: Date.current.year, period: Periods::FULL)
+      end
+      let!(:predecessor_link) { link_teacher(predecessor, Periods::FULL) }
+      let!(:successor_link) { link_teacher(morning_teacher, Periods::FULL) }
+      let!(:other_link) { link_teacher(afternoon_teacher, Periods::FULL) }
+      let(:last_wednesday) { last_monday + 2.days }
+      let(:school_days) { [last_monday, last_wednesday, today] }
+
+      before do
+        add_weekday(successor_link, Periods::FULL, 'monday')
+        add_weekday(other_link, Periods::FULL, 'wednesday')
+        create_area_content(predecessor, last_monday)
+        create_general_frequency(predecessor, last_monday, Periods::FULL)
+      end
+
+      it 'passa o conteúdo dela para quem assumiu o dia' do
+        successor = pending_for(morning_teacher, school_days)
+        colleague = pending_for(afternoon_teacher, school_days)
+
+        expect(successor[:pending_content_dates]).to eq([today])
+        expect(successor[:pending_frequency_dates]).to eq([today])
+        expect(colleague[:pending_content_dates]).to eq([last_wednesday])
+        expect(colleague[:pending_frequency_dates]).to eq([last_wednesday])
+      end
+    end
+
     context 'quando a substituta do integral assume o dia de quem saiu' do
       let(:predecessor) { create(:teacher) }
       let(:classroom) do

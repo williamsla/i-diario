@@ -1933,8 +1933,8 @@ class PendingRecordsCalculator
   end
 
   # Quem pode encerrar conteúdo e frequência da área: o próprio professor,
-  # quem divide o mesmo turno e quem foi substituído nesse turno.
-  # No integral, outro professor ativo não encerra a pendência; só o vínculo inativo.
+  # quem divide o mesmo turno e quem saiu do quadro (substituição), mesmo com vínculo ativo.
+  # Colega que continua no quadro, em outro dia, não entra.
   def infantil_shift_teacher_ids(classroom, teacher_id, periods, knowledge_area_ids)
     ids = [teacher_id]
     year = @school_year.presence || classroom.year
@@ -1954,12 +1954,44 @@ class PendingRecordsCalculator
                                                    .distinct
                                                    .pluck(:teacher_id)
       ids.concat(replaced_ids - still_active_ids)
-      return ids.compact.uniq
+    else
+      ids.concat(scope.where(period: period_values).distinct.pluck(:teacher_id))
+      ids.concat(teacher_ids_from_shift_boards(classroom, period_values, knowledge_area_ids))
     end
 
-    ids.concat(scope.where(period: period_values).distinct.pluck(:teacher_id))
-    ids.concat(teacher_ids_from_shift_boards(classroom, period_values, knowledge_area_ids))
+    ids.concat(infantil_off_board_teacher_ids(classroom, knowledge_area_ids, periods))
     ids.compact.uniq
+  end
+
+  # Professora da área que não está mais no quadro. O lançamento dela vale para quem assumiu o dia.
+  def infantil_off_board_teacher_ids(classroom, knowledge_area_ids, periods)
+    year = @school_year.presence || classroom.year
+    scope = TeacherDisciplineClassroom.unscoped.where(classroom_id: classroom.id)
+    scope = scope.joins(:discipline).where(disciplines: { knowledge_area_id: knowledge_area_ids }) if knowledge_area_ids.present?
+    scope = scope.where(year: [year, year.to_s]) if year.present?
+
+    period_values = infantil_period_values(periods)
+    if period_values.present?
+      scope = scope.where(period: period_values + [nil, 0, Periods::FULL.to_i])
+    end
+
+    on_board = infantil_teacher_ids_on_active_board(classroom, knowledge_area_ids)
+    scope.distinct.pluck(:teacher_id) - on_board
+  end
+
+  def infantil_teacher_ids_on_active_board(classroom, knowledge_area_ids)
+    discipline_ids = Discipline.where(knowledge_area_id: knowledge_area_ids).pluck(:id)
+    return [] if discipline_ids.blank?
+
+    query = LessonsBoardLessonWeekday
+      .joins(lessons_board_lesson: [lessons_board: [classrooms_grade: :classroom]])
+      .joins(:teacher_discipline_classroom)
+      .where(classrooms: { id: classroom.id })
+      .where(teacher_discipline_classrooms: { discipline_id: discipline_ids, active: true, discarded_at: nil })
+      .where('lessons_boards.discarded_at IS NULL')
+      .where.not(teacher_discipline_classroom_id: nil)
+    query = query.where(classrooms: { year: @school_year }) if @school_year.present?
+    query.distinct.pluck('teacher_discipline_classrooms.teacher_id')
   end
 
   def teacher_ids_from_shift_boards(classroom, period_values, knowledge_area_ids = nil)
