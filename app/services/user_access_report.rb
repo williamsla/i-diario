@@ -5,6 +5,8 @@ class UserAccessReport
   Month = Struct.new(:label, :count)
   WITHOUT_UNITY = 'none'.freeze
 
+  attr_reader :year
+
   def initialize(role_id, chart_unity_id: nil, allowed_role_ids: nil, school_id: :all, year: nil)
     @role_id = role_id
     @chart_unity_id = chart_unity_id
@@ -65,7 +67,7 @@ class UserAccessReport
 
   private
 
-  attr_reader :role_id, :chart_unity_id, :allowed_role_ids, :school_id, :year
+  attr_reader :role_id, :chart_unity_id, :allowed_role_ids, :school_id
 
   def lookup_role
     return if role_id.blank?
