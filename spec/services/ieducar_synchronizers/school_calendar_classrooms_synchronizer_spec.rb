@@ -100,20 +100,20 @@ RSpec.describe SchoolCalendarClassroomsSynchronizer, type: :service do
       expect(steps.find_by!(step_number: 4).end_date_for_posting).to eq(Date.new(year, 7, 24) + 30)
     end
 
-    it 'keeps classroom-specific steps instead of overwriting them with school calendar steps' do
+    it 'replaces existing classroom steps when the module dates match the school calendar' do
       school_calendar.steps.create!(
         step_number: 1,
-        start_at: Date.new(year, 2, 23),
-        end_at: Date.new(year, 4, 30),
-        start_date_for_posting: Date.new(year, 2, 23),
-        end_date_for_posting: Date.new(year, 8, 23)
+        start_at: Date.new(year, 2, 9),
+        end_at: Date.new(year, 4, 24),
+        start_date_for_posting: Date.new(year, 2, 9),
+        end_date_for_posting: Date.new(year, 5, 24)
       )
       school_calendar.steps.create!(
         step_number: 2,
-        start_at: Date.new(year, 5, 4),
-        end_at: Date.new(year, 7, 24),
-        start_date_for_posting: Date.new(year, 5, 4),
-        end_date_for_posting: Date.new(year, 8, 23)
+        start_at: Date.new(year, 4, 27),
+        end_at: Date.new(year, 7, 22),
+        start_date_for_posting: Date.new(year, 4, 27),
+        end_date_for_posting: Date.new(year, 8, 21)
       )
 
       school_calendar_classroom = create(
@@ -125,35 +125,43 @@ RSpec.describe SchoolCalendarClassroomsSynchronizer, type: :service do
         :school_calendar_classroom_step,
         school_calendar_classroom: school_calendar_classroom,
         step_number: 1,
-        start_at: Date.new(year, 8, 3),
-        end_at: Date.new(year, 10, 7),
-        start_date_for_posting: Date.new(year, 8, 3),
-        end_date_for_posting: Date.new(year, 12, 20)
+        start_at: Date.new(year, 2, 23),
+        end_at: Date.new(year, 4, 30),
+        start_date_for_posting: Date.new(year, 2, 23),
+        end_date_for_posting: Date.new(year, 5, 30)
       )
-      second_semester_step = create(
+      second_step = create(
         :school_calendar_classroom_step,
         school_calendar_classroom: school_calendar_classroom,
         step_number: 2,
-        start_at: Date.new(year, 10, 8),
-        end_at: Date.new(year, 12, 20),
-        start_date_for_posting: Date.new(year, 10, 8),
-        end_date_for_posting: Date.new(year, 12, 20)
+        start_at: Date.new(year, 5, 4),
+        end_at: Date.new(year, 7, 24),
+        start_date_for_posting: Date.new(year, 5, 4),
+        end_date_for_posting: Date.new(year, 8, 23)
       )
 
       api_response['escolas'][0]['etapas'] = [
-        { 'etapa' => 1, 'data_inicio' => "#{year}-02-23", 'data_fim' => "#{year}-04-30" },
-        { 'etapa' => 2, 'data_inicio' => "#{year}-05-04", 'data_fim' => "#{year}-07-24" }
+        { 'etapa' => 1, 'data_inicio' => "#{year}-02-09", 'data_fim' => "#{year}-04-24" },
+        { 'etapa' => 2, 'data_inicio' => "#{year}-04-27", 'data_fim' => "#{year}-07-22" }
       ]
       api_response['escolas'][0]['etapas_de_turmas'][0]['etapas'] = [
-        { 'etapa' => 1, 'data_inicio' => "#{year}-02-23", 'data_fim' => "#{year}-04-30" },
-        { 'etapa' => 2, 'data_inicio' => "#{year}-05-04", 'data_fim' => "#{year}-07-24" }
+        { 'etapa' => 1, 'data_inicio' => "#{year}-02-09", 'data_fim' => "#{year}-04-24" },
+        { 'etapa' => 2, 'data_inicio' => "#{year}-04-27", 'data_fim' => "#{year}-07-22" }
       ]
 
       expect { synchronizer.synchronize! }.not_to raise_error
 
-      expect(second_semester_step.reload.start_at).to eq(Date.new(year, 10, 8))
-      expect(second_semester_step.start_date_for_posting).to eq(Date.new(year, 10, 8))
-      expect(classroom_steps.count).to eq(2)
+      steps = classroom_steps
+      expect(steps.count).to eq(2)
+      expect(steps.map { |step| [step.start_at, step.end_at] }).to eq(
+        [
+          [Date.new(year, 2, 9), Date.new(year, 4, 24)],
+          [Date.new(year, 4, 27), Date.new(year, 7, 22)]
+        ]
+      )
+      expect(second_step.reload.start_at).to eq(Date.new(year, 4, 27))
+      expect(second_step.start_date_for_posting).to eq(Date.new(year, 4, 27))
+      expect(second_step.end_date_for_posting).to eq(Date.new(year, 7, 22) + 30)
     end
   end
 
