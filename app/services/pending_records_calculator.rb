@@ -2292,8 +2292,11 @@ class PendingRecordsCalculator
         pending_frequency_dates = school_days_for_frequency.select { |date| date <= today && !frequency_dates_set.include?(date) }.to_a
         pending_content_dates = school_days_for_content.select { |date| date <= today && !content_dates_set.include?(date) }.to_a
         
-        # Incluir registros que estão em dias de quadro excluído, mesmo que também estejam no quadro ativo
-        frequency_dates_in_discarded = frequency_dates_set.select { |date| school_days_discarded.include?(date) }
+        # Lançamento em dia que continua letivo não fecha outro dia da semana.
+        # Só compensa pendência o registro de um dia que saiu do quadro.
+        frequency_dates_in_discarded = frequency_dates_set.select do |date|
+          school_days_discarded.include?(date) && !school_days_for_frequency.include?(date)
+        end
         
         # Para cada data pendente do quadro ativo, verificar se há registro do quadro excluído na mesma semana
         removed_frequency_count = 0
@@ -2313,24 +2316,18 @@ class PendingRecordsCalculator
           has_discarded_in_same_week
         end
         
-        content_dates_in_discarded = content_dates_set.select { |date| school_days_discarded.include?(date) && !school_days_for_content.include?(date) }
+        content_dates_in_discarded = content_dates_set.select do |date|
+          school_days_discarded.include?(date) && !school_days_for_content.include?(date)
+        end
         
-        # Para cada data pendente do quadro ativo, verificar se há registro do quadro excluído na mesma semana
+        # Conteúdo de outro dia letivo da semana não fecha o dia sem registro.
         removed_content_count = 0
         pending_content_dates.reject! do |pending_date|
-          has_discarded_in_same_week = has_knowledge_area_content_record_in_same_week_from_discarded_board?(
-            pending_date, 
-            content_dates_in_discarded.to_a, 
-            school_days_discarded, 
-            classroom, 
-            knowledge_area_id, 
-            today,
-            discarded_weekday_numbers,
-            teacher_ids: record_teacher_ids
-          )
+          pending_week = get_week_number(pending_date)
+          has_discarded_in_same_week = content_dates_in_discarded.any? do |discarded_date|
+            get_week_number(discarded_date) == pending_week
+          end
           if has_discarded_in_same_week
-            pending_week = get_week_number(pending_date)
-            # Removendo pendência de conteúdo (área)
             removed_content_count += 1
           end
           has_discarded_in_same_week

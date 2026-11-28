@@ -236,6 +236,38 @@ RSpec.describe PendingRecordsCalculator, type: :service do
       end
     end
 
+    context 'quando o dia letivo não tem lançamento e a semana já tem registro em outro dia' do
+      let(:calculator) do
+        described_class.new(school_year: classroom.year, count_only: true, include_dates: true)
+      end
+      let(:last_wednesday) { last_monday + 2.days }
+      let(:school_days) { [last_monday, last_wednesday] }
+      let(:classroom) do
+        create(:classroom, year: Date.current.year, period: Periods::MATUTINAL)
+      end
+      let!(:teacher_link) { link_teacher(morning_teacher, Periods::MATUTINAL) }
+
+      before do
+        add_weekday(teacher_link, Periods::MATUTINAL, 'monday')
+        add_weekday(teacher_link, Periods::MATUTINAL, 'wednesday')
+        allow(calculator).to receive(:infantil_general_pending_weekdays).and_return(
+          [
+            { knowledge_area.id => ['monday', 'wednesday'] },
+            { knowledge_area.id => ['monday'] }
+          ]
+        )
+        create_area_content(morning_teacher, last_monday)
+        create_general_frequency(morning_teacher, last_monday, Periods::MATUTINAL)
+      end
+
+      it 'mantém a quarta sem registro como pendência de frequência e de conteúdo' do
+        pending = pending_for(morning_teacher, school_days)
+
+        expect(pending[:pending_frequency_dates]).to eq([last_wednesday])
+        expect(pending[:pending_content_dates]).to eq([last_wednesday])
+      end
+    end
+
     context 'quando a substituta do integral assume o dia de quem saiu' do
       let(:predecessor) { create(:teacher) }
       let(:classroom) do
